@@ -1,26 +1,481 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-void: var(--t-void);
+  --color-ink: var(--t-ink);
+  --color-surface: var(--t-surface);
+  --color-elevated: var(--t-elevated);
+  --color-subtle: var(--t-subtle);
+
+  --color-paper: var(--t-paper);
+  --color-text: var(--t-text);
+  --color-text-secondary: var(--t-text-secondary);
+  --color-text-tertiary: var(--t-text-tertiary);
+  --color-text-ghost: var(--t-text-ghost);
+
+  --color-amber: var(--t-amber);
+  --color-amber-soft: var(--t-amber-soft);
+  --color-amber-glow: var(--t-amber-glow);
+  --color-rose: var(--t-rose);
+  --color-sage: var(--t-sage);
+  --color-lavender: var(--t-lavender);
+
+  --color-border: var(--t-border);
+  --color-border-subtle: var(--t-border-subtle);
+  --color-border-active: var(--t-border-active);
+
+  --font-display: var(--font-playfair);
+  --font-body: var(--font-dm-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Lamplight (dark, default) ─────────────────────────────── */
+/*   Late night at the desk, warm lamp, deep shadows.           */
+
+html, html.theme-dark {
+  --t-void: #0A0908;
+  --t-ink: #111010;
+  --t-surface: #1A1816;
+  --t-elevated: #232120;
+  --t-subtle: #2C2A28;
+
+  --t-paper: #F0E8DA;
+  --t-text: #CFC5B4;
+  --t-text-secondary: #978E80;
+  --t-text-tertiary: #665E52;
+  --t-text-ghost: #3A3630;
+
+  --t-amber: #C48B4A;
+  --t-amber-soft: #C48B4A30;
+  --t-amber-glow: #C48B4A15;
+  --t-rose: #B85A64;
+  --t-sage: #5C8E70;
+  --t-lavender: #8878A8;
+
+  --t-border: #FFFFFF0A;
+  --t-border-subtle: #FFFFFF06;
+  --t-border-active: #FFFFFF14;
+
+  color-scheme: dark;
+}
+
+/* ─── Morning Journal (light) ──────────────────────────────── */
+/*   Warm cream paper, rich umber ink, morning coffee.          */
+
+html.theme-light {
+  --t-void: #F9F5EE;
+  --t-ink: #F3EEE5;
+  --t-surface: #EBE5DA;
+  --t-elevated: #F3EEE5;
+  --t-subtle: #E0D9CC;
+
+  --t-paper: #1C1A15;
+  --t-text: #3B3630;
+  --t-text-secondary: #635C52;
+  --t-text-tertiary: #908678;
+  --t-text-ghost: #B8AFA0;
+
+  --t-amber: #8A5E28;
+  --t-amber-soft: #8A5E2825;
+  --t-amber-glow: #8A5E280E;
+  --t-rose: #944048;
+  --t-sage: #3D6E52;
+  --t-lavender: #655488;
+
+  --t-border: #C9C0AE;
+  --t-border-subtle: #D4CCBC;
+  --t-border-active: #B5AA96;
+
+  color-scheme: light;
+}
+
+/* ─── Old Library (sepia) ──────────────────────────────────── */
+/*   Aged paper, leather spines, oak and brass.                 */
+
+html.theme-sepia {
+  --t-void: #F2E8D5;
+  --t-ink: #EBE0CA;
+  --t-surface: #E2D6BE;
+  --t-elevated: #EBE0CA;
+  --t-subtle: #D8CBB2;
+
+  --t-paper: #261E12;
+  --t-text: #3E3428;
+  --t-text-secondary: #665840;
+  --t-text-tertiary: #968568;
+  --t-text-ghost: #BEB09A;
+
+  --t-amber: #7D5820;
+  --t-amber-soft: #7D582025;
+  --t-amber-glow: #7D58200E;
+  --t-rose: #8E4248;
+  --t-sage: #3A6A4E;
+  --t-lavender: #625088;
+
+  --t-border: #C4B498;
+  --t-border-subtle: #CFC0A8;
+  --t-border-active: #B0A085;
+
+  color-scheme: light;
+}
+
+/* ─── Base ──────────────────────────────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--t-void);
+  color: var(--t-text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--t-text-ghost);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--t-text-tertiary);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--t-amber);
+  color: var(--t-void);
+}
+
+/* ─── Tiptap Editor ─────────────────────────────────────────── */
+
+.tiptap-editor {
+  outline: none;
+  caret-color: var(--t-amber);
+}
+
+.tiptap-editor p {
+  margin-bottom: 1.1em;
+  line-height: 1.8;
+}
+
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--t-text-ghost);
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+.tiptap-editor h1 {
+  font-family: var(--font-display), serif;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.8em;
+  margin-top: 1.5em;
+  color: var(--t-paper);
+  line-height: 1.3;
+}
+
+.tiptap-editor h2 {
+  font-family: var(--font-display), serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.6em;
+  margin-top: 1.3em;
+  color: var(--t-paper);
+  line-height: 1.35;
+}
+
+.tiptap-editor h3 {
+  font-family: var(--font-display), serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  margin-top: 1.2em;
+  color: var(--t-paper);
+  line-height: 1.4;
+}
+
+.tiptap-editor blockquote {
+  border-left: 2px solid var(--t-amber);
+  padding-left: 1.5em;
+  margin: 1.5em 0;
+  color: var(--t-text-secondary);
+  font-style: italic;
+}
+
+.tiptap-editor hr,
+.prose-reader hr {
+  border: none;
+  margin: 2.5em auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.tiptap-editor hr::after,
+.prose-reader hr::after {
+  content: "\2042";
+  color: var(--t-text-ghost);
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
+}
+
+/* Scene break variants */
+.scene-break-fleuron hr::after { content: "\2767"; letter-spacing: 0; font-size: 1.4rem; }
+.scene-break-dots hr::after { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
+.scene-break-line hr::after { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); }
+.scene-break-space hr::after { content: ""; }
+.scene-break-space hr { margin: 3.5em auto; }
+
+/* Drop caps */
+.drop-caps .tiptap-editor > p:first-of-type::first-letter,
+.drop-caps .prose-reader > p:first-of-type::first-letter {
+  float: left;
+  font-family: var(--font-display), serif;
+  font-size: 3.4em;
+  line-height: 0.8;
+  font-weight: 700;
+  color: var(--t-paper);
+  margin-right: 0.08em;
+  margin-top: 0.05em;
+}
+
+.tiptap-editor em {
+  font-style: italic;
+  color: var(--t-paper);
+}
+
+.tiptap-editor strong {
+  font-weight: 600;
+  color: var(--t-paper);
+}
+
+.tiptap-editor mark {
+  background-color: var(--t-amber-soft);
+  color: var(--t-paper);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.tiptap-editor ul,
+.tiptap-editor ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.tiptap-editor li {
+  margin-bottom: 0.3em;
+  line-height: 1.7;
+}
+
+.tiptap-editor ul li {
+  list-style-type: disc;
+}
+
+.tiptap-editor ol li {
+  list-style-type: decimal;
+}
+
+/* Comment highlights */
+.comment-highlight {
+  background-color: var(--t-amber-glow);
+  border-bottom: 2px solid var(--t-amber-soft);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.comment-highlight:hover {
+  background-color: var(--t-amber-soft);
+}
+
+/* Scene break */
+.scene-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2em 0;
+  gap: 1em;
+  user-select: none;
+}
+
+.scene-break::before,
+.scene-break::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent);
+}
+
+/* Focus mode styles */
+.focus-mode .tiptap-editor > *:not(.has-focus) {
+  opacity: 0.15;
+  transition: opacity 0.3s ease;
+}
+
+.focus-mode .tiptap-editor > .has-focus {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* Epigraph block */
+.epigraph {
+  text-align: center;
+  padding: 2em 3em;
+  margin: 2em 0;
+  font-style: italic;
+  color: var(--t-text-secondary);
+  position: relative;
+}
+
+.epigraph::before {
+  content: '\201C';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display), serif;
+  font-size: 3rem;
+  color: var(--t-text-ghost);
+  line-height: 1;
+}
+
+/* Author note */
+.author-note {
+  background: var(--t-amber-glow);
+  border: 1px solid var(--t-amber-soft);
+  border-radius: 8px;
+  padding: 1em 1.5em;
+  margin: 1.5em 0;
+  font-size: 0.9em;
+  color: var(--t-text-secondary);
+}
+
+.author-note::before {
+  content: "Author's Note";
+  display: block;
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--t-amber);
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+/* ─── Reader Prose ──────────────────────────────────────────── */
+
+.prose-reader {
+  color: var(--t-text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.85;
+}
+
+.prose-reader p {
+  margin-bottom: 1.1em;
+}
+
+.prose-reader h1 {
+  font-family: var(--font-display), serif;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.8em;
+  margin-top: 1.5em;
+  color: var(--t-paper);
+  line-height: 1.3;
+}
+
+.prose-reader h2 {
+  font-family: var(--font-display), serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.6em;
+  margin-top: 1.3em;
+  color: var(--t-paper);
+  line-height: 1.35;
+}
+
+.prose-reader h3 {
+  font-family: var(--font-display), serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  margin-top: 1.2em;
+  color: var(--t-paper);
+  line-height: 1.4;
+}
+
+.prose-reader blockquote {
+  border-left: 2px solid var(--t-amber);
+  padding-left: 1.5em;
+  margin: 1.5em 0;
+  color: var(--t-text-secondary);
+  font-style: italic;
+}
+
+.prose-reader hr {
+  border: none;
+  margin: 2.5em auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.prose-reader hr::after {
+  content: "\2042";
+  color: var(--t-text-ghost);
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
+}
+
+.prose-reader em {
+  font-style: italic;
+  color: var(--t-paper);
+}
+
+.prose-reader strong {
+  font-weight: 600;
+  color: var(--t-paper);
+}
+
+.prose-reader mark {
+  background-color: var(--t-amber-soft);
+  color: var(--t-paper);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.prose-reader ul,
+.prose-reader ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.prose-reader li {
+  margin-bottom: 0.3em;
+  line-height: 1.7;
+}
+
+.prose-reader ul li {
+  list-style-type: disc;
+}
+
+.prose-reader ol li {
+  list-style-type: decimal;
+}
+
+.prose-reader img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 1.5em 0;
 }
