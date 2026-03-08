@@ -1,16 +1,254 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
-const CATEGORIES = [
-  { id: "fantasy", label: "Fantasy", color: "#6366f1" },    // Indigo
-  { id: "scifi", label: "Sci-Fi", color: "#06b6d4" },       // Cyan
-  { id: "romance", label: "Romance", color: "#f43f5e" },    // Rose
-  { id: "mystery", label: "Mystery", color: "#8b5cf6" },    // Violet
-  { id: "thriller", label: "Thriller", color: "#ef4444" },  // Red
-  { id: "historical", label: "Historical", color: "#d97706" }, // Amber
+// ── Seeded pseudo-random to avoid hydration mismatches ──────
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+// Pre-compute stable random values for orbs (8) and splashes (12)
+const ORB_SEED = seededRandom(42);
+const ORBS = Array.from({ length: 8 }, () => ({
+  x: ORB_SEED() * 200 - 100,
+  y: -(ORB_SEED() * 300 + 100),
+  dur: 4 + ORB_SEED() * 4,
+  delay: ORB_SEED() * 6,
+  r1: 2 + ORB_SEED() * 4,
+  r2: 6 + ORB_SEED() * 8,
+}));
+
+const SPLASH_SEED = seededRandom(99);
+const SPLASHES = Array.from({ length: 12 }, () => ({
+  r: 2 + SPLASH_SEED() * 4,
+  x: SPLASH_SEED() * 120 - 60,
+  y: -(SPLASH_SEED() * 100 + 20),
+  dur: 1.5 + SPLASH_SEED(),
+  delay: SPLASH_SEED() * 2,
+}));
+
+// ── Content Formats (what makes Inkwell unique) ─────────────
+const FORMATS = [
+  {
+    id: "novels",
+    label: "Novels & Stories",
+    desc: "Novels, novellas, short stories, serial fiction",
+    color: "#D4A574",
+    icon: "book",
+  },
+  {
+    id: "webtoon",
+    label: "Webtoons & Comics",
+    desc: "Vertical-scroll comics, manga, graphic novels",
+    color: "#06b6d4",
+    icon: "panels",
+  },
+  {
+    id: "poetry",
+    label: "Poetry",
+    desc: "Poems, collections, spoken word",
+    color: "#8b5cf6",
+    icon: "feather",
+  },
+  {
+    id: "illustrated",
+    label: "Illustrated Stories",
+    desc: "Where text and art are equal partners",
+    color: "#f59e0b",
+    icon: "brush",
+  },
+  {
+    id: "screenplay",
+    label: "Screenplays & Scripts",
+    desc: "Film, TV, stage plays, audio drama",
+    color: "#ef4444",
+    icon: "clapperboard",
+  },
 ];
+
+// ── Genres ───────────────────────────────────────────────────
+const GENRES = [
+  { id: "fantasy", label: "Fantasy", color: "#6366f1" },
+  { id: "scifi", label: "Sci-Fi", color: "#06b6d4" },
+  { id: "romance", label: "Romance", color: "#f43f5e" },
+  { id: "mystery", label: "Mystery", color: "#8b5cf6" },
+  { id: "thriller", label: "Thriller", color: "#ef4444" },
+  { id: "horror", label: "Horror", color: "#991b1b" },
+  { id: "historical", label: "Historical", color: "#d97706" },
+  { id: "litfic", label: "Literary", color: "#78716c" },
+  { id: "adventure", label: "Adventure", color: "#16a34a" },
+  { id: "cyberpunk", label: "Cyberpunk", color: "#22d3ee" },
+  { id: "darkfantasy", label: "Dark Fantasy", color: "#7c3aed" },
+  { id: "sliceoflife", label: "Slice of Life", color: "#fb923c" },
+  { id: "wuxia", label: "Wuxia", color: "#dc2626" },
+  { id: "isekai", label: "Isekai", color: "#2dd4bf" },
+  { id: "litrpg", label: "LitRPG", color: "#a3e635" },
+  { id: "mythology", label: "Mythology", color: "#fbbf24" },
+];
+
+type HoverItem = { color: string } | null;
+
+function FormatIcon({ type, color }: { type: string; color: string }) {
+  const props = { width: 18, height: 18, viewBox: "0 0 18 18", fill: "none", stroke: color, strokeWidth: 1.4, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+
+  switch (type) {
+    case "book":
+      return (
+        <svg {...props}>
+          <path d="M3 2.5h4.5a2 2 0 012 2v11a1.5 1.5 0 00-1.5-1.5H3V2.5z" />
+          <path d="M15 2.5h-4.5a2 2 0 00-2 2v11a1.5 1.5 0 011.5-1.5H15V2.5z" />
+        </svg>
+      );
+    case "panels":
+      return (
+        <svg {...props}>
+          <rect x="2" y="2" width="5.5" height="7" rx="1" />
+          <rect x="10.5" y="2" width="5.5" height="4" rx="1" />
+          <rect x="2" y="11.5" width="5.5" height="4.5" rx="1" />
+          <rect x="10.5" y="8.5" width="5.5" height="7.5" rx="1" />
+        </svg>
+      );
+    case "feather":
+      return (
+        <svg {...props}>
+          <path d="M14.5 2.5S12 5 9 8c-3 3-5.5 5.5-5.5 5.5" />
+          <path d="M3.5 13.5L2 16l2.5-1.5" />
+          <path d="M14.5 2.5c-2 2-6.5 1.5-8 3s-1 5 1 5c2 0 5-1 7-3" />
+        </svg>
+      );
+    case "brush":
+      return (
+        <svg {...props}>
+          <path d="M15 2l-8 8" />
+          <path d="M6.5 10.5c-1.5 0-3 1-3.5 2.5-.5 1.5 0 3 1.5 3s2.5-1 3-2c.5-1 0-3.5-1-3.5z" />
+          <path d="M11 3l4 4" />
+        </svg>
+      );
+    case "clapperboard":
+      return (
+        <svg {...props}>
+          <path d="M2.5 6.5h13v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9z" />
+          <path d="M2.5 6.5l2.5-4h9l2 4H2.5z" />
+          <path d="M7 2.5l-2 4M12 2.5l-2 4" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+function RightColumnB({
+  setActiveItem,
+  themeColor,
+}: {
+  setActiveItem: (item: HoverItem) => void;
+  themeColor: string;
+}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const fmt = FORMATS[activeIdx];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % FORMATS.length);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setActiveItem(fmt);
+    return () => setActiveItem(null);
+  }, [activeIdx, fmt, setActiveItem]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="px-10 pt-10">
+        <span className="text-[11px] uppercase tracking-[0.3em] text-white/50 font-body">
+          Inkwell
+        </span>
+      </div>
+
+      {/* Spotlight format */}
+      <div className="flex-1 flex flex-col justify-center px-10">
+        <motion.div
+          key={fmt.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4 }}
+        >
+          <span
+            className="font-display text-[48px] leading-[1.1] block"
+            style={{ color: themeColor }}
+          >
+            {fmt.label}
+          </span>
+          <p className="text-[14px] text-white/30 mt-4 font-body leading-relaxed max-w-[260px]">
+            {fmt.desc}
+          </p>
+        </motion.div>
+
+        {/* Dots */}
+        <div className="flex gap-2 mt-10">
+          {FORMATS.map((f, i) => (
+            <button
+              key={f.id}
+              onClick={() => setActiveIdx(i)}
+              className="group py-2"
+            >
+              <div
+                className="h-[2px] rounded-full transition-all duration-300"
+                style={{
+                  width: i === activeIdx ? 32 : 12,
+                  backgroundColor:
+                    i === activeIdx ? themeColor : "rgba(255,255,255,0.1)",
+                }}
+              />
+            </button>
+          ))}
+        </div>
+
+        {/* Genres — single column, quiet */}
+        <div className="mt-14">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {GENRES.map((genre) => (
+              <span
+                key={genre.id}
+                className="text-[12px] text-white/15 hover:text-white/60 transition-colors duration-200 cursor-pointer font-body"
+                onMouseEnter={() => setActiveItem(genre)}
+                onMouseLeave={() => setActiveItem(fmt)}
+              >
+                {genre.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Dual CTA */}
+      <div className="px-10 pb-10 flex gap-3">
+        <a
+          href="/create"
+          className="flex-1 text-center py-3 rounded-lg text-[13px] font-body font-medium transition-all duration-300"
+          style={{ backgroundColor: themeColor, color: "#0A0908" }}
+        >
+          Start writing
+        </a>
+        <a
+          href="/browse"
+          className="flex-1 text-center py-3 border border-white/[0.12] text-white/50 text-[13px] font-body font-medium rounded-lg hover:text-white hover:border-white/25 transition-all"
+        >
+          Start reading
+        </a>
+      </div>
+    </div>
+  );
+}
 
 // Helper to generate a curved path for the magic flowing from writer to reader
 function generateFlowPath(startX: number, startY: number, endX: number, endY: number) {
@@ -21,9 +259,10 @@ function generateFlowPath(startX: number, startY: number, endX: number, endY: nu
 }
 
 export default function InteractiveSplitLayout() {
-  const [activeCategory, setActiveCategory] = useState<typeof CATEGORIES[0] | null>(null);
+  const [activeItem, setActiveItem] = useState<HoverItem>(null);
+  const [variant, setVariant] = useState<"A" | "B" | "C">("A");
   const [particles, setParticles] = useState<{ id: number; path: string; delay: number; duration: number }[]>([]);
-  const themeColor = activeCategory ? activeCategory.color : "#D4A574"; // Default amber
+  const themeColor = activeItem ? activeItem.color : "#D4A574"; // Default amber
 
   useEffect(() => {
     // Generate particles that flow from the writer's desk down to the reader's book
@@ -264,25 +503,25 @@ export default function InteractiveSplitLayout() {
                 </motion.g>
 
                 {/* Geometric / Sci-Fi Orbs (Floating Ideas) */}
-                {[...Array(8)].map((_, i) => (
+                {ORBS.map((orb, i) => (
                   <motion.g
                     key={`orb-${i}`}
                     initial={{ x: 0, y: 0, opacity: 0 }}
                     animate={{
-                      x: (Math.random() * 200 - 100),
-                      y: -(Math.random() * 300 + 100),
+                      x: orb.x,
+                      y: orb.y,
                       opacity: [0, 0.8, 0],
                       rotate: 360
                     }}
                     transition={{
-                      duration: 4 + Math.random() * 4,
+                      duration: orb.dur,
                       repeat: Infinity,
-                      delay: Math.random() * 6,
+                      delay: orb.delay,
                       ease: "easeOut"
                     }}
                   >
-                    <circle cx={300} cy={250} r={2 + Math.random() * 4} fill={themeColor} className="transition-colors duration-700" />
-                    <circle cx={300} cy={250} r={6 + Math.random() * 8} fill="none" stroke={themeColor} strokeWidth="1" className="transition-colors duration-700 opacity-40" />
+                    <circle cx={300} cy={250} r={orb.r1} fill={themeColor} className="transition-colors duration-700" />
+                    <circle cx={300} cy={250} r={orb.r2} fill="none" stroke={themeColor} strokeWidth="1" className="transition-colors duration-700 opacity-40" />
                   </motion.g>
                 ))}
               </g>
@@ -404,22 +643,22 @@ export default function InteractiveSplitLayout() {
                 ))}
 
                 {/* Splashes of magic erupting from the pages */}
-                {[...Array(12)].map((_, i) => (
+                {SPLASHES.map((sp, i) => (
                   <motion.circle
                     key={`splash-${i}`}
                     cx={290}
                     cy={250}
-                    r={2 + Math.random() * 4}
+                    r={sp.r}
                     fill={themeColor}
                     className="transition-colors duration-700"
                     initial={{ scale: 0, opacity: 0, x: 0, y: 0 }}
                     animate={{
                       scale: [0, 1.5, 0],
                       opacity: [0, 1, 0],
-                      x: (Math.random() * 120 - 60),
-                      y: -(Math.random() * 100 + 20)
+                      x: sp.x,
+                      y: sp.y
                     }}
-                    transition={{ duration: 1.5 + Math.random(), repeat: Infinity, delay: Math.random() * 2, ease: "easeOut" }}
+                    transition={{ duration: sp.dur, repeat: Infinity, delay: sp.delay, ease: "easeOut" }}
                   />
                 ))}
 
@@ -451,97 +690,110 @@ export default function InteractiveSplitLayout() {
 
       </div>
 
-      {/* 
+      {/*
         ========================================================
-        RIGHT COLUMN (Categories/Browse)
+        RIGHT COLUMN
         ========================================================
       */}
       <div className="relative flex flex-col w-[30%] h-full bg-ink z-20 shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
 
-        {/* Header */}
-        <div className="p-10 pb-6 flex justify-between items-center relative">
-          <span className="font-display text-2xl font-bold tracking-[0.2em] text-white">
-            INK<span className="text-white/40">WELL</span>
-          </span>
-          <button className="w-10 h-10 rounded-full border border-white/10 flex flex-col items-center justify-center gap-1.5 hover:border-white/30 transition-colors">
-            <span className="w-4 h-px bg-white/70"></span>
-            <span className="w-4 h-px bg-white/70"></span>
-          </button>
+        {/* Variant switcher (temp — remove after picking) */}
+        <div className="absolute top-4 right-4 z-50 flex gap-1">
+          {(["A", "B"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setVariant(v)}
+              className={`w-7 h-7 rounded-full text-[11px] font-mono transition-all duration-200 ${
+                variant === v
+                  ? "bg-white text-black"
+                  : "bg-white/5 text-white/30 hover:bg-white/10"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
 
-        {/* Categories List */}
-        <div className="flex-1 overflow-y-auto px-10 py-6 relative">
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-linen/30 mb-8 flex items-center gap-4">
-            <span className="w-8 h-px bg-linen/10"></span>
-            Explore Modalities
-            <span className="flex-1 h-px bg-linen/10"></span>
-          </p>
+        {/* ══════════════════════════════════════════════════
+            OPTION A — "Swiss"
+            Clean ruled format list + flowing genre text.
+            Dual CTA for writers and readers.
+            ══════════════════════════════════════════════════ */}
+        {variant === "A" && (
+          <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="px-10 pt-10">
+              <span className="text-[11px] uppercase tracking-[0.3em] text-white/50 font-body">
+                Inkwell
+              </span>
+            </div>
 
-          <nav className="flex flex-col gap-4">
-            {CATEGORIES.map((cat) => {
-              const isActive = activeCategory?.id === cat.id;
-
-              return (
-                <div
-                  key={cat.id}
-                  className="group relative cursor-pointer"
-                  onMouseEnter={() => setActiveCategory(cat)}
-                  onMouseLeave={() => setActiveCategory(null)}
-                >
-                  <motion.div
-                    className="relative px-6 py-5 rounded-xl border overflow-hidden"
-                    animate={{
-                      borderColor: isActive ? `${cat.color}50` : "rgba(255, 255, 255, 0.03)",
-                      backgroundColor: isActive ? "rgba(255, 255, 255, 0.02)" : "transparent",
-                      x: isActive ? 10 : 0
-                    }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            {/* Main content — vertically centered */}
+            <div className="flex-1 flex flex-col justify-center px-10">
+              {/* Formats */}
+              <div>
+                {FORMATS.map((fmt) => (
+                  <a
+                    key={fmt.id}
+                    href="/create"
+                    className="group flex items-baseline justify-between py-[18px] border-b border-white/[0.06] first:border-t cursor-pointer"
+                    onMouseEnter={() => setActiveItem(fmt)}
+                    onMouseLeave={() => setActiveItem(null)}
                   >
-                    {/* Hover glow background inside card */}
-                    <div
-                      className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500"
-                      style={{ background: `radial-gradient(circle at right, ${cat.color} 0%, transparent 70%)` }}
-                    />
+                    <span className="text-[20px] font-body font-light text-white/30 group-hover:text-white transition-colors duration-200">
+                      {fmt.label}
+                    </span>
+                    <span className="text-[11px] font-body text-white/0 group-hover:text-white/30 transition-colors duration-200">
+                      {fmt.desc.split(",")[0]}
+                    </span>
+                  </a>
+                ))}
+              </div>
 
-                    <div className="relative z-10 flex justify-between items-center">
-                      <span
-                        className={`font-display text-2xl tracking-wide transition-colors duration-500 ${isActive ? "text-white" : "text-linen/50 group-hover:text-linen/80"
-                          }`}
-                      >
-                        {cat.label}
-                      </span>
+              {/* Genres as flowing text */}
+              <p className="mt-10 text-[13px] font-body leading-[2] text-white/20">
+                {GENRES.map((genre, i) => (
+                  <span key={genre.id}>
+                    <span
+                      className="cursor-pointer hover:text-white transition-colors duration-200"
+                      onMouseEnter={() => setActiveItem(genre)}
+                      onMouseLeave={() => setActiveItem(null)}
+                    >
+                      {genre.label}
+                    </span>
+                    {i < GENRES.length - 1 && (
+                      <span className="text-white/10 mx-1">/</span>
+                    )}
+                  </span>
+                ))}
+              </p>
+            </div>
 
-                      {/* Animated abstract icon next to category */}
-                      <motion.div
-                        initial={{ scale: 0, rotate: -90 }}
-                        animate={{
-                          scale: isActive ? 1 : 0,
-                          rotate: isActive ? 0 : -90,
-                        }}
-                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                      >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={cat.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" strokeOpacity="0.3"></circle>
-                          <path d="M12 8l4 4-4 4M8 12h8"></path>
-                        </svg>
-                      </motion.div>
-                    </div>
-                  </motion.div>
-                </div>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Footer info */}
-        <div className="p-10 pt-6">
-          <div className="p-6 rounded-xl border border-white/[0.03] bg-white/[0.01]">
-            <p className="text-xs text-linen/40 leading-relaxed font-light">
-              Hover over modalities to observe the <span className="text-white/70 font-medium">energy transfer</span>. Join the ecosystem where creators and audiences fuse.
-            </p>
+            {/* Dual CTA */}
+            <div className="px-10 pb-10 flex gap-3">
+              <a
+                href="/create"
+                className="flex-1 text-center py-3 bg-white text-black text-[13px] font-body font-medium rounded-lg hover:bg-white/90 transition-colors"
+              >
+                Start writing
+              </a>
+              <a
+                href="/browse"
+                className="flex-1 text-center py-3 border border-white/[0.12] text-white/50 text-[13px] font-body font-medium rounded-lg hover:text-white hover:border-white/25 transition-all"
+              >
+                Start reading
+              </a>
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* ══════════════════════════════════════════════════
+            OPTION B — "Spotlight"
+            Large rotating format + genres + dual CTA.
+            ══════════════════════════════════════════════════ */}
+        {variant === "B" && (
+          <RightColumnB setActiveItem={setActiveItem} themeColor={themeColor} />
+        )}
       </div>
     </div>
   );

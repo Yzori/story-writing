@@ -66,8 +66,10 @@ text-amber         — accent text
 
 ### Fonts
 
-- `font-display` — Playfair Display (serif) — headings, story titles
-- `font-body` — DM Sans (sans) — UI text (default)
+- `font-display` — Fraunces (variable serif) — headings, story titles, brand moments
+- `font-body` — Plus Jakarta Sans (sans) — UI text, navigation, labels (default)
+- `font-reading` — Literata (variable serif) — editor body text, reader view
+- `font-mono` — IBM Plex Mono — metadata, word counts, code blocks
 
 ### Three Themes
 

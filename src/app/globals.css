@@ -19,41 +19,45 @@
   --color-rose: var(--t-rose);
   --color-sage: var(--t-sage);
   --color-lavender: var(--t-lavender);
+  --color-copper: var(--t-copper);
 
   --color-border: var(--t-border);
   --color-border-subtle: var(--t-border-subtle);
   --color-border-active: var(--t-border-active);
 
-  --font-display: var(--font-playfair);
-  --font-body: var(--font-dm-sans);
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-jakarta);
+  --font-reading: var(--font-literata);
+  --font-mono: var(--font-plex-mono);
 }
 
 /* ─── Lamplight (dark, default) ─────────────────────────────── */
 /*   Late night at the desk, warm lamp, deep shadows.           */
 
 html, html.theme-dark {
-  --t-void: #0A0908;
-  --t-ink: #111010;
-  --t-surface: #1A1816;
-  --t-elevated: #232120;
-  --t-subtle: #2C2A28;
+  --t-void: #0F0D0B;
+  --t-ink: #161412;
+  --t-surface: #1E1B18;
+  --t-elevated: #272320;
+  --t-subtle: #312D29;
 
-  --t-paper: #F0E8DA;
-  --t-text: #CFC5B4;
-  --t-text-secondary: #978E80;
-  --t-text-tertiary: #665E52;
-  --t-text-ghost: #3A3630;
+  --t-paper: #EDE6D6;
+  --t-text: #D4CBBA;
+  --t-text-secondary: #9E9486;
+  --t-text-tertiary: #6B6358;
+  --t-text-ghost: #3D3832;
 
-  --t-amber: #C48B4A;
-  --t-amber-soft: #C48B4A30;
-  --t-amber-glow: #C48B4A15;
-  --t-rose: #B85A64;
-  --t-sage: #5C8E70;
-  --t-lavender: #8878A8;
+  --t-amber: #D4944A;
+  --t-amber-soft: #D4944A28;
+  --t-amber-glow: #D4944A10;
+  --t-rose: #C4646E;
+  --t-sage: #6B9E7E;
+  --t-lavender: #9484B8;
+  --t-copper: #B87E56;
 
-  --t-border: #FFFFFF0A;
-  --t-border-subtle: #FFFFFF06;
-  --t-border-active: #FFFFFF14;
+  --t-border: #FFFFFF0D;
+  --t-border-subtle: #FFFFFF08;
+  --t-border-active: #FFFFFF18;
 
   color-scheme: dark;
 }
@@ -62,24 +66,25 @@ html, html.theme-dark {
 /*   Warm cream paper, rich umber ink, morning coffee.          */
 
 html.theme-light {
-  --t-void: #F9F5EE;
-  --t-ink: #F3EEE5;
-  --t-surface: #EBE5DA;
-  --t-elevated: #F3EEE5;
-  --t-subtle: #E0D9CC;
+  --t-void: #FAF7F2;
+  --t-ink: #F4F0E8;
+  --t-surface: #EDE8DE;
+  --t-elevated: #F4F0E8;
+  --t-subtle: #E3DDD2;
 
-  --t-paper: #1C1A15;
-  --t-text: #3B3630;
-  --t-text-secondary: #635C52;
-  --t-text-tertiary: #908678;
-  --t-text-ghost: #B8AFA0;
+  --t-paper: #1A1815;
+  --t-text: #38342E;
+  --t-text-secondary: #605950;
+  --t-text-tertiary: #8E8578;
+  --t-text-ghost: #B5AC9E;
 
-  --t-amber: #8A5E28;
-  --t-amber-soft: #8A5E2825;
-  --t-amber-glow: #8A5E280E;
-  --t-rose: #944048;
-  --t-sage: #3D6E52;
-  --t-lavender: #655488;
+  --t-amber: #9A6830;
+  --t-amber-soft: #9A683025;
+  --t-amber-glow: #9A68300E;
+  --t-rose: #A04850;
+  --t-sage: #457858;
+  --t-lavender: #6E5C92;
+  --t-copper: #8C6640;
 
   --t-border: #C9C0AE;
   --t-border-subtle: #D4CCBC;
@@ -110,6 +115,7 @@ html.theme-sepia {
   --t-rose: #8E4248;
   --t-sage: #3A6A4E;
   --t-lavender: #625088;
+  --t-copper: #7A5E38;
 
   --t-border: #C4B498;
   --t-border-subtle: #CFC0A8;
@@ -376,9 +382,10 @@ body {
 
 .prose-reader {
   color: var(--t-text);
-  font-family: var(--font-body), system-ui, sans-serif;
-  font-size: 1.05rem;
+  font-family: var(--font-reading), var(--font-body), system-ui, serif;
+  font-size: 1.1rem;
   line-height: 1.85;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "onum" 1, "pnum" 1;
 }
 
 .prose-reader p {
