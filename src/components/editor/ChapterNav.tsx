@@ -16,13 +16,7 @@ interface ChapterNavProps {
   onDeleteChapter: (id: string) => void;
   onToggleCollapse: () => void;
   onUpdateStoryTitle: (title: string) => void;
-  onOpenMetadata?: () => void;
-  onOpenBible?: () => void;
-  onOpenFrontMatter?: () => void;
-  onOpenChapterSettings?: () => void;
-  onOpenOutline?: () => void;
-  onOpenTypography?: () => void;
-  hasCover?: boolean;
+  onOpenToolkit: () => void;
 }
 
 export default function ChapterNav({
@@ -37,13 +31,7 @@ export default function ChapterNav({
   onDeleteChapter,
   onToggleCollapse,
   onUpdateStoryTitle,
-  onOpenMetadata,
-  onOpenBible,
-  onOpenFrontMatter,
-  onOpenChapterSettings,
-  onOpenOutline,
-  onOpenTypography,
-  hasCover,
+  onOpenToolkit,
 }: ChapterNavProps) {
   const totalWords = chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
 
@@ -97,94 +85,6 @@ export default function ChapterNav({
               </p>
             </div>
 
-            {/* Story tools */}
-            <div className="px-4 pb-2 flex gap-1.5">
-              {onOpenMetadata && (
-                <button
-                  onClick={onOpenMetadata}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors flex-1"
-                  title="Story details & cover"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="1" width="8" height="10" rx="1" />
-                    <path d="M4.5 4h3M4.5 6h2" />
-                  </svg>
-                  {hasCover ? "Details" : "Cover & Details"}
-                </button>
-              )}
-              {onOpenBible && (
-                <button
-                  onClick={onOpenBible}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors flex-1"
-                  title="Story bible: characters, places, notes"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1H10v8H3.5A1.5 1.5 0 0 0 2 10.5V2.5z" />
-                    <path d="M2 10.5A1.5 1.5 0 0 1 3.5 9H10" />
-                  </svg>
-                  Bible
-                </button>
-              )}
-            </div>
-
-            <div className="px-4 pb-2 flex gap-1.5">
-              {onOpenFrontMatter && (
-                <button
-                  onClick={onOpenFrontMatter}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors flex-1"
-                  title="Epigraph, foreword, table of contents"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 1v10M3 1h6l-2 2 2 2H3" />
-                  </svg>
-                  Front Matter
-                </button>
-              )}
-              {onOpenTypography && (
-                <button
-                  onClick={onOpenTypography}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors flex-1"
-                  title="Drop caps, scene break styles"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 10L4 2h0.5L7.5 10M2.2 7.5h4.1" />
-                    <path d="M9 5v5M9 2v0.5" />
-                  </svg>
-                  Type
-                </button>
-              )}
-            </div>
-
-            <div className="px-4 pb-2 flex gap-1.5">
-              {onOpenOutline && (
-                <button
-                  onClick={onOpenOutline}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors flex-1"
-                  title="Story outline & planning"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                    <path d="M4 3h6M4 6h6M4 9h4M1.5 3h0M1.5 6h0M1.5 9h0" />
-                  </svg>
-                  Outline
-                </button>
-              )}
-              {onOpenChapterSettings && (
-                <button
-                  onClick={onOpenChapterSettings}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors flex-1"
-                  title="Chapter status, notes, history"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="6" cy="6" r="2" />
-                    <path d="M6 1v1.5M6 9.5V11M1 6h1.5M9.5 6H11M2.5 2.5l1 1M8.5 8.5l1 1M9.5 2.5l-1 1M3.5 8.5l-1 1" />
-                  </svg>
-                  Chapter
-                </button>
-              )}
-            </div>
-
-            <div className="h-px bg-border mx-4" />
-
             {/* Chapter list */}
             <div className="flex-1 overflow-y-auto py-2 px-2">
               <Reorder.Group
@@ -212,8 +112,8 @@ export default function ChapterNav({
               </Reorder.Group>
             </div>
 
-            {/* Add chapter */}
-            <div className="p-3">
+            {/* Bottom actions */}
+            <div className="p-3 space-y-1">
               <button
                 onClick={onAddChapter}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-subtle/30 transition-colors text-sm"
@@ -223,6 +123,17 @@ export default function ChapterNav({
                   <line x1="3" y1="7" x2="11" y2="7" />
                 </svg>
                 New Chapter
+              </button>
+              <button
+                onClick={onOpenToolkit}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-amber/70 hover:text-amber hover:bg-amber/[0.06] transition-colors text-sm"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8.5 1.5L2 8l3.5 3.5L12 5" />
+                  <path d="M10 3l1 1" />
+                  <path d="M2 8l1.5-0.5L3 9.5z" />
+                </svg>
+                Toolkit
               </button>
             </div>
           </motion.div>

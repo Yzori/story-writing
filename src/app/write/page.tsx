@@ -32,6 +32,7 @@ import FrontMatterPanel from "@/components/editor/FrontMatterPanel";
 import ChapterSettingsPanel from "@/components/editor/ChapterSettingsPanel";
 import OutlineView from "@/components/editor/OutlineView";
 import TypographyPanel from "@/components/editor/TypographyPanel";
+import ToolkitPanel from "@/components/editor/ToolkitPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
@@ -84,6 +85,9 @@ export default function WritePage() {
 
   // Outline view
   const [showOutline, setShowOutline] = useState(false);
+
+  // Toolkit
+  const [showToolkit, setShowToolkit] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -492,13 +496,7 @@ export default function WritePage() {
                 onDeleteChapter={handleDeleteChapter}
                 onToggleCollapse={() => setNavCollapsed((v) => !v)}
                 onUpdateStoryTitle={handleUpdateStoryTitle}
-                onOpenMetadata={() => togglePanel("metadata")}
-                onOpenBible={() => togglePanel("bible")}
-                onOpenFrontMatter={() => togglePanel("frontmatter")}
-                onOpenChapterSettings={() => togglePanel("chapter")}
-                onOpenOutline={() => setShowOutline((v) => !v)}
-                onOpenTypography={() => togglePanel("typography")}
-                hasCover={!!project.metadata.coverImageDataUrl}
+                onOpenToolkit={() => setShowToolkit((v) => !v)}
               />
             </motion.div>
           )}
@@ -681,6 +679,38 @@ export default function WritePage() {
             selectedText={commentPopover.selectedText}
             onSubmit={handleSubmitComment}
             onCancel={() => setCommentPopover(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Toolkit Panel */}
+      <AnimatePresence>
+        {showToolkit && !isZenMode && (
+          <ToolkitPanel
+            onClose={() => setShowToolkit(false)}
+            onOpenMetadata={() => togglePanel("metadata")}
+            onOpenBible={() => togglePanel("bible")}
+            onOpenFrontMatter={() => togglePanel("frontmatter")}
+            onOpenChapterSettings={() => togglePanel("chapter")}
+            onOpenTypography={() => togglePanel("typography")}
+            onOpenOutline={() => setShowOutline((v) => !v)}
+            onExportPdf={() => exportPdf(project)}
+            onExportEpub={() => exportEpub(project)}
+            onExportDocx={() => exportDocx(project)}
+            hasCover={!!project.metadata.coverImageDataUrl}
+            genreCount={project.metadata.genres.length}
+            bibleEntryCount={
+              project.bible.characters.length +
+              project.bible.places.length +
+              project.bible.notes.length
+            }
+            chapterStatus={activeChapter?.status ?? "draft"}
+            snapshotCount={activeChapter?.snapshots.length ?? 0}
+            dropCaps={project.typography.dropCaps}
+            sceneBreakStyle={project.typography.sceneBreakStyle}
+            hasEpigraph={!!project.frontMatter.epigraph}
+            hasForeword={!!project.frontMatter.foreword}
+            showToc={project.frontMatter.showToc}
           />
         )}
       </AnimatePresence>
