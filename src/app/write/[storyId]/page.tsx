@@ -61,6 +61,77 @@ function saveEditorSettings(storyId: string, settings: Record<string, unknown>) 
 }
 
 // Convert API chapter data → store Chapter format
+interface ApiBibleEntry {
+  id: string;
+  type: string;
+  name: string;
+  description: string;
+  details: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function apiBibleToLocal(entries: ApiBibleEntry[]): StoryBible {
+  const characters = entries
+    .filter((e) => e.type === "character")
+    .map((e) => {
+      const extra = parseDetails(e.details);
+      return {
+        id: e.id,
+        name: e.name,
+        aliases: extra.aliases || [],
+        description: e.description || "",
+        imageDataUrl: extra.imageDataUrl || null,
+        color: extra.color || "#D4A574",
+        tags: extra.tags || [],
+        createdAt: new Date(e.createdAt).getTime(),
+        updatedAt: new Date(e.updatedAt).getTime(),
+      };
+    });
+
+  const places = entries
+    .filter((e) => e.type === "place")
+    .map((e) => {
+      const extra = parseDetails(e.details);
+      return {
+        id: e.id,
+        name: e.name,
+        description: e.description || "",
+        imageDataUrl: extra.imageDataUrl || null,
+        tags: extra.tags || [],
+        createdAt: new Date(e.createdAt).getTime(),
+        updatedAt: new Date(e.updatedAt).getTime(),
+      };
+    });
+
+  const notes = entries
+    .filter((e) => e.type === "note")
+    .map((e) => {
+      const extra = parseDetails(e.details);
+      return {
+        id: e.id,
+        title: e.name,
+        content: e.description || "",
+        category: (extra.category || "custom") as "lore" | "timeline" | "research" | "custom",
+        tags: extra.tags || [],
+        createdAt: new Date(e.createdAt).getTime(),
+        updatedAt: new Date(e.updatedAt).getTime(),
+      };
+    });
+
+  return { characters, places, notes };
+}
+
+function parseDetails(details: string): Record<string, any> {
+  if (!details) return {};
+  try {
+    return JSON.parse(details);
+  } catch {
+    return {};
+  }
+}
+
 function apiChapterToLocal(ch: any): Chapter {
   return {
     id: ch.id,
@@ -133,10 +204,15 @@ export default function WriteStoryPage() {
         const storyJson = await storyRes.json();
         const story = storyJson.data;
 
-        // Fetch chapters with content
-        const chaptersRes = await fetch(`/api/stories/${storyId}/chapters?withContent=true`);
+        // Fetch chapters and bible entries in parallel
+        const [chaptersRes, bibleRes] = await Promise.all([
+          fetch(`/api/stories/${storyId}/chapters?withContent=true`),
+          fetch(`/api/stories/${storyId}/bible`),
+        ]);
         const chaptersJson = await chaptersRes.json();
         const apiChapters = chaptersRes.ok ? chaptersJson.data : [];
+        const bibleJson = bibleRes.ok ? await bibleRes.json() : { data: [] };
+        const apiBibleEntries = bibleJson.data || [];
 
         // Load editor-only settings from localStorage
         const settings = loadEditorSettings(storyId);
@@ -164,7 +240,7 @@ export default function WriteStoryPage() {
             foreword: story.foreword || "",
             showToc: story.showToc ?? true,
           },
-          bible: { characters: [], places: [], notes: [] },
+          bible: apiBibleToLocal(apiBibleEntries),
           goals: settings.goals ?? { dailyWordTarget: story.dailyWordTarget || 500, sessions: [] },
           typography: settings.typography ?? { dropCaps: story.dropCaps ?? true, sceneBreakStyle: story.sceneBreakStyle || "asterism" },
         };

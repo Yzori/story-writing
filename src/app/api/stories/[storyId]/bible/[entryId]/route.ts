@@ -3,20 +3,50 @@ import { db } from "@/lib/db";
 import { bibleEntries, stories } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updateBibleEntrySchema } from "@/lib/validations";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 type RouteParams = {
   params: Promise<{ storyId: string; entryId: string }>;
 };
 
+async function verifyOwnership(storyId: string, userId: string) {
+  const story = await db.query.stories.findFirst({
+    where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+  });
+  if (!story) return { error: "NOT_FOUND" as const };
+  if (story.userId !== userId) return { error: "FORBIDDEN" as const };
+  return { story };
+}
+
 /**
  * PATCH /api/stories/[storyId]/bible/[entryId]
- * Update a bible entry.
+ * Update a bible entry. Requires ownership.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId, entryId } = await params;
+
+    const check = await verifyOwnership(storyId, session.user.id);
+    if (check.error === "NOT_FOUND") {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+    if (check.error === "FORBIDDEN") {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
     const body = await request.json();
     const parsed = updateBibleEntrySchema.safeParse(body);
 
@@ -77,7 +107,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId, entryId } = await params;
+
+    const check = await verifyOwnership(storyId, session.user.id);
+    if (check.error === "NOT_FOUND") {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+    if (check.error === "FORBIDDEN") {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
 
     const existing = await db.query.bibleEntries.findFirst({
       where: and(

@@ -3,8 +3,7 @@ import { db } from "@/lib/db";
 import { bibleEntries, stories } from "@/lib/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { createBibleEntrySchema } from "@/lib/validations";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -55,6 +54,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId } = await params;
     const body = await request.json();
     const parsed = createBibleEntrySchema.safeParse(body);
@@ -72,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify story exists
+    // Verify story exists and ownership
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
@@ -81,6 +88,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
+      );
+    }
+
+    if (story.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
       );
     }
 
