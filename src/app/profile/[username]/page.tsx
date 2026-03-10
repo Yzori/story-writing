@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import StoryCard from "@/components/shared/StoryCard";
 
 interface UserProfile {
@@ -31,7 +33,9 @@ type Tab = (typeof TABS)[number];
 
 export default function ProfilePage() {
   const params = useParams();
+  const { data: session } = useSession();
   const userId = params.username as string;
+  const isOwnProfile = session?.user?.id === userId;
   const [activeTab, setActiveTab] = useState<Tab>("Stories");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,6 +114,17 @@ export default function ProfilePage() {
               <span className="px-2.5 py-1 rounded-full bg-amber/10 text-amber text-[11px] font-medium capitalize">
                 {profile.role}
               </span>
+              {isOwnProfile && (
+                <Link
+                  href={`/profile/${userId}/edit`}
+                  className="text-text-ghost hover:text-paper transition-colors text-[12px] flex items-center gap-1"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" />
+                  </svg>
+                  Edit
+                </Link>
+              )}
             </div>
             {profile.bio && (
               <p className="text-text-secondary text-[13px] leading-relaxed max-w-xl">

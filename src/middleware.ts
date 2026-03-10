@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-const protectedPaths = ["/write", "/dashboard", "/create", "/profile"];
+const protectedPaths = ["/write", "/dashboard", "/create"];
+const protectedPatterns = [/\/profile\/[^/]+\/edit/];
 const authPages = ["/login", "/register"];
 
 export default auth((req) => {
@@ -9,7 +10,8 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // Check if the path requires authentication
-  const isProtected = protectedPaths.some((path) => pathname.startsWith(path));
+  const isProtected = protectedPaths.some((path) => pathname.startsWith(path))
+    || protectedPatterns.some((pattern) => pattern.test(pathname));
   const isAuthPage = authPages.some((path) => pathname.startsWith(path));
 
   // Redirect unauthenticated users away from protected routes
