@@ -2,13 +2,25 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
+  const router = useRouter();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/browse?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+      setMobileOpen(false);
+    }
+  };
 
   const profileHref = session?.user?.id
     ? `/profile/${session.user.id}`
@@ -46,7 +58,7 @@ export default function Navbar() {
         </Link>
 
         {/* Center: Search */}
-        <div className="hidden md:flex flex-1 max-w-md mx-auto relative">
+        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-auto relative">
           <div
             className={`w-full flex items-center gap-2 bg-elevated border rounded-lg px-3 py-2 transition-colors ${
               searchFocused ? "border-amber/30" : "border-border"
@@ -67,12 +79,14 @@ export default function Navbar() {
             <input
               type="text"
               placeholder="Search stories, authors..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-[13px] text-text outline-none placeholder:text-text-ghost w-full"
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
             />
           </div>
-        </div>
+        </form>
 
         {/* Right: Nav links + user */}
         <div className="hidden md:flex items-center gap-1">
@@ -82,41 +96,45 @@ export default function Navbar() {
           >
             Browse
           </Link>
-          <Link
-            href="/create"
-            className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
-          >
-            Create
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
-          >
-            My Desk
-          </Link>
+          {session ? (
+            <>
+              <Link
+                href="/create"
+                className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+              >
+                Create
+              </Link>
+              <Link
+                href="/dashboard"
+                className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+              >
+                My Desk
+              </Link>
 
-          {/* Notifications bell */}
-          <button className="p-2 rounded-lg hover:bg-elevated transition-colors text-text-secondary hover:text-paper ml-1">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M10 2a5 5 0 00-5 5v3l-1.5 2.5h13L15 10V7a5 5 0 00-5-5z" />
-              <path d="M8 15a2 2 0 004 0" />
-            </svg>
-          </button>
-
-          {/* Avatar */}
-          <Link
-            href={profileHref}
-            className="ml-1 w-8 h-8 rounded-full bg-amber/20 border border-border hover:border-amber/30 transition-colors flex items-center justify-center text-amber text-[12px] font-medium"
-          >
-            {initial}
-          </Link>
+              {/* Avatar */}
+              <Link
+                href={profileHref}
+                className="ml-2 w-8 h-8 rounded-full bg-amber/20 border border-border hover:border-amber/30 transition-colors flex items-center justify-center text-amber text-[12px] font-medium"
+              >
+                {initial}
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/register"
+                className="bg-amber text-void font-medium px-4 py-1.5 rounded-lg hover:bg-amber/90 transition-colors text-[13px] ml-1"
+              >
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -149,7 +167,7 @@ export default function Navbar() {
           >
             <div className="px-6 py-4 flex flex-col gap-1">
               {/* Mobile search */}
-              <div className="flex items-center gap-2 bg-elevated border border-border rounded-lg px-3 py-2.5 mb-3">
+              <form onSubmit={handleSearch} className="flex items-center gap-2 bg-elevated border border-border rounded-lg px-3 py-2.5 mb-3">
                 <svg
                   width="16"
                   height="16"
@@ -165,9 +183,11 @@ export default function Navbar() {
                 <input
                   type="text"
                   placeholder="Search stories..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-transparent text-[13px] text-text outline-none placeholder:text-text-ghost w-full"
                 />
-              </div>
+              </form>
               <Link
                 href="/browse"
                 className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
@@ -175,27 +195,48 @@ export default function Navbar() {
               >
                 Browse
               </Link>
-              <Link
-                href="/create"
-                className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                onClick={() => setMobileOpen(false)}
-              >
-                Create
-              </Link>
-              <Link
-                href="/dashboard"
-                className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                onClick={() => setMobileOpen(false)}
-              >
-                My Desk
-              </Link>
-              <Link
-                href={profileHref}
-                className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                onClick={() => setMobileOpen(false)}
-              >
-                Profile
-              </Link>
+              {session ? (
+                <>
+                  <Link
+                    href="/create"
+                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Create
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    My Desk
+                  </Link>
+                  <Link
+                    href={profileHref}
+                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="text-amber hover:text-amber/80 transition-colors text-[14px] py-2 font-medium"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Sign up
+                  </Link>
+                </>
+              )}
             </div>
           </motion.div>
         )}

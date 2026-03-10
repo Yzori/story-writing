@@ -17,6 +17,8 @@ interface Story {
   createdAt: string;
   updatedAt: string;
   authorName: string | null;
+  chapterCount: number;
+  totalWords: number;
 }
 
 const STAT_ICONS = {
@@ -73,10 +75,13 @@ export default function DashboardPage() {
     fetchStories();
   }, []);
 
+  const totalWords = stories.reduce((sum, s) => sum + (s.totalWords || 0), 0);
+  const totalChapters = stories.reduce((sum, s) => sum + (s.chapterCount || 0), 0);
+
   const stats = [
     { label: "Total Stories", value: stories.length, icon: STAT_ICONS.stories },
-    { label: "Drafts", value: stories.filter((s) => s.status === "draft").length, icon: STAT_ICONS.words },
-    { label: "Published", value: stories.filter((s) => s.status !== "draft").length, icon: STAT_ICONS.chapters },
+    { label: "Total Words", value: totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords, icon: STAT_ICONS.words },
+    { label: "Chapters", value: totalChapters, icon: STAT_ICONS.chapters },
   ];
 
   if (loading) {
@@ -179,10 +184,11 @@ export default function DashboardPage() {
                 <StoryCard
                   title={story.title}
                   genres={story.genres}
-                  wordCount={0}
-                  chapterCount={0}
+                  wordCount={story.totalWords || 0}
+                  chapterCount={story.chapterCount || 0}
                   status={story.status as "draft" | "in-progress" | "complete"}
                   slug={story.slug || story.id}
+                  href={`/write/${story.id}`}
                   coverUrl={story.coverImageUrl || undefined}
                   lastEdited={formatTimeAgo(story.updatedAt)}
                 />

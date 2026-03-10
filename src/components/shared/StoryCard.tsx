@@ -14,6 +14,7 @@ interface StoryCardProps {
   sparkCount?: number;
   status?: "draft" | "in-progress" | "on-hiatus" | "complete";
   slug: string;
+  href?: string;
   lastEdited?: string;
   variant?: "default" | "featured";
   excerpt?: string;
@@ -56,15 +57,17 @@ export default function StoryCard({
   sparkCount,
   status,
   slug,
+  href,
   lastEdited,
   variant = "default",
   excerpt,
 }: StoryCardProps) {
+  const linkHref = href || `/story/${slug}`;
   const statusInfo = status ? STATUS_STYLES[status] : null;
 
   if (variant === "featured") {
     return (
-      <Link href={`/story/${slug}`}>
+      <Link href={linkHref}>
         <motion.div
           whileHover={{ scale: 1.02 }}
           className="bg-surface border border-border rounded-xl overflow-hidden hover:border-border-active transition-colors min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group"
@@ -138,7 +141,7 @@ export default function StoryCard({
   }
 
   return (
-    <Link href={`/story/${slug}`}>
+    <Link href={linkHref}>
       <motion.div
         whileHover={{ scale: 1.02 }}
         className="bg-surface border border-border rounded-xl overflow-hidden hover:border-border-active transition-all cursor-pointer group"

@@ -29,20 +29,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const withContent = searchParams.get("withContent") === "true";
+
+    const selectFields: Record<string, unknown> = {
+      id: chapters.id,
+      storyId: chapters.storyId,
+      title: chapters.title,
+      wordCount: chapters.wordCount,
+      sortOrder: chapters.sortOrder,
+      status: chapters.status,
+      authorNoteBefore: chapters.authorNoteBefore,
+      authorNoteAfter: chapters.authorNoteAfter,
+      outline: chapters.outline,
+      createdAt: chapters.createdAt,
+      updatedAt: chapters.updatedAt,
+    };
+
+    if (withContent) {
+      selectFields.content = chapters.content;
+    }
+
     const results = await db
-      .select({
-        id: chapters.id,
-        storyId: chapters.storyId,
-        title: chapters.title,
-        wordCount: chapters.wordCount,
-        sortOrder: chapters.sortOrder,
-        status: chapters.status,
-        authorNoteBefore: chapters.authorNoteBefore,
-        authorNoteAfter: chapters.authorNoteAfter,
-        outline: chapters.outline,
-        createdAt: chapters.createdAt,
-        updatedAt: chapters.updatedAt,
-      })
+      .select(selectFields as any)
       .from(chapters)
       .where(and(eq(chapters.storyId, storyId), isNull(chapters.deletedAt)))
       .orderBy(asc(chapters.sortOrder));

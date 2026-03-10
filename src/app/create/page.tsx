@@ -140,7 +140,7 @@ export default function CreatePage() {
         return;
       }
 
-      router.push(`/story/${json.data.slug}`);
+      router.push(`/write/${json.data.id}`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

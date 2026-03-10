@@ -16,6 +16,9 @@ interface ToolkitPanelProps {
   onExportPdf: () => void;
   onExportEpub: () => void;
   onExportDocx: () => void;
+  // Publish
+  isPublic: boolean;
+  onTogglePublish: () => void;
   // State info
   hasCover: boolean;
   genreCount: number;
@@ -48,6 +51,8 @@ export default function ToolkitPanel({
   onExportPdf,
   onExportEpub,
   onExportDocx,
+  isPublic,
+  onTogglePublish,
   hasCover,
   genreCount,
   bibleEntryCount,
@@ -238,6 +243,41 @@ export default function ToolkitPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          {/* Publish toggle */}
+          <div className="px-1">
+            <button
+              onClick={() => {
+                onTogglePublish();
+              }}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                isPublic
+                  ? "bg-subtle/50 border border-border text-text-secondary hover:bg-subtle/80"
+                  : "bg-amber text-void hover:bg-amber/90"
+              }`}
+            >
+              {isPublic ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 1v14M1 8h14" />
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                  Unpublish
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 13l4-4M6 9l5.5-5.5M13 2l1 1" />
+                    <path d="M2 13l0.5 1.5L4 14" />
+                  </svg>
+                  Publish Story
+                </>
+              )}
+            </button>
+            <p className="text-[10px] text-text-ghost text-center mt-1.5">
+              {isPublic ? "Your story is live on Browse" : "Make your story visible on Browse"}
+            </p>
+          </div>
+
           {sections.map((section) => (
             <div key={section.title}>
               <p className="text-[9px] uppercase tracking-[0.15em] text-text-ghost px-2 mb-2">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { GENRES } from "@/lib/genres";
 import StoryCard from "@/components/shared/StoryCard";
@@ -18,6 +19,8 @@ interface Story {
   createdAt: string;
   updatedAt: string;
   authorName: string | null;
+  chapterCount: number;
+  totalWords: number;
 }
 
 const SORT_OPTIONS = ["Latest", "Most Sparked", "Most Read", "Rising"];
@@ -29,9 +32,24 @@ const FORMAT_OPTIONS = [
   "Screenplay",
 ];
 
-export default function BrowsePage() {
+export default function BrowsePageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="flex items-center justify-center py-24">
+          <div className="w-6 h-6 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+        </div>
+      </div>
+    }>
+      <BrowsePage />
+    </Suspense>
+  );
+}
+
+function BrowsePage() {
+  const searchParams = useSearchParams();
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [sortBy, setSortBy] = useState("Latest");
   const [formatFilter, setFormatFilter] = useState("All Formats");
   const [stories, setStories] = useState<Story[]>([]);
@@ -192,8 +210,8 @@ export default function BrowsePage() {
                   title={story.title}
                   author={story.authorName || undefined}
                   genres={story.genres}
-                  wordCount={0}
-                  chapterCount={0}
+                  wordCount={story.totalWords || 0}
+                  chapterCount={story.chapterCount || 0}
                   slug={story.slug || story.id}
                   coverUrl={story.coverImageUrl || undefined}
                   excerpt={story.synopsis || undefined}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
@@ -25,6 +26,7 @@ interface Author {
 
 interface StoryData {
   id: string;
+  userId: string;
   title: string;
   format: string;
   synopsis: string | null;
@@ -71,6 +73,7 @@ function getGradient(genres: string[]): string {
 
 export default function StoryPage() {
   const params = useParams();
+  const { data: session } = useSession();
   const slug = params.slug as string;
   const [story, setStory] = useState<StoryData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -221,33 +224,62 @@ export default function StoryPage() {
             </p>
           )}
 
-          {/* Stats */}
-          <div className="flex items-center gap-6 text-[12px] text-text-tertiary">
-            <span className="flex items-center gap-1.5">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                <path d="M5 5h6M5 8h4" />
-              </svg>
-              {story.chapters.length} chapter
-              {story.chapters.length !== 1 ? "s" : ""}
-            </span>
-            {totalWords > 0 && (
-              <span>
-                {totalWords >= 1000
-                  ? `${(totalWords / 1000).toFixed(1)}k`
-                  : totalWords}{" "}
-                words
+          {/* Stats + Actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6 text-[12px] text-text-tertiary">
+              <span className="flex items-center gap-1.5">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                  <path d="M5 5h6M5 8h4" />
+                </svg>
+                {story.chapters.length} chapter
+                {story.chapters.length !== 1 ? "s" : ""}
               </span>
+              {totalWords > 0 && (
+                <span>
+                  {totalWords >= 1000
+                    ? `${(totalWords / 1000).toFixed(1)}k`
+                    : totalWords}{" "}
+                  words
+                </span>
+              )}
+              <span className="capitalize">{story.status}</span>
+            </div>
+
+            {/* Edit button for owner */}
+            {session?.user?.id === story.userId && (
+              <Link
+                href={`/write/${story.id}`}
+                className="flex items-center gap-2 px-4 py-2 bg-amber text-void text-[13px] font-medium rounded-lg hover:bg-amber/90 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" />
+                </svg>
+                Edit Story
+              </Link>
             )}
-            <span className="capitalize">{story.status}</span>
           </div>
+
+          {/* Start Reading button */}
+          {publishedChapters.length > 0 && (
+            <Link
+              href={`/story/${slug}/read/${publishedChapters[0].id}`}
+              className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-surface border border-border text-paper text-[13px] font-medium rounded-lg hover:border-amber/30 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2 3l6 2.5L14 3v9l-6 2.5L2 12V3z" />
+                <path d="M8 5.5V14" />
+              </svg>
+              Start Reading
+            </Link>
+          )}
         </motion.div>
 
         {/* Chapters */}
@@ -270,39 +302,58 @@ export default function StoryPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 + i * 0.04 }}
                 >
-                  <div className="bg-surface border border-border rounded-lg px-5 py-4 flex items-center justify-between hover:border-border-active transition-colors group">
-                    <div className="flex items-center gap-4">
-                      <span className="text-text-ghost text-[12px] font-mono w-6 text-right">
-                        {i + 1}
-                      </span>
-                      <div>
-                        <h3 className="text-paper text-[14px] font-medium group-hover:text-amber transition-colors">
-                          {chapter.title}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
-                          {chapter.wordCount > 0 && (
-                            <span>{chapter.wordCount.toLocaleString()} words</span>
-                          )}
-                          <span className={chapter.status === "published" ? "text-sage" : "text-text-ghost"}>
-                            {chapter.status === "published" ? "Published" : "Draft"}
+                  {chapter.status === "published" ? (
+                    <Link href={`/story/${slug}/read/${chapter.id}`} className="block">
+                      <div className="bg-surface border border-border rounded-lg px-5 py-4 flex items-center justify-between hover:border-border-active transition-colors group cursor-pointer">
+                        <div className="flex items-center gap-4">
+                          <span className="text-text-ghost text-[12px] font-mono w-6 text-right">
+                            {i + 1}
                           </span>
+                          <div>
+                            <h3 className="text-paper text-[14px] font-medium group-hover:text-amber transition-colors">
+                              {chapter.title}
+                            </h3>
+                            <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
+                              {chapter.wordCount > 0 && (
+                                <span>{chapter.wordCount.toLocaleString()} words</span>
+                              )}
+                              <span className="text-sage">Published</span>
+                            </div>
+                          </div>
+                        </div>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          className="text-text-ghost group-hover:text-amber transition-colors"
+                        >
+                          <path d="M6 3l5 5-5 5" />
+                        </svg>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="bg-surface border border-border rounded-lg px-5 py-4 flex items-center justify-between opacity-60">
+                      <div className="flex items-center gap-4">
+                        <span className="text-text-ghost text-[12px] font-mono w-6 text-right">
+                          {i + 1}
+                        </span>
+                        <div>
+                          <h3 className="text-paper text-[14px] font-medium">
+                            {chapter.title}
+                          </h3>
+                          <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
+                            {chapter.wordCount > 0 && (
+                              <span>{chapter.wordCount.toLocaleString()} words</span>
+                            )}
+                            <span className="text-text-ghost">Draft</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    {chapter.status === "published" && (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        className="text-text-ghost group-hover:text-amber transition-colors"
-                      >
-                        <path d="M6 3l5 5-5 5" />
-                      </svg>
-                    )}
-                  </div>
+                  )}
                 </motion.div>
               ))}
             </div>
