@@ -234,14 +234,14 @@ function RightColumnB({
       <div className="px-10 pb-10 flex gap-3">
         <a
           href="/create"
-          className="flex-1 text-center py-3 rounded-lg text-[13px] font-body font-medium transition-all duration-300"
-          style={{ backgroundColor: themeColor, color: "#0A0908" }}
+          className="flex-1 text-center py-3 rounded-full text-[13px] font-body font-semibold transition-all duration-300 hover:shadow-lg"
+          style={{ backgroundColor: themeColor, color: "#0A0908", boxShadow: `0 4px 20px ${themeColor}30` }}
         >
           Start writing
         </a>
         <a
           href="/browse"
-          className="flex-1 text-center py-3 border border-white/[0.12] text-white/50 text-[13px] font-body font-medium rounded-lg hover:text-white hover:border-white/25 transition-all"
+          className="flex-1 text-center py-3 border border-white/[0.12] text-white/50 text-[13px] font-body font-medium rounded-full hover:text-white hover:border-white/25 transition-all"
         >
           Start reading
         </a>
@@ -260,7 +260,6 @@ function generateFlowPath(startX: number, startY: number, endX: number, endY: nu
 
 export default function InteractiveSplitLayout() {
   const [activeItem, setActiveItem] = useState<HoverItem>(null);
-  const [variant, setVariant] = useState<"A" | "B" | "C">("A");
   const [particles, setParticles] = useState<{ id: number; path: string; delay: number; duration: number }[]>([]);
   const themeColor = activeItem ? activeItem.color : "#D4A574"; // Default amber
 
@@ -697,103 +696,7 @@ export default function InteractiveSplitLayout() {
       */}
       <div className="relative flex flex-col w-[30%] h-full bg-ink z-20 shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
 
-        {/* Variant switcher (temp — remove after picking) */}
-        <div className="absolute top-4 right-4 z-50 flex gap-1">
-          {(["A", "B"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setVariant(v)}
-              className={`w-7 h-7 rounded-full text-[11px] font-mono transition-all duration-200 ${
-                variant === v
-                  ? "bg-white text-black"
-                  : "bg-white/5 text-white/30 hover:bg-white/10"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
-        {/* ══════════════════════════════════════════════════
-            OPTION A — "Swiss"
-            Clean ruled format list + flowing genre text.
-            Dual CTA for writers and readers.
-            ══════════════════════════════════════════════════ */}
-        {variant === "A" && (
-          <div className="flex flex-col h-full">
-            {/* Logo */}
-            <div className="px-10 pt-10">
-              <span className="text-[11px] uppercase tracking-[0.3em] text-white/50 font-body">
-                Inkwell
-              </span>
-            </div>
-
-            {/* Main content — vertically centered */}
-            <div className="flex-1 flex flex-col justify-center px-10">
-              {/* Formats */}
-              <div>
-                {FORMATS.map((fmt) => (
-                  <a
-                    key={fmt.id}
-                    href="/create"
-                    className="group flex items-baseline justify-between py-[18px] border-b border-white/[0.06] first:border-t cursor-pointer"
-                    onMouseEnter={() => setActiveItem(fmt)}
-                    onMouseLeave={() => setActiveItem(null)}
-                  >
-                    <span className="text-[20px] font-body font-light text-white/30 group-hover:text-white transition-colors duration-200">
-                      {fmt.label}
-                    </span>
-                    <span className="text-[11px] font-body text-white/0 group-hover:text-white/30 transition-colors duration-200">
-                      {fmt.desc.split(",")[0]}
-                    </span>
-                  </a>
-                ))}
-              </div>
-
-              {/* Genres as flowing text */}
-              <p className="mt-10 text-[13px] font-body leading-[2] text-white/20">
-                {GENRES.map((genre, i) => (
-                  <span key={genre.id}>
-                    <span
-                      className="cursor-pointer hover:text-white transition-colors duration-200"
-                      onMouseEnter={() => setActiveItem(genre)}
-                      onMouseLeave={() => setActiveItem(null)}
-                    >
-                      {genre.label}
-                    </span>
-                    {i < GENRES.length - 1 && (
-                      <span className="text-white/10 mx-1">/</span>
-                    )}
-                  </span>
-                ))}
-              </p>
-            </div>
-
-            {/* Dual CTA */}
-            <div className="px-10 pb-10 flex gap-3">
-              <a
-                href="/create"
-                className="flex-1 text-center py-3 bg-white text-black text-[13px] font-body font-medium rounded-lg hover:bg-white/90 transition-colors"
-              >
-                Start writing
-              </a>
-              <a
-                href="/browse"
-                className="flex-1 text-center py-3 border border-white/[0.12] text-white/50 text-[13px] font-body font-medium rounded-lg hover:text-white hover:border-white/25 transition-all"
-              >
-                Start reading
-              </a>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════
-            OPTION B — "Spotlight"
-            Large rotating format + genres + dual CTA.
-            ══════════════════════════════════════════════════ */}
-        {variant === "B" && (
-          <RightColumnB setActiveItem={setActiveItem} themeColor={themeColor} />
-        )}
+        <RightColumnB setActiveItem={setActiveItem} themeColor={themeColor} />
       </div>
     </div>
   );

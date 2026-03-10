@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chapter, ChapterSnapshot } from "@/lib/store";
 
@@ -23,6 +23,38 @@ export default function ChapterSettingsPanel({
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [snapshotsLoaded, setSnapshotsLoaded] = useState(false);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const loadedChapterRef = useRef<string | null>(null);
+
+  // Lazy-load snapshots from API when History tab is opened
+  useEffect(() => {
+    if (activeTab !== "history") return;
+    if (snapshotsLoaded && loadedChapterRef.current === chapter.id) return;
+
+    async function loadSnapshots() {
+      setSnapshotsLoading(true);
+      try {
+        const res = await fetch(`/api/stories/${storyId}/chapters/${chapter.id}/snapshots`);
+        if (res.ok) {
+          const json = await res.json();
+          const loaded: ChapterSnapshot[] = (json.data || []).map((s: { id: string; content: string; wordCount: number; createdAt: string; label: string }) => ({
+            id: s.id,
+            content: s.content,
+            wordCount: s.wordCount,
+            createdAt: new Date(s.createdAt).getTime(),
+            label: s.label || "",
+          }));
+          onUpdate({ snapshots: loaded });
+          loadedChapterRef.current = chapter.id;
+          setSnapshotsLoaded(true);
+        }
+      } catch {} finally {
+        setSnapshotsLoading(false);
+      }
+    }
+    loadSnapshots();
+  }, [activeTab, chapter.id, storyId]);
 
   const handleSaveSnapshot = async () => {
     setSaving(true);
@@ -245,7 +277,13 @@ export default function ChapterSettingsPanel({
                   Saved Versions ({chapter.snapshots.length})
                 </label>
 
-                {chapter.snapshots.length === 0 && (
+                {snapshotsLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-4 h-4 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {!snapshotsLoading && chapter.snapshots.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-[12px] text-text-tertiary">No saved versions yet</p>
                     <p className="text-[11px] text-text-ghost mt-1">
