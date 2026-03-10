@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { stories, users, sparks, chapters } from "@/lib/db/schema";
+import { stories, users, sparks as sparksTable, chapters } from "@/lib/db/schema";
 import { eq, isNull, desc, lt, and, sql, count } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Join with users to get author name, subquery for chapter stats
+    // Join with users to get author name, subquery for chapter stats and spark counts
     const chapterStats = db
       .select({
         storyId: chapters.storyId,
@@ -61,6 +61,15 @@ export async function GET(request: NextRequest) {
       .where(isNull(chapters.deletedAt))
       .groupBy(chapters.storyId)
       .as("chapter_stats");
+
+    const sparkStats = db
+      .select({
+        storyId: sparksTable.storyId,
+        sparkCount: sql<number>`count(*)`.as("spark_count"),
+      })
+      .from(sparksTable)
+      .groupBy(sparksTable.storyId)
+      .as("spark_stats");
 
     const results = await db
       .select({
@@ -82,10 +91,12 @@ export async function GET(request: NextRequest) {
         authorImage: users.avatarUrl,
         chapterCount: sql<number>`coalesce(${chapterStats.chapterCount}, 0)`,
         totalWords: sql<number>`coalesce(${chapterStats.totalWords}, 0)`,
+        sparkCount: sql<number>`coalesce(${sparkStats.sparkCount}, 0)`,
       })
       .from(stories)
       .leftJoin(users, eq(stories.userId, users.id))
       .leftJoin(chapterStats, eq(stories.id, chapterStats.storyId))
+      .leftJoin(sparkStats, eq(stories.id, sparkStats.storyId))
       .where(and(...conditions))
       .orderBy(desc(stories.createdAt))
       .limit(limit + 1);

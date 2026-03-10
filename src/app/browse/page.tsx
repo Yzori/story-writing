@@ -21,6 +21,8 @@ interface Story {
   authorName: string | null;
   chapterCount: number;
   totalWords: number;
+  sparkCount: number;
+  contentRating: string;
 }
 
 const SORT_OPTIONS = ["Latest", "Most Sparked", "Most Read", "Rising"];
@@ -212,6 +214,8 @@ function BrowsePage() {
                   genres={story.genres}
                   wordCount={story.totalWords || 0}
                   chapterCount={story.chapterCount || 0}
+                  sparkCount={story.sparkCount || 0}
+                  contentRating={story.contentRating}
                   slug={story.slug || story.id}
                   coverUrl={story.coverImageUrl || undefined}
                   excerpt={story.synopsis || undefined}

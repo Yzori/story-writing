@@ -78,6 +78,9 @@ export default function StoryPage() {
   const [story, setStory] = useState<StoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sparkCount, setSparkCount] = useState(0);
+  const [hasSparked, setHasSparked] = useState(false);
+  const [sparkLoading, setSparkLoading] = useState(false);
 
   useEffect(() => {
     async function fetchStory() {
@@ -89,6 +92,14 @@ export default function StoryPage() {
           return;
         }
         setStory(json.data);
+
+        // Fetch spark data
+        const sparkRes = await fetch(`/api/stories/${json.data.id}/sparks`);
+        if (sparkRes.ok) {
+          const sparkJson = await sparkRes.json();
+          setSparkCount(sparkJson.data.count);
+          setHasSparked(sparkJson.data.hasSparked);
+        }
       } catch {
         setError("Failed to load story");
       } finally {
@@ -97,6 +108,24 @@ export default function StoryPage() {
     }
     fetchStory();
   }, [slug]);
+
+  const handleSpark = async () => {
+    if (!story || sparkLoading) return;
+    if (!session?.user) return;
+    setSparkLoading(true);
+    try {
+      const res = await fetch(`/api/stories/${story.id}/sparks`, { method: "POST" });
+      if (res.ok) {
+        const json = await res.json();
+        setSparkCount(json.data.count);
+        setHasSparked(json.data.sparked);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSparkLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -253,18 +282,44 @@ export default function StoryPage() {
               <span className="capitalize">{story.status}</span>
             </div>
 
-            {/* Edit button for owner */}
-            {session?.user?.id === story.userId && (
-              <Link
-                href={`/write/${story.id}`}
-                className="flex items-center gap-2 px-4 py-2 bg-amber text-void text-[13px] font-medium rounded-lg hover:bg-amber/90 transition-colors"
+            <div className="flex items-center gap-3">
+              {/* Spark button */}
+              <button
+                onClick={handleSpark}
+                disabled={sparkLoading || !session?.user}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium transition-all ${
+                  hasSparked
+                    ? "bg-amber/10 border-amber/30 text-amber"
+                    : "bg-surface border-border text-text-secondary hover:border-amber/30 hover:text-amber"
+                } ${!session?.user ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                title={!session?.user ? "Sign in to spark" : hasSparked ? "Remove spark" : "Spark this story"}
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill={hasSparked ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
                 </svg>
-                Edit Story
-              </Link>
-            )}
+                {sparkCount > 0 ? sparkCount : "Spark"}
+              </button>
+
+              {/* Edit button for owner */}
+              {session?.user?.id === story.userId && (
+                <Link
+                  href={`/write/${story.id}`}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber text-void text-[13px] font-medium rounded-lg hover:bg-amber/90 transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" />
+                  </svg>
+                  Edit Story
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Start Reading button */}

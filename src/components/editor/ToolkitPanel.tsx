@@ -19,6 +19,8 @@ interface ToolkitPanelProps {
   // Publish
   isPublic: boolean;
   onTogglePublish: () => void;
+  // Delete
+  onDeleteStory: () => void;
   // State info
   hasCover: boolean;
   genreCount: number;
@@ -53,6 +55,7 @@ export default function ToolkitPanel({
   onExportDocx,
   isPublic,
   onTogglePublish,
+  onDeleteStory,
   hasCover,
   genreCount,
   bibleEntryCount,
@@ -314,6 +317,19 @@ export default function ToolkitPanel({
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Danger zone */}
+        <div className="px-4 py-3 border-t border-border">
+          <button
+            onClick={onDeleteStory}
+            className="flex items-center gap-2 text-[12px] text-text-ghost hover:text-rose transition-colors"
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 4h12M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1M6 7v5M10 7v5M3 4l1 9a2 2 0 002 2h4a2 2 0 002-2l1-9" />
+            </svg>
+            Delete Story
+          </button>
         </div>
 
         {/* Footer hint */}

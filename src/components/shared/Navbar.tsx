@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useState, useRef, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -10,8 +10,21 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Close user menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,13 +124,73 @@ export default function Navbar() {
                 My Desk
               </Link>
 
-              {/* Avatar */}
-              <Link
-                href={profileHref}
-                className="ml-2 w-8 h-8 rounded-full bg-amber/20 border border-border hover:border-amber/30 transition-colors flex items-center justify-center text-amber text-[12px] font-medium"
-              >
-                {initial}
-              </Link>
+              {/* User menu */}
+              <div className="relative ml-2" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="w-8 h-8 rounded-full bg-amber/20 border border-border hover:border-amber/30 transition-colors flex items-center justify-center text-amber text-[12px] font-medium"
+                >
+                  {initial}
+                </button>
+                <AnimatePresence>
+                  {userMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-10 w-48 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-50"
+                    >
+                      <div className="px-4 py-3 border-b border-border">
+                        <p className="text-paper text-[13px] font-medium truncate">
+                          {session?.user?.name || "Writer"}
+                        </p>
+                        <p className="text-text-ghost text-[11px] truncate">
+                          {session?.user?.email}
+                        </p>
+                      </div>
+                      <div className="py-1">
+                        <Link
+                          href={profileHref}
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated transition-colors"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <circle cx="8" cy="5" r="3" />
+                            <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                          </svg>
+                          Profile
+                        </Link>
+                        <Link
+                          href={`/profile/${session?.user?.id}/edit`}
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated transition-colors"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <circle cx="8" cy="8" r="6" />
+                            <path d="M8 5v6M5 8h6" />
+                          </svg>
+                          Edit Profile
+                        </Link>
+                      </div>
+                      <div className="border-t border-border py-1">
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            signOut({ callbackUrl: "/" });
+                          }}
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-rose/70 hover:text-rose hover:bg-elevated transition-colors w-full"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M11 11l3-3-3-3M6 8h8" />
+                          </svg>
+                          Sign out
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </>
           ) : (
             <>
@@ -218,6 +291,15 @@ export default function Navbar() {
                   >
                     Profile
                   </Link>
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      signOut({ callbackUrl: "/" });
+                    }}
+                    className="text-rose/70 hover:text-rose transition-colors text-[14px] py-2 text-left"
+                  >
+                    Sign out
+                  </button>
                 </>
               ) : (
                 <>

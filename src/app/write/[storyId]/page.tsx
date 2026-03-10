@@ -498,6 +498,18 @@ export default function WriteStoryPage() {
     });
   }, [isPublic, storyId]);
 
+  const handleDeleteStory = useCallback(async () => {
+    if (!confirm("Are you sure you want to delete this story? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/stories/${storyId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/dashboard");
+      }
+    } catch {
+      // silently fail
+    }
+  }, [storyId, router]);
+
   // ── Chapter settings handler ────────────────────────────
 
   const handleUpdateChapterFields = useCallback(
@@ -947,6 +959,7 @@ export default function WriteStoryPage() {
             onClose={() => setShowToolkit(false)}
             isPublic={isPublic}
             onTogglePublish={handleTogglePublish}
+            onDeleteStory={handleDeleteStory}
             onOpenMetadata={() => togglePanel("metadata")}
             onOpenBible={() => togglePanel("bible")}
             onOpenFrontMatter={() => togglePanel("frontmatter")}

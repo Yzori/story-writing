@@ -4,6 +4,13 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import GenrePill from "./GenrePill";
 
+const RATING_BADGES: Record<string, { label: string; className: string }> = {
+  everyone: { label: "All Ages", className: "text-sage" },
+  teen: { label: "Teen+", className: "text-amber" },
+  mature: { label: "Mature", className: "text-rose/70" },
+  explicit: { label: "18+", className: "text-rose" },
+};
+
 interface StoryCardProps {
   title: string;
   author?: string;
@@ -12,6 +19,7 @@ interface StoryCardProps {
   wordCount: number;
   chapterCount: number;
   sparkCount?: number;
+  contentRating?: string;
   status?: "draft" | "in-progress" | "on-hiatus" | "complete";
   slug: string;
   href?: string;
@@ -55,6 +63,7 @@ export default function StoryCard({
   wordCount,
   chapterCount,
   sparkCount,
+  contentRating,
   status,
   slug,
   href,
@@ -203,6 +212,11 @@ export default function StoryCard({
                 </span>
               )}
             </div>
+            {contentRating && contentRating !== "everyone" && RATING_BADGES[contentRating] && (
+              <span className={`text-[10px] font-medium ${RATING_BADGES[contentRating].className}`}>
+                {RATING_BADGES[contentRating].label}
+              </span>
+            )}
             {lastEdited && (
               <span className="text-text-ghost">{lastEdited}</span>
             )}
