@@ -3,6 +3,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const NAV_LINKS = [
+  { label: "Explore", href: "/browse" },
+  { label: "Write", href: "/create" },
+  { label: "My Desk", href: "/dashboard" },
+];
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -12,8 +18,6 @@ export default function Navbar() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const links = ["Explore", "Write", "Collaborate"];
 
   return (
     <motion.nav
@@ -28,7 +32,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2.5 group">
+        <a href="/" className="flex items-center gap-2.5 group">
           <svg
             className="w-7 h-7 text-amber transition-transform duration-300 group-hover:rotate-[-12deg]"
             viewBox="0 0 32 32"
@@ -56,17 +60,17 @@ export default function Navbar() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-8">
-          {links.map((link) => (
+          {NAV_LINKS.map((link) => (
             <a
-              key={link}
-              href={`#${link.toLowerCase()}`}
+              key={link.label}
+              href={link.href}
               className="text-linen/70 hover:text-amber transition-colors duration-300 text-sm tracking-wide"
             >
-              {link}
+              {link.label}
             </a>
           ))}
           <a
-            href="#"
+            href="/login"
             className="ml-4 px-5 py-2 rounded-full border border-amber/30 text-amber hover:bg-amber hover:text-ink transition-all duration-300 text-sm font-medium"
           >
             Sign In
@@ -102,18 +106,18 @@ export default function Navbar() {
             className="md:hidden bg-charcoal/95 backdrop-blur-xl border-t border-espresso/50 overflow-hidden"
           >
             <div className="px-6 py-6 flex flex-col gap-4">
-              {links.map((link) => (
+              {NAV_LINKS.map((link) => (
                 <a
-                  key={link}
-                  href={`#${link.toLowerCase()}`}
+                  key={link.label}
+                  href={link.href}
                   className="text-linen/70 hover:text-amber transition-colors text-base"
                   onClick={() => setMobileOpen(false)}
                 >
-                  {link}
+                  {link.label}
                 </a>
               ))}
               <a
-                href="#"
+                href="/login"
                 className="mt-2 px-5 py-2.5 rounded-full border border-amber/30 text-amber text-center hover:bg-amber hover:text-ink transition-all text-sm font-medium"
               >
                 Sign In

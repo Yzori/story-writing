@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const isPublic = searchParams.get("public") === "true";
     const cursor = searchParams.get("cursor");
     const search = searchParams.get("search");
+    const sort = searchParams.get("sort") || "latest";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
 
     const conditions = [isNull(stories.deletedAt)];
@@ -98,7 +99,13 @@ export async function GET(request: NextRequest) {
       .leftJoin(chapterStats, eq(stories.id, chapterStats.storyId))
       .leftJoin(sparkStats, eq(stories.id, sparkStats.storyId))
       .where(and(...conditions))
-      .orderBy(desc(stories.createdAt))
+      .orderBy(
+        sort === "most-sparked"
+          ? desc(sql`coalesce(${sparkStats.sparkCount}, 0)`)
+          : sort === "most-read"
+          ? desc(sql`coalesce(${chapterStats.totalWords}, 0)`)
+          : desc(stories.createdAt)
+      )
       .limit(limit + 1);
 
     const hasMore = results.length > limit;

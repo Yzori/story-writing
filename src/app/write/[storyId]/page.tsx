@@ -150,7 +150,7 @@ export default function WriteStoryPage() {
           chapters: chapters.length > 0 ? chapters : [createChapter("Chapter 1")],
           activeChapterId: chapters[0]?.id ?? null,
           metadata: {
-            coverImageDataUrl: null,
+            coverImageDataUrl: story.coverImageUrl || null,
             synopsis: story.synopsis || "",
             genres: story.genres || [],
             contentRating: story.contentRating || "everyone",
@@ -412,16 +412,23 @@ export default function WriteStoryPage() {
     (metadata: StoryMetadata) => {
       updateProject((prev) => ({ ...prev, metadata }));
       // Sync key fields to API
+      const patchBody: Record<string, unknown> = {
+        synopsis: metadata.synopsis,
+        genres: metadata.genres,
+        contentRating: metadata.contentRating,
+        status: metadata.status,
+        language: metadata.language,
+      };
+      // Sync cover image (data URL for MVP, URL for production)
+      if (metadata.coverImageDataUrl) {
+        patchBody.coverImageUrl = metadata.coverImageDataUrl;
+      } else {
+        patchBody.coverImageUrl = null;
+      }
       fetch(`/api/stories/${storyId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          synopsis: metadata.synopsis,
-          genres: metadata.genres,
-          contentRating: metadata.contentRating,
-          status: metadata.status,
-          language: metadata.language,
-        }),
+        body: JSON.stringify(patchBody),
       }).catch(() => {});
     },
     [updateProject, storyId]

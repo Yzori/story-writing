@@ -4,20 +4,30 @@ import { chapters, stories } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
 };
 
+/** Verify the story exists and return it + ownership check */
+async function verifyStoryOwnership(storyId: string, userId: string) {
+  const story = await db.query.stories.findFirst({
+    where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+  });
+  if (!story) return { story: null, isOwner: false };
+  return { story, isOwner: story.userId === userId };
+}
+
 /**
  * GET /api/stories/[storyId]/chapters/[chapterId]
  * Get a single chapter with content.
+ * Published chapters are public; draft chapters require ownership.
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { storyId, chapterId } = await params;
+    const session = await auth();
 
     const chapter = await db.query.chapters.findFirst({
       where: and(
@@ -34,6 +44,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Draft chapters require ownership
+    if (chapter.status !== "published") {
+      const story = await db.query.stories.findFirst({
+        where: eq(stories.id, storyId),
+      });
+      if (!story || story.userId !== session?.user?.id) {
+        return NextResponse.json(
+          { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+          { status: 404 }
+        );
+      }
+    }
+
     return NextResponse.json({ data: chapter });
   } catch (error) {
     console.error("GET /api/stories/[storyId]/chapters/[chapterId] error:", error);
@@ -46,11 +69,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * PATCH /api/stories/[storyId]/chapters/[chapterId]
- * Update chapter fields. Recalculates word_count if content changes.
+ * Update chapter fields. Requires ownership.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId, chapterId } = await params;
+    const { isOwner } = await verifyStoryOwnership(storyId, session.user.id);
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const parsed = updateChapterSchema.safeParse(body);
 
@@ -87,7 +127,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updatedAt: new Date(),
     };
 
-    // Recalculate word count if content is being updated
     if (parsed.data.content !== undefined) {
       updateData.wordCount = countWords(parsed.data.content);
     }
@@ -110,11 +149,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/stories/[storyId]/chapters/[chapterId]
- * Soft delete — sets deleted_at timestamp.
+ * Soft delete. Requires ownership.
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId, chapterId } = await params;
+    const { isOwner } = await verifyStoryOwnership(storyId, session.user.id);
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
 
     const existing = await db.query.chapters.findFirst({
       where: and(

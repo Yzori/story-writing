@@ -4,20 +4,20 @@ import { chapters, stories } from "@/lib/db/schema";
 import { eq, and, isNull, asc, sql } from "drizzle-orm";
 import { createChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
 /**
  * GET /api/stories/[storyId]/chapters
- * List chapters for a story (without content, ordered by sort_order).
+ * List chapters for a story (without content by default, ordered by sort_order).
+ * ?withContent=true includes content (requires ownership).
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { storyId } = await params;
+    const session = await auth();
 
-    // Verify story exists
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
@@ -29,8 +29,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const isOwner = session?.user?.id === story.userId;
     const { searchParams } = new URL(request.url);
     const withContent = searchParams.get("withContent") === "true";
+
+    // Only owners can fetch with content (used by editor)
+    if (withContent && !isOwner) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Not authorized" } },
+        { status: 403 }
+      );
+    }
 
     const selectFields: Record<string, unknown> = {
       id: chapters.id,
@@ -50,10 +59,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       selectFields.content = chapters.content;
     }
 
+    const conditions = [eq(chapters.storyId, storyId), isNull(chapters.deletedAt)];
+
+    // Non-owners only see published chapters
+    if (!isOwner) {
+      conditions.push(eq(chapters.status, "published"));
+    }
+
     const results = await db
       .select(selectFields as any)
       .from(chapters)
-      .where(and(eq(chapters.storyId, storyId), isNull(chapters.deletedAt)))
+      .where(and(...conditions))
       .orderBy(asc(chapters.sortOrder));
 
     return NextResponse.json({ data: results });
@@ -68,10 +84,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * POST /api/stories/[storyId]/chapters
- * Create a chapter. Auto-sets sort_order to max+1.
+ * Create a chapter. Requires ownership.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId } = await params;
     const body = await request.json();
     const parsed = createChapterSchema.safeParse(body);
@@ -89,7 +113,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify story exists
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
@@ -101,7 +124,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get max sort_order for this story
+    if (story.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
+
     const [maxResult] = await db
       .select({ maxOrder: sql<number>`coalesce(max(${chapters.sortOrder}), -1)` })
       .from(chapters)

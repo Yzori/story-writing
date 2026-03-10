@@ -3,17 +3,24 @@ import { db } from "@/lib/db";
 import { chapters, stories } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { reorderChaptersSchema } from "@/lib/validations";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
 /**
  * PATCH /api/stories/[storyId]/chapters/reorder
- * Accept array of {id, sortOrder} and bulk update sort orders.
+ * Bulk update chapter sort orders. Requires ownership.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId } = await params;
     const body = await request.json();
     const parsed = reorderChaptersSchema.safeParse(body);
@@ -31,7 +38,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify story exists
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
@@ -43,7 +49,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update each chapter's sort_order
+    if (story.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
+
     const updates = parsed.data.chapters.map((ch) =>
       db
         .update(chapters)

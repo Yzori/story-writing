@@ -1,3 +1,18 @@
+const LINK_HREFS: Record<string, string> = {
+  "Explore Stories": "/browse",
+  "Start Writing": "/create",
+  Collaborate: "/browse",
+  Pricing: "#",
+  "Writer Circles": "#",
+  "Weekly Challenges": "#",
+  Blog: "#",
+  Events: "#",
+  About: "#",
+  Careers: "#",
+  Contact: "#",
+  Legal: "#",
+};
+
 export default function Footer() {
   const columns = [
     {
@@ -58,7 +73,7 @@ export default function Footer() {
                 {col.links.map((link) => (
                   <li key={link}>
                     <a
-                      href="#"
+                      href={LINK_HREFS[link] || "#"}
                       className="text-sm text-linen/30 hover:text-amber transition-colors duration-300"
                     >
                       {link}

@@ -131,14 +131,14 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 2.1 }}
         >
           <a
-            href="#"
+            href="/create"
             className="group relative px-8 py-3.5 bg-amber text-ink font-semibold rounded-full transition-all duration-300 hover:bg-amber-light hover:shadow-lg hover:shadow-amber/20 hover:scale-[1.03] text-base overflow-hidden"
           >
             <span className="relative z-10">Start Writing</span>
             <div className="absolute inset-0 bg-gradient-to-r from-amber-light to-amber opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </a>
           <a
-            href="#explore"
+            href="/browse"
             className="px-8 py-3.5 border border-cream/15 text-cream/80 rounded-full hover:border-cream/30 hover:bg-cream/[0.04] transition-all duration-300 text-base"
           >
             Explore Stories

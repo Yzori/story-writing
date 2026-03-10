@@ -69,8 +69,15 @@ function BrowsePage() {
     async function fetchStories() {
       setLoading(true);
       try {
+        const sortMap: Record<string, string> = {
+          "Latest": "latest",
+          "Most Sparked": "most-sparked",
+          "Most Read": "most-read",
+          "Rising": "latest",
+        };
         const params = new URLSearchParams({ public: "true", limit: "30" });
         if (debouncedQuery) params.set("search", debouncedQuery);
+        if (sortBy !== "Latest") params.set("sort", sortMap[sortBy] || "latest");
         const res = await fetch(`/api/stories?${params}`);
         const json = await res.json();
         if (res.ok) {
@@ -83,7 +90,7 @@ function BrowsePage() {
       }
     }
     fetchStories();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, sortBy]);
 
   // Client-side filtering for genre and format (API doesn't support these yet)
   const filtered = stories.filter((story) => {

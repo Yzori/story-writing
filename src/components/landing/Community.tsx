@@ -74,7 +74,7 @@ export default function Community() {
           transition={{ duration: 0.7, delay: 0.45 }}
         >
           <a
-            href="#"
+            href="/register"
             className="group relative inline-block px-10 py-4 bg-amber text-ink font-semibold rounded-full text-lg transition-all duration-300 hover:bg-amber-light hover:shadow-2xl hover:shadow-amber/25 hover:scale-[1.04] overflow-hidden"
           >
             <span className="relative z-10">Join the Story</span>
