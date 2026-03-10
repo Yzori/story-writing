@@ -16,10 +16,22 @@
   --color-amber: var(--t-amber);
   --color-amber-soft: var(--t-amber-soft);
   --color-amber-glow: var(--t-amber-glow);
+  --color-amber-light: var(--t-amber-light);
+  --color-amber-dark: var(--t-amber-dark);
   --color-rose: var(--t-rose);
   --color-sage: var(--t-sage);
   --color-lavender: var(--t-lavender);
   --color-copper: var(--t-copper);
+  --color-teal: var(--t-teal);
+  --color-violet: var(--t-violet);
+  --color-burnt: var(--t-burnt);
+
+  --color-charcoal: var(--t-charcoal);
+  --color-espresso: var(--t-espresso);
+  --color-walnut: var(--t-walnut);
+  --color-linen: var(--t-linen);
+  --color-cream: var(--t-cream);
+  --color-parchment: var(--t-parchment);
 
   --color-border: var(--t-border);
   --color-border-subtle: var(--t-border-subtle);
@@ -50,10 +62,22 @@ html, html.theme-dark {
   --t-amber: #D4944A;
   --t-amber-soft: #D4944A28;
   --t-amber-glow: #D4944A10;
+  --t-amber-light: #E8B06A;
+  --t-amber-dark: #A67830;
   --t-rose: #C4646E;
   --t-sage: #6B9E7E;
   --t-lavender: #9484B8;
   --t-copper: #B87E56;
+  --t-teal: #4A9E8E;
+  --t-violet: #8E72C0;
+  --t-burnt: #B86B3A;
+
+  --t-charcoal: #1A1714;
+  --t-espresso: #2A2420;
+  --t-walnut: #4A3E34;
+  --t-linen: #EDE6D6;
+  --t-cream: #F5EDD8;
+  --t-parchment: #D4C9B0;
 
   --t-border: #FFFFFF0D;
   --t-border-subtle: #FFFFFF08;
@@ -81,10 +105,22 @@ html.theme-light {
   --t-amber: #9A6830;
   --t-amber-soft: #9A683025;
   --t-amber-glow: #9A68300E;
+  --t-amber-light: #C4923E;
+  --t-amber-dark: #7A5420;
   --t-rose: #A04850;
   --t-sage: #457858;
   --t-lavender: #6E5C92;
   --t-copper: #8C6640;
+  --t-teal: #2E7A6A;
+  --t-violet: #6E5C92;
+  --t-burnt: #9A5828;
+
+  --t-charcoal: #E8E2D8;
+  --t-espresso: #DCD5C8;
+  --t-walnut: #C4B8A4;
+  --t-linen: #1A1815;
+  --t-cream: #2A2620;
+  --t-parchment: #4A4438;
 
   --t-border: #C9C0AE;
   --t-border-subtle: #D4CCBC;
@@ -112,10 +148,22 @@ html.theme-sepia {
   --t-amber: #7D5820;
   --t-amber-soft: #7D582025;
   --t-amber-glow: #7D58200E;
+  --t-amber-light: #A87A30;
+  --t-amber-dark: #604218;
   --t-rose: #8E4248;
   --t-sage: #3A6A4E;
   --t-lavender: #625088;
   --t-copper: #7A5E38;
+  --t-teal: #28705E;
+  --t-violet: #625088;
+  --t-burnt: #8A5020;
+
+  --t-charcoal: #E0D6C0;
+  --t-espresso: #D4C8B0;
+  --t-walnut: #B8A888;
+  --t-linen: #261E12;
+  --t-cream: #342A1C;
+  --t-parchment: #504434;
 
   --t-border: #C4B498;
   --t-border-subtle: #CFC0A8;

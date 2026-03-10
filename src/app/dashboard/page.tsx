@@ -23,29 +23,60 @@ interface Story {
   sparkCount: number;
 }
 
-const STAT_ICONS = {
-  stories: (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" />
-    </svg>
-  ),
-  words: (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M4 4h12M4 8h10M4 12h8M4 16h12" />
-    </svg>
-  ),
-  chapters: (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M2 4l8 3 8-3v11l-8 3-8-3V4z" />
-      <path d="M10 7v11" />
-    </svg>
-  ),
-  sparks: (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M10 2l2 4.5L17 7l-3.5 3.5L14 16l-4-2.5L6 16l.5-5.5L3 7l5-.5z" />
-    </svg>
-  ),
-};
+const STAT_CONFIGS = [
+  {
+    key: "stories",
+    label: "Stories",
+    gradient: "from-amber/15 to-amber/5",
+    iconColor: "text-amber",
+    borderColor: "border-amber/10",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.3">
+        <rect x="3" y="2" width="7" height="9" rx="1.5" />
+        <rect x="12" y="2" width="7" height="9" rx="1.5" />
+        <rect x="3" y="13" width="7" height="7" rx="1.5" />
+        <rect x="12" y="13" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
+    key: "words",
+    label: "Total Words",
+    gradient: "from-teal/15 to-teal/5",
+    iconColor: "text-teal",
+    borderColor: "border-teal/10",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.3">
+        <path d="M4 5h14M4 9h11M4 13h8M4 17h13" />
+      </svg>
+    ),
+  },
+  {
+    key: "chapters",
+    label: "Chapters",
+    gradient: "from-lavender/15 to-lavender/5",
+    iconColor: "text-lavender",
+    borderColor: "border-lavender/10",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.3">
+        <path d="M2 4l9 3.5 9-3.5v13l-9 3.5-9-3.5V4z" />
+        <path d="M11 7.5v13" />
+      </svg>
+    ),
+  },
+  {
+    key: "sparks",
+    label: "Sparks",
+    gradient: "from-rose/15 to-rose/5",
+    iconColor: "text-rose",
+    borderColor: "border-rose/10",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.3">
+        <path d="M11 2l2.5 5L19 8l-4 4 .5 6-4.5-2.5L6.5 18 7 12 3 8l5.5-1z" />
+      </svg>
+    ),
+  },
+];
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -86,12 +117,12 @@ export default function DashboardPage() {
   const totalChapters = stories.reduce((sum, s) => sum + (s.chapterCount || 0), 0);
   const totalSparks = stories.reduce((sum, s) => sum + (s.sparkCount || 0), 0);
 
-  const stats = [
-    { label: "Total Stories", value: stories.length, icon: STAT_ICONS.stories },
-    { label: "Total Words", value: totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords, icon: STAT_ICONS.words },
-    { label: "Chapters", value: totalChapters, icon: STAT_ICONS.chapters },
-    { label: "Sparks", value: totalSparks, icon: STAT_ICONS.sparks },
-  ];
+  const statValues: Record<string, string | number> = {
+    stories: stories.length,
+    words: totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords,
+    chapters: totalChapters,
+    sparks: totalSparks,
+  };
 
   if (loading) {
     return (
@@ -109,28 +140,21 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-8"
+        className="flex items-center justify-between mb-10"
       >
         <div>
           <h1 className="font-display text-3xl text-paper font-semibold">
             My Stories
           </h1>
-          <p className="text-text-secondary text-[13px] mt-1">
+          <p className="text-text-secondary text-[13px] mt-1.5">
             Your writing desk — everything in one place.
           </p>
         </div>
         <Link
           href="/create"
-          className="bg-amber text-void font-medium px-5 py-2 rounded-lg hover:bg-amber/90 transition-colors text-[13px] flex items-center gap-2"
+          className="group relative bg-amber text-void font-semibold px-6 py-2.5 rounded-full hover:bg-amber-light transition-all duration-200 text-[13px] flex items-center gap-2 hover:shadow-lg hover:shadow-amber/15"
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M8 3v10M3 8h10" />
           </svg>
           New Story
@@ -138,7 +162,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {error && (
-        <div className="mb-6 px-4 py-3 bg-rose/10 border border-rose/20 rounded-lg text-rose text-[13px]">
+        <div className="mb-6 px-4 py-3 bg-rose/10 border border-rose/20 rounded-xl text-rose text-[13px]">
           {error}
         </div>
       )}
@@ -148,25 +172,26 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12"
       >
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-surface border border-border rounded-xl p-5 flex items-center gap-4"
+        {STAT_CONFIGS.map((stat, i) => (
+          <motion.div
+            key={stat.key}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 + i * 0.05 }}
+            className={`relative bg-gradient-to-br ${stat.gradient} border ${stat.borderColor} rounded-2xl p-5 overflow-hidden`}
           >
-            <div className="w-10 h-10 rounded-lg bg-amber/10 text-amber flex items-center justify-center flex-shrink-0">
+            <div className={`w-10 h-10 rounded-xl bg-void/30 ${stat.iconColor} flex items-center justify-center mb-3`}>
               {stat.icon}
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">
-                {stat.label}
-              </p>
-              <p className="text-paper text-xl font-display font-semibold mt-0.5">
-                {stat.value}
-              </p>
-            </div>
-          </div>
+            <p className="text-paper text-2xl font-display font-bold">
+              {statValues[stat.key]}
+            </p>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-text-secondary mt-1">
+              {stat.label}
+            </p>
+          </motion.div>
         ))}
       </motion.div>
 
@@ -178,7 +203,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-4 block">
+            <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-5 block">
               Your Works
             </span>
           </motion.div>
@@ -188,7 +213,7 @@ export default function DashboardPage() {
                 key={story.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 + i * 0.07 }}
+                transition={{ delay: 0.25 + i * 0.05 }}
               >
                 <StoryCard
                   title={story.title}
@@ -214,31 +239,35 @@ export default function DashboardPage() {
           transition={{ delay: 0.2 }}
           className="flex flex-col items-center justify-center text-center py-24"
         >
-          <div className="w-24 h-24 rounded-full bg-amber/5 border border-border flex items-center justify-center mb-6">
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 40 40"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              className="text-amber/50"
-            >
-              <path d="M32 5C26 10 20 16 15 22C10 28 8 33 7 36L4 37L3 34C4 30 8 22 14 15C20 8 27 5 32 5Z" />
-              <circle cx="6" cy="36" r="2" />
-              <path d="M20 10l6-4" strokeDasharray="2 2" />
-            </svg>
+          <div className="relative w-28 h-28 mb-8">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber/10 to-amber/[0.02] border border-amber/10" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg
+                width="44"
+                height="44"
+                viewBox="0 0 40 40"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                className="text-amber/40"
+              >
+                <path d="M32 5C26 10 20 16 15 22C10 28 8 33 7 36L4 37L3 34C4 30 8 22 14 15C20 8 27 5 32 5Z" />
+                <circle cx="6" cy="36" r="2" />
+                <path d="M20 10l6-4" strokeDasharray="2 2" />
+              </svg>
+            </div>
+            <div className="absolute -inset-4 bg-amber/5 rounded-full blur-2xl" />
           </div>
           <h2 className="font-display text-2xl text-paper mb-2">
             Your stories begin here
           </h2>
-          <p className="text-text-secondary text-[14px] max-w-sm mb-6 leading-relaxed">
+          <p className="text-text-secondary text-[14px] max-w-sm mb-8 leading-relaxed">
             Every great tale starts with a single word. Open a blank page and let
             the ink flow.
           </p>
           <Link
             href="/create"
-            className="bg-amber text-void font-medium px-6 py-2.5 rounded-lg hover:bg-amber/90 transition-colors text-[13px]"
+            className="bg-amber text-void font-semibold px-7 py-3 rounded-full hover:bg-amber-light transition-all duration-200 text-[14px] hover:shadow-lg hover:shadow-amber/15"
           >
             Begin Your First Story
           </Link>

@@ -16,7 +16,6 @@ export default function Navbar() {
   const isLoading = sessionStatus === "loading";
   const router = useRouter();
 
-  // Close user menu on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -42,30 +41,38 @@ export default function Navbar() {
   const initial = session?.user?.name?.charAt(0)?.toUpperCase() || "?";
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-border-subtle">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+    <nav className="fixed top-0 left-0 right-0 z-50">
+      {/* Glass background */}
+      <div className="absolute inset-0 bg-void/85 backdrop-blur-2xl border-b border-border-subtle" />
+      {/* Subtle amber glow along bottom edge */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-amber/15 to-transparent" />
+
+      <div className="relative max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-          <svg
-            className="w-6 h-6 text-amber transition-transform duration-300 group-hover:rotate-[-12deg]"
-            viewBox="0 0 32 32"
-            fill="none"
-          >
-            <path
-              d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z"
-              fill="currentColor"
-              opacity="0.85"
-            />
-            <path
-              d="M26 3C26 3 27 4 26 6C25 8 22 12 18 16"
-              stroke="currentColor"
-              strokeWidth="1"
+        <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
+          <div className="relative">
+            <svg
+              className="w-6 h-6 text-amber transition-all duration-300 group-hover:rotate-[-12deg] group-hover:scale-110"
+              viewBox="0 0 32 32"
               fill="none"
-              opacity="0.5"
-            />
-            <path d="M7 28L5 29L4 27L7 28Z" fill="currentColor" />
-            <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
-          </svg>
+            >
+              <path
+                d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z"
+                fill="currentColor"
+                opacity="0.85"
+              />
+              <path
+                d="M26 3C26 3 27 4 26 6C25 8 22 12 18 16"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="none"
+                opacity="0.5"
+              />
+              <path d="M7 28L5 29L4 27L7 28Z" fill="currentColor" />
+              <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
+            </svg>
+            <div className="absolute -inset-2 bg-amber/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          </div>
           <span className="font-display text-lg font-bold text-paper tracking-wide">
             Inkwell
           </span>
@@ -74,18 +81,18 @@ export default function Navbar() {
         {/* Center: Search */}
         <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-auto relative">
           <div
-            className={`w-full flex items-center gap-2 bg-elevated border rounded-lg px-3 py-2 transition-colors ${
-              searchFocused ? "border-amber/30" : "border-border"
+            className={`w-full flex items-center gap-2 bg-elevated/80 border rounded-xl px-3.5 py-2 transition-all duration-200 ${
+              searchFocused ? "border-amber/25 shadow-sm shadow-amber/5 bg-elevated" : "border-border"
             }`}
           >
             <svg
-              width="16"
-              height="16"
+              width="15"
+              height="15"
               viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
               strokeWidth="1.5"
-              className="text-text-ghost flex-shrink-0"
+              className={`flex-shrink-0 transition-colors ${searchFocused ? "text-amber/50" : "text-text-ghost"}`}
             >
               <circle cx="7" cy="7" r="4.5" />
               <path d="M10.5 10.5L14 14" />
@@ -103,10 +110,10 @@ export default function Navbar() {
         </form>
 
         {/* Right: Nav links + user */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-0.5">
           <Link
             href="/browse"
-            className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+            className="text-text-secondary hover:text-paper transition-all text-[13px] px-3 py-2 rounded-lg hover:bg-elevated/60"
           >
             Browse
           </Link>
@@ -116,13 +123,13 @@ export default function Navbar() {
             <>
               <Link
                 href="/create"
-                className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+                className="text-text-secondary hover:text-paper transition-all text-[13px] px-3 py-2 rounded-lg hover:bg-elevated/60"
               >
                 Create
               </Link>
               <Link
                 href="/dashboard"
-                className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+                className="text-text-secondary hover:text-paper transition-all text-[13px] px-3 py-2 rounded-lg hover:bg-elevated/60"
               >
                 My Desk
               </Link>
@@ -131,32 +138,32 @@ export default function Navbar() {
               <div className="relative ml-2" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="w-8 h-8 rounded-full bg-amber/20 border border-border hover:border-amber/30 transition-colors flex items-center justify-center text-amber text-[12px] font-medium"
+                  className="w-8 h-8 rounded-full bg-gradient-to-br from-amber/25 to-amber/10 border border-amber/15 hover:border-amber/30 transition-all duration-200 flex items-center justify-center text-amber text-[12px] font-semibold hover:shadow-sm hover:shadow-amber/10"
                 >
                   {initial}
                 </button>
                 <AnimatePresence>
                   {userMenuOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                      initial={{ opacity: 0, y: 6, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-10 w-48 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-50"
+                      exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute right-0 top-11 w-52 bg-surface/95 backdrop-blur-xl border border-border rounded-xl shadow-xl shadow-void/50 overflow-hidden z-50"
                     >
-                      <div className="px-4 py-3 border-b border-border">
+                      <div className="px-4 py-3.5 border-b border-border bg-gradient-to-r from-amber/[0.03] to-transparent">
                         <p className="text-paper text-[13px] font-medium truncate">
                           {session?.user?.name || "Writer"}
                         </p>
-                        <p className="text-text-ghost text-[11px] truncate">
+                        <p className="text-text-ghost text-[11px] truncate mt-0.5">
                           {session?.user?.email}
                         </p>
                       </div>
-                      <div className="py-1">
+                      <div className="py-1.5">
                         <Link
                           href={profileHref}
                           onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated/60 transition-colors"
                         >
                           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <circle cx="8" cy="5" r="3" />
@@ -167,7 +174,7 @@ export default function Navbar() {
                         <Link
                           href={`/profile/${session?.user?.id}/edit`}
                           onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated/60 transition-colors"
                         >
                           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <circle cx="8" cy="8" r="6" />
@@ -176,13 +183,13 @@ export default function Navbar() {
                           Edit Profile
                         </Link>
                       </div>
-                      <div className="border-t border-border py-1">
+                      <div className="border-t border-border py-1.5">
                         <button
                           onClick={() => {
                             setUserMenuOpen(false);
                             signOut({ callbackUrl: "/" });
                           }}
-                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-rose/70 hover:text-rose hover:bg-elevated transition-colors w-full"
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-rose/70 hover:text-rose hover:bg-rose/5 transition-colors w-full"
                         >
                           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M11 11l3-3-3-3M6 8h8" />
@@ -199,13 +206,13 @@ export default function Navbar() {
             <>
               <Link
                 href="/login"
-                className="text-text-secondary hover:text-paper transition-colors text-[13px] px-3 py-2 rounded-lg hover:bg-elevated"
+                className="text-text-secondary hover:text-paper transition-all text-[13px] px-3 py-2 rounded-lg hover:bg-elevated/60"
               >
                 Log in
               </Link>
               <Link
                 href="/register"
-                className="bg-amber text-void font-medium px-4 py-1.5 rounded-lg hover:bg-amber/90 transition-colors text-[13px] ml-1"
+                className="relative bg-amber text-void font-semibold px-5 py-1.5 rounded-full hover:bg-amber-light transition-all duration-200 text-[13px] ml-1.5 hover:shadow-md hover:shadow-amber/15"
               >
                 Sign up
               </Link>
@@ -239,20 +246,11 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-surface border-t border-border overflow-hidden"
+            className="relative md:hidden bg-surface/95 backdrop-blur-xl border-t border-border overflow-hidden"
           >
             <div className="px-6 py-4 flex flex-col gap-1">
-              {/* Mobile search */}
-              <form onSubmit={handleSearch} className="flex items-center gap-2 bg-elevated border border-border rounded-lg px-3 py-2.5 mb-3">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  className="text-text-ghost"
-                >
+              <form onSubmit={handleSearch} className="flex items-center gap-2 bg-elevated border border-border rounded-xl px-3 py-2.5 mb-3">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
                   <circle cx="7" cy="7" r="4.5" />
                   <path d="M10.5 10.5L14 14" />
                 </svg>
@@ -264,41 +262,22 @@ export default function Navbar() {
                   className="bg-transparent text-[13px] text-text outline-none placeholder:text-text-ghost w-full"
                 />
               </form>
-              <Link
-                href="/browse"
-                className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                onClick={() => setMobileOpen(false)}
-              >
+              <Link href="/browse" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                 Browse
               </Link>
               {session ? (
                 <>
-                  <Link
-                    href="/create"
-                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                    onClick={() => setMobileOpen(false)}
-                  >
+                  <Link href="/create" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     Create
                   </Link>
-                  <Link
-                    href="/dashboard"
-                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                    onClick={() => setMobileOpen(false)}
-                  >
+                  <Link href="/dashboard" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     My Desk
                   </Link>
-                  <Link
-                    href={profileHref}
-                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                    onClick={() => setMobileOpen(false)}
-                  >
+                  <Link href={profileHref} className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     Profile
                   </Link>
                   <button
-                    onClick={() => {
-                      setMobileOpen(false);
-                      signOut({ callbackUrl: "/" });
-                    }}
+                    onClick={() => { setMobileOpen(false); signOut({ callbackUrl: "/" }); }}
                     className="text-rose/70 hover:text-rose transition-colors text-[14px] py-2 text-left"
                   >
                     Sign out
@@ -306,18 +285,10 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <Link
-                    href="/login"
-                    className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
-                    onClick={() => setMobileOpen(false)}
-                  >
+                  <Link href="/login" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     Log in
                   </Link>
-                  <Link
-                    href="/register"
-                    className="text-amber hover:text-amber/80 transition-colors text-[14px] py-2 font-medium"
-                    onClick={() => setMobileOpen(false)}
-                  >
+                  <Link href="/register" className="text-amber hover:text-amber-light transition-colors text-[14px] py-2 font-medium" onClick={() => setMobileOpen(false)}>
                     Sign up
                   </Link>
                 </>

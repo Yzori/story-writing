@@ -86,8 +86,9 @@ export default function ProfilePage() {
   return (
     <div>
       {/* Banner / Cover */}
-      <div className="h-48 sm:h-56 bg-gradient-to-br from-amber/20 via-surface to-lavender/10 relative">
-        <div className="absolute inset-0 bg-gradient-to-t from-void to-transparent" />
+      <div className="h-48 sm:h-56 bg-gradient-to-br from-amber/20 via-surface to-lavender/10 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-amber/[0.04] blur-[100px]" />
       </div>
 
       <div className="max-w-5xl mx-auto px-6 -mt-16 relative">
@@ -98,7 +99,7 @@ export default function ProfilePage() {
           className="flex flex-col sm:flex-row items-start gap-5 mb-8"
         >
           {/* Avatar */}
-          <div className="w-24 h-24 rounded-full bg-surface border-4 border-void flex items-center justify-center text-amber text-2xl font-display font-semibold flex-shrink-0">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border-4 border-void flex items-center justify-center text-amber text-2xl font-display font-semibold flex-shrink-0 shadow-lg shadow-void/50">
             {profile.avatarUrl ? (
               <img
                 src={profile.avatarUrl}
@@ -178,7 +179,7 @@ export default function ProfilePage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="bg-surface border border-border rounded-xl p-4 text-center"
+              className="bg-surface/80 border border-border rounded-2xl p-5 text-center"
             >
               <div className="flex justify-center text-amber mb-2">
                 {stat.icon}

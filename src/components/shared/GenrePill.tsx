@@ -1,39 +1,39 @@
 "use client";
 
-const GENRE_COLORS: Record<string, { bg: string; text: string }> = {
-  Fantasy: { bg: "bg-amber/10", text: "text-amber" },
-  "Science Fiction": { bg: "bg-lavender/10", text: "text-lavender" },
-  Romance: { bg: "bg-rose/10", text: "text-rose" },
-  Mystery: { bg: "bg-lavender/10", text: "text-lavender" },
-  Thriller: { bg: "bg-rose/10", text: "text-rose" },
-  Horror: { bg: "bg-rose/15", text: "text-rose" },
-  "Literary Fiction": { bg: "bg-amber/10", text: "text-amber" },
-  "Historical Fiction": { bg: "bg-amber/10", text: "text-amber" },
-  Adventure: { bg: "bg-sage/10", text: "text-sage" },
-  "Young Adult": { bg: "bg-lavender/10", text: "text-lavender" },
-  Contemporary: { bg: "bg-sage/10", text: "text-sage" },
-  Dystopian: { bg: "bg-rose/10", text: "text-rose" },
-  "Urban Fantasy": { bg: "bg-amber/10", text: "text-amber" },
-  "Dark Fantasy": { bg: "bg-rose/10", text: "text-rose" },
-  Paranormal: { bg: "bg-lavender/10", text: "text-lavender" },
-  Crime: { bg: "bg-rose/10", text: "text-rose" },
-  Humor: { bg: "bg-sage/10", text: "text-sage" },
-  Drama: { bg: "bg-amber/10", text: "text-amber" },
-  "Slice of Life": { bg: "bg-sage/10", text: "text-sage" },
-  Action: { bg: "bg-rose/10", text: "text-rose" },
-  "Magical Realism": { bg: "bg-amber/10", text: "text-amber" },
-  Mythology: { bg: "bg-amber/10", text: "text-amber" },
-  Steampunk: { bg: "bg-amber/10", text: "text-amber" },
-  Cyberpunk: { bg: "bg-lavender/10", text: "text-lavender" },
-  Wuxia: { bg: "bg-amber/10", text: "text-amber" },
-  Isekai: { bg: "bg-lavender/10", text: "text-lavender" },
-  LitRPG: { bg: "bg-lavender/10", text: "text-lavender" },
-  Poetry: { bg: "bg-sage/10", text: "text-sage" },
-  Memoir: { bg: "bg-amber/10", text: "text-amber" },
-  Fanfiction: { bg: "bg-lavender/10", text: "text-lavender" },
+const GENRE_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
+  Fantasy: { bg: "bg-amber/12", text: "text-amber", glow: "hover:bg-amber/18" },
+  "Science Fiction": { bg: "bg-lavender/12", text: "text-lavender", glow: "hover:bg-lavender/18" },
+  Romance: { bg: "bg-rose/12", text: "text-rose", glow: "hover:bg-rose/18" },
+  Mystery: { bg: "bg-violet/12", text: "text-violet", glow: "hover:bg-violet/18" },
+  Thriller: { bg: "bg-rose/10", text: "text-rose", glow: "hover:bg-rose/16" },
+  Horror: { bg: "bg-rose/14", text: "text-rose", glow: "hover:bg-rose/20" },
+  "Literary Fiction": { bg: "bg-amber/10", text: "text-amber", glow: "hover:bg-amber/16" },
+  "Historical Fiction": { bg: "bg-copper/12", text: "text-copper", glow: "hover:bg-copper/18" },
+  Adventure: { bg: "bg-teal/12", text: "text-teal", glow: "hover:bg-teal/18" },
+  "Young Adult": { bg: "bg-lavender/12", text: "text-lavender", glow: "hover:bg-lavender/18" },
+  Contemporary: { bg: "bg-sage/12", text: "text-sage", glow: "hover:bg-sage/18" },
+  Dystopian: { bg: "bg-rose/10", text: "text-rose", glow: "hover:bg-rose/16" },
+  "Urban Fantasy": { bg: "bg-amber/10", text: "text-amber", glow: "hover:bg-amber/16" },
+  "Dark Fantasy": { bg: "bg-rose/12", text: "text-rose", glow: "hover:bg-rose/18" },
+  Paranormal: { bg: "bg-violet/12", text: "text-violet", glow: "hover:bg-violet/18" },
+  Crime: { bg: "bg-rose/10", text: "text-rose", glow: "hover:bg-rose/16" },
+  Humor: { bg: "bg-sage/12", text: "text-sage", glow: "hover:bg-sage/18" },
+  Drama: { bg: "bg-copper/12", text: "text-copper", glow: "hover:bg-copper/18" },
+  "Slice of Life": { bg: "bg-sage/10", text: "text-sage", glow: "hover:bg-sage/16" },
+  Action: { bg: "bg-burnt/12", text: "text-burnt", glow: "hover:bg-burnt/18" },
+  "Magical Realism": { bg: "bg-amber/10", text: "text-amber", glow: "hover:bg-amber/16" },
+  Mythology: { bg: "bg-amber/12", text: "text-amber", glow: "hover:bg-amber/18" },
+  Steampunk: { bg: "bg-copper/12", text: "text-copper", glow: "hover:bg-copper/18" },
+  Cyberpunk: { bg: "bg-lavender/12", text: "text-lavender", glow: "hover:bg-lavender/18" },
+  Wuxia: { bg: "bg-amber/10", text: "text-amber", glow: "hover:bg-amber/16" },
+  Isekai: { bg: "bg-lavender/10", text: "text-lavender", glow: "hover:bg-lavender/16" },
+  LitRPG: { bg: "bg-teal/12", text: "text-teal", glow: "hover:bg-teal/18" },
+  Poetry: { bg: "bg-sage/12", text: "text-sage", glow: "hover:bg-sage/18" },
+  Memoir: { bg: "bg-copper/10", text: "text-copper", glow: "hover:bg-copper/16" },
+  Fanfiction: { bg: "bg-violet/12", text: "text-violet", glow: "hover:bg-violet/18" },
 };
 
-const DEFAULT_COLOR = { bg: "bg-amber/10", text: "text-amber" };
+const DEFAULT_COLOR = { bg: "bg-amber/10", text: "text-amber", glow: "hover:bg-amber/16" };
 
 interface GenrePillProps {
   genre: string;
@@ -53,16 +53,16 @@ export default function GenrePill({
   const sizeClasses =
     size === "sm"
       ? "px-2.5 py-1 text-[11px]"
-      : "px-3 py-1.5 text-[12px]";
+      : "px-3.5 py-1.5 text-[12px]";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full font-medium transition-all ${sizeClasses} ${
+      className={`rounded-full font-medium transition-all duration-200 ${sizeClasses} ${
         selected
-          ? "bg-amber text-void"
-          : `${colors.bg} ${colors.text} hover:opacity-80`
+          ? "bg-amber text-void shadow-sm shadow-amber/20"
+          : `${colors.bg} ${colors.text} ${colors.glow}`
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       {genre}

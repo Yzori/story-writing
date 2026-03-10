@@ -59,7 +59,6 @@ function BrowsePage() {
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Debounce search input
   useEffect(() => {
     debounceTimer.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);
     return () => clearTimeout(debounceTimer.current);
@@ -92,7 +91,6 @@ function BrowsePage() {
     fetchStories();
   }, [debouncedQuery, sortBy]);
 
-  // Client-side filtering for genre and format (API doesn't support these yet)
   const filtered = stories.filter((story) => {
     if (selectedGenre && !story.genres.includes(selectedGenre)) return false;
     if (
@@ -115,15 +113,15 @@ function BrowsePage() {
           <h1 className="font-display text-3xl text-paper font-semibold">
             Discover
           </h1>
-          <p className="text-text-secondary text-[13px] mt-1">
+          <p className="text-text-secondary text-[13px] mt-1.5">
             Stories waiting to be found.
           </p>
         </div>
         <div className="w-full sm:w-72">
-          <div className="flex items-center gap-2 bg-elevated border border-border rounded-lg px-3 py-2.5 focus-within:border-amber/30 transition-colors">
+          <div className="flex items-center gap-2 bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 focus-within:border-amber/25 focus-within:shadow-sm focus-within:shadow-amber/5 transition-all">
             <svg
-              width="16"
-              height="16"
+              width="15"
+              height="15"
               viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
@@ -152,13 +150,13 @@ function BrowsePage() {
         className="mb-8"
       >
         {/* Genre pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide mb-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide mb-4">
           <button
             onClick={() => setSelectedGenre(null)}
-            className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
               selectedGenre === null
-                ? "bg-amber text-void"
-                : "bg-elevated text-text-secondary hover:text-paper"
+                ? "bg-amber text-void shadow-sm shadow-amber/20"
+                : "bg-elevated text-text-secondary hover:text-paper hover:bg-subtle"
             }`}
           >
             All Genres
@@ -182,7 +180,7 @@ function BrowsePage() {
           <select
             value={formatFilter}
             onChange={(e) => setFormatFilter(e.target.value)}
-            className="bg-elevated border border-border rounded-lg px-3 py-2 text-[13px] text-text outline-none focus:border-amber/30 transition-colors appearance-none cursor-pointer"
+            className="bg-elevated/80 border border-border rounded-xl px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 transition-all appearance-none cursor-pointer"
           >
             {FORMAT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -193,7 +191,7 @@ function BrowsePage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-elevated border border-border rounded-lg px-3 py-2 text-[13px] text-text outline-none focus:border-amber/30 transition-colors appearance-none cursor-pointer"
+            className="bg-elevated/80 border border-border rounded-xl px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 transition-all appearance-none cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -221,7 +219,7 @@ function BrowsePage() {
                 key={story.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.05 }}
+                transition={{ delay: 0.15 + i * 0.04 }}
               >
                 <StoryCard
                   title={story.title}
@@ -240,21 +238,25 @@ function BrowsePage() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 rounded-full bg-amber/5 border border-border flex items-center justify-center mb-4">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="text-amber/50"
-              >
-                <circle cx="12" cy="12" r="8" />
-                <path d="M18 18l6 6" />
-              </svg>
+            <div className="relative w-20 h-20 mb-6">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber/10 to-amber/[0.02] border border-amber/10" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 28 28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  className="text-amber/40"
+                >
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M18 18l6 6" />
+                </svg>
+              </div>
+              <div className="absolute -inset-3 bg-amber/5 rounded-full blur-xl" />
             </div>
-            <h3 className="font-display text-xl text-paper mb-1">
+            <h3 className="font-display text-xl text-paper mb-1.5">
               No stories found
             </h3>
             <p className="text-text-secondary text-[13px] max-w-sm">

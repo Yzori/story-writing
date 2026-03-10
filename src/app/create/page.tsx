@@ -215,10 +215,10 @@ export default function CreatePage() {
                 key={f.id}
                 type="button"
                 onClick={() => setFormat(f.id)}
-                className={`bg-surface border rounded-xl p-4 text-left transition-all ${
+                className={`bg-surface/80 border rounded-2xl p-4 text-left transition-all duration-200 ${
                   format === f.id
-                    ? "border-amber/40 bg-amber/5"
-                    : "border-border hover:border-border-active"
+                    ? "border-amber/30 bg-amber/8 shadow-sm shadow-amber/5"
+                    : "border-border hover:border-border-active hover:bg-surface"
                 }`}
               >
                 <div
@@ -286,7 +286,7 @@ export default function CreatePage() {
             onChange={(e) => setSynopsis(e.target.value)}
             placeholder="A brief description of your story. What will draw readers in?"
             rows={4}
-            className="w-full bg-elevated border border-border rounded-lg px-4 py-3 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors resize-none leading-relaxed"
+            className="w-full bg-elevated/80 border border-border rounded-xl px-4 py-3 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all resize-none leading-relaxed"
           />
           <p className="text-[11px] text-text-ghost mt-1.5">
             {synopsis.length}/500 characters
@@ -309,10 +309,10 @@ export default function CreatePage() {
                 key={rating.value}
                 type="button"
                 onClick={() => setContentRating(rating.value)}
-                className={`bg-surface border rounded-xl p-4 text-left transition-all ${
+                className={`bg-surface/80 border rounded-2xl p-4 text-left transition-all duration-200 ${
                   contentRating === rating.value
-                    ? "border-amber/40 bg-amber/5"
-                    : "border-border hover:border-border-active"
+                    ? "border-amber/30 bg-amber/8 shadow-sm shadow-amber/5"
+                    : "border-border hover:border-border-active hover:bg-surface"
                 }`}
               >
                 <p
@@ -363,10 +363,10 @@ export default function CreatePage() {
               const f = e.dataTransfer.files?.[0];
               if (f) handleCoverFile(f);
             }}
-            className={`border-2 border-dashed rounded-xl text-center transition-all cursor-pointer overflow-hidden ${
+            className={`border-2 border-dashed rounded-2xl text-center transition-all duration-200 cursor-pointer overflow-hidden ${
               isDragging
-                ? "border-amber/50 bg-amber/5"
-                : "border-border hover:border-border-active"
+                ? "border-amber/40 bg-amber/5 shadow-inner"
+                : "border-border hover:border-amber/20 hover:bg-surface/50"
             } ${coverPreview ? "p-0" : "p-12"}`}
           >
             {coverPreview ? (
@@ -430,7 +430,7 @@ export default function CreatePage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="bg-amber text-void font-medium px-8 py-3 rounded-lg hover:bg-amber/90 transition-colors text-[14px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-amber text-void font-semibold px-8 py-3 rounded-full hover:bg-amber-light transition-all duration-200 text-[14px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-amber/15"
           >
             {isSubmitting ? (
               <span className="w-4 h-4 border-2 border-void/30 border-t-void rounded-full animate-spin" />
