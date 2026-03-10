@@ -6,6 +6,7 @@ import { Chapter } from "@/lib/store";
 import ReaderToolbar, { ReadingMode } from "@/components/reader/ReaderToolbar";
 import ReaderPaginated from "@/components/reader/ReaderPaginated";
 import ReaderScroll from "@/components/reader/ReaderScroll";
+import ChapterComments from "@/components/reader/ChapterComments";
 
 const READER_PREFS_KEY = "inkwell-reader-prefs";
 
@@ -229,55 +230,62 @@ export default function ChapterReadPage() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-void overflow-hidden relative">
-      <ReaderToolbar
-        storyTitle={storyTitle}
-        chapter={activeChapter}
-        chapterIndex={activeChapterIndex}
-        totalChapters={chapters.length}
-        mode={mode}
-        onModeChange={handleModeChange}
-        onPrevChapter={handlePrevChapter}
-        onNextChapter={handleNextChapter}
-        onBack={handleBack}
-        onSelectChapter={navigateToChapter}
-        chapters={chapters}
-      />
+    <div className="min-h-screen w-screen flex flex-col bg-void relative">
+      <div className="h-screen w-screen flex flex-col overflow-hidden relative flex-shrink-0">
+        <ReaderToolbar
+          storyTitle={storyTitle}
+          chapter={activeChapter}
+          chapterIndex={activeChapterIndex}
+          totalChapters={chapters.length}
+          mode={mode}
+          onModeChange={handleModeChange}
+          onPrevChapter={handlePrevChapter}
+          onNextChapter={handleNextChapter}
+          onBack={handleBack}
+          onSelectChapter={navigateToChapter}
+          chapters={chapters}
+        />
 
-      {mode === "paginated" ? (
-        <ReaderPaginated
-          key={chapterId}
-          htmlContent={activeChapter.content}
-          chapterTitle={activeChapter.title}
-          hasNextChapter={activeChapterIndex < chapters.length - 1}
-          hasPrevChapter={activeChapterIndex > 0}
-          onNextChapter={handleNextChapter}
-          onPrevChapter={handlePrevChapter}
-          nextChapterTitle={
-            activeChapterIndex < chapters.length - 1
-              ? chapters[activeChapterIndex + 1].title
-              : undefined
-          }
-          authorNoteBefore={activeChapter.authorNoteBefore}
-          authorNoteAfter={activeChapter.authorNoteAfter}
-        />
-      ) : (
-        <ReaderScroll
-          key={chapterId}
-          htmlContent={activeChapter.content}
-          chapterTitle={activeChapter.title}
-          hasNextChapter={activeChapterIndex < chapters.length - 1}
-          hasPrevChapter={activeChapterIndex > 0}
-          onNextChapter={handleNextChapter}
-          onPrevChapter={handlePrevChapter}
-          nextChapterTitle={
-            activeChapterIndex < chapters.length - 1
-              ? chapters[activeChapterIndex + 1].title
-              : undefined
-          }
-          authorNoteBefore={activeChapter.authorNoteBefore}
-          authorNoteAfter={activeChapter.authorNoteAfter}
-        />
+        {mode === "paginated" ? (
+          <ReaderPaginated
+            key={chapterId}
+            htmlContent={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            authorNoteBefore={activeChapter.authorNoteBefore}
+            authorNoteAfter={activeChapter.authorNoteAfter}
+          />
+        ) : (
+          <ReaderScroll
+            key={chapterId}
+            htmlContent={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            authorNoteBefore={activeChapter.authorNoteBefore}
+            authorNoteAfter={activeChapter.authorNoteAfter}
+          />
+        )}
+      </div>
+
+      {/* Comments section below the reader */}
+      {storyId && (
+        <ChapterComments storyId={storyId} chapterId={chapterId} />
       )}
     </div>
   );

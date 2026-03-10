@@ -32,6 +32,22 @@ interface UserProfile {
   }[];
 }
 
+interface FollowedStory {
+  id: string;
+  title: string;
+  format: string;
+  synopsis: string | null;
+  coverImageUrl: string | null;
+  genres: string[];
+  contentRating: string;
+  status: string;
+  slug: string | null;
+  authorName: string | null;
+  chapterCount: number;
+  totalWords: number;
+  sparkCount: number;
+}
+
 const TABS = ["Stories", "Portfolio", "Reading"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -44,6 +60,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [followedStories, setFollowedStories] = useState<FollowedStory[]>([]);
+  const [followedLoading, setFollowedLoading] = useState(false);
+  const [followedLoaded, setFollowedLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -63,6 +82,20 @@ export default function ProfilePage() {
     }
     fetchProfile();
   }, [userId]);
+
+  // Lazy-load reading list when tab is opened (own profile only)
+  useEffect(() => {
+    if (activeTab !== "Reading" || !isOwnProfile || followedLoaded) return;
+    setFollowedLoading(true);
+    fetch(`/api/users/${userId}/following`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data?.stories) setFollowedStories(json.data.stories);
+        setFollowedLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setFollowedLoading(false));
+  }, [activeTab, isOwnProfile, userId, followedLoaded]);
 
   if (loading) {
     return (
@@ -295,29 +328,63 @@ export default function ProfilePage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-24 text-center"
           >
-            <div className="w-16 h-16 rounded-full bg-sage/10 border border-border flex items-center justify-center mb-4">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="text-sage/50"
-              >
-                <path d="M4 6l10 3 10-3v14l-10 3-10-3V6z" />
-                <path d="M14 9v14" />
-              </svg>
-            </div>
-            <h3 className="font-display text-xl text-paper mb-1">
-              Reading List Coming Soon
-            </h3>
-            <p className="text-text-secondary text-[13px] max-w-sm">
-              Saved stories, reading progress, and bookmarked chapters will
-              appear here soon.
-            </p>
+            {!isOwnProfile ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <p className="text-text-secondary text-[13px]">
+                  Reading lists are private.
+                </p>
+              </div>
+            ) : followedLoading ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="w-5 h-5 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+              </div>
+            ) : followedStories.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-16">
+                {followedStories.map((story, i) => (
+                  <motion.div
+                    key={story.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 + i * 0.05 }}
+                  >
+                    <StoryCard
+                      title={story.title}
+                      author={story.authorName || undefined}
+                      genres={story.genres}
+                      wordCount={story.totalWords || 0}
+                      chapterCount={story.chapterCount || 0}
+                      sparkCount={story.sparkCount || 0}
+                      contentRating={story.contentRating}
+                      slug={story.slug || story.id}
+                      coverUrl={story.coverImageUrl || undefined}
+                      excerpt={story.synopsis || undefined}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-16 h-16 rounded-full bg-sage/10 border border-border flex items-center justify-center mb-4">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage/50">
+                    <path d="M4 6l10 3 10-3v14l-10 3-10-3V6z" />
+                    <path d="M14 9v14" />
+                  </svg>
+                </div>
+                <h3 className="font-display text-xl text-paper mb-1">
+                  No stories followed yet
+                </h3>
+                <p className="text-text-secondary text-[13px] max-w-sm mb-5">
+                  Follow stories you love and they&apos;ll appear here.
+                </p>
+                <Link
+                  href="/browse"
+                  className="text-amber text-[13px] font-medium hover:text-amber-light transition-colors"
+                >
+                  Browse stories &rarr;
+                </Link>
+              </div>
+            )}
           </motion.div>
         )}
       </div>

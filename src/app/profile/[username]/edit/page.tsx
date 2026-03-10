@@ -84,9 +84,9 @@ export default function EditProfilePage() {
   }
 
   const inputClass =
-    "bg-elevated border border-border rounded-lg px-3 py-2.5 text-[13px] text-text outline-none focus:border-amber/30 transition-colors w-full";
+    "bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all w-full";
   const labelClass =
-    "text-[11px] uppercase tracking-[0.12em] text-text-ghost mb-2 block";
+    "text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block";
 
   return (
     <motion.div
@@ -157,14 +157,14 @@ export default function EditProfilePage() {
           <button
             type="submit"
             disabled={saving}
-            className="bg-amber text-void px-5 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="bg-amber text-void font-semibold px-6 py-2.5 rounded-full text-sm transition-all duration-200 hover:bg-amber-light hover:shadow-md hover:shadow-amber/15 disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
           <button
             type="button"
             onClick={() => router.push(`/profile/${userId}`)}
-            className="bg-surface border border-border text-paper px-5 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-elevated"
+            className="bg-surface/80 border border-border text-text-secondary px-6 py-2.5 rounded-full text-sm font-medium transition-colors hover:text-paper hover:border-border-active"
           >
             Cancel
           </button>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
 
@@ -30,6 +30,7 @@ interface StoryData {
   title: string;
   format: string;
   synopsis: string | null;
+  dedication: string | null;
   coverImageUrl: string | null;
   genres: string[];
   contentRating: string;
@@ -39,6 +40,17 @@ interface StoryData {
   updatedAt: string;
   author: Author | null;
   chapters: Chapter[];
+}
+
+interface Update {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
 }
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -72,6 +84,30 @@ function getGradient(genres: string[]): string {
   return GENRE_GRADIENTS[genres[0]] || GENRE_GRADIENTS.default;
 }
 
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 30) return new Date(dateStr).toLocaleDateString();
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return "just now";
+}
+
+type Tab = "chapters" | "about" | "updates";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "chapters", label: "Chapters" },
+  { key: "about", label: "About" },
+  { key: "updates", label: "Updates" },
+];
+
 export default function StoryPage() {
   const params = useParams();
   const { data: session } = useSession();
@@ -85,6 +121,14 @@ export default function StoryPage() {
   const [followCount, setFollowCount] = useState(0);
   const [hasFollowed, setHasFollowed] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("chapters");
+
+  // Updates state
+  const [updates, setUpdates] = useState<Update[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [updatesLoaded, setUpdatesLoaded] = useState(false);
+  const [updateContent, setUpdateContent] = useState("");
+  const [postingUpdate, setPostingUpdate] = useState(false);
 
   useEffect(() => {
     async function fetchStory() {
@@ -120,6 +164,28 @@ export default function StoryPage() {
     fetchStory();
   }, [slug]);
 
+  // Fetch updates when switching to the updates tab
+  useEffect(() => {
+    if (activeTab !== "updates" || !story || updatesLoaded) return;
+
+    async function fetchUpdates() {
+      setUpdatesLoading(true);
+      try {
+        const res = await fetch(`/api/stories/${story!.id}/updates`);
+        if (res.ok) {
+          const json = await res.json();
+          setUpdates(json.data || []);
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setUpdatesLoading(false);
+        setUpdatesLoaded(true);
+      }
+    }
+    fetchUpdates();
+  }, [activeTab, story, updatesLoaded]);
+
   const handleFollow = async () => {
     if (!story || followLoading || !session?.user) return;
     setFollowLoading(true);
@@ -147,6 +213,27 @@ export default function StoryPage() {
       }
     } catch {} finally {
       setSparkLoading(false);
+    }
+  };
+
+  const handlePostUpdate = async () => {
+    if (!story || postingUpdate || !updateContent.trim()) return;
+    setPostingUpdate(true);
+    try {
+      const res = await fetch(`/api/stories/${story.id}/updates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: updateContent.trim() }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setUpdates((prev) => [json.data, ...prev]);
+        setUpdateContent("");
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setPostingUpdate(false);
     }
   };
 
@@ -183,6 +270,7 @@ export default function StoryPage() {
 
   const totalWords = story.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
   const publishedChapters = story.chapters.filter((ch) => ch.status === "published");
+  const isOwner = session?.user?.id === story.userId;
 
   return (
     <div>
@@ -315,7 +403,7 @@ export default function StoryPage() {
             </button>
 
             {/* Edit for owner */}
-            {session?.user?.id === story.userId && (
+            {isOwner && (
               <Link
                 href={`/write/${story.id}`}
                 className="flex items-center gap-2 px-5 py-2.5 bg-surface border border-border text-paper text-[13px] font-medium rounded-full hover:border-amber/25 transition-all"
@@ -329,70 +417,307 @@ export default function StoryPage() {
           </div>
         </motion.div>
 
-        {/* Chapters */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-16">
-          <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-5 block">
-            Chapters
-          </span>
-
-          {story.chapters.length > 0 ? (
-            <div className="space-y-2">
-              {story.chapters.map((chapter, i) => (
+        {/* Tab Bar */}
+        <div className="flex items-center gap-1 border-b border-border mb-6">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`relative px-4 py-3 text-[13px] font-medium transition-colors ${
+                activeTab === t.key
+                  ? "text-amber"
+                  : "text-text-secondary hover:text-text"
+              }`}
+            >
+              {t.label}
+              {activeTab === t.key && (
                 <motion.div
-                  key={chapter.id}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.03 }}
-                >
-                  {chapter.status === "published" ? (
-                    <Link href={`/story/${slug}/read/${chapter.id}`} className="block">
-                      <div className="bg-surface/80 border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-amber/15 hover:bg-surface transition-all duration-200 group cursor-pointer">
-                        <div className="flex items-center gap-4">
-                          <span className="text-text-ghost text-[12px] font-mono w-7 text-right tabular-nums">
-                            {String(i + 1).padStart(2, "0")}
-                          </span>
-                          <div>
-                            <h3 className="text-paper text-[14px] font-medium group-hover:text-amber transition-colors">
-                              {chapter.title}
-                            </h3>
-                            <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
-                              {chapter.wordCount > 0 && <span>{chapter.wordCount.toLocaleString()} words</span>}
-                              <span className="text-sage/80">Published</span>
+                  layoutId="story-tab-indicator"
+                  className="absolute bottom-0 left-2 right-2 h-[2px] bg-amber rounded-full"
+                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {activeTab === "chapters" && (
+            <motion.div
+              key="chapters"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="mb-16"
+            >
+              {/* Reading time estimate */}
+              {totalWords > 0 && (
+                <div className="flex items-center gap-2 mb-5 text-[12px] text-text-tertiary">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
+                    <circle cx="8" cy="8" r="6" />
+                    <path d="M8 5v3l2 1.5" />
+                  </svg>
+                  ~{Math.ceil(totalWords / 250)} min read
+                </div>
+              )}
+
+              {story.chapters.length > 0 ? (
+                <div className="space-y-2">
+                  {story.chapters.map((chapter, i) => (
+                    <motion.div
+                      key={chapter.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 + i * 0.03 }}
+                    >
+                      {chapter.status === "published" ? (
+                        <Link href={`/story/${slug}/read/${chapter.id}`} className="block">
+                          <div className="bg-surface/80 border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-amber/15 hover:bg-surface transition-all duration-200 group cursor-pointer">
+                            <div className="flex items-center gap-4">
+                              <span className="text-text-ghost text-[12px] font-mono w-7 text-right tabular-nums">
+                                {String(i + 1).padStart(2, "0")}
+                              </span>
+                              <div>
+                                <h3 className="text-paper text-[14px] font-medium group-hover:text-amber transition-colors">
+                                  {chapter.title}
+                                </h3>
+                                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
+                                  {chapter.wordCount > 0 && <span>{chapter.wordCount.toLocaleString()} words</span>}
+                                  <span className="text-sage/80">Published</span>
+                                </div>
+                              </div>
+                            </div>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost group-hover:text-amber group-hover:translate-x-0.5 transition-all">
+                              <path d="M6 3l5 5-5 5" />
+                            </svg>
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="bg-surface/40 border border-border-subtle rounded-xl px-5 py-4 flex items-center justify-between opacity-50">
+                          <div className="flex items-center gap-4">
+                            <span className="text-text-ghost text-[12px] font-mono w-7 text-right tabular-nums">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <div>
+                              <h3 className="text-paper text-[14px] font-medium">{chapter.title}</h3>
+                              <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
+                                {chapter.wordCount > 0 && <span>{chapter.wordCount.toLocaleString()} words</span>}
+                                <span className="text-text-ghost">Draft</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost group-hover:text-amber group-hover:translate-x-0.5 transition-all">
-                          <path d="M6 3l5 5-5 5" />
-                        </svg>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-surface/60 border border-border rounded-2xl p-14 text-center">
+                  <p className="text-text-secondary text-[13px]">
+                    No chapters yet. The story is just beginning.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === "about" && (
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="mb-16 space-y-8"
+            >
+              {/* Synopsis */}
+              {story.synopsis && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3 block">
+                    Synopsis
+                  </span>
+                  <p className="text-text-secondary text-[14px] leading-relaxed font-reading max-w-2xl">
+                    {story.synopsis}
+                  </p>
+                </div>
+              )}
+
+              {/* Dedication */}
+              {story.dedication && (
+                <div className="bg-surface/60 border border-border-subtle rounded-xl p-6">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3 block">
+                    Dedication
+                  </span>
+                  <p className="text-text-secondary text-[14px] leading-relaxed font-reading italic">
+                    {story.dedication}
+                  </p>
+                </div>
+              )}
+
+              {/* Story Details */}
+              <div>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-4 block">
+                  Story Details
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-surface/60 border border-border-subtle rounded-xl p-4">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-1">Format</p>
+                    <p className="text-paper text-[13px] font-medium">
+                      {FORMAT_LABELS[story.format] || story.format}
+                    </p>
+                  </div>
+                  <div className="bg-surface/60 border border-border-subtle rounded-xl p-4">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-1">Language</p>
+                    <p className="text-paper text-[13px] font-medium">English</p>
+                  </div>
+                  <div className="bg-surface/60 border border-border-subtle rounded-xl p-4">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-1">Content Rating</p>
+                    <p className="text-paper text-[13px] font-medium">
+                      {RATING_LABELS[story.contentRating] || story.contentRating}
+                    </p>
+                  </div>
+                  <div className="bg-surface/60 border border-border-subtle rounded-xl p-4">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-1">Created</p>
+                    <p className="text-paper text-[13px] font-medium">
+                      {new Date(story.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Author Bio */}
+              {story.author && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-4 block">
+                    About the Author
+                  </span>
+                  <div className="bg-surface/60 border border-border-subtle rounded-xl p-5">
+                    <Link href={`/profile/${story.author.id}`} className="flex items-start gap-4 group">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
+                        {story.author.avatarUrl ? (
+                          <img src={story.author.avatarUrl} alt={story.author.displayName || ""} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          (story.author.displayName || "?").charAt(0)
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-paper text-[14px] font-medium group-hover:text-amber transition-colors">
+                          {story.author.displayName}
+                        </p>
+                        {story.author.bio ? (
+                          <p className="text-text-secondary text-[13px] leading-relaxed mt-1 line-clamp-3">
+                            {story.author.bio}
+                          </p>
+                        ) : (
+                          <p className="text-text-ghost text-[13px] mt-1 italic">
+                            No bio yet.
+                          </p>
+                        )}
+                        <span className="inline-block mt-2 text-amber text-[12px] group-hover:underline">
+                          View profile
+                        </span>
                       </div>
                     </Link>
-                  ) : (
-                    <div className="bg-surface/40 border border-border-subtle rounded-xl px-5 py-4 flex items-center justify-between opacity-50">
-                      <div className="flex items-center gap-4">
-                        <span className="text-text-ghost text-[12px] font-mono w-7 text-right tabular-nums">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <div>
-                          <h3 className="text-paper text-[14px] font-medium">{chapter.title}</h3>
-                          <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-tertiary">
-                            {chapter.wordCount > 0 && <span>{chapter.wordCount.toLocaleString()} words</span>}
-                            <span className="text-text-ghost">Draft</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-surface/60 border border-border rounded-2xl p-14 text-center">
-              <p className="text-text-secondary text-[13px]">
-                No chapters yet. The story is just beginning.
-              </p>
-            </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
-        </motion.div>
+
+          {activeTab === "updates" && (
+            <motion.div
+              key="updates"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="mb-16"
+            >
+              {/* Post Update form (owner only) */}
+              {isOwner && (
+                <div className="bg-surface/60 border border-border-subtle rounded-xl p-5 mb-6">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3 block">
+                    Post an Update
+                  </span>
+                  <textarea
+                    value={updateContent}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 1000) setUpdateContent(e.target.value);
+                    }}
+                    placeholder="Share an update with your readers..."
+                    rows={3}
+                    className="w-full bg-ink border border-border rounded-xl px-4 py-3 text-text text-[13px] font-reading placeholder:text-text-ghost resize-none focus:outline-none focus:border-amber/30 transition-colors"
+                  />
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-[11px] text-text-ghost">
+                      {updateContent.length}/1000
+                    </span>
+                    <button
+                      onClick={handlePostUpdate}
+                      disabled={postingUpdate || !updateContent.trim()}
+                      className="px-4 py-2 bg-amber text-void font-semibold text-[12px] rounded-full hover:bg-amber-light transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {postingUpdate ? "Posting..." : "Post Update"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Updates feed */}
+              {updatesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-5 h-5 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+                </div>
+              ) : updates.length > 0 ? (
+                <div className="space-y-4">
+                  {updates.map((update) => (
+                    <div
+                      key={update.id}
+                      className="bg-surface/60 border border-border-subtle rounded-xl p-5"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[11px] font-display font-semibold flex-shrink-0 overflow-hidden">
+                          {update.author.avatarUrl ? (
+                            <img src={update.author.avatarUrl} alt={update.author.displayName || ""} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            (update.author.displayName || "?").charAt(0)
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-paper text-[13px] font-medium">
+                            {update.author.displayName}
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-text-ghost flex-shrink-0">
+                          {relativeTime(update.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-text-secondary text-[13px] leading-relaxed font-reading whitespace-pre-wrap">
+                        {update.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-surface/60 border border-border rounded-2xl p-14 text-center">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost mx-auto mb-3">
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                  <p className="text-text-secondary text-[13px]">
+                    No updates yet
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

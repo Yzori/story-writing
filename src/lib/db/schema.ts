@@ -88,6 +88,8 @@ export const storiesRelations = relations(stories, ({ one, many }) => ({
   writingSessions: many(writingSessions),
   sparks: many(sparks),
   follows: many(follows),
+  comments: many(comments),
+  creatorUpdates: many(creatorUpdates),
 }));
 
 // ── Chapters ─────────────────────────────────────────────────
@@ -265,3 +267,73 @@ export const followsRelations = relations(follows, ({ one }) => ({
   user: one(users, { fields: [follows.userId], references: [users.id] }),
   story: one(stories, { fields: [follows.storyId], references: [stories.id] }),
 }));
+
+// ── Comments ──────────────────────────────────────────────────
+
+export const comments = pgTable("comments", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  chapterId: uuid("chapter_id")
+    .notNull()
+    .references(() => chapters.id, { onDelete: "cascade" }),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  parentId: uuid("parent_id"),
+  content: text("content").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  user: one(users, { fields: [comments.userId], references: [users.id] }),
+  chapter: one(chapters, {
+    fields: [comments.chapterId],
+    references: [chapters.id],
+  }),
+  story: one(stories, {
+    fields: [comments.storyId],
+    references: [stories.id],
+  }),
+}));
+
+// ── Creator Updates ─────────────────────────────────────────
+
+export const creatorUpdates = pgTable("creator_updates", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const creatorUpdatesRelations = relations(
+  creatorUpdates,
+  ({ one }) => ({
+    story: one(stories, {
+      fields: [creatorUpdates.storyId],
+      references: [stories.id],
+    }),
+    user: one(users, {
+      fields: [creatorUpdates.userId],
+      references: [users.id],
+    }),
+  })
+);

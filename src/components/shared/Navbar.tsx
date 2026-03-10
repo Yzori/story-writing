@@ -182,6 +182,17 @@ export default function Navbar() {
                           </svg>
                           Edit Profile
                         </Link>
+                        <Link
+                          href="/settings"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-elevated/60 transition-colors"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <circle cx="8" cy="8" r="2.5" />
+                            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" />
+                          </svg>
+                          Settings
+                        </Link>
                       </div>
                       <div className="border-t border-border py-1.5">
                         <button
@@ -275,6 +286,9 @@ export default function Navbar() {
                   </Link>
                   <Link href={profileHref} className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     Profile
+                  </Link>
+                  <Link href="/settings" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
+                    Settings
                   </Link>
                   <button
                     onClick={() => { setMobileOpen(false); signOut({ callbackUrl: "/" }); }}

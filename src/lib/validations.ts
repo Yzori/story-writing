@@ -97,3 +97,16 @@ export const updateBibleEntrySchema = z.object({
   details: z.string().max(50000).optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
+
+// ── Comments ────────────────────────────────────────────────
+
+export const createCommentSchema = z.object({
+  content: z.string().min(1, "Comment cannot be empty").max(2000),
+  parentId: z.string().uuid().optional(),
+});
+
+// ── Creator Updates ─────────────────────────────────────────
+
+export const createUpdateSchema = z.object({
+  content: z.string().min(1, "Update cannot be empty").max(1000),
+});
