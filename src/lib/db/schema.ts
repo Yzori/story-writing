@@ -38,6 +38,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   stories: many(stories),
   writingSessions: many(writingSessions),
   sparks: many(sparks),
+  follows: many(follows),
 }));
 
 // ── Stories ──────────────────────────────────────────────────
@@ -86,6 +87,7 @@ export const storiesRelations = relations(stories, ({ one, many }) => ({
   bibleEntries: many(bibleEntries),
   writingSessions: many(writingSessions),
   sparks: many(sparks),
+  follows: many(follows),
 }));
 
 // ── Chapters ─────────────────────────────────────────────────
@@ -236,4 +238,30 @@ export const sparks = pgTable(
 export const sparksRelations = relations(sparks, ({ one }) => ({
   user: one(users, { fields: [sparks.userId], references: [users.id] }),
   story: one(stories, { fields: [sparks.storyId], references: [stories.id] }),
+}));
+
+// ── Follows ─────────────────────────────────────────────────
+
+export const follows = pgTable(
+  "follows",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [unique("follows_user_story_unique").on(table.userId, table.storyId)]
+);
+
+export const followsRelations = relations(follows, ({ one }) => ({
+  user: one(users, { fields: [follows.userId], references: [users.id] }),
+  story: one(stories, { fields: [follows.storyId], references: [stories.id] }),
 }));

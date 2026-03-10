@@ -21,10 +21,14 @@ interface UserProfile {
     synopsis: string | null;
     coverImageUrl: string | null;
     genres: string[];
+    contentRating: string;
     status: string;
     slug: string | null;
     createdAt: string;
     updatedAt: string;
+    chapterCount: number;
+    totalWords: number;
+    sparkCount: number;
   }[];
 }
 
@@ -233,11 +237,14 @@ export default function ProfilePage() {
                       title={story.title}
                       author={displayName}
                       genres={story.genres}
-                      wordCount={0}
-                      chapterCount={0}
+                      wordCount={story.totalWords || 0}
+                      chapterCount={story.chapterCount || 0}
+                      sparkCount={story.sparkCount || 0}
+                      contentRating={story.contentRating}
                       status={story.status as "draft" | "in-progress" | "complete"}
                       slug={story.slug || story.id}
                       coverUrl={story.coverImageUrl || undefined}
+                      excerpt={story.synopsis || undefined}
                     />
                   </motion.div>
                 ))}

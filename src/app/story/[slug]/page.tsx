@@ -81,6 +81,9 @@ export default function StoryPage() {
   const [sparkCount, setSparkCount] = useState(0);
   const [hasSparked, setHasSparked] = useState(false);
   const [sparkLoading, setSparkLoading] = useState(false);
+  const [followCount, setFollowCount] = useState(0);
+  const [hasFollowed, setHasFollowed] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
     async function fetchStory() {
@@ -93,12 +96,20 @@ export default function StoryPage() {
         }
         setStory(json.data);
 
-        // Fetch spark data
-        const sparkRes = await fetch(`/api/stories/${json.data.id}/sparks`);
+        // Fetch spark and follow data in parallel
+        const [sparkRes, followRes] = await Promise.all([
+          fetch(`/api/stories/${json.data.id}/sparks`),
+          fetch(`/api/stories/${json.data.id}/follows`),
+        ]);
         if (sparkRes.ok) {
           const sparkJson = await sparkRes.json();
           setSparkCount(sparkJson.data.count);
           setHasSparked(sparkJson.data.hasSparked);
+        }
+        if (followRes.ok) {
+          const followJson = await followRes.json();
+          setFollowCount(followJson.data.count);
+          setHasFollowed(followJson.data.hasFollowed);
         }
       } catch {
         setError("Failed to load story");
@@ -108,6 +119,24 @@ export default function StoryPage() {
     }
     fetchStory();
   }, [slug]);
+
+  const handleFollow = async () => {
+    if (!story || followLoading) return;
+    if (!session?.user) return;
+    setFollowLoading(true);
+    try {
+      const res = await fetch(`/api/stories/${story.id}/follows`, { method: "POST" });
+      if (res.ok) {
+        const json = await res.json();
+        setFollowCount(json.data.count);
+        setHasFollowed(json.data.followed);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   const handleSpark = async () => {
     if (!story || sparkLoading) return;
@@ -283,6 +312,31 @@ export default function StoryPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Follow button */}
+              <button
+                onClick={handleFollow}
+                disabled={followLoading || !session?.user}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium transition-all ${
+                  hasFollowed
+                    ? "bg-sage/10 border-sage/30 text-sage"
+                    : "bg-surface border-border text-text-secondary hover:border-sage/30 hover:text-sage"
+                } ${!session?.user ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                title={!session?.user ? "Sign in to follow" : hasFollowed ? "Unfollow" : "Follow this story"}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill={hasFollowed ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M4 2v12l4-3 4 3V2H4z" />
+                </svg>
+                {hasFollowed ? "Following" : "Follow"}
+                {followCount > 0 && <span className="text-[11px] opacity-70">{followCount}</span>}
+              </button>
+
               {/* Spark button */}
               <button
                 onClick={handleSpark}

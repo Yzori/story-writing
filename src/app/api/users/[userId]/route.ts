@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, stories } from "@/lib/db/schema";
-import { eq, and, isNull, desc, sql } from "drizzle-orm";
+import { users, stories, chapters, sparks as sparksTable } from "@/lib/db/schema";
+import { eq, and, isNull, desc, sql, count as countFn } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ userId: string }> };
 
@@ -44,6 +44,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       storyConditions.push(eq(stories.isPublic, true));
     }
 
+    const chapterStats = db
+      .select({
+        storyId: chapters.storyId,
+        chapterCount: sql<number>`count(*)`.as("chapter_count"),
+        totalWords: sql<number>`coalesce(sum(${chapters.wordCount}), 0)`.as("total_words"),
+      })
+      .from(chapters)
+      .where(isNull(chapters.deletedAt))
+      .groupBy(chapters.storyId)
+      .as("chapter_stats");
+
+    const sparkStats = db
+      .select({
+        storyId: sparksTable.storyId,
+        sparkCount: sql<number>`count(*)`.as("spark_count"),
+      })
+      .from(sparksTable)
+      .groupBy(sparksTable.storyId)
+      .as("spark_stats");
+
     const userStories = await db
       .select({
         id: stories.id,
@@ -58,8 +78,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         slug: stories.slug,
         createdAt: stories.createdAt,
         updatedAt: stories.updatedAt,
+        chapterCount: sql<number>`coalesce(${chapterStats.chapterCount}, 0)`,
+        totalWords: sql<number>`coalesce(${chapterStats.totalWords}, 0)`,
+        sparkCount: sql<number>`coalesce(${sparkStats.sparkCount}, 0)`,
       })
       .from(stories)
+      .leftJoin(chapterStats, eq(stories.id, chapterStats.storyId))
+      .leftJoin(sparkStats, eq(stories.id, sparkStats.storyId))
       .where(and(...storyConditions))
       .orderBy(desc(stories.createdAt));
 
