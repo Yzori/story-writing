@@ -210,37 +210,51 @@ export default function CreatePage() {
             Format
           </span>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {FORMATS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFormat(f.id)}
-                className={`bg-surface/80 border rounded-2xl p-4 text-left transition-all duration-200 ${
-                  format === f.id
-                    ? "border-amber/30 bg-amber/8 shadow-sm shadow-amber/5"
-                    : "border-border hover:border-border-active hover:bg-surface"
-                }`}
-              >
-                <div
-                  className={`mb-2 ${
-                    format === f.id ? "text-amber" : "text-text-tertiary"
+            {FORMATS.map((f) => {
+              const isBeta = f.id !== "prose";
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFormat(f.id)}
+                  className={`bg-surface/80 border rounded-2xl p-4 text-left transition-all duration-200 relative ${
+                    format === f.id
+                      ? "border-amber/30 bg-amber/8 shadow-sm shadow-amber/5"
+                      : "border-border hover:border-border-active hover:bg-surface"
                   }`}
                 >
-                  {f.icon}
-                </div>
-                <p
-                  className={`text-[13px] font-medium mb-0.5 ${
-                    format === f.id ? "text-paper" : "text-text"
-                  }`}
-                >
-                  {f.label}
-                </p>
-                <p className="text-[11px] text-text-tertiary leading-snug">
-                  {f.description}
-                </p>
-              </button>
-            ))}
+                  {isBeta && (
+                    <span className="absolute top-2 right-2 text-[9px] uppercase tracking-wider text-lavender/70 bg-lavender/10 px-1.5 py-0.5 rounded-full">
+                      Soon
+                    </span>
+                  )}
+                  <div
+                    className={`mb-2 ${
+                      format === f.id ? "text-amber" : "text-text-tertiary"
+                    }`}
+                  >
+                    {f.icon}
+                  </div>
+                  <p
+                    className={`text-[13px] font-medium mb-0.5 ${
+                      format === f.id ? "text-paper" : "text-text"
+                    }`}
+                  >
+                    {f.label}
+                  </p>
+                  <p className="text-[11px] text-text-tertiary leading-snug">
+                    {f.description}
+                  </p>
+                </button>
+              );
+            })}
           </div>
+          {format !== "prose" && (
+            <p className="text-[11px] text-lavender/70 mt-2">
+              The {FORMATS.find((f) => f.id === format)?.label} editor is coming soon.
+              Your story will be created with the prose editor for now.
+            </p>
+          )}
         </motion.div>
 
         {/* Genre multi-select */}

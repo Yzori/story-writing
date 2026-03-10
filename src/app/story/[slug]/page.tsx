@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
+import ReportModal from "@/components/shared/ReportModal";
 
 interface Chapter {
   id: string;
@@ -129,6 +130,7 @@ export default function StoryPage() {
   const [updatesLoaded, setUpdatesLoaded] = useState(false);
   const [updateContent, setUpdateContent] = useState("");
   const [postingUpdate, setPostingUpdate] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     async function fetchStory() {
@@ -413,6 +415,16 @@ export default function StoryPage() {
                 </svg>
                 Edit Story
               </Link>
+            )}
+
+            {/* Report */}
+            {!isOwner && session?.user && (
+              <button
+                onClick={() => setShowReport(true)}
+                className="text-text-ghost hover:text-rose text-[12px] transition-colors ml-1"
+              >
+                Report
+              </button>
             )}
           </div>
         </motion.div>
@@ -719,6 +731,13 @@ export default function StoryPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReport}
+        onClose={() => setShowReport(false)}
+        storyId={story.id}
+      />
     </div>
   );
 }

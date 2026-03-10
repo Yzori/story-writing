@@ -110,3 +110,12 @@ export const createCommentSchema = z.object({
 export const createUpdateSchema = z.object({
   content: z.string().min(1, "Update cannot be empty").max(1000),
 });
+
+// ── Flags (content reports) ─────────────────────────────────
+
+export const createFlagSchema = z.object({
+  reason: z.enum(["misrated", "harmful", "spam"]),
+  details: z.string().max(1000).optional(),
+  storyId: z.string().uuid().optional(),
+  commentId: z.string().uuid().optional(),
+});

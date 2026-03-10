@@ -134,8 +134,20 @@ export default function Navbar() {
                 My Desk
               </Link>
 
+              {/* Notifications */}
+              <Link
+                href="/notifications"
+                className="relative p-2 rounded-lg text-text-ghost hover:text-paper hover:bg-elevated/60 transition-all"
+                aria-label="Notifications"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M4 6a4 4 0 018 0c0 4 2 5 2 5H2s2-1 2-5z" />
+                  <path d="M6.5 13a1.5 1.5 0 003 0" />
+                </svg>
+              </Link>
+
               {/* User menu */}
-              <div className="relative ml-2" ref={userMenuRef}>
+              <div className="relative ml-1" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="w-8 h-8 rounded-full bg-gradient-to-br from-amber/25 to-amber/10 border border-amber/15 hover:border-amber/30 transition-all duration-200 flex items-center justify-center text-amber text-[12px] font-semibold hover:shadow-sm hover:shadow-amber/10"

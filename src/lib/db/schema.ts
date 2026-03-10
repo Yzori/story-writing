@@ -337,3 +337,35 @@ export const creatorUpdatesRelations = relations(
     }),
   })
 );
+
+// ── Flags (content reports) ─────────────────────────────────
+
+export const flags = pgTable("flags", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  storyId: uuid("story_id").references(() => stories.id, {
+    onDelete: "cascade",
+  }),
+  commentId: uuid("comment_id").references(() => comments.id, {
+    onDelete: "cascade",
+  }),
+  reason: text("reason").notNull(), // 'misrated' | 'harmful' | 'spam'
+  details: text("details"),
+  status: text("status").notNull().default("pending"), // 'pending' | 'reviewed' | 'dismissed'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const flagsRelations = relations(flags, ({ one }) => ({
+  user: one(users, { fields: [flags.userId], references: [users.id] }),
+  story: one(stories, { fields: [flags.storyId], references: [stories.id] }),
+  comment: one(comments, {
+    fields: [flags.commentId],
+    references: [comments.id],
+  }),
+}));
