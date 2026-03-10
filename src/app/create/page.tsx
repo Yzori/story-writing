@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import { GENRES, CONTENT_RATINGS } from "@/lib/genres";
 import GenrePill from "@/components/shared/GenrePill";
 
-// TODO: Connect to API (POST /api/stories) on submit
-
 const FORMATS = [
   {
     id: "prose",
@@ -106,8 +104,10 @@ export default function CreatePage() {
   const [format, setFormat] = useState("prose");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [synopsis, setSynopsis] = useState("");
-  const [contentRating, setContentRating] = useState("G");
+  const [contentRating, setContentRating] = useState("everyone");
   const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres((prev) =>
@@ -115,10 +115,37 @@ export default function CreatePage() {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: POST to /api/stories with { title, format, genres, synopsis, contentRating }
-    router.push("/write");
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/stories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          format,
+          genres: selectedGenres,
+          synopsis: synopsis || undefined,
+          contentRating,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error?.message || "Failed to create story");
+        return;
+      }
+
+      router.push(`/story/${json.data.slug}`);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -149,6 +176,16 @@ export default function CreatePage() {
           />
           <div className="w-16 h-px bg-amber/30 mx-auto mt-4" />
         </div>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 px-4 py-3 bg-rose/10 border border-rose/20 rounded-lg text-rose text-[13px]"
+          >
+            {error}
+          </motion.div>
+        )}
 
         {/* Format selector */}
         <motion.div
@@ -339,19 +376,24 @@ export default function CreatePage() {
         >
           <button
             type="submit"
-            className="bg-amber text-void font-medium px-8 py-3 rounded-lg hover:bg-amber/90 transition-colors text-[14px] flex items-center gap-2"
+            disabled={isSubmitting}
+            className="bg-amber text-void font-medium px-8 py-3 rounded-lg hover:bg-amber/90 transition-colors text-[14px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M13 3L6 14l-3-4" />
-            </svg>
-            Create Story
+            {isSubmitting ? (
+              <span className="w-4 h-4 border-2 border-void/30 border-t-void rounded-full animate-spin" />
+            ) : (
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path d="M13 3L6 14l-3-4" />
+              </svg>
+            )}
+            {isSubmitting ? "Creating..." : "Create Story"}
           </button>
         </motion.div>
       </motion.form>

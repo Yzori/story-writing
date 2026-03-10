@@ -1,71 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import StoryCard from "@/components/shared/StoryCard";
 
-// TODO: Replace with API call (GET /api/users/:username)
-const MOCK_PROFILE = {
-  displayName: "Amara Voss",
-  username: "amara-voss",
-  bio: "Weaver of worlds, keeper of impossible lanterns. Writing fantasy and adventure from a rain-soaked cottage in the Pacific Northwest. Always searching for the next door that shouldn't be there.",
-  role: "Author",
-  avatarUrl: null,
-  stats: {
-    stories: 4,
-    wordsWritten: "134.6k",
-    sparksReceived: 1344,
-  },
-  stories: [
-    {
-      title: "The Lantern Keeper's Daughter",
-      genres: ["Fantasy", "Adventure"],
-      wordCount: 42300,
-      chapterCount: 12,
-      sparkCount: 284,
-      status: "in-progress" as const,
-      slug: "lantern-keepers-daughter",
-      lastEdited: "2 hours ago",
-    },
-    {
-      title: "Letters Never Sent",
-      genres: ["Romance", "Literary Fiction"],
-      wordCount: 65200,
-      chapterCount: 22,
-      sparkCount: 891,
-      status: "complete" as const,
-      slug: "letters-never-sent",
-      lastEdited: "3 days ago",
-    },
-    {
-      title: "The Cartographer's Error",
-      genres: ["Historical Fiction", "Mystery"],
-      wordCount: 8400,
-      chapterCount: 3,
-      sparkCount: 42,
-      status: "draft" as const,
-      slug: "cartographers-error",
-      lastEdited: "1 week ago",
-    },
-    {
-      title: "Neon Requiem",
-      genres: ["Cyberpunk", "Thriller"],
-      wordCount: 18700,
-      chapterCount: 6,
-      sparkCount: 127,
-      status: "in-progress" as const,
-      slug: "neon-requiem",
-      lastEdited: "Yesterday",
-    },
-  ],
-};
+interface UserProfile {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  role: string;
+  createdAt: string;
+  stories: {
+    id: string;
+    title: string;
+    format: string;
+    synopsis: string | null;
+    coverImageUrl: string | null;
+    genres: string[];
+    status: string;
+    slug: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }[];
+}
 
 const TABS = ["Stories", "Portfolio", "Reading"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ProfilePage() {
+  const params = useParams();
+  const userId = params.username as string;
   const [activeTab, setActiveTab] = useState<Tab>("Stories");
-  const profile = MOCK_PROFILE;
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const res = await fetch(`/api/users/${userId}`);
+        const json = await res.json();
+        if (!res.ok) {
+          setError(json.error?.message || "User not found");
+          return;
+        }
+        setProfile(json.data);
+      } catch {
+        setError("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProfile();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-6 h-6 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+        <h2 className="font-display text-2xl text-paper mb-2">User not found</h2>
+        <p className="text-text-secondary text-[13px]">{error}</p>
+      </div>
+    );
+  }
+
+  const displayName = profile.displayName || "Anonymous";
 
   return (
     <div>
@@ -86,26 +94,28 @@ export default function ProfilePage() {
             {profile.avatarUrl ? (
               <img
                 src={profile.avatarUrl}
-                alt={profile.displayName}
+                alt={displayName}
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              profile.displayName.charAt(0)
+              displayName.charAt(0)
             )}
           </div>
 
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-1">
               <h1 className="font-display text-2xl text-paper font-semibold">
-                {profile.displayName}
+                {displayName}
               </h1>
-              <span className="px-2.5 py-1 rounded-full bg-amber/10 text-amber text-[11px] font-medium">
+              <span className="px-2.5 py-1 rounded-full bg-amber/10 text-amber text-[11px] font-medium capitalize">
                 {profile.role}
               </span>
             </div>
-            <p className="text-text-secondary text-[13px] leading-relaxed max-w-xl">
-              {profile.bio}
-            </p>
+            {profile.bio && (
+              <p className="text-text-secondary text-[13px] leading-relaxed max-w-xl">
+                {profile.bio}
+              </p>
+            )}
           </div>
         </motion.div>
 
@@ -119,49 +129,29 @@ export default function ProfilePage() {
           {[
             {
               label: "Stories",
-              value: profile.stats.stories,
+              value: profile.stories.length,
               icon: (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M2 4l8 3 8-3v11l-8 3-8-3V4z" />
                   <path d="M10 7v11" />
                 </svg>
               ),
             },
             {
-              label: "Words Written",
-              value: profile.stats.wordsWritten,
+              label: "Member Since",
+              value: new Date(profile.createdAt).getFullYear(),
               icon: (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <path d="M4 4h12M4 8h10M4 12h8M4 16h12" />
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="10" cy="10" r="8" />
+                  <path d="M10 6v4l3 2" />
                 </svg>
               ),
             },
             {
-              label: "Sparks Received",
-              value: profile.stats.sparksReceived.toLocaleString(),
+              label: "Role",
+              value: profile.role.charAt(0).toUpperCase() + profile.role.slice(1),
               icon: (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M10 2l2 4.5L17 7l-3.5 3.5L14 16l-4-2.5L6 16l.5-5.5L3 7l5-.5z" />
                 </svg>
               ),
@@ -215,21 +205,35 @@ export default function ProfilePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-16">
-              {profile.stories.map((story, i) => (
-                <motion.div
-                  key={story.slug}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 + i * 0.07 }}
-                >
-                  <StoryCard
-                    {...story}
-                    author={profile.displayName}
-                  />
-                </motion.div>
-              ))}
-            </div>
+            {profile.stories.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-16">
+                {profile.stories.map((story, i) => (
+                  <motion.div
+                    key={story.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 + i * 0.07 }}
+                  >
+                    <StoryCard
+                      title={story.title}
+                      author={displayName}
+                      genres={story.genres}
+                      wordCount={0}
+                      chapterCount={0}
+                      status={story.status as "draft" | "in-progress" | "complete"}
+                      slug={story.slug || story.id}
+                      coverUrl={story.coverImageUrl || undefined}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <p className="text-text-secondary text-[13px]">
+                  No stories yet.
+                </p>
+              </div>
+            )}
           </motion.div>
         )}
 

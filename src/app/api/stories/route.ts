@@ -1,32 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { stories, chapters } from "@/lib/db/schema";
-import { eq, isNull, desc, lt, and, sql } from "drizzle-orm";
+import { stories, users, sparks } from "@/lib/db/schema";
+import { eq, isNull, desc, lt, and, sql, count } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 /**
  * GET /api/stories
- * List stories with optional userId filter and cursor-based pagination.
- * Query params: userId, cursor (story id), limit (default 20)
+ * List stories with optional filters and cursor-based pagination.
+ * Query params: mine (boolean), public (boolean), cursor, limit, search
  */
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const mine = searchParams.get("mine") === "true";
+    const isPublic = searchParams.get("public") === "true";
     const cursor = searchParams.get("cursor");
+    const search = searchParams.get("search");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
 
     const conditions = [isNull(stories.deletedAt)];
 
-    if (userId) {
-      conditions.push(eq(stories.userId, userId));
+    if (mine) {
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+          { status: 401 }
+        );
+      }
+      conditions.push(eq(stories.userId, session.user.id));
+    }
+
+    if (isPublic) {
+      conditions.push(eq(stories.isPublic, true));
+    }
+
+    if (search) {
+      conditions.push(sql`${stories.title} ILIKE ${'%' + search + '%'}`);
     }
 
     if (cursor) {
-      // Cursor is the createdAt timestamp of the last item from the previous page
       const cursorStory = await db.query.stories.findFirst({
         where: eq(stories.id, cursor),
       });
@@ -35,25 +50,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Join with users to get author name
     const results = await db
       .select({
         id: stories.id,
         userId: stories.userId,
         title: stories.title,
+        format: stories.format,
         synopsis: stories.synopsis,
         coverImageUrl: stories.coverImageUrl,
         genres: stories.genres,
         contentRating: stories.contentRating,
         status: stories.status,
-        dedication: stories.dedication,
-        language: stories.language,
         isPublic: stories.isPublic,
         slug: stories.slug,
         publishedAt: stories.publishedAt,
         createdAt: stories.createdAt,
         updatedAt: stories.updatedAt,
+        authorName: users.displayName,
+        authorImage: users.avatarUrl,
       })
       .from(stories)
+      .leftJoin(users, eq(stories.userId, users.id))
       .where(and(...conditions))
       .orderBy(desc(stories.createdAt))
       .limit(limit + 1);
@@ -80,10 +98,18 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/stories
- * Create a new story. Title is required.
+ * Create a new story. Requires authentication.
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const parsed = createStorySchema.safeParse(body);
 
@@ -103,21 +129,12 @@ export async function POST(request: NextRequest) {
     const { title, ...rest } = parsed.data;
     const slug = generateSlug(title);
 
-    // TODO: Get userId from auth session
-    const userId = body.userId;
-    if (!userId) {
-      return NextResponse.json(
-        { error: { code: "BAD_REQUEST", message: "userId is required" } },
-        { status: 400 }
-      );
-    }
-
     const [story] = await db
       .insert(stories)
       .values({
         title,
         slug,
-        userId,
+        userId: session.user.id,
         ...rest,
       })
       .returning();

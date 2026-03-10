@@ -1,131 +1,72 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { GENRES } from "@/lib/genres";
 import StoryCard from "@/components/shared/StoryCard";
 import GenrePill from "@/components/shared/GenrePill";
 
-// TODO: Replace mock data with API call (e.g., GET /api/stories/browse)
-const STAFF_PICKS = [
-  {
-    title: "The Lantern Keeper's Daughter",
-    author: "Amara Voss",
-    genres: ["Fantasy", "Adventure"],
-    wordCount: 42300,
-    chapterCount: 12,
-    sparkCount: 284,
-    slug: "lantern-keepers-daughter",
-    excerpt:
-      "In a city lit only by enchanted lanterns, Mira discovers her father's secret workshop — and the creature bound inside the oldest flame.",
-  },
-  {
-    title: "Neon Requiem",
-    author: "Jin Tanaka",
-    genres: ["Cyberpunk", "Thriller"],
-    wordCount: 18700,
-    chapterCount: 6,
-    sparkCount: 127,
-    slug: "neon-requiem",
-    excerpt:
-      "When the last analog musician in Neo-Osaka is found dead, a synth-detective must decode a melody that could unravel the city's digital soul.",
-  },
-  {
-    title: "Letters Never Sent",
-    author: "Elara Moon",
-    genres: ["Romance", "Literary Fiction"],
-    wordCount: 65200,
-    chapterCount: 22,
-    sparkCount: 891,
-    slug: "letters-never-sent",
-    excerpt:
-      "A box of unsent letters spans thirty years, two continents, and one love story that refuses to end quietly.",
-  },
-  {
-    title: "Beneath the Iron Bloom",
-    author: "Rowan Thatch",
-    genres: ["Steampunk", "Mystery"],
-    wordCount: 31500,
-    chapterCount: 9,
-    sparkCount: 203,
-    slug: "beneath-iron-bloom",
-    excerpt:
-      "In a Victorian city powered by living metal flowers, a botanist-detective uncovers a conspiracy rooted deeper than the oldest ironwood.",
-  },
-];
-
-const JUST_PUBLISHED = [
-  {
-    title: "The Cartographer's Error",
-    author: "Felix Okonkwo",
-    genres: ["Historical Fiction", "Mystery"],
-    wordCount: 8400,
-    chapterCount: 3,
-    sparkCount: 42,
-    slug: "cartographers-error",
-    status: "in-progress" as const,
-  },
-  {
-    title: "Wisteria House",
-    author: "Sable Whitmore",
-    genres: ["Horror", "Contemporary"],
-    wordCount: 22100,
-    chapterCount: 8,
-    sparkCount: 156,
-    slug: "wisteria-house",
-    status: "complete" as const,
-  },
-  {
-    title: "Song of the Star Eaters",
-    author: "Kira Delacroix",
-    genres: ["Science Fiction", "Action"],
-    wordCount: 55800,
-    chapterCount: 18,
-    sparkCount: 412,
-    slug: "star-eaters",
-    status: "in-progress" as const,
-  },
-  {
-    title: "The Jade Disciple",
-    author: "Wei Chen",
-    genres: ["Wuxia", "Fantasy"],
-    wordCount: 91200,
-    chapterCount: 30,
-    sparkCount: 678,
-    slug: "jade-disciple",
-    status: "complete" as const,
-  },
-  {
-    title: "Moth Light",
-    author: "Cass Reeves",
-    genres: ["Magical Realism", "Drama"],
-    wordCount: 14300,
-    chapterCount: 5,
-    sparkCount: 89,
-    slug: "moth-light",
-    status: "in-progress" as const,
-  },
-  {
-    title: "Rust & Reverie",
-    author: "Nikolai Brandt",
-    genres: ["Dystopian", "Romance"],
-    wordCount: 38700,
-    chapterCount: 14,
-    sparkCount: 321,
-    slug: "rust-reverie",
-    status: "complete" as const,
-  },
-];
+interface Story {
+  id: string;
+  title: string;
+  format: string;
+  synopsis: string | null;
+  coverImageUrl: string | null;
+  genres: string[];
+  status: string;
+  slug: string | null;
+  createdAt: string;
+  updatedAt: string;
+  authorName: string | null;
+}
 
 const SORT_OPTIONS = ["Latest", "Most Sparked", "Most Read", "Rising"];
-const FORMAT_OPTIONS = ["All Formats", "Prose", "Webtoon", "Poetry", "Screenplay"];
+const FORMAT_OPTIONS = [
+  "All Formats",
+  "Prose",
+  "Webtoon",
+  "Poetry",
+  "Screenplay",
+];
 
 export default function BrowsePage() {
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("Latest");
   const [formatFilter, setFormatFilter] = useState("All Formats");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStories() {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ public: "true", limit: "30" });
+        if (searchQuery) params.set("search", searchQuery);
+        const res = await fetch(`/api/stories?${params}`);
+        const json = await res.json();
+        if (res.ok) {
+          setStories(json.data.stories);
+        }
+      } catch {
+        // silently fail for browse
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStories();
+  }, [searchQuery]);
+
+  // Client-side filtering for genre and format (API doesn't support these yet)
+  const filtered = stories.filter((story) => {
+    if (selectedGenre && !story.genres.includes(selectedGenre)) return false;
+    if (
+      formatFilter !== "All Formats" &&
+      story.format !== formatFilter.toLowerCase()
+    )
+      return false;
+    return true;
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
@@ -159,7 +100,7 @@ export default function BrowsePage() {
             </svg>
             <input
               type="text"
-              placeholder="Search by title or author..."
+              placeholder="Search by title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-[13px] text-text outline-none placeholder:text-text-ghost w-full"
@@ -175,7 +116,7 @@ export default function BrowsePage() {
         transition={{ delay: 0.05 }}
         className="mb-8"
       >
-        {/* Genre pills - horizontal scroll */}
+        {/* Genre pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide mb-3">
           <button
             onClick={() => setSelectedGenre(null)}
@@ -228,64 +169,64 @@ export default function BrowsePage() {
         </div>
       </motion.div>
 
-      {/* Staff Picks */}
+      {/* Stories */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="mb-12"
       >
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost block">
-            Staff Picks
-          </span>
-          <button className="text-text-secondary hover:text-paper transition-colors text-[13px]">
-            View All
-          </button>
-        </div>
-        <div
-          ref={scrollRef}
-          className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide"
-        >
-          {STAFF_PICKS.map((story, i) => (
-            <motion.div
-              key={story.slug}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 + i * 0.07 }}
-            >
-              <StoryCard {...story} variant="featured" />
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Just Published */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost block">
-            Just Published
-          </span>
-          <button className="text-text-secondary hover:text-paper transition-colors text-[13px]">
-            View All
-          </button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {JUST_PUBLISHED.map((story, i) => (
-            <motion.div
-              key={story.slug}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 + i * 0.07 }}
-            >
-              <StoryCard {...story} />
-            </motion.div>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-6 h-6 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+          </div>
+        ) : filtered.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((story, i) => (
+              <motion.div
+                key={story.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 + i * 0.05 }}
+              >
+                <StoryCard
+                  title={story.title}
+                  author={story.authorName || undefined}
+                  genres={story.genres}
+                  wordCount={0}
+                  chapterCount={0}
+                  slug={story.slug || story.id}
+                  coverUrl={story.coverImageUrl || undefined}
+                  excerpt={story.synopsis || undefined}
+                />
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-full bg-amber/5 border border-border flex items-center justify-center mb-4">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 28 28"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className="text-amber/50"
+              >
+                <circle cx="12" cy="12" r="8" />
+                <path d="M18 18l6 6" />
+              </svg>
+            </div>
+            <h3 className="font-display text-xl text-paper mb-1">
+              No stories found
+            </h3>
+            <p className="text-text-secondary text-[13px] max-w-sm">
+              {searchQuery
+                ? "Try a different search term or clear your filters."
+                : "No published stories yet. Be the first to share your work!"}
+            </p>
+          </div>
+        )}
       </motion.div>
     </div>
   );

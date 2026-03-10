@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { stories, chapters, bibleEntries } from "@/lib/db/schema";
+import { stories, chapters, bibleEntries, users } from "@/lib/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { updateStorySchema } from "@/lib/validations";
-
-// TODO: Add auth checks — the auth agent handles that
+import { auth } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
 /**
  * GET /api/stories/[storyId]
- * Get a single story with chapters (without content) and bible entries.
+ * Get a single story with chapters (without content), bible entries, and author info.
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -26,6 +25,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { status: 404 }
       );
     }
+
+    // Get author info
+    const [author] = await db
+      .select({
+        id: users.id,
+        displayName: users.displayName,
+        name: users.name,
+        avatarUrl: users.avatarUrl,
+        bio: users.bio,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, story.userId))
+      .limit(1);
 
     const storyChapters = await db
       .select({
@@ -54,6 +67,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       data: {
         ...story,
+        author: author
+          ? {
+              id: author.id,
+              displayName: author.displayName ?? author.name,
+              avatarUrl: author.avatarUrl,
+              bio: author.bio,
+              role: author.role,
+            }
+          : null,
         chapters: storyChapters,
         bibleEntries: storyBibleEntries,
       },
@@ -69,10 +91,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * PATCH /api/stories/[storyId]
- * Update story fields.
+ * Update story fields. Requires ownership.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId } = await params;
     const body = await request.json();
     const parsed = updateStorySchema.safeParse(body);
@@ -101,6 +131,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    if (existing.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
+      );
+    }
+
     const [updated] = await db
       .update(stories)
       .set({
@@ -122,10 +159,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/stories/[storyId]
- * Soft delete — sets deleted_at timestamp.
+ * Soft delete. Requires ownership.
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId } = await params;
 
     const existing = await db.query.stories.findFirst({
@@ -136,6 +181,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
+      );
+    }
+
+    if (existing.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { status: 403 }
       );
     }
 

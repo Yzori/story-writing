@@ -64,7 +64,7 @@ export default function StoryCard({
 
   if (variant === "featured") {
     return (
-      <Link href={`/write`}>
+      <Link href={`/story/${slug}`}>
         <motion.div
           whileHover={{ scale: 1.02 }}
           className="bg-surface border border-border rounded-xl overflow-hidden hover:border-border-active transition-colors min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group"
@@ -138,7 +138,7 @@ export default function StoryCard({
   }
 
   return (
-    <Link href={`/write`}>
+    <Link href={`/story/${slug}`}>
       <motion.div
         whileHover={{ scale: 1.02 }}
         className="bg-surface border border-border rounded-xl overflow-hidden hover:border-border-active transition-all cursor-pointer group"

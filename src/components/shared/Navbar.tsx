@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const { data: session } = useSession();
+
+  const profileHref = session?.user?.id
+    ? `/profile/${session.user.id}`
+    : "/login";
+  const initial = session?.user?.name?.charAt(0)?.toUpperCase() || "?";
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-border-subtle">
@@ -105,10 +112,10 @@ export default function Navbar() {
 
           {/* Avatar */}
           <Link
-            href="/profile/inkwell-writer"
+            href={profileHref}
             className="ml-1 w-8 h-8 rounded-full bg-amber/20 border border-border hover:border-amber/30 transition-colors flex items-center justify-center text-amber text-[12px] font-medium"
           >
-            A
+            {initial}
           </Link>
         </div>
 
@@ -183,7 +190,7 @@ export default function Navbar() {
                 My Desk
               </Link>
               <Link
-                href="/profile/inkwell-writer"
+                href={profileHref}
                 className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2"
                 onClick={() => setMobileOpen(false)}
               >

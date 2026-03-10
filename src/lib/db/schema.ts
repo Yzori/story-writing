@@ -50,6 +50,7 @@ export const stories = pgTable("stories", {
     .notNull()
     .references(() => users.id),
   title: text("title").notNull(),
+  format: text("format").notNull().default("prose"),
   synopsis: text("synopsis").default(""),
   coverImageUrl: text("cover_image_url"),
   genres: text("genres")
