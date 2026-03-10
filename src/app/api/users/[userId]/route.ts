@@ -14,6 +14,8 @@ type RouteParams = { params: Promise<{ userId: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { userId } = await params;
+    const session = await auth();
+    const isOwnProfile = session?.user?.id === userId;
 
     const [user] = await db
       .select({
@@ -37,6 +39,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const storyConditions = [eq(stories.userId, userId), isNull(stories.deletedAt)];
+    if (!isOwnProfile) {
+      storyConditions.push(eq(stories.isPublic, true));
+    }
+
     const userStories = await db
       .select({
         id: stories.id,
@@ -53,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         updatedAt: stories.updatedAt,
       })
       .from(stories)
-      .where(and(eq(stories.userId, userId), isNull(stories.deletedAt)))
+      .where(and(...storyConditions))
       .orderBy(desc(stories.createdAt));
 
     return NextResponse.json({

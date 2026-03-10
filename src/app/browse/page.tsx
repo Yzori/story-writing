@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { GENRES } from "@/lib/genres";
@@ -56,13 +56,21 @@ function BrowsePage() {
   const [formatFilter, setFormatFilter] = useState("All Formats");
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Debounce search input
+  useEffect(() => {
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(debounceTimer.current);
+  }, [searchQuery]);
 
   useEffect(() => {
     async function fetchStories() {
       setLoading(true);
       try {
         const params = new URLSearchParams({ public: "true", limit: "30" });
-        if (searchQuery) params.set("search", searchQuery);
+        if (debouncedQuery) params.set("search", debouncedQuery);
         const res = await fetch(`/api/stories?${params}`);
         const json = await res.json();
         if (res.ok) {
@@ -75,7 +83,7 @@ function BrowsePage() {
       }
     }
     fetchStories();
-  }, [searchQuery]);
+  }, [debouncedQuery]);
 
   // Client-side filtering for genre and format (API doesn't support these yet)
   const filtered = stories.filter((story) => {

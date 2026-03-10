@@ -138,12 +138,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Set publishedAt when first published
+    const setData: Record<string, unknown> = {
+      ...parsed.data,
+      updatedAt: new Date(),
+    };
+    if (parsed.data.isPublic === true && !existing.publishedAt) {
+      setData.publishedAt = new Date();
+    }
+
     const [updated] = await db
       .update(stories)
-      .set({
-        ...parsed.data,
-        updatedAt: new Date(),
-      })
+      .set(setData)
       .where(eq(stories.id, storyId))
       .returning();
 
