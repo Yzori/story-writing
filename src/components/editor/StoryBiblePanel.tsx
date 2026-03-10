@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   StoryBible,
   StoryCharacter,
   StoryPlace,
   StoryNote,
-  createCharacter,
-  createPlace,
-  createNote,
 } from "@/lib/store";
 import { compressImage } from "@/lib/images";
 
@@ -18,18 +15,45 @@ type NoteCategory = "all" | "lore" | "timeline" | "research" | "custom";
 
 interface StoryBiblePanelProps {
   bible: StoryBible;
+  storyId: string;
   onUpdate: (bible: StoryBible) => void;
   onClose: () => void;
 }
 
+// Encode extra fields into JSON details column
+function encodeCharacterDetails(char: Partial<StoryCharacter>) {
+  return JSON.stringify({
+    aliases: char.aliases ?? [],
+    color: char.color ?? "#D4A574",
+    tags: char.tags ?? [],
+    imageDataUrl: char.imageDataUrl ?? null,
+  });
+}
+
+function encodePlaceDetails(place: Partial<StoryPlace>) {
+  return JSON.stringify({
+    tags: place.tags ?? [],
+    imageDataUrl: place.imageDataUrl ?? null,
+  });
+}
+
+function encodeNoteDetails(note: Partial<StoryNote>) {
+  return JSON.stringify({
+    category: note.category ?? "custom",
+    tags: note.tags ?? [],
+  });
+}
+
 export default function StoryBiblePanel({
   bible,
+  storyId,
   onUpdate,
   onClose,
 }: StoryBiblePanelProps) {
   const [tab, setTab] = useState<BibleTab>("characters");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteFilter, setNoteFilter] = useState<NoteCategory>("all");
+  const patchTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const tabs: { key: BibleTab; label: string; count: number }[] = [
     { key: "characters", label: "Characters", count: bible.characters.length },
@@ -37,73 +61,182 @@ export default function StoryBiblePanel({
     { key: "notes", label: "Notes", count: bible.notes.length },
   ];
 
-  const handleAddCharacter = () => {
-    const char = createCharacter();
-    onUpdate({ ...bible, characters: [...bible.characters, char] });
-    setEditingId(char.id);
+  // Debounced PATCH to API
+  const debouncedPatch = useCallback(
+    (entryId: string, body: Record<string, unknown>) => {
+      const existing = patchTimers.current.get(entryId);
+      if (existing) clearTimeout(existing);
+      patchTimers.current.set(
+        entryId,
+        setTimeout(() => {
+          fetch(`/api/stories/${storyId}/bible/${entryId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }).catch(() => {});
+          patchTimers.current.delete(entryId);
+        }, 800)
+      );
+    },
+    [storyId]
+  );
+
+  // ── Character handlers ────────────────────────────────────
+  const handleAddCharacter = async () => {
+    try {
+      const res = await fetch(`/api/stories/${storyId}/bible`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "character",
+          name: "New Character",
+          description: "",
+          details: encodeCharacterDetails({}),
+        }),
+      });
+      if (res.ok) {
+        const { data } = await res.json();
+        const char: StoryCharacter = {
+          id: data.id,
+          name: data.name,
+          aliases: [],
+          description: "",
+          imageDataUrl: null,
+          color: "#D4A574",
+          tags: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        onUpdate({ ...bible, characters: [...bible.characters, char] });
+        setEditingId(char.id);
+      }
+    } catch {}
   };
 
   const handleUpdateCharacter = (id: string, updates: Partial<StoryCharacter>) => {
-    onUpdate({
-      ...bible,
-      characters: bible.characters.map((c) =>
-        c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c
-      ),
-    });
+    const updated = bible.characters.map((c) =>
+      c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c
+    );
+    onUpdate({ ...bible, characters: updated });
+
+    const full = updated.find((c) => c.id === id);
+    if (full) {
+      debouncedPatch(id, {
+        name: full.name,
+        description: full.description,
+        details: encodeCharacterDetails(full),
+      });
+    }
   };
 
   const handleDeleteCharacter = (id: string) => {
-    onUpdate({
-      ...bible,
-      characters: bible.characters.filter((c) => c.id !== id),
-    });
+    onUpdate({ ...bible, characters: bible.characters.filter((c) => c.id !== id) });
     if (editingId === id) setEditingId(null);
+    fetch(`/api/stories/${storyId}/bible/${id}`, { method: "DELETE" }).catch(() => {});
   };
 
-  const handleAddPlace = () => {
-    const place = createPlace();
-    onUpdate({ ...bible, places: [...bible.places, place] });
-    setEditingId(place.id);
+  // ── Place handlers ────────────────────────────────────────
+  const handleAddPlace = async () => {
+    try {
+      const res = await fetch(`/api/stories/${storyId}/bible`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "place",
+          name: "New Place",
+          description: "",
+          details: encodePlaceDetails({}),
+        }),
+      });
+      if (res.ok) {
+        const { data } = await res.json();
+        const place: StoryPlace = {
+          id: data.id,
+          name: data.name,
+          description: "",
+          imageDataUrl: null,
+          tags: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        onUpdate({ ...bible, places: [...bible.places, place] });
+        setEditingId(place.id);
+      }
+    } catch {}
   };
 
   const handleUpdatePlace = (id: string, updates: Partial<StoryPlace>) => {
-    onUpdate({
-      ...bible,
-      places: bible.places.map((p) =>
-        p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
-      ),
-    });
+    const updated = bible.places.map((p) =>
+      p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
+    );
+    onUpdate({ ...bible, places: updated });
+
+    const full = updated.find((p) => p.id === id);
+    if (full) {
+      debouncedPatch(id, {
+        name: full.name,
+        description: full.description,
+        details: encodePlaceDetails(full),
+      });
+    }
   };
 
   const handleDeletePlace = (id: string) => {
-    onUpdate({
-      ...bible,
-      places: bible.places.filter((p) => p.id !== id),
-    });
+    onUpdate({ ...bible, places: bible.places.filter((p) => p.id !== id) });
     if (editingId === id) setEditingId(null);
+    fetch(`/api/stories/${storyId}/bible/${id}`, { method: "DELETE" }).catch(() => {});
   };
 
-  const handleAddNote = () => {
-    const note = createNote();
-    onUpdate({ ...bible, notes: [...bible.notes, note] });
-    setEditingId(note.id);
+  // ── Note handlers ─────────────────────────────────────────
+  const handleAddNote = async () => {
+    try {
+      const res = await fetch(`/api/stories/${storyId}/bible`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "note",
+          name: "New Note",
+          description: "",
+          details: encodeNoteDetails({}),
+        }),
+      });
+      if (res.ok) {
+        const { data } = await res.json();
+        const note: StoryNote = {
+          id: data.id,
+          title: data.name,
+          content: "",
+          category: "custom",
+          tags: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        onUpdate({ ...bible, notes: [...bible.notes, note] });
+        setEditingId(note.id);
+      }
+    } catch {}
   };
 
   const handleUpdateNote = (id: string, updates: Partial<StoryNote>) => {
-    onUpdate({
-      ...bible,
-      notes: bible.notes.map((n) =>
-        n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
-      ),
-    });
+    const updated = bible.notes.map((n) =>
+      n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
+    );
+    onUpdate({ ...bible, notes: updated });
+
+    const full = updated.find((n) => n.id === id);
+    if (full) {
+      debouncedPatch(id, {
+        name: full.title,
+        description: full.content,
+        details: encodeNoteDetails(full),
+      });
+    }
   };
 
   const handleDeleteNote = (id: string) => {
-    onUpdate({
-      ...bible,
-      notes: bible.notes.filter((n) => n.id !== id),
-    });
+    onUpdate({ ...bible, notes: bible.notes.filter((n) => n.id !== id) });
     if (editingId === id) setEditingId(null);
+    fetch(`/api/stories/${storyId}/bible/${id}`, { method: "DELETE" }).catch(() => {});
   };
 
   const filteredNotes =

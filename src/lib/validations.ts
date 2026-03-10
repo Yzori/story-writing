@@ -6,7 +6,7 @@ export const createStorySchema = z.object({
   title: z.string().min(1, "Title is required").max(500),
   format: z.enum(["prose", "webtoon", "poetry", "illustrated", "screenplay"]).optional(),
   synopsis: z.string().max(5000).optional(),
-  coverImageUrl: z.string().url().optional(),
+  coverImageUrl: z.string().optional(),
   genres: z.array(z.string()).optional(),
   contentRating: z.string().optional(),
   status: z.string().optional(),

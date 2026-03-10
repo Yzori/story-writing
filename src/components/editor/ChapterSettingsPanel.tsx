@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chapter, ChapterSnapshot, createSnapshot } from "@/lib/store";
+import { Chapter, ChapterSnapshot } from "@/lib/store";
 
 interface ChapterSettingsPanelProps {
   chapter: Chapter;
+  storyId: string;
   onUpdate: (updates: Partial<Chapter>) => void;
   onRestoreSnapshot: (snapshot: ChapterSnapshot) => void;
   onClose: () => void;
@@ -13,6 +14,7 @@ interface ChapterSettingsPanelProps {
 
 export default function ChapterSettingsPanel({
   chapter,
+  storyId,
   onUpdate,
   onRestoreSnapshot,
   onClose,
@@ -20,17 +22,34 @@ export default function ChapterSettingsPanel({
   const [activeTab, setActiveTab] = useState<"settings" | "notes" | "history">("settings");
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveSnapshot = () => {
-    const snapshot = createSnapshot(
-      chapter.content,
-      chapter.wordCount,
-      snapshotLabel || undefined
-    );
-    onUpdate({
-      snapshots: [...chapter.snapshots, snapshot],
-    });
-    setSnapshotLabel("");
+  const handleSaveSnapshot = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/stories/${storyId}/chapters/${chapter.id}/snapshots`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: snapshotLabel || `Snapshot ${chapter.snapshots.length + 1}` }),
+        }
+      );
+      if (res.ok) {
+        const { data } = await res.json();
+        const snapshot: ChapterSnapshot = {
+          id: data.id,
+          content: data.content,
+          wordCount: data.wordCount,
+          createdAt: new Date(data.createdAt).getTime(),
+          label: data.label || "",
+        };
+        onUpdate({ snapshots: [...chapter.snapshots, snapshot] });
+        setSnapshotLabel("");
+      }
+    } catch {} finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteSnapshot = (id: string) => {
@@ -209,9 +228,10 @@ export default function ChapterSettingsPanel({
                   />
                   <button
                     onClick={handleSaveSnapshot}
-                    className="px-3 py-2 rounded-lg bg-amber/15 text-amber text-[12px] hover:bg-amber/25 transition-colors shrink-0"
+                    disabled={saving}
+                    className="px-3 py-2 rounded-lg bg-amber/15 text-amber text-[12px] hover:bg-amber/25 transition-colors shrink-0 disabled:opacity-50"
                   >
-                    Save
+                    {saving ? "Saving..." : "Save"}
                   </button>
                 </div>
                 <p className="text-[10px] text-text-ghost mt-1.5">

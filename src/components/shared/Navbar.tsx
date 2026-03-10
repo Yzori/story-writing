@@ -12,7 +12,8 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+  const isLoading = sessionStatus === "loading";
   const router = useRouter();
 
   // Close user menu on outside click
@@ -109,7 +110,9 @@ export default function Navbar() {
           >
             Browse
           </Link>
-          {session ? (
+          {isLoading ? (
+            <div className="w-8 h-8 rounded-full bg-elevated border border-border animate-pulse" />
+          ) : session ? (
             <>
               <Link
                 href="/create"

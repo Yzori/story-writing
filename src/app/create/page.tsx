@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { GENRES, CONTENT_RATINGS } from "@/lib/genres";
 import GenrePill from "@/components/shared/GenrePill";
+import { compressImage } from "@/lib/images";
 
 const FORMATS = [
   {
@@ -106,8 +107,18 @@ export default function CreatePage() {
   const [synopsis, setSynopsis] = useState("");
   const [contentRating, setContentRating] = useState("everyone");
   const [isDragging, setIsDragging] = useState(false);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    try {
+      const dataUrl = await compressImage(file, 900, 0.8);
+      setCoverPreview(dataUrl);
+    } catch {}
+  };
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres((prev) =>
@@ -130,6 +141,7 @@ export default function CreatePage() {
           genres: selectedGenres,
           synopsis: synopsis || undefined,
           contentRating,
+          coverImageUrl: coverPreview || undefined,
         }),
       });
 
@@ -328,7 +340,18 @@ export default function CreatePage() {
           <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
             Cover Image
           </span>
+          <input
+            type="file"
+            ref={coverInputRef}
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleCoverFile(f);
+            }}
+          />
           <div
+            onClick={() => coverInputRef.current?.click()}
             onDragOver={(e) => {
               e.preventDefault();
               setIsDragging(true);
@@ -337,33 +360,63 @@ export default function CreatePage() {
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              // TODO: Handle file upload
+              const f = e.dataTransfer.files?.[0];
+              if (f) handleCoverFile(f);
             }}
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer ${
+            className={`border-2 border-dashed rounded-xl text-center transition-all cursor-pointer overflow-hidden ${
               isDragging
                 ? "border-amber/50 bg-amber/5"
                 : "border-border hover:border-border-active"
-            }`}
+            } ${coverPreview ? "p-0" : "p-12"}`}
           >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 32 32"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="mx-auto text-text-ghost mb-3"
-            >
-              <rect x="4" y="4" width="24" height="24" rx="3" />
-              <circle cx="12" cy="12" r="2.5" />
-              <path d="M4 22l7-7 5 5 3-3 9 9" />
-            </svg>
-            <p className="text-text-secondary text-[13px] mb-1">
-              Drag and drop your cover image here
-            </p>
-            <p className="text-text-ghost text-[11px]">
-              PNG, JPG, or WebP. Recommended 600 x 900px.
-            </p>
+            {coverPreview ? (
+              <div className="relative group">
+                <img
+                  src={coverPreview}
+                  alt="Cover preview"
+                  className="w-full max-h-64 object-contain"
+                />
+                <div className="absolute inset-0 bg-void/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <p className="text-paper text-[13px] font-medium">
+                    Click to change
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCoverPreview(null);
+                  }}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-void/80 text-paper flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose/80"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 3l6 6M9 3l-6 6" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <>
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="mx-auto text-text-ghost mb-3"
+                >
+                  <rect x="4" y="4" width="24" height="24" rx="3" />
+                  <circle cx="12" cy="12" r="2.5" />
+                  <path d="M4 22l7-7 5 5 3-3 9 9" />
+                </svg>
+                <p className="text-text-secondary text-[13px] mb-1">
+                  Drag and drop your cover image here
+                </p>
+                <p className="text-text-ghost text-[11px]">
+                  PNG, JPG, or WebP. Recommended 600 x 900px.
+                </p>
+              </>
+            )}
           </div>
         </motion.div>
 

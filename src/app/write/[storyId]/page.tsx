@@ -947,6 +947,7 @@ export default function WriteStoryPage() {
           {rightPanel === "bible" && !isZenMode && (
             <StoryBiblePanel
               bible={project.bible}
+              storyId={storyId}
               onUpdate={handleUpdateBible}
               onClose={() => setRightPanel("none")}
             />
@@ -963,6 +964,7 @@ export default function WriteStoryPage() {
           {rightPanel === "chapter" && !isZenMode && activeChapter && (
             <ChapterSettingsPanel
               chapter={activeChapter}
+              storyId={storyId}
               onUpdate={handleUpdateChapterFields}
               onRestoreSnapshot={handleRestoreSnapshot}
               onClose={() => setRightPanel("none")}
