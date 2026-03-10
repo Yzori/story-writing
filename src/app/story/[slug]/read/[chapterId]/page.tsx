@@ -258,6 +258,8 @@ export default function ChapterReadPage() {
               ? chapters[activeChapterIndex + 1].title
               : undefined
           }
+          authorNoteBefore={activeChapter.authorNoteBefore}
+          authorNoteAfter={activeChapter.authorNoteAfter}
         />
       ) : (
         <ReaderScroll
@@ -273,6 +275,8 @@ export default function ChapterReadPage() {
               ? chapters[activeChapterIndex + 1].title
               : undefined
           }
+          authorNoteBefore={activeChapter.authorNoteBefore}
+          authorNoteAfter={activeChapter.authorNoteAfter}
         />
       )}
     </div>

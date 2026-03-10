@@ -11,6 +11,8 @@ interface ReaderPaginatedProps {
   onNextChapter?: () => void;
   onPrevChapter?: () => void;
   nextChapterTitle?: string;
+  authorNoteBefore?: string;
+  authorNoteAfter?: string;
 }
 
 export default function ReaderPaginated({
@@ -21,6 +23,8 @@ export default function ReaderPaginated({
   onNextChapter,
   onPrevChapter,
   nextChapterTitle,
+  authorNoteBefore,
+  authorNoteAfter,
 }: ReaderPaginatedProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -129,12 +133,21 @@ export default function ReaderPaginated({
           >
             <motion.div
               ref={contentRef}
-              className="prose-reader"
               initial={false}
               animate={{ y: -scrollOffset }}
               transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
+            >
+              {authorNoteBefore?.trim() && (
+                <div className="author-note">{authorNoteBefore}</div>
+              )}
+              <div
+                className="prose-reader"
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+              />
+              {authorNoteAfter?.trim() && (
+                <div className="author-note">{authorNoteAfter}</div>
+              )}
+            </motion.div>
           </div>
 
           {/* Click zones for prev/next */}

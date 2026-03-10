@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import StoryCard from "@/components/shared/StoryCard";
@@ -90,8 +91,11 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
   const [stories, setStories] = useState<Story[]>([]);
+  const [followedStories, setFollowedStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const [followedLoading, setFollowedLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -112,6 +116,27 @@ export default function DashboardPage() {
     }
     fetchStories();
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setFollowedLoading(false);
+      return;
+    }
+    async function fetchFollowing() {
+      try {
+        const res = await fetch(`/api/users/${session!.user!.id}/following`);
+        const json = await res.json();
+        if (res.ok) {
+          setFollowedStories(json.data.stories);
+        }
+      } catch {
+        // Silently fail — reading list is non-critical
+      } finally {
+        setFollowedLoading(false);
+      }
+    }
+    fetchFollowing();
+  }, [session?.user?.id]);
 
   const totalWords = stories.reduce((sum, s) => sum + (s.totalWords || 0), 0);
   const totalChapters = stories.reduce((sum, s) => sum + (s.chapterCount || 0), 0);
@@ -270,6 +295,91 @@ export default function DashboardPage() {
             className="bg-amber text-void font-semibold px-7 py-3 rounded-full hover:bg-amber-light transition-all duration-200 text-[14px] hover:shadow-lg hover:shadow-amber/15"
           >
             Begin Your First Story
+          </Link>
+        </motion.div>
+      )}
+
+      {/* Section Separator */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+        className="my-12 border-t border-border-subtle"
+      />
+
+      {/* Reading List */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+      >
+        <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-5 block">
+          Reading List
+        </span>
+      </motion.div>
+
+      {followedLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-5 h-5 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+        </div>
+      ) : followedStories.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {followedStories.map((story, i) => (
+            <motion.div
+              key={story.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + i * 0.05 }}
+            >
+              <StoryCard
+                title={story.title}
+                author={story.authorName || undefined}
+                genres={story.genres}
+                wordCount={story.totalWords || 0}
+                chapterCount={story.chapterCount || 0}
+                sparkCount={story.sparkCount || 0}
+                contentRating={story.contentRating}
+                status={story.status as "draft" | "in-progress" | "complete"}
+                slug={story.slug || story.id}
+                href={`/story/${story.slug || story.id}`}
+                coverUrl={story.coverImageUrl || undefined}
+              />
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="flex flex-col items-center justify-center text-center py-16"
+        >
+          <div className="relative w-20 h-20 mb-6">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-lavender/10 to-lavender/[0.02] border border-lavender/10" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                className="text-lavender/40"
+              >
+                <path d="M4 6C4 6 8 4 16 4s12 2 12 2v20s-4-2-12-2-12 2-12 2V6z" />
+                <path d="M16 4v20" />
+              </svg>
+            </div>
+            <div className="absolute -inset-4 bg-lavender/5 rounded-full blur-2xl" />
+          </div>
+          <p className="text-text-secondary text-[14px] max-w-xs leading-relaxed">
+            Follow stories you love to see them here.
+          </p>
+          <Link
+            href="/browse"
+            className="mt-5 text-amber text-[13px] font-medium hover:text-amber-light transition-colors duration-200"
+          >
+            Browse stories &rarr;
           </Link>
         </motion.div>
       )}

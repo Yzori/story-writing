@@ -11,6 +11,8 @@ interface ReaderScrollProps {
   onNextChapter?: () => void;
   onPrevChapter?: () => void;
   nextChapterTitle?: string;
+  authorNoteBefore?: string;
+  authorNoteAfter?: string;
 }
 
 export default function ReaderScroll({
@@ -21,6 +23,8 @@ export default function ReaderScroll({
   onNextChapter,
   onPrevChapter,
   nextChapterTitle,
+  authorNoteBefore,
+  authorNoteAfter,
 }: ReaderScrollProps) {
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,10 +66,18 @@ export default function ReaderScroll({
         className="flex-1 overflow-y-auto px-8 py-16"
       >
         <div className="max-w-[680px] mx-auto">
+          {authorNoteBefore?.trim() && (
+            <div className="author-note">{authorNoteBefore}</div>
+          )}
+
           <div
             className="prose-reader"
             dangerouslySetInnerHTML={{ __html: htmlContent }}
           />
+
+          {authorNoteAfter?.trim() && (
+            <div className="author-note">{authorNoteAfter}</div>
+          )}
 
           {/* End marker */}
           <div className="flex items-center justify-center gap-4 mt-16 mb-8">

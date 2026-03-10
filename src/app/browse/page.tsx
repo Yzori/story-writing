@@ -54,10 +54,20 @@ function BrowsePage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [sortBy, setSortBy] = useState("Latest");
   const [formatFilter, setFormatFilter] = useState("All Formats");
+  const [maxRating, setMaxRating] = useState<string>("all");
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("inkwell-comfort-rating");
+    if (saved) setMaxRating(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("inkwell-comfort-rating", maxRating);
+  }, [maxRating]);
 
   useEffect(() => {
     debounceTimer.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -91,6 +101,8 @@ function BrowsePage() {
     fetchStories();
   }, [debouncedQuery, sortBy]);
 
+  const RATING_LEVELS: Record<string, number> = { everyone: 0, teen: 1, mature: 2, explicit: 3 };
+
   const filtered = stories.filter((story) => {
     if (selectedGenre && !story.genres.includes(selectedGenre)) return false;
     if (
@@ -98,6 +110,11 @@ function BrowsePage() {
       story.format !== formatFilter.toLowerCase()
     )
       return false;
+    if (maxRating !== "all") {
+      const maxLevel = RATING_LEVELS[maxRating];
+      const storyLevel = RATING_LEVELS[story.contentRating] ?? 0;
+      if (storyLevel > maxLevel) return false;
+    }
     return true;
   });
 
@@ -198,6 +215,17 @@ function BrowsePage() {
                 {opt}
               </option>
             ))}
+          </select>
+          <select
+            value={maxRating}
+            onChange={(e) => setMaxRating(e.target.value)}
+            className="bg-elevated/80 border border-border rounded-xl px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 transition-all appearance-none cursor-pointer"
+          >
+            <option value="all">All Ratings</option>
+            <option value="everyone">All Ages</option>
+            <option value="teen">Teen &amp; Below</option>
+            <option value="mature">Mature &amp; Below</option>
+            <option value="explicit">Include Explicit</option>
           </select>
         </div>
       </motion.div>
