@@ -249,6 +249,15 @@ export default function ChapterReadPage() {
           key={chapterId}
           htmlContent={activeChapter.content}
           chapterTitle={activeChapter.title}
+          hasNextChapter={activeChapterIndex < chapters.length - 1}
+          hasPrevChapter={activeChapterIndex > 0}
+          onNextChapter={handleNextChapter}
+          onPrevChapter={handlePrevChapter}
+          nextChapterTitle={
+            activeChapterIndex < chapters.length - 1
+              ? chapters[activeChapterIndex + 1].title
+              : undefined
+          }
         />
       ) : (
         <ReaderScroll

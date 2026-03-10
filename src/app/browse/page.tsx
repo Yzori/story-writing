@@ -73,7 +73,7 @@ function BrowsePage() {
           "Latest": "latest",
           "Most Sparked": "most-sparked",
           "Most Read": "most-read",
-          "Rising": "latest",
+          "Rising": "rising",
         };
         const params = new URLSearchParams({ public: "true", limit: "30" });
         if (debouncedQuery) params.set("search", debouncedQuery);

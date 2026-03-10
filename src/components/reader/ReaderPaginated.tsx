@@ -6,11 +6,21 @@ import { motion, AnimatePresence } from "framer-motion";
 interface ReaderPaginatedProps {
   htmlContent: string;
   chapterTitle: string;
+  hasNextChapter?: boolean;
+  hasPrevChapter?: boolean;
+  onNextChapter?: () => void;
+  onPrevChapter?: () => void;
+  nextChapterTitle?: string;
 }
 
 export default function ReaderPaginated({
   htmlContent,
   chapterTitle,
+  hasNextChapter,
+  hasPrevChapter,
+  onNextChapter,
+  onPrevChapter,
+  nextChapterTitle,
 }: ReaderPaginatedProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -166,37 +176,70 @@ export default function ReaderPaginated({
         </div>
       </div>
 
-      {/* Bottom bar: page indicator */}
-      <div className="shrink-0 flex items-center justify-center gap-4 py-3 border-t border-border bg-surface/50 text-[12px] text-text-ghost select-none">
-        <button
-          onClick={() => goToPage(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="p-1.5 rounded-md hover:bg-subtle disabled:opacity-20 transition-all"
-          aria-label="Previous page"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M8 3l-4 4 4 4" />
-          </svg>
-        </button>
+      {/* Bottom bar: page indicator + chapter nav */}
+      <div className="shrink-0 flex items-center justify-between gap-4 py-3 px-4 border-t border-border bg-surface/50 text-[12px] text-text-ghost select-none">
+        {/* Prev chapter */}
+        <div className="w-28">
+          {currentPage <= 1 && hasPrevChapter && (
+            <button
+              onClick={onPrevChapter}
+              className="flex items-center gap-1 text-text-secondary hover:text-paper transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M8 3l-4 4 4 4" />
+              </svg>
+              Prev chapter
+            </button>
+          )}
+        </div>
 
-        <button
-          onClick={() => { setShowJump(true); setJumpInput(String(currentPage)); }}
-          className="px-3 py-1 rounded-md hover:bg-subtle transition-colors tabular-nums"
-          title="Press G to jump to page"
-        >
-          Page {currentPage} of {totalPages}
-        </button>
+        {/* Page controls */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="p-1.5 rounded-md hover:bg-subtle disabled:opacity-20 transition-all"
+            aria-label="Previous page"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M8 3l-4 4 4 4" />
+            </svg>
+          </button>
 
-        <button
-          onClick={() => goToPage(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="p-1.5 rounded-md hover:bg-subtle disabled:opacity-20 transition-all"
-          aria-label="Next page"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M6 3l4 4-4 4" />
-          </svg>
-        </button>
+          <button
+            onClick={() => { setShowJump(true); setJumpInput(String(currentPage)); }}
+            className="px-3 py-1 rounded-md hover:bg-subtle transition-colors tabular-nums"
+            title="Press G to jump to page"
+          >
+            Page {currentPage} of {totalPages}
+          </button>
+
+          <button
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="p-1.5 rounded-md hover:bg-subtle disabled:opacity-20 transition-all"
+            aria-label="Next page"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M6 3l4 4-4 4" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Next chapter */}
+        <div className="w-28 text-right">
+          {currentPage >= totalPages && hasNextChapter && (
+            <button
+              onClick={onNextChapter}
+              className="flex items-center gap-1 text-amber hover:text-amber/80 transition-colors ml-auto font-medium"
+            >
+              Next chapter
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M6 3l4 4-4 4" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Jump to page modal */}

@@ -12,6 +12,7 @@ interface Story {
   synopsis: string | null;
   coverImageUrl: string | null;
   genres: string[];
+  contentRating: string;
   status: string;
   slug: string | null;
   createdAt: string;
@@ -19,6 +20,7 @@ interface Story {
   authorName: string | null;
   chapterCount: number;
   totalWords: number;
+  sparkCount: number;
 }
 
 const STAT_ICONS = {
@@ -36,6 +38,11 @@ const STAT_ICONS = {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 4l8 3 8-3v11l-8 3-8-3V4z" />
       <path d="M10 7v11" />
+    </svg>
+  ),
+  sparks: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M10 2l2 4.5L17 7l-3.5 3.5L14 16l-4-2.5L6 16l.5-5.5L3 7l5-.5z" />
     </svg>
   ),
 };
@@ -77,11 +84,13 @@ export default function DashboardPage() {
 
   const totalWords = stories.reduce((sum, s) => sum + (s.totalWords || 0), 0);
   const totalChapters = stories.reduce((sum, s) => sum + (s.chapterCount || 0), 0);
+  const totalSparks = stories.reduce((sum, s) => sum + (s.sparkCount || 0), 0);
 
   const stats = [
     { label: "Total Stories", value: stories.length, icon: STAT_ICONS.stories },
     { label: "Total Words", value: totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords, icon: STAT_ICONS.words },
     { label: "Chapters", value: totalChapters, icon: STAT_ICONS.chapters },
+    { label: "Sparks", value: totalSparks, icon: STAT_ICONS.sparks },
   ];
 
   if (loading) {
@@ -139,7 +148,7 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10"
       >
         {stats.map((stat) => (
           <div
@@ -186,6 +195,8 @@ export default function DashboardPage() {
                   genres={story.genres}
                   wordCount={story.totalWords || 0}
                   chapterCount={story.chapterCount || 0}
+                  sparkCount={story.sparkCount || 0}
+                  contentRating={story.contentRating}
                   status={story.status as "draft" | "in-progress" | "complete"}
                   slug={story.slug || story.id}
                   href={`/write/${story.id}`}

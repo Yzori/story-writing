@@ -104,6 +104,8 @@ export async function GET(request: NextRequest) {
           ? desc(sql`coalesce(${sparkStats.sparkCount}, 0)`)
           : sort === "most-read"
           ? desc(sql`coalesce(${chapterStats.totalWords}, 0)`)
+          : sort === "rising"
+          ? desc(sql`coalesce(${sparkStats.sparkCount}, 0) * 10 + extract(epoch from ${stories.createdAt}) / 86400`)
           : desc(stories.createdAt)
       )
       .limit(limit + 1);

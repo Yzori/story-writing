@@ -132,7 +132,21 @@ function parseDetails(details: string): Record<string, any> {
   }
 }
 
-function apiChapterToLocal(ch: any): Chapter {
+interface ApiChapter {
+  id: string;
+  title: string;
+  content: string;
+  wordCount: number;
+  sortOrder: number;
+  status: "draft" | "published";
+  authorNoteBefore: string;
+  authorNoteAfter: string;
+  outline: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function apiChapterToLocal(ch: ApiChapter): Chapter {
   return {
     id: ch.id,
     title: ch.title || "Untitled",
