@@ -13,18 +13,26 @@
   --color-text-tertiary: var(--t-text-tertiary);
   --color-text-ghost: var(--t-text-ghost);
 
-  --color-amber: var(--t-amber);
-  --color-amber-soft: var(--t-amber-soft);
-  --color-amber-glow: var(--t-amber-glow);
-  --color-amber-light: var(--t-amber-light);
-  --color-amber-dark: var(--t-amber-dark);
-  --color-rose: var(--t-rose);
-  --color-sage: var(--t-sage);
-  --color-lavender: var(--t-lavender);
+  --color-gold: var(--t-gold);
+  --color-gold-soft: var(--t-gold-soft);
+  --color-gold-glow: var(--t-gold-glow);
+  --color-gold-light: var(--t-gold-light);
+  --color-gold-dark: var(--t-gold-dark);
+  --color-amber: var(--t-gold);
+  --color-amber-soft: var(--t-gold-soft);
+  --color-amber-glow: var(--t-gold-glow);
+  --color-amber-light: var(--t-gold-light);
+  --color-amber-dark: var(--t-gold-dark);
+  --color-ruby: var(--t-ruby);
+  --color-rose: var(--t-ruby);
+  --color-emerald: var(--t-emerald);
+  --color-sage: var(--t-emerald);
+  --color-amethyst: var(--t-amethyst);
+  --color-lavender: var(--t-amethyst);
+  --color-violet: var(--t-amethyst);
   --color-copper: var(--t-copper);
+  --color-burnt: var(--t-copper);
   --color-teal: var(--t-teal);
-  --color-violet: var(--t-violet);
-  --color-burnt: var(--t-burnt);
 
   --color-charcoal: var(--t-charcoal);
   --color-espresso: var(--t-espresso);
@@ -45,45 +53,49 @@
   --font-dm-sans: var(--font-dm-sans);
 }
 
-/* ─── Lamplight (dark, default) ─────────────────────────────── */
-/*   Late night at the desk, warm lamp, deep shadows.           */
+/* ─── Lamplight — The Magical Library ─────────────────────── */
+/*   Deep mahogany shadows, firelit gold, aged parchment.      */
+/*   You've stepped through the door. The air smells of        */
+/*   old paper and cedar. Lanterns flicker.                    */
 
 html, html.theme-dark {
-  --t-void: #0F0D0B;
-  --t-ink: #161412;
-  --t-surface: #1E1B18;
-  --t-elevated: #272320;
-  --t-subtle: #312D29;
+  --t-void: #110E0A;
+  --t-ink: #1A1510;
+  --t-surface: #241E16;
+  --t-elevated: #2E2720;
+  --t-subtle: #38302A;
 
-  --t-paper: #EDE6D6;
-  --t-text: #D4CBBA;
-  --t-text-secondary: #9E9486;
-  --t-text-tertiary: #6B6358;
-  --t-text-ghost: #3D3832;
+  --t-paper: #F2E8D0;
+  --t-text: #D4C4A8;
+  --t-text-secondary: #A89878;
+  --t-text-tertiary: #7A6C54;
+  --t-text-ghost: #4A3E2E;
 
-  --t-amber: #D4944A;
-  --t-amber-soft: #D4944A28;
-  --t-amber-glow: #D4944A10;
-  --t-amber-light: #E8B06A;
-  --t-amber-dark: #A67830;
-  --t-rose: #C4646E;
-  --t-sage: #6B9E7E;
-  --t-lavender: #9484B8;
-  --t-copper: #B87E56;
-  --t-teal: #4A9E8E;
-  --t-violet: #8E72C0;
-  --t-burnt: #B86B3A;
+  /* Firelight gold — warm, alive, not corporate */
+  --t-gold: #C8963C;
+  --t-gold-soft: #C8963C25;
+  --t-gold-glow: #C8963C12;
+  --t-gold-light: #E0B260;
+  --t-gold-dark: #9A7028;
 
-  --t-charcoal: #1A1714;
-  --t-espresso: #2A2420;
-  --t-walnut: #4A3E34;
-  --t-linen: #EDE6D6;
-  --t-cream: #F5EDD8;
-  --t-parchment: #D4C9B0;
+  /* Accents — aged, rich, belonging to a fantasy world */
+  --t-ruby: #9E3B42;
+  --t-emerald: #3B7A5C;
+  --t-amethyst: #7E5E9E;
+  --t-copper: #9E6B42;
+  --t-teal: #3B6E7A;
 
-  --t-border: #FFFFFF0D;
-  --t-border-subtle: #FFFFFF08;
-  --t-border-active: #FFFFFF18;
+  --t-charcoal: #161210;
+  --t-espresso: #2A2218;
+  --t-walnut: #4A3C2C;
+  --t-linen: #F2E8D0;
+  --t-cream: #F8F0DC;
+  --t-parchment: #D4C4A0;
+
+  /* Borders — warm bronze tinted, not cold white alpha */
+  --t-border: #C8963C12;
+  --t-border-subtle: #C8963C0A;
+  --t-border-active: #C8963C22;
 
   color-scheme: dark;
 }
@@ -92,41 +104,40 @@ html, html.theme-dark {
 /*   Warm cream paper, rich umber ink, morning coffee.          */
 
 html.theme-light {
-  --t-void: #FAF7F2;
-  --t-ink: #F4F0E8;
-  --t-surface: #EDE8DE;
-  --t-elevated: #F4F0E8;
-  --t-subtle: #E3DDD2;
+  --t-void: #FAF5EC;
+  --t-ink: #F2ECDF;
+  --t-surface: #E8E0D0;
+  --t-elevated: #F0E8D8;
+  --t-subtle: #DDD4C2;
 
-  --t-paper: #1A1815;
-  --t-text: #38342E;
-  --t-text-secondary: #605950;
-  --t-text-tertiary: #8E8578;
-  --t-text-ghost: #B5AC9E;
+  --t-paper: #1A1610;
+  --t-text: #38322A;
+  --t-text-secondary: #5E5444;
+  --t-text-tertiary: #8A7E6A;
+  --t-text-ghost: #B0A48E;
 
-  --t-amber: #9A6830;
-  --t-amber-soft: #9A683025;
-  --t-amber-glow: #9A68300E;
-  --t-amber-light: #C4923E;
-  --t-amber-dark: #7A5420;
-  --t-rose: #A04850;
-  --t-sage: #457858;
-  --t-lavender: #6E5C92;
-  --t-copper: #8C6640;
-  --t-teal: #2E7A6A;
-  --t-violet: #6E5C92;
-  --t-burnt: #9A5828;
+  --t-gold: #8A6428;
+  --t-gold-soft: #8A642825;
+  --t-gold-glow: #8A64280E;
+  --t-gold-light: #B08838;
+  --t-gold-dark: #6A4C1C;
 
-  --t-charcoal: #E8E2D8;
-  --t-espresso: #DCD5C8;
-  --t-walnut: #C4B8A4;
-  --t-linen: #1A1815;
-  --t-cream: #2A2620;
-  --t-parchment: #4A4438;
+  --t-ruby: #8A3038;
+  --t-emerald: #2E6448;
+  --t-amethyst: #644A84;
+  --t-copper: #845830;
+  --t-teal: #2E5E68;
 
-  --t-border: #C9C0AE;
-  --t-border-subtle: #D4CCBC;
-  --t-border-active: #B5AA96;
+  --t-charcoal: #E0D8C8;
+  --t-espresso: #D4CABA;
+  --t-walnut: #B8AA94;
+  --t-linen: #1A1610;
+  --t-cream: #2A2418;
+  --t-parchment: #4A4234;
+
+  --t-border: #C8B89830;
+  --t-border-subtle: #C8B89820;
+  --t-border-active: #C8B89840;
 
   color-scheme: light;
 }
@@ -135,41 +146,40 @@ html.theme-light {
 /*   Aged paper, leather spines, oak and brass.                 */
 
 html.theme-sepia {
-  --t-void: #F2E8D5;
-  --t-ink: #EBE0CA;
-  --t-surface: #E2D6BE;
-  --t-elevated: #EBE0CA;
-  --t-subtle: #D8CBB2;
+  --t-void: #EDE2CC;
+  --t-ink: #E4D8BF;
+  --t-surface: #D8CCB2;
+  --t-elevated: #E4D8BF;
+  --t-subtle: #CCC0A6;
 
-  --t-paper: #261E12;
-  --t-text: #3E3428;
-  --t-text-secondary: #665840;
-  --t-text-tertiary: #968568;
-  --t-text-ghost: #BEB09A;
+  --t-paper: #221A10;
+  --t-text: #3A3024;
+  --t-text-secondary: #625438;
+  --t-text-tertiary: #907E60;
+  --t-text-ghost: #B8AA90;
 
-  --t-amber: #7D5820;
-  --t-amber-soft: #7D582025;
-  --t-amber-glow: #7D58200E;
-  --t-amber-light: #A87A30;
-  --t-amber-dark: #604218;
-  --t-rose: #8E4248;
-  --t-sage: #3A6A4E;
-  --t-lavender: #625088;
-  --t-copper: #7A5E38;
-  --t-teal: #28705E;
-  --t-violet: #625088;
-  --t-burnt: #8A5020;
+  --t-gold: #7A5620;
+  --t-gold-soft: #7A562025;
+  --t-gold-glow: #7A56200E;
+  --t-gold-light: #A07430;
+  --t-gold-dark: #5C4018;
 
-  --t-charcoal: #E0D6C0;
-  --t-espresso: #D4C8B0;
-  --t-walnut: #B8A888;
-  --t-linen: #261E12;
-  --t-cream: #342A1C;
-  --t-parchment: #504434;
+  --t-ruby: #7E3840;
+  --t-emerald: #2A5A42;
+  --t-amethyst: #584278;
+  --t-copper: #785028;
+  --t-teal: #245860;
 
-  --t-border: #C4B498;
-  --t-border-subtle: #CFC0A8;
-  --t-border-active: #B0A085;
+  --t-charcoal: #D8CEB8;
+  --t-espresso: #CCC0A4;
+  --t-walnut: #B0A080;
+  --t-linen: #221A10;
+  --t-cream: #302618;
+  --t-parchment: #4A4030;
+
+  --t-border: #B8A88830;
+  --t-border-subtle: #B8A88820;
+  --t-border-active: #B8A88840;
 
   color-scheme: light;
 }
@@ -185,11 +195,39 @@ body {
   color: var(--t-text);
   font-family: var(--font-body), system-ui, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
 }
 
-/* Scrollbar */
+/* Warm vignette — the edges of lantern light */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    transparent 50%,
+    rgba(10, 8, 5, 0.4) 100%
+  );
+}
+
+/* Paper grain texture overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Scrollbar — warm tones */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -197,8 +235,8 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--t-text-ghost);
-  border-radius: 5px;
+  background: var(--t-walnut);
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -207,15 +245,94 @@ body {
 
 /* Selection */
 ::selection {
-  background-color: var(--t-amber);
+  background-color: var(--t-gold);
   color: var(--t-void);
+}
+
+/* ─── Ornamental Utilities ─────────────────────────────────── */
+
+/* Flourish divider */
+.flourish {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75em;
+  color: var(--t-text-ghost);
+  user-select: none;
+}
+
+.flourish::before,
+.flourish::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to var(--dir, right), transparent, var(--t-gold-soft), transparent);
+}
+
+.flourish::before {
+  --dir: right;
+}
+
+.flourish::after {
+  --dir: left;
+}
+
+/* Section label — the "chapter heading" feel */
+.section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-text-ghost);
+  font-family: var(--font-display), serif;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+
+.section-label::before,
+.section-label::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, var(--t-gold-soft), transparent);
+}
+
+.section-label::before {
+  background: linear-gradient(to left, var(--t-gold-soft), transparent);
+}
+
+/* Firelight glow effect for key elements */
+.firelight {
+  box-shadow:
+    0 0 30px rgba(200, 150, 60, 0.06),
+    0 0 60px rgba(200, 150, 60, 0.03),
+    inset 0 1px 0 rgba(200, 150, 60, 0.05);
+}
+
+/* Card style — feels like a page or manuscript leaf */
+.card-page {
+  background: linear-gradient(165deg, var(--t-surface) 0%, var(--t-ink) 100%);
+  border: 1px solid var(--t-border);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(200, 150, 60, 0.04);
+}
+
+.card-page:hover {
+  border-color: var(--t-border-active);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(200, 150, 60, 0.08);
 }
 
 /* ─── Tiptap Editor ─────────────────────────────────────────── */
 
 .tiptap-editor {
   outline: none;
-  caret-color: var(--t-amber);
+  caret-color: var(--t-gold);
 }
 
 .tiptap-editor p {
@@ -263,7 +380,7 @@ body {
 }
 
 .tiptap-editor blockquote {
-  border-left: 2px solid var(--t-amber);
+  border-left: 2px solid var(--t-gold);
   padding-left: 1.5em;
   margin: 1.5em 0;
   color: var(--t-text-secondary);
@@ -281,10 +398,10 @@ body {
 
 .tiptap-editor hr::after,
 .prose-reader hr::after {
-  content: "\2042";
-  color: var(--t-text-ghost);
-  font-size: 1.2rem;
-  letter-spacing: 0.5em;
+  content: "\2767";
+  color: var(--t-gold-dark);
+  font-size: 1.3rem;
+  letter-spacing: 0;
 }
 
 /* Scene break variants */
@@ -293,18 +410,20 @@ body {
 .scene-break-line hr::after { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); }
 .scene-break-space hr::after { content: ""; }
 .scene-break-space hr { margin: 3.5em auto; }
+.scene-break-asterism hr::after { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
 
-/* Drop caps */
+/* Drop caps — ornate, like an illuminated manuscript */
 .drop-caps .tiptap-editor > p:first-of-type::first-letter,
 .drop-caps .prose-reader > p:first-of-type::first-letter {
   float: left;
   font-family: var(--font-display), serif;
-  font-size: 3.4em;
-  line-height: 0.8;
-  font-weight: 700;
-  color: var(--t-paper);
+  font-size: 3.6em;
+  line-height: 0.78;
+  font-weight: 800;
+  color: var(--t-gold);
   margin-right: 0.08em;
-  margin-top: 0.05em;
+  margin-top: 0.06em;
+  text-shadow: 0 2px 8px rgba(200, 150, 60, 0.2);
 }
 
 .tiptap-editor em {
@@ -318,7 +437,7 @@ body {
 }
 
 .tiptap-editor mark {
-  background-color: var(--t-amber-soft);
+  background-color: var(--t-gold-soft);
   color: var(--t-paper);
   border-radius: 2px;
   padding: 0 2px;
@@ -345,14 +464,14 @@ body {
 
 /* Comment highlights */
 .comment-highlight {
-  background-color: var(--t-amber-glow);
-  border-bottom: 2px solid var(--t-amber-soft);
+  background-color: var(--t-gold-glow);
+  border-bottom: 2px solid var(--t-gold-soft);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .comment-highlight:hover {
-  background-color: var(--t-amber-soft);
+  background-color: var(--t-gold-soft);
 }
 
 /* Scene break */
@@ -402,14 +521,14 @@ body {
   transform: translateX(-50%);
   font-family: var(--font-display), serif;
   font-size: 3rem;
-  color: var(--t-text-ghost);
+  color: var(--t-gold-dark);
   line-height: 1;
 }
 
 /* Author note */
 .author-note {
-  background: var(--t-amber-glow);
-  border: 1px solid var(--t-amber-soft);
+  background: var(--t-gold-glow);
+  border: 1px solid var(--t-gold-soft);
   border-radius: 8px;
   padding: 1em 1.5em;
   margin: 1.5em 0;
@@ -423,9 +542,10 @@ body {
   font-size: 0.7em;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: var(--t-amber);
+  color: var(--t-gold);
   margin-bottom: 0.5em;
   font-weight: 600;
+  font-family: var(--font-display), serif;
 }
 
 /* ─── Reader Prose ──────────────────────────────────────────── */
@@ -488,7 +608,7 @@ body {
 }
 
 .prose-reader blockquote {
-  border-left: 2px solid var(--t-amber);
+  border-left: 2px solid var(--t-gold);
   padding-left: 1.5em;
   margin: 1.5em 0;
   color: var(--t-text-secondary);
@@ -504,10 +624,9 @@ body {
 }
 
 .prose-reader hr::after {
-  content: "\2042";
-  color: var(--t-text-ghost);
-  font-size: 1.2rem;
-  letter-spacing: 0.5em;
+  content: "\2767";
+  color: var(--t-gold-dark);
+  font-size: 1.3rem;
 }
 
 .prose-reader em {
@@ -521,7 +640,7 @@ body {
 }
 
 .prose-reader mark {
-  background-color: var(--t-amber-soft);
+  background-color: var(--t-gold-soft);
   color: var(--t-paper);
   border-radius: 2px;
   padding: 0 2px;

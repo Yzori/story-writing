@@ -75,7 +75,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Form Card */}
-        <div className="bg-surface/80 backdrop-blur-sm border border-border rounded-2xl p-6">
+        <div className="card-page firelight p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <motion.div

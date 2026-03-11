@@ -505,7 +505,7 @@ export default function StoryPage() {
         </motion.div>
 
         {/* Tab Bar */}
-        <div className="flex items-center gap-1 border-b border-border mb-6">
+        <div className="flex items-center gap-1 border-b border-border-active mb-6">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -561,7 +561,7 @@ export default function StoryPage() {
                     >
                       {chapter.status === "published" ? (
                         <Link href={`/story/${slug}/read/${chapter.id}`} className="block">
-                          <div className="bg-surface/80 border border-border rounded-xl px-5 py-4 flex items-center justify-between hover:border-amber/15 hover:bg-surface transition-all duration-200 group cursor-pointer">
+                          <div className="card-page px-5 py-4 flex items-center justify-between transition-all duration-200 group cursor-pointer">
                             <div className="flex items-center gap-4">
                               <span className="text-text-ghost text-[12px] font-mono w-7 text-right tabular-nums">
                                 {String(i + 1).padStart(2, "0")}

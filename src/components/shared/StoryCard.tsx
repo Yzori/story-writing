@@ -82,7 +82,7 @@ export default function StoryCard({
         <motion.div
           whileHover={{ y: -4 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="relative bg-surface/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden hover:border-amber/20 transition-all duration-300 min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group hover:shadow-xl hover:shadow-amber/5"
+          className="card-page relative overflow-hidden min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group hover:shadow-xl hover:shadow-amber/5 transition-all duration-300"
         >
           <div
             className={`h-44 bg-gradient-to-br ${getGradient(genres)} relative overflow-hidden`}
@@ -145,7 +145,7 @@ export default function StoryCard({
       <motion.div
         whileHover={{ y: -3 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className="relative bg-surface/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden hover:border-amber/15 transition-all duration-300 cursor-pointer group hover:shadow-lg hover:shadow-amber/[0.04]"
+        className="card-page relative overflow-hidden cursor-pointer group transition-all duration-300"
       >
         {/* Cover / Gradient header */}
         <div

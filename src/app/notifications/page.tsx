@@ -134,6 +134,7 @@ export default function NotificationsPage() {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between mb-8">
           <div>
+            <p className="section-label text-[10px] mb-2 max-w-[160px]">Updates</p>
             <h1 className="font-display text-2xl text-paper font-semibold">Notifications</h1>
             {unreadCount > 0 && (
               <p className="text-text-secondary text-[13px] mt-1">

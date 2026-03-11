@@ -101,17 +101,15 @@ export default function SettingsPage() {
   };
 
   const labelClass = "text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block";
-  const cardClass = "bg-surface/80 border border-border rounded-2xl p-6";
+  const cardClass = "card-page p-6";
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between mb-8">
           <div>
+            <p className="section-label text-[10px] mb-2 max-w-[140px]">Preferences</p>
             <h1 className="font-display text-2xl text-paper font-semibold">Settings</h1>
-            <p className="text-text-secondary text-[13px] mt-1">
-              Customize your reading experience.
-            </p>
           </div>
           {session?.user && (
             <Link

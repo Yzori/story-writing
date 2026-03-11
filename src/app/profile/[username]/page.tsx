@@ -212,7 +212,7 @@ export default function ProfilePage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="bg-surface/80 border border-border rounded-2xl p-5 text-center"
+              className="card-page p-5 text-center"
             >
               <div className="flex justify-center text-amber mb-2">
                 {stat.icon}
@@ -335,7 +335,7 @@ export default function ProfilePage() {
                         <motion.div
                           whileHover={{ scale: 1.02 }}
                           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                          className="relative bg-surface/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden cursor-pointer group hover:border-amber/20 hover:shadow-xl hover:shadow-amber/[0.06] transition-all duration-300"
+                          className="card-page relative overflow-hidden cursor-pointer group transition-all duration-300"
                         >
                           {/* Cover area - 60% of card */}
                           <div

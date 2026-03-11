@@ -162,12 +162,10 @@ function BrowsePage() {
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8"
       >
         <div>
+          <p className="section-label text-[10px] mb-2 max-w-[160px]">Browse</p>
           <h1 className="font-display text-3xl text-paper font-semibold">
             Discover
           </h1>
-          <p className="text-text-secondary text-[13px] mt-1.5">
-            Stories waiting to be found.
-          </p>
         </div>
         <div className="w-full sm:w-72">
           <div className="flex items-center gap-2 bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 focus-within:border-amber/25 focus-within:shadow-sm focus-within:shadow-amber/5 transition-all">
@@ -232,7 +230,7 @@ function BrowsePage() {
           <select
             value={formatFilter}
             onChange={(e) => setFormatFilter(e.target.value)}
-            className="bg-elevated/80 border border-border rounded-xl px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 transition-all appearance-none cursor-pointer"
+            className="bg-elevated/80 border border-border rounded-lg px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all appearance-none cursor-pointer"
           >
             {FORMAT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -243,7 +241,7 @@ function BrowsePage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-elevated/80 border border-border rounded-xl px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 transition-all appearance-none cursor-pointer"
+            className="bg-elevated/80 border border-border rounded-lg px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all appearance-none cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -254,7 +252,7 @@ function BrowsePage() {
           <select
             value={maxRating}
             onChange={(e) => setMaxRating(e.target.value)}
-            className="bg-elevated/80 border border-border rounded-xl px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 transition-all appearance-none cursor-pointer"
+            className="bg-elevated/80 border border-border rounded-lg px-3.5 py-2 text-[13px] text-text outline-none focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all appearance-none cursor-pointer"
           >
             <option value="all">All Ratings</option>
             <option value="everyone">All Ages</option>
@@ -273,13 +271,7 @@ function BrowsePage() {
           transition={{ delay: 0.08 }}
           className="mb-10"
         >
-          <h2 className="font-display text-lg text-paper font-semibold mb-4 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-amber">
-              <circle cx="8" cy="8" r="6.5" />
-              <path d="M8 4.5V8.5L10.5 10" />
-            </svg>
-            Just Published
-          </h2>
+          <div className="flourish mb-4"><span className="font-display text-sm text-text-secondary tracking-wide">Just Published</span></div>
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
             {justPublished.map((story, i) => (
               <motion.div
@@ -290,7 +282,7 @@ function BrowsePage() {
               >
                 <Link
                   href={`/story/${story.slug || story.id}`}
-                  className="flex items-center gap-3 w-[300px] flex-shrink-0 bg-surface border border-border rounded-xl p-3 hover:border-amber/20 hover:bg-elevated/50 transition-all group"
+                  className="flex items-center gap-3 w-[300px] flex-shrink-0 card-page p-3 transition-all group"
                 >
                   <div className="w-20 h-20 rounded-lg bg-elevated flex-shrink-0 overflow-hidden">
                     {story.coverImageUrl ? (
@@ -336,17 +328,7 @@ function BrowsePage() {
           transition={{ delay: 0.12 }}
           className="mb-10"
         >
-          <h2 className="font-display text-lg text-paper font-semibold mb-4 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-amber">
-              <path
-                d="M8 1.5l1.85 3.75 4.15.6-3 2.93.71 4.12L8 10.88 4.29 12.9l.71-4.12-3-2.93 4.15-.6L8 1.5z"
-                fill="currentColor"
-                stroke="currentColor"
-                strokeWidth="0.5"
-              />
-            </svg>
-            Staff Picks
-          </h2>
+          <div className="flourish mb-4"><span className="font-display text-sm text-text-secondary tracking-wide">Staff Picks</span></div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {staffPicks.map((story, i) => (
               <motion.div

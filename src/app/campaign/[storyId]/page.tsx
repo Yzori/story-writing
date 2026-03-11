@@ -287,7 +287,7 @@ export default function CampaignPage() {
               <motion.div
                 key={char.id}
                 layout
-                className="bg-surface/80 border border-border rounded-2xl p-4 flex items-center gap-4"
+                className="card-page p-4 flex items-center gap-4"
               >
                 {/* Portrait */}
                 <div className="w-12 h-12 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
@@ -352,7 +352,7 @@ export default function CampaignPage() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="bg-surface/80 border border-border rounded-2xl p-5 space-y-4 overflow-hidden"
+                      className="card-page p-5 space-y-4 overflow-hidden"
                     >
                       <h3 className="text-sm font-semibold text-paper">Create Character</h3>
 
@@ -431,7 +431,7 @@ export default function CampaignPage() {
                 key={s.id}
                 layout
                 onClick={() => router.push(`/campaign/${storyId}/play/${s.id}`)}
-                className="w-full text-left bg-surface/80 border border-border rounded-2xl p-4 hover:border-amber/30 transition-all group cursor-pointer"
+                className="w-full text-left card-page p-4 transition-all group cursor-pointer"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -485,7 +485,7 @@ export default function CampaignPage() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="bg-surface/80 border border-border rounded-2xl p-5 space-y-4 overflow-hidden"
+                      className="card-page p-5 space-y-4 overflow-hidden"
                     >
                       <h3 className="text-sm font-semibold text-paper">New Session</h3>
                       <div className="space-y-1">

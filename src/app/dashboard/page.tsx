@@ -169,16 +169,14 @@ export default function DashboardPage() {
         className="flex items-center justify-between mb-10"
       >
         <div>
+          <p className="section-label text-[10px] mb-2 max-w-[200px]">Writing Desk</p>
           <h1 className="font-display text-3xl text-paper font-semibold">
             My Stories
           </h1>
-          <p className="text-text-secondary text-[13px] mt-1.5">
-            Your writing desk — everything in one place.
-          </p>
         </div>
         <Link
           href="/create"
-          className="group relative bg-amber text-void font-semibold px-6 py-2.5 rounded-full hover:bg-amber-light transition-all duration-200 text-[13px] flex items-center gap-2 hover:shadow-lg hover:shadow-amber/15"
+          className="group relative bg-amber text-void font-semibold px-6 py-2.5 rounded-full hover:bg-amber-light transition-all duration-200 text-[13px] flex items-center gap-2 firelight hover:shadow-lg hover:shadow-amber/15"
         >
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M8 3v10M3 8h10" />
@@ -206,9 +204,9 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 + i * 0.05 }}
-            className={`relative bg-gradient-to-br ${stat.gradient} border ${stat.borderColor} rounded-2xl p-5 overflow-hidden`}
+            className="card-page p-5 overflow-hidden"
           >
-            <div className={`w-10 h-10 rounded-xl bg-void/30 ${stat.iconColor} flex items-center justify-center mb-3`}>
+            <div className={`w-10 h-10 rounded-xl bg-void/40 ${stat.iconColor} flex items-center justify-center mb-3`}>
               {stat.icon}
             </div>
             <p className="text-paper text-2xl font-display font-bold">
@@ -229,9 +227,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-5 block">
-              Your Works
-            </span>
+            <div className="flourish mb-5"><span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">Your Works</span></div>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {stories.map((story, i) => (
@@ -305,8 +301,10 @@ export default function DashboardPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
-        className="my-12 border-t border-border-subtle"
-      />
+        className="my-12 flourish"
+      >
+        <span className="text-gold-dark text-sm">❧</span>
+      </motion.div>
 
       {/* Reading List */}
       <motion.div
@@ -314,9 +312,7 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
       >
-        <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-5 block">
-          Reading List
-        </span>
+        <div className="flourish mb-5"><span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">Reading List</span></div>
       </motion.div>
 
       {followedLoading ? (
