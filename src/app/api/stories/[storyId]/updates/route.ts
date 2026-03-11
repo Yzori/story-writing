@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { creatorUpdates, stories, users } from "@/lib/db/schema";
+import { creatorUpdates, stories, users, follows } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createUpdateSchema } from "@/lib/validations";
+import { createBulkNotifications } from "@/lib/notifications";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -14,6 +16,11 @@ type RouteParams = { params: Promise<{ storyId: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { storyId } = await params;
+
+    const searchParams = request.nextUrl.searchParams;
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10) || 20));
+    const offset = (page - 1) * limit;
 
     const result = await db
       .select({
@@ -31,9 +38,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .leftJoin(users, eq(creatorUpdates.userId, users.id))
       .where(eq(creatorUpdates.storyId, storyId))
       .orderBy(desc(creatorUpdates.createdAt))
-      .limit(20);
+      .limit(limit + 1)
+      .offset(offset);
 
-    return NextResponse.json({ data: result });
+    const hasMore = result.length > limit;
+    const data = hasMore ? result.slice(0, limit) : result;
+
+    return NextResponse.json({ data, hasMore });
   } catch (error) {
     console.error("GET /api/stories/[storyId]/updates error:", error);
     return NextResponse.json(
@@ -57,12 +68,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
     const { storyId } = await params;
     const userId = session.user.id;
 
     // Verify the user owns this story
     const [story] = await db
-      .select({ userId: stories.userId })
+      .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
       .from(stories)
       .where(eq(stories.id, storyId))
       .limit(1);
@@ -124,6 +138,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .leftJoin(users, eq(creatorUpdates.userId, users.id))
       .where(eq(creatorUpdates.id, created.id))
       .limit(1);
+
+    // Notify all followers of this story
+    const followerRows = await db
+      .select({ userId: follows.userId })
+      .from(follows)
+      .where(eq(follows.storyId, storyId));
+    const followerIds = followerRows
+      .map((f) => f.userId)
+      .filter((id) => id !== userId);
+    if (followerIds.length > 0) {
+      const authorName = session.user.name || "The author";
+      createBulkNotifications(
+        followerIds,
+        "update",
+        `${authorName} posted an update on "${story.title}"`,
+        `/story/${story.slug || storyId}`
+      );
+    }
 
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (error) {

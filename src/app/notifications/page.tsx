@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
@@ -12,7 +13,7 @@ interface Notification {
   message: string;
   href: string;
   read: boolean;
-  createdAt: number;
+  createdAt: string;
 }
 
 const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> = {
@@ -60,9 +61,10 @@ const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> =
   },
 };
 
-function formatTimeAgo(ts: number): string {
-  const diff = Date.now() - ts;
+function formatTimeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
   const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
@@ -72,9 +74,48 @@ function formatTimeAgo(ts: number): string {
 }
 
 export default function NotificationsPage() {
-  // For now, notifications are a placeholder — will be backed by API later
-  const [notifications] = useState<Notification[]>([]);
+  const { data: session } = useSession();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | NotifType>("all");
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications");
+      if (res.ok) {
+        const json = await res.json();
+        setNotifications(json.data.notifications);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchNotifications();
+    } else {
+      setLoading(false);
+    }
+  }, [session, fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch("/api/notifications", { method: "PATCH" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {}
+  };
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await fetch(`/api/notifications/${id}`, { method: "PATCH" });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch {}
+  };
 
   const filtered = filter === "all" ? notifications : notifications.filter((n) => n.type === filter);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -100,8 +141,11 @@ export default function NotificationsPage() {
               </p>
             )}
           </div>
-          {notifications.length > 0 && (
-            <button className="text-text-ghost hover:text-paper text-[12px] transition-colors">
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="text-text-ghost hover:text-paper text-[12px] transition-colors"
+            >
               Mark all as read
             </button>
           )}
@@ -130,8 +174,12 @@ export default function NotificationsPage() {
         ))}
       </motion.div>
 
-      {/* Notification list */}
-      {filtered.length > 0 ? (
+      {/* Loading */}
+      {loading ? (
+        <div className="flex justify-center py-24">
+          <div className="w-8 h-8 border-2 border-text-ghost/20 border-t-amber rounded-full animate-spin" />
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="space-y-1">
           {filtered.map((notif, i) => {
             const config = NOTIF_ICONS[notif.type];
@@ -144,6 +192,7 @@ export default function NotificationsPage() {
               >
                 <Link
                   href={notif.href}
+                  onClick={() => !notif.read && handleMarkRead(notif.id)}
                   className={`flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all hover:bg-surface/80 ${
                     !notif.read ? "bg-surface/50" : ""
                   }`}

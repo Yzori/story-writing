@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -19,15 +19,18 @@ const READING_FONTS = [
   { value: "mono", label: "Monospace (IBM Plex Mono)" },
 ];
 
+type SyncStatus = "synced" | "local-only" | "loading";
+
 export default function SettingsPage() {
-  const { data: session } = useSession();
-  const [comfortRating, setComfortRating] = useState("all");
+  const { data: session, status: sessionStatus } = useSession();
+  const [comfortRating, setComfortRating] = useState("everyone");
   const [readingFont, setReadingFont] = useState("default");
   const [readingMode, setReadingMode] = useState("paginated");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
 
-  useEffect(() => {
-    // Load from localStorage
+  const loadLocalPrefs = useCallback(() => {
     const rating = localStorage.getItem("inkwell-comfort-rating");
     if (rating) setComfortRating(rating);
     const font = localStorage.getItem("inkwell-reading-font");
@@ -38,10 +41,61 @@ export default function SettingsPage() {
     } catch {}
   }, []);
 
-  const handleSave = () => {
+  useEffect(() => {
+    // Always load localStorage first as fallback
+    loadLocalPrefs();
+
+    if (sessionStatus === "loading") return;
+
+    if (session?.user) {
+      // Fetch from API — use as source of truth if available
+      fetch("/api/users/me/preferences")
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch");
+          return res.json();
+        })
+        .then(({ data }) => {
+          if (data.comfortRating) setComfortRating(data.comfortRating);
+          if (data.readingMode) setReadingMode(data.readingMode);
+          if (data.readingFont) setReadingFont(data.readingFont);
+          setSyncStatus("synced");
+        })
+        .catch(() => {
+          // API failed — stay with localStorage values
+          setSyncStatus("local-only");
+        });
+    } else {
+      setSyncStatus("local-only");
+    }
+  }, [session, sessionStatus, loadLocalPrefs]);
+
+  const handleSave = async () => {
+    setSaving(true);
+
+    // Always write to localStorage
     localStorage.setItem("inkwell-comfort-rating", comfortRating);
     localStorage.setItem("inkwell-reading-font", readingFont);
     localStorage.setItem("inkwell-reader-prefs", JSON.stringify({ mode: readingMode }));
+
+    // If logged in, also sync to API
+    if (session?.user) {
+      try {
+        const res = await fetch("/api/users/me/preferences", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comfortRating, readingMode, readingFont }),
+        });
+        if (res.ok) {
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("local-only");
+        }
+      } catch {
+        setSyncStatus("local-only");
+      }
+    }
+
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -163,9 +217,10 @@ export default function SettingsPage() {
         >
           <button
             onClick={handleSave}
-            className="bg-amber text-void font-semibold px-6 py-2.5 rounded-full text-[13px] transition-all duration-200 hover:bg-amber-light hover:shadow-md hover:shadow-amber/15"
+            disabled={saving}
+            className="bg-amber text-void font-semibold px-6 py-2.5 rounded-full text-[13px] transition-all duration-200 hover:bg-amber-light hover:shadow-md hover:shadow-amber/15 disabled:opacity-60"
           >
-            Save Preferences
+            {saving ? "Saving..." : "Save Preferences"}
           </button>
           {saved && (
             <motion.span
@@ -176,6 +231,28 @@ export default function SettingsPage() {
             >
               Saved!
             </motion.span>
+          )}
+          {syncStatus !== "loading" && (
+            <span className={`text-[11px] flex items-center gap-1.5 ${
+              syncStatus === "synced" ? "text-sage" : "text-text-ghost"
+            }`}>
+              {syncStatus === "synced" ? (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M2 8.5l4 4 8-9" />
+                  </svg>
+                  Synced to account
+                </>
+              ) : (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="2" y="4" width="12" height="10" rx="1.5" />
+                    <path d="M5 4V2.5a3 3 0 016 0V4" />
+                  </svg>
+                  Saved locally
+                </>
+              )}
+            </span>
           )}
         </motion.div>
       </div>

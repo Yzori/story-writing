@@ -297,30 +297,165 @@ export default function ProfilePage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-24 text-center"
+            transition={{ delay: 0.2 }}
           >
-            <div className="w-16 h-16 rounded-full bg-lavender/10 border border-border flex items-center justify-center mb-4">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="text-lavender/50"
-              >
-                <rect x="4" y="4" width="20" height="20" rx="3" />
-                <circle cx="10" cy="10" r="2" />
-                <path d="M4 20l6-6 4 4 3-3 7 7" />
-              </svg>
-            </div>
-            <h3 className="font-display text-xl text-paper mb-1">
-              Portfolio Coming Soon
-            </h3>
-            <p className="text-text-secondary text-[13px] max-w-sm">
-              A curated showcase of artwork, illustrations, and visual work will
-              be available here soon.
-            </p>
+            {profile.stories.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-16">
+                {profile.stories.map((story, i) => {
+                  const genreGradients: Record<string, string> = {
+                    Fantasy: "from-amber/50 via-amber/20 to-violet/10",
+                    "Science Fiction": "from-lavender/50 via-lavender/20 to-teal/10",
+                    Romance: "from-rose/50 via-rose/20 to-amber/10",
+                    Mystery: "from-violet/50 via-violet/20 to-lavender/10",
+                    Thriller: "from-rose/40 via-rose/15 to-violet/10",
+                    Horror: "from-rose/50 via-rose/20 to-void",
+                    Adventure: "from-teal/50 via-teal/20 to-sage/10",
+                    Contemporary: "from-sage/50 via-sage/20 to-amber/10",
+                  };
+                  const gradient =
+                    (story.genres.length > 0 && genreGradients[story.genres[0]]) ||
+                    "from-amber/40 via-amber/15 to-lavender/10";
+                  const wordDisplay =
+                    story.totalWords >= 1000
+                      ? `${(story.totalWords / 1000).toFixed(1)}k words`
+                      : `${story.totalWords} words`;
+                  const excerptText =
+                    story.synopsis && story.synopsis.length > 150
+                      ? story.synopsis.slice(0, 150) + "..."
+                      : story.synopsis;
+
+                  return (
+                    <motion.div
+                      key={story.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 + i * 0.08 }}
+                    >
+                      <Link href={`/story/${story.slug || story.id}`}>
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          className="relative bg-surface/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden cursor-pointer group hover:border-amber/20 hover:shadow-xl hover:shadow-amber/[0.06] transition-all duration-300"
+                        >
+                          {/* Cover area - 60% of card */}
+                          <div
+                            className={`relative h-56 bg-gradient-to-br ${gradient} overflow-hidden`}
+                          >
+                            {story.coverImageUrl ? (
+                              <img
+                                src={story.coverImageUrl}
+                                alt={story.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <svg
+                                  width="48"
+                                  height="48"
+                                  viewBox="0 0 48 48"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1"
+                                  className="text-paper/10"
+                                >
+                                  <path d="M8 8h32v32H8z" />
+                                  <path d="M14 20h20M14 26h14M14 32h8" />
+                                </svg>
+                              </div>
+                            )}
+
+                            {/* Glass overlay at bottom */}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-void/90 via-void/60 to-transparent pt-16 pb-4 px-4">
+                              <h3 className="font-display text-paper text-lg font-semibold leading-snug group-hover:text-amber transition-colors duration-200 line-clamp-2">
+                                {story.title}
+                              </h3>
+                            </div>
+
+                            {/* Format badge */}
+                            <span className="absolute top-3 right-3 text-[10px] font-medium tracking-wider text-paper/80 bg-void/60 backdrop-blur-sm px-2.5 py-1 rounded-full capitalize">
+                              {story.format}
+                            </span>
+
+                            {/* Shimmer on hover */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                          </div>
+
+                          {/* Info section */}
+                          <div className="p-4">
+                            {excerptText && (
+                              <p className="text-text-secondary text-[12px] leading-relaxed line-clamp-3 mb-3">
+                                {excerptText}
+                              </p>
+                            )}
+
+                            <div className="flex items-center justify-between text-[11px] text-text-tertiary pt-3 border-t border-border-subtle">
+                              <div className="flex items-center gap-3">
+                                <span>{wordDisplay}</span>
+                                {story.sparkCount > 0 && (
+                                  <span className="flex items-center gap-1 text-amber/60">
+                                    <svg
+                                      width="11"
+                                      height="11"
+                                      viewBox="0 0 16 16"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.5"
+                                    >
+                                      <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+                                    </svg>
+                                    {story.sparkCount}
+                                  </span>
+                                )}
+                              </div>
+                              {story.genres.length > 0 && (
+                                <span className="text-text-ghost text-[10px] capitalize">
+                                  {story.genres[0]}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-16 h-16 rounded-full bg-lavender/10 border border-border flex items-center justify-center mb-4">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 28 28"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-lavender/50"
+                  >
+                    <rect x="4" y="4" width="20" height="20" rx="3" />
+                    <path d="M9 10h10M9 14h7M9 18h4" />
+                  </svg>
+                </div>
+                <h3 className="font-display text-xl text-paper mb-1">
+                  {isOwnProfile
+                    ? "No published work yet"
+                    : "This writer hasn\u2019t published yet"}
+                </h3>
+                <p className="text-text-secondary text-[13px] max-w-sm mb-5">
+                  {isOwnProfile
+                    ? "Your published stories will be showcased here as portfolio pieces."
+                    : "Check back later for their creative work."}
+                </p>
+                {isOwnProfile && (
+                  <Link
+                    href="/create"
+                    className="text-amber text-[13px] font-medium hover:text-amber-light transition-colors"
+                  >
+                    Start writing &rarr;
+                  </Link>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
 

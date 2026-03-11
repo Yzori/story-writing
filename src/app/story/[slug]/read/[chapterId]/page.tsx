@@ -1,14 +1,34 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Chapter } from "@/lib/store";
 import ReaderToolbar, { ReadingMode } from "@/components/reader/ReaderToolbar";
 import ReaderPaginated from "@/components/reader/ReaderPaginated";
 import ReaderScroll from "@/components/reader/ReaderScroll";
 import ChapterComments from "@/components/reader/ChapterComments";
+import ChapterReactions from "@/components/reader/ChapterReactions";
 
 const READER_PREFS_KEY = "inkwell-reader-prefs";
+const READING_FONT_KEY = "inkwell-reading-font";
+
+type ReadingFont = "default" | "serif" | "sans" | "mono";
+
+const FONT_CLASS_MAP: Record<ReadingFont, string> = {
+  default: "",
+  serif: "font-serif",
+  sans: "font-sans",
+  mono: "font-mono",
+};
+
+function loadReadingFont(): ReadingFont {
+  if (typeof window === "undefined") return "default";
+  try {
+    const saved = localStorage.getItem(READING_FONT_KEY);
+    if (saved && saved in FONT_CLASS_MAP) return saved as ReadingFont;
+  } catch {}
+  return "default";
+}
 
 interface StoryData {
   id: string;
@@ -76,12 +96,15 @@ export default function ChapterReadPage() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
   const [mode, setMode] = useState<ReadingMode>("paginated");
+  const [fontClass, setFontClass] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const commentsRef = useRef<HTMLDivElement>(null);
 
   // Load story metadata and chapter list
   useEffect(() => {
     setMode(loadReadingMode());
+    setFontClass(FONT_CLASS_MAP[loadReadingFont()]);
 
     async function load() {
       setLoading(true);
@@ -162,6 +185,10 @@ export default function ChapterReadPage() {
   const handleBack = useCallback(() => {
     router.push(`/story/${slug}`);
   }, [router, slug]);
+
+  const handleShowDiscussion = useCallback(() => {
+    commentsRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
   // Loading state
   if (loading) {
@@ -255,6 +282,7 @@ export default function ChapterReadPage() {
             hasPrevChapter={activeChapterIndex > 0}
             onNextChapter={handleNextChapter}
             onPrevChapter={handlePrevChapter}
+            onShowDiscussion={handleShowDiscussion}
             nextChapterTitle={
               activeChapterIndex < chapters.length - 1
                 ? chapters[activeChapterIndex + 1].title
@@ -262,6 +290,7 @@ export default function ChapterReadPage() {
             }
             authorNoteBefore={activeChapter.authorNoteBefore}
             authorNoteAfter={activeChapter.authorNoteAfter}
+            fontClass={fontClass}
           />
         ) : (
           <ReaderScroll
@@ -279,13 +308,21 @@ export default function ChapterReadPage() {
             }
             authorNoteBefore={activeChapter.authorNoteBefore}
             authorNoteAfter={activeChapter.authorNoteAfter}
+            fontClass={fontClass}
           />
         )}
       </div>
 
-      {/* Comments section below the reader */}
+      {/* Reactions section below the reader */}
       {storyId && (
-        <ChapterComments storyId={storyId} chapterId={chapterId} />
+        <ChapterReactions storyId={storyId} chapterId={chapterId} />
+      )}
+
+      {/* Comments section below the reactions */}
+      {storyId && (
+        <div ref={commentsRef}>
+          <ChapterComments storyId={storyId} chapterId={chapterId} />
+        </div>
       )}
     </div>
   );

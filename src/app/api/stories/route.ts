@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
         genres: stories.genres,
         contentRating: stories.contentRating,
         status: stories.status,
+        writingMode: stories.writingMode,
         isPublic: stories.isPublic,
         slug: stories.slug,
         publishedAt: stories.publishedAt,

@@ -1,0 +1,187 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { reactions } from "@/lib/db/schema";
+import { eq, and, sql, count } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { createReactionSchema } from "@/lib/validations";
+import { applyRateLimit } from "@/lib/api-utils";
+
+type RouteParams = {
+  params: Promise<{ storyId: string; chapterId: string }>;
+};
+
+/**
+ * GET /api/stories/[storyId]/chapters/[chapterId]/reactions
+ * Returns reaction counts grouped by type and the current user's reaction.
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { storyId, chapterId } = await params;
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    // Get counts grouped by type
+    const countRows = await db
+      .select({
+        type: reactions.type,
+        count: count(),
+      })
+      .from(reactions)
+      .where(
+        and(eq(reactions.storyId, storyId), eq(reactions.chapterId, chapterId))
+      )
+      .groupBy(reactions.type);
+
+    const counts: Record<string, number> = {};
+    for (const row of countRows) {
+      counts[row.type] = row.count;
+    }
+
+    // Get user's reaction if authenticated
+    let userReaction: string | null = null;
+    if (userId) {
+      const existing = await db
+        .select({ type: reactions.type })
+        .from(reactions)
+        .where(
+          and(
+            eq(reactions.chapterId, chapterId),
+            eq(reactions.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        userReaction = existing[0].type;
+      }
+    }
+
+    return NextResponse.json({
+      data: { counts, userReaction },
+    });
+  } catch (error) {
+    console.error(
+      "GET /api/stories/[storyId]/chapters/[chapterId]/reactions error:",
+      error
+    );
+    return NextResponse.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch reactions",
+        },
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/stories/[storyId]/chapters/[chapterId]/reactions
+ * Toggle or change a reaction. Requires authentication.
+ */
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
+    const { storyId, chapterId } = await params;
+    const userId = session.user.id;
+    const body = await request.json();
+
+    const parsed = createReactionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: parsed.error.issues[0]?.message ?? "Invalid input",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { type } = parsed.data;
+
+    // Check if user already has a reaction on this chapter
+    const existing = await db
+      .select({ id: reactions.id, type: reactions.type })
+      .from(reactions)
+      .where(
+        and(eq(reactions.chapterId, chapterId), eq(reactions.userId, userId))
+      )
+      .limit(1);
+
+    let userReaction: string | null = null;
+
+    if (existing.length > 0) {
+      if (existing[0].type === type) {
+        // Same reaction — toggle off
+        await db
+          .delete(reactions)
+          .where(eq(reactions.id, existing[0].id));
+        userReaction = null;
+      } else {
+        // Different reaction — update
+        await db
+          .update(reactions)
+          .set({ type })
+          .where(eq(reactions.id, existing[0].id));
+        userReaction = type;
+      }
+    } else {
+      // No existing reaction — create
+      await db.insert(reactions).values({
+        userId,
+        chapterId,
+        storyId,
+        type,
+      });
+      userReaction = type;
+    }
+
+    // Get updated counts
+    const countRows = await db
+      .select({
+        type: reactions.type,
+        count: count(),
+      })
+      .from(reactions)
+      .where(
+        and(eq(reactions.storyId, storyId), eq(reactions.chapterId, chapterId))
+      )
+      .groupBy(reactions.type);
+
+    const counts: Record<string, number> = {};
+    for (const row of countRows) {
+      counts[row.type] = row.count;
+    }
+
+    return NextResponse.json({
+      data: { counts, userReaction },
+    });
+  } catch (error) {
+    console.error(
+      "POST /api/stories/[storyId]/chapters/[chapterId]/reactions error:",
+      error
+    );
+    return NextResponse.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to toggle reaction",
+        },
+      },
+      { status: 500 }
+    );
+  }
+}

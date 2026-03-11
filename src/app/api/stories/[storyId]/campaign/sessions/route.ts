@@ -1,0 +1,142 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { campaignSessions } from "@/lib/db/schema";
+import { eq, asc, sql } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { createCampaignSessionSchema } from "@/lib/validations";
+import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
+import { applyRateLimit } from "@/lib/api-utils";
+
+type RouteParams = { params: Promise<{ storyId: string }> };
+
+/**
+ * GET /api/stories/[storyId]/campaign/sessions
+ * List all campaign sessions for this story, with turn counts.
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
+    const { storyId } = await params;
+
+    const check = await verifyCollaboratorAccess(storyId, session.user.id);
+    if (check.error === "NOT_FOUND") {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+    if (check.error === "FORBIDDEN") {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Not a collaborator on this story" } },
+        { status: 403 }
+      );
+    }
+
+    const sessions = await db
+      .select({
+        id: campaignSessions.id,
+        storyId: campaignSessions.storyId,
+        title: campaignSessions.title,
+        summary: campaignSessions.summary,
+        sortOrder: campaignSessions.sortOrder,
+        status: campaignSessions.status,
+        createdAt: campaignSessions.createdAt,
+        updatedAt: campaignSessions.updatedAt,
+        turnCount: sql<number>`(SELECT count(*) FROM campaign_turns WHERE session_id = ${campaignSessions.id})`.as("turn_count"),
+      })
+      .from(campaignSessions)
+      .where(eq(campaignSessions.storyId, storyId))
+      .orderBy(asc(campaignSessions.sortOrder));
+
+    return NextResponse.json({ data: sessions });
+  } catch (error) {
+    console.error("GET /api/stories/[storyId]/campaign/sessions error:", error);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch sessions" } },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/stories/[storyId]/campaign/sessions
+ * Create a new campaign session. Requires story ownership (GM).
+ */
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
+    const rl = applyRateLimit(request, session.user.id, "write");
+    if (rl) return rl;
+
+    const { storyId } = await params;
+
+    const check = await verifyStoryOwnership(storyId, session.user.id);
+    if (check.error === "NOT_FOUND") {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+    if (check.error === "FORBIDDEN") {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the GM can create sessions" } },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const parsed = createCampaignSessionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: parsed.error.issues[0]?.message ?? "Invalid input",
+            details: parsed.error.flatten(),
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const existing = await db
+      .select({ maxOrder: sql<number>`coalesce(max(${campaignSessions.sortOrder}), -1)` })
+      .from(campaignSessions)
+      .where(eq(campaignSessions.storyId, storyId));
+
+    const nextOrder = (existing[0]?.maxOrder ?? -1) + 1;
+
+    const [created] = await db
+      .insert(campaignSessions)
+      .values({
+        storyId,
+        title: parsed.data.title,
+        summary: parsed.data.summary ?? "",
+        sortOrder: nextOrder,
+      })
+      .returning();
+
+    return NextResponse.json({ data: created }, { status: 201 });
+  } catch (error) {
+    console.error("POST /api/stories/[storyId]/campaign/sessions error:", error);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "Failed to create session" } },
+      { status: 500 }
+    );
+  }
+}

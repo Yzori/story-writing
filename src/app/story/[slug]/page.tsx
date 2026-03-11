@@ -55,10 +55,10 @@ interface Update {
 }
 
 const FORMAT_LABELS: Record<string, string> = {
-  prose: "Prose",
+  novel: "Novel",
   webtoon: "Webtoon",
   poetry: "Poetry",
-  illustrated: "Illustrated Prose",
+  illustrated: "Illustrated Novel",
   screenplay: "Screenplay",
 };
 
@@ -101,6 +101,14 @@ function relativeTime(dateStr: string): string {
   return "just now";
 }
 
+interface Collaborator {
+  id: string;
+  userId: string;
+  role: string;
+  status: string;
+  user: { displayName: string | null; avatarUrl: string | null } | null;
+}
+
 type Tab = "chapters" | "about" | "updates";
 
 const TABS: { key: Tab; label: string }[] = [
@@ -108,6 +116,13 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "about", label: "About" },
   { key: "updates", label: "Updates" },
 ];
+
+const ROLE_COLORS: Record<string, string> = {
+  writer: "text-amber bg-amber/10",
+  illustrator: "text-lavender bg-lavender/10",
+  editor: "text-teal bg-teal/10",
+  worldbuilder: "text-sage bg-sage/10",
+};
 
 export default function StoryPage() {
   const params = useParams();
@@ -131,6 +146,7 @@ export default function StoryPage() {
   const [updateContent, setUpdateContent] = useState("");
   const [postingUpdate, setPostingUpdate] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   useEffect(() => {
     async function fetchStory() {
@@ -143,9 +159,10 @@ export default function StoryPage() {
         }
         setStory(json.data);
 
-        const [sparkRes, followRes] = await Promise.all([
+        const [sparkRes, followRes, collabRes] = await Promise.all([
           fetch(`/api/stories/${json.data.id}/sparks`),
           fetch(`/api/stories/${json.data.id}/follows`),
+          fetch(`/api/stories/${json.data.id}/collaborators`),
         ]);
         if (sparkRes.ok) {
           const sparkJson = await sparkRes.json();
@@ -156,6 +173,10 @@ export default function StoryPage() {
           const followJson = await followRes.json();
           setFollowCount(followJson.data.count);
           setHasFollowed(followJson.data.hasFollowed);
+        }
+        if (collabRes.ok) {
+          const collabJson = await collabRes.json();
+          setCollaborators(collabJson.data?.filter((c: Collaborator) => c.status === "accepted") || []);
         }
       } catch {
         setError("Failed to load story");
@@ -427,6 +448,60 @@ export default function StoryPage() {
               </button>
             )}
           </div>
+
+          {/* Collaborators */}
+          {collaborators.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Collaborators</span>
+              {collaborators.map((collab) => (
+                <Link
+                  key={collab.id}
+                  href={`/profile/${collab.userId}`}
+                  className="flex items-center gap-2 bg-surface/60 border border-border-subtle rounded-full pl-1 pr-3 py-1 hover:border-amber/20 transition-all group"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[9px] font-display font-semibold flex-shrink-0 overflow-hidden">
+                    {collab.user?.avatarUrl ? (
+                      <img src={collab.user.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      (collab.user?.displayName || "?").charAt(0)
+                    )}
+                  </div>
+                  <span className="text-[12px] text-text-secondary group-hover:text-paper transition-colors">
+                    {collab.user?.displayName || "Anonymous"}
+                  </span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium capitalize ${ROLE_COLORS[collab.role] || "text-text-ghost bg-elevated"}`}>
+                    {collab.role}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Workshop & Open Calls links */}
+          {(isOwner || collaborators.length > 0) && (
+            <div className="mt-4 flex items-center gap-3">
+              <Link
+                href={`/story/${slug}/workshop`}
+                className="flex items-center gap-2 text-[12px] text-text-secondary hover:text-amber transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="2" width="12" height="12" rx="2" />
+                  <path d="M5 6h6M5 8h4M5 10h5" />
+                </svg>
+                Workshop
+              </Link>
+              <Link
+                href={`/story/${slug}/calls`}
+                className="flex items-center gap-2 text-[12px] text-text-secondary hover:text-amber transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="8" cy="8" r="6" />
+                  <path d="M8 5v6M5 8h6" />
+                </svg>
+                Open Calls
+              </Link>
+            </div>
+          )}
         </motion.div>
 
         {/* Tab Bar */}

@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { follows, stories } from "@/lib/db/schema";
 import { eq, and, count, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -57,6 +59,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
     const { storyId } = await params;
 
     // Verify story exists
@@ -88,6 +93,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         userId: session.user.id,
         storyId,
       });
+
+      // Notify story owner
+      if (story.userId !== session.user.id) {
+        const name = session.user.name || "Someone";
+        createNotification(
+          story.userId,
+          "follow",
+          `${name} is now following "${story.title}"`,
+          `/story/${story.slug || storyId}`
+        );
+      }
     }
 
     const [{ value: followCount }] = await db

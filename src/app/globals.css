@@ -41,6 +41,8 @@
   --font-body: var(--font-jakarta);
   --font-reading: var(--font-literata);
   --font-mono: var(--font-plex-mono);
+  --font-playfair: var(--font-playfair);
+  --font-dm-sans: var(--font-dm-sans);
 }
 
 /* ─── Lamplight (dark, default) ─────────────────────────────── */
@@ -434,6 +436,21 @@ body {
   font-size: 1.1rem;
   line-height: 1.85;
   font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "onum" 1, "pnum" 1;
+}
+
+.prose-reader.font-serif {
+  font-family: var(--font-playfair), Georgia, serif;
+}
+
+.prose-reader.font-sans {
+  font-family: var(--font-dm-sans), var(--font-body), system-ui, sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.prose-reader.font-mono {
+  font-family: var(--font-plex-mono), "Courier New", monospace;
+  font-size: 1rem;
+  line-height: 1.9;
 }
 
 .prose-reader p {

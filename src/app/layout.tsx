@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Plus_Jakarta_Sans, Literata, IBM_Plex_Mono } from "next/font/google";
+import { Fraunces, Plus_Jakarta_Sans, Literata, IBM_Plex_Mono, Playfair_Display, DM_Sans } from "next/font/google";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
@@ -28,6 +28,18 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Inkwell — Where Stories Come Alive",
   description:
@@ -40,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable} ${playfair.variable} ${dmSans.variable}`}>
       <body className="antialiased"><Providers>{children}</Providers></body>
     </html>
   );

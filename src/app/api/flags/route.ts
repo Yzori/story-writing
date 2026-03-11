@@ -4,6 +4,7 @@ import { flags } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createFlagSchema } from "@/lib/validations";
+import { applyRateLimit } from "@/lib/api-utils";
 
 /**
  * POST /api/flags
@@ -19,6 +20,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const body = await request.json();
     const parsed = createFlagSchema.safeParse(body);

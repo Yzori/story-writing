@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { comments, users } from "@/lib/db/schema";
+import { comments, users, stories, chapters } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createCommentSchema } from "@/lib/validations";
+import { createNotification } from "@/lib/notifications";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -16,6 +18,11 @@ type RouteParams = {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { storyId, chapterId } = await params;
+
+    const searchParams = request.nextUrl.searchParams;
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10) || 20));
+    const offset = (page - 1) * limit;
 
     const result = await db
       .select({
@@ -39,9 +46,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(eq(comments.storyId, storyId), eq(comments.chapterId, chapterId))
       )
-      .orderBy(asc(comments.createdAt));
+      .orderBy(asc(comments.createdAt))
+      .limit(limit + 1)
+      .offset(offset);
 
-    return NextResponse.json({ data: result });
+    const hasMore = result.length > limit;
+    const data = hasMore ? result.slice(0, limit) : result;
+
+    return NextResponse.json({ data, hasMore });
   } catch (error) {
     console.error(
       "GET /api/stories/[storyId]/chapters/[chapterId]/comments error:",
@@ -67,6 +79,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, chapterId } = await params;
     const body = await request.json();
@@ -120,6 +135,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .leftJoin(users, eq(comments.userId, users.id))
       .where(eq(comments.id, created.id))
       .limit(1);
+
+    // Notify story owner about the comment
+    const [story] = await db
+      .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
+      .from(stories)
+      .where(eq(stories.id, storyId))
+      .limit(1);
+    if (story && story.userId !== userId) {
+      const name = session.user.name || "Someone";
+      const [chapter] = await db
+        .select({ title: chapters.title })
+        .from(chapters)
+        .where(eq(chapters.id, chapterId))
+        .limit(1);
+      const chapterLabel = chapter?.title || "a chapter";
+      createNotification(
+        story.userId,
+        "comment",
+        `${name} commented on "${chapterLabel}" in "${story.title}"`,
+        `/story/${story.slug || storyId}/read/${chapterId}`
+      );
+    }
 
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (error) {

@@ -26,6 +26,9 @@ export const users = pgTable("users", {
   password: text("password"),
   bio: text("bio"),
   role: text("role").notNull().default("writer"),
+  comfortRating: text("comfort_rating").notNull().default("everyone"),
+  readingMode: text("reading_mode").notNull().default("paginated"),
+  readingFont: text("reading_font").notNull().default("default"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -39,6 +42,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   writingSessions: many(writingSessions),
   sparks: many(sparks),
   follows: many(follows),
+  collaborators: many(collaborators),
 }));
 
 // ── Stories ──────────────────────────────────────────────────
@@ -51,7 +55,7 @@ export const stories = pgTable("stories", {
     .notNull()
     .references(() => users.id),
   title: text("title").notNull(),
-  format: text("format").notNull().default("prose"),
+  format: text("format").notNull().default("novel"),
   synopsis: text("synopsis").default(""),
   coverImageUrl: text("cover_image_url"),
   genres: text("genres")
@@ -69,6 +73,7 @@ export const stories = pgTable("stories", {
   dropCaps: boolean("drop_caps").notNull().default(true),
   sceneBreakStyle: text("scene_break_style").notNull().default("asterism"),
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
+  writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'
   isPublic: boolean("is_public").notNull().default(false),
   slug: text("slug").unique(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -90,6 +95,7 @@ export const storiesRelations = relations(stories, ({ one, many }) => ({
   follows: many(follows),
   comments: many(comments),
   creatorUpdates: many(creatorUpdates),
+  collaborators: many(collaborators),
 }));
 
 // ── Chapters ─────────────────────────────────────────────────
@@ -367,5 +373,421 @@ export const flagsRelations = relations(flags, ({ one }) => ({
   comment: one(comments, {
     fields: [flags.commentId],
     references: [comments.id],
+  }),
+}));
+
+// ── Notifications ──────────────────────────────────────────
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'chapter' | 'spark' | 'follow' | 'comment' | 'update'
+  message: text("message").notNull(),
+  href: text("href").notNull(),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Collaborators ─────────────────────────────────────────────
+
+export const collaborators = pgTable(
+  "collaborators",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role").notNull(), // 'writer' | 'illustrator' | 'editor' | 'worldbuilder'
+    status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined'
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("collaborators_story_user_unique").on(table.storyId, table.userId),
+  ]
+);
+
+export const collaboratorsRelations = relations(collaborators, ({ one }) => ({
+  story: one(stories, {
+    fields: [collaborators.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [collaborators.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Agreements ──────────────────────────────────────────────
+
+export const agreements = pgTable("agreements", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  template: text("template").notNull().default("equal-partners"), // 'equal-partners' | 'lead-contributor' | 'work-for-hire' | 'custom'
+  ownershipSplit: text("ownership_split"), // JSON string
+  creditFormat: text("credit_format"),
+  terms: text("terms"),
+  confirmedBy: text("confirmed_by")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  status: text("status").notNull().default("draft"), // 'draft' | 'active' | 'amended'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const agreementsRelations = relations(agreements, ({ one }) => ({
+  story: one(stories, {
+    fields: [agreements.storyId],
+    references: [stories.id],
+  }),
+}));
+
+// ── Suggestions ─────────────────────────────────────────────
+
+export const suggestions = pgTable("suggestions", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  chapterId: uuid("chapter_id")
+    .notNull()
+    .references(() => chapters.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  content: text("content").notNull(),
+  note: text("note"),
+  status: text("status").notNull().default("pending"), // 'pending' | 'woven' | 'revised' | 'passed'
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const suggestionsRelations = relations(suggestions, ({ one }) => ({
+  story: one(stories, {
+    fields: [suggestions.storyId],
+    references: [stories.id],
+  }),
+  chapter: one(chapters, {
+    fields: [suggestions.chapterId],
+    references: [chapters.id],
+  }),
+  user: one(users, {
+    fields: [suggestions.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Open Calls ──────────────────────────────────────────────
+
+export const openCalls = pgTable("open_calls", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  role: text("role").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  requirements: text("requirements"),
+  status: text("status").notNull().default("open"), // 'open' | 'filled' | 'closed'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const openCallsRelations = relations(openCalls, ({ one, many }) => ({
+  story: one(stories, {
+    fields: [openCalls.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [openCalls.userId],
+    references: [users.id],
+  }),
+  responses: many(openCallResponses),
+}));
+
+// ── Open Call Responses ─────────────────────────────────────
+
+export const openCallResponses = pgTable(
+  "open_call_responses",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => openCalls.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    pitch: text("pitch").notNull(),
+    status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("open_call_responses_call_user_unique").on(
+      table.callId,
+      table.userId
+    ),
+  ]
+);
+
+export const openCallResponsesRelations = relations(
+  openCallResponses,
+  ({ one }) => ({
+    call: one(openCalls, {
+      fields: [openCallResponses.callId],
+      references: [openCalls.id],
+    }),
+    user: one(users, {
+      fields: [openCallResponses.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+// ── Reactions ───────────────────────────────────────────────
+
+export const reactions = pgTable(
+  "reactions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    chapterId: uuid("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // 'gasped' | 'cried' | 'laughed' | 'need-more' | 'saw-it-coming' | 'heartbroken' | 'inspired' | 'terrified'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("reactions_user_chapter_unique").on(table.userId, table.chapterId),
+  ]
+);
+
+export const reactionsRelations = relations(reactions, ({ one }) => ({
+  user: one(users, { fields: [reactions.userId], references: [users.id] }),
+  chapter: one(chapters, {
+    fields: [reactions.chapterId],
+    references: [chapters.id],
+  }),
+  story: one(stories, {
+    fields: [reactions.storyId],
+    references: [stories.id],
+  }),
+}));
+
+// ── Lore Entries ────────────────────────────────────────────
+
+export const loreEntries = pgTable("lore_entries", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  category: text("category").notNull(), // 'character' | 'place' | 'event' | 'item' | 'lore'
+  title: text("title").notNull(),
+  content: text("content").notNull().default(""),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const loreEntriesRelations = relations(loreEntries, ({ one }) => ({
+  story: one(stories, {
+    fields: [loreEntries.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [loreEntries.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Player Characters (Campaign Mode) ──────────────────────
+
+export const playerCharacters = pgTable(
+  "player_characters",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    name: text("name").notNull(),
+    portrait: text("portrait"), // base64 or URL
+    description: text("description").default(""),
+    traits: text("traits").default(""), // free-form text
+    backstory: text("backstory").default(""),
+    status: text("status").notNull().default("active"), // 'active' | 'retired' | 'dead'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("player_characters_story_user_unique").on(
+      table.storyId,
+      table.userId
+    ),
+  ]
+);
+
+export const playerCharactersRelations = relations(
+  playerCharacters,
+  ({ one }) => ({
+    story: one(stories, {
+      fields: [playerCharacters.storyId],
+      references: [stories.id],
+    }),
+    user: one(users, {
+      fields: [playerCharacters.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+// ── Campaign Sessions ──────────────────────────────────────
+
+export const campaignSessions = pgTable("campaign_sessions", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  summary: text("summary").default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+  status: text("status").notNull().default("active"), // 'active' | 'completed' | 'archived'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const campaignSessionsRelations = relations(
+  campaignSessions,
+  ({ one, many }) => ({
+    story: one(stories, {
+      fields: [campaignSessions.storyId],
+      references: [stories.id],
+    }),
+    turns: many(campaignTurns),
+  })
+);
+
+// ── Campaign Turns ─────────────────────────────────────────
+
+export const campaignTurns = pgTable("campaign_turns", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => campaignSessions.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  characterId: uuid("character_id").references(() => playerCharacters.id, {
+    onDelete: "set null",
+  }),
+  type: text("type").notNull(), // 'narration' | 'action' | 'dialogue' | 'roll' | 'ooc'
+  content: text("content").notNull(),
+  metadata: text("metadata"), // JSON: dice rolls, skill checks, etc.
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [campaignTurns.sessionId],
+    references: [campaignSessions.id],
+  }),
+  user: one(users, {
+    fields: [campaignTurns.userId],
+    references: [users.id],
+  }),
+  character: one(playerCharacters, {
+    fields: [campaignTurns.characterId],
+    references: [playerCharacters.id],
   }),
 }));

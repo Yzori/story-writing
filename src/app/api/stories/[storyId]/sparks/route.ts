@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sparks } from "@/lib/db/schema";
+import { sparks, stories } from "@/lib/db/schema";
 import { eq, and, count, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -59,6 +61,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
     const { storyId } = await params;
     const userId = session.user.id;
 
@@ -81,6 +86,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Create the spark
       await db.insert(sparks).values({ userId, storyId });
       sparked = true;
+
+      // Notify story owner
+      const [story] = await db
+        .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
+        .from(stories)
+        .where(eq(stories.id, storyId))
+        .limit(1);
+      if (story && story.userId !== userId) {
+        const name = session.user.name || "Someone";
+        createNotification(
+          story.userId,
+          "spark",
+          `${name} sparked your story "${story.title}"`,
+          `/story/${story.slug || storyId}`
+        );
+      }
     }
 
     // Get updated count

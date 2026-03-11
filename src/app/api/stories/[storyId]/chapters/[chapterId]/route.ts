@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { chapters, stories } from "@/lib/db/schema";
+import { chapters, stories, follows } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
 import { auth } from "@/lib/auth";
+import { createBulkNotifications } from "@/lib/notifications";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -136,6 +137,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .set(updateData)
       .where(eq(chapters.id, chapterId))
       .returning();
+
+    // Notify followers when a chapter is newly published
+    if (
+      parsed.data.status === "published" &&
+      existing.status !== "published"
+    ) {
+      const story = await db.query.stories.findFirst({
+        where: eq(stories.id, storyId),
+      });
+      if (story) {
+        const followerRows = await db
+          .select({ userId: follows.userId })
+          .from(follows)
+          .where(eq(follows.storyId, storyId));
+        const followerIds = followerRows
+          .map((f) => f.userId)
+          .filter((id) => id !== session.user.id);
+        if (followerIds.length > 0) {
+          createBulkNotifications(
+            followerIds,
+            "chapter",
+            `New chapter "${updated.title}" in "${story.title}"`,
+            `/story/${story.slug || storyId}/read/${chapterId}`
+          );
+        }
+      }
+    }
 
     return NextResponse.json({ data: updated });
   } catch (error) {

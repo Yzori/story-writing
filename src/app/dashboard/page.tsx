@@ -15,6 +15,7 @@ interface Story {
   genres: string[];
   contentRating: string;
   status: string;
+  writingMode: string;
   slug: string | null;
   createdAt: string;
   updatedAt: string;
@@ -249,7 +250,7 @@ export default function DashboardPage() {
                   contentRating={story.contentRating}
                   status={story.status as "draft" | "in-progress" | "complete"}
                   slug={story.slug || story.id}
-                  href={`/write/${story.id}`}
+                  href={story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`}
                   coverUrl={story.coverImageUrl || undefined}
                   lastEdited={formatTimeAgo(story.updatedAt)}
                 />

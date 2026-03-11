@@ -87,7 +87,7 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10 border-t border-border">
+    <div id="chapter-comments" className="max-w-2xl mx-auto px-6 py-10 border-t border-border">
       <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-6 block">
         Comments
       </span>

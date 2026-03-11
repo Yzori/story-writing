@@ -10,9 +10,12 @@ interface ReaderPaginatedProps {
   hasPrevChapter?: boolean;
   onNextChapter?: () => void;
   onPrevChapter?: () => void;
+  onShowDiscussion?: () => void;
   nextChapterTitle?: string;
   authorNoteBefore?: string;
   authorNoteAfter?: string;
+  fontClass?: string;
+  commentCount?: number;
 }
 
 export default function ReaderPaginated({
@@ -22,9 +25,12 @@ export default function ReaderPaginated({
   hasPrevChapter,
   onNextChapter,
   onPrevChapter,
+  onShowDiscussion,
   nextChapterTitle,
   authorNoteBefore,
   authorNoteAfter,
+  fontClass,
+  commentCount,
 }: ReaderPaginatedProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -141,7 +147,7 @@ export default function ReaderPaginated({
                 <div className="author-note">{authorNoteBefore}</div>
               )}
               <div
-                className="prose-reader"
+                className={`prose-reader ${fontClass || ""}`}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
               />
               {authorNoteAfter?.trim() && (
@@ -239,12 +245,32 @@ export default function ReaderPaginated({
           </button>
         </div>
 
-        {/* Next chapter */}
-        <div className="w-28 text-right">
+        {/* Discussion + Next chapter */}
+        <div className="flex items-center gap-3 ml-auto">
+          <AnimatePresence>
+            {currentPage >= totalPages && onShowDiscussion && (
+              <motion.button
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.2 }}
+                onClick={onShowDiscussion}
+                className="flex items-center gap-1.5 text-text-secondary hover:text-paper transition-colors"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+                Discussion{commentCount !== undefined ? ` (${commentCount})` : ""}
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M3 5l4 4 4-4" />
+                </svg>
+              </motion.button>
+            )}
+          </AnimatePresence>
           {currentPage >= totalPages && hasNextChapter && (
             <button
               onClick={onNextChapter}
-              className="flex items-center gap-1 text-amber hover:text-amber/80 transition-colors ml-auto font-medium"
+              className="flex items-center gap-1 text-amber hover:text-amber/80 transition-colors font-medium"
             >
               Next chapter
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">

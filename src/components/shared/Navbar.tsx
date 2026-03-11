@@ -11,6 +11,7 @@ export default function Navbar() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session, status: sessionStatus } = useSession();
   const isLoading = sessionStatus === "loading";
@@ -25,6 +26,24 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    let cancelled = false;
+    async function fetchUnread() {
+      try {
+        const res = await fetch("/api/notifications");
+        if (res.ok && !cancelled) {
+          const json = await res.json();
+          setUnreadCount(json.data.unreadCount);
+        }
+      } catch {}
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000); // poll every 60s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [session?.user?.id]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +163,9 @@ export default function Navbar() {
                   <path d="M4 6a4 4 0 018 0c0 4 2 5 2 5H2s2-1 2-5z" />
                   <path d="M6.5 13a1.5 1.5 0 003 0" />
                 </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber shadow-sm shadow-amber/30" />
+                )}
               </Link>
 
               {/* User menu */}
@@ -295,6 +317,14 @@ export default function Navbar() {
                   </Link>
                   <Link href="/dashboard" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     My Desk
+                  </Link>
+                  <Link href="/notifications" className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2 flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-amber text-void text-[10px] font-bold flex items-center justify-center">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
                   </Link>
                   <Link href={profileHref} className="text-text-secondary hover:text-paper transition-colors text-[14px] py-2" onClick={() => setMobileOpen(false)}>
                     Profile

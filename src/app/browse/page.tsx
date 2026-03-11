@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { GENRES } from "@/lib/genres";
 import StoryCard from "@/components/shared/StoryCard";
@@ -28,7 +29,7 @@ interface Story {
 const SORT_OPTIONS = ["Latest", "Most Sparked", "Most Read", "Rising"];
 const FORMAT_OPTIONS = [
   "All Formats",
-  "Prose",
+  "Novel",
   "Webtoon",
   "Poetry",
   "Screenplay",
@@ -117,6 +118,40 @@ function BrowsePage() {
     }
     return true;
   });
+
+  // Just Published: 6 most recently created stories
+  const justPublished = useMemo(() => {
+    return [...stories]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
+  }, [stories]);
+
+  // Staff Picks: top 3 stories by spark count (deterministic "random" via top sparks)
+  const staffPicks = useMemo(() => {
+    return [...stories]
+      .sort((a, b) => b.sparkCount - a.sparkCount)
+      .slice(0, 3);
+  }, [stories]);
+
+  // Popular fallback for empty results: top 6 by sparks from unfiltered stories
+  const popularFallback = useMemo(() => {
+    return [...stories]
+      .sort((a, b) => b.sparkCount - a.sparkCount)
+      .slice(0, 6);
+  }, [stories]);
+
+  const isSearching = !!debouncedQuery;
+  const isFilteringGenre = !!selectedGenre;
+  const showCuratedSections = !isSearching && !loading;
+
+  // Result count text
+  const resultCountText = useMemo(() => {
+    if (loading) return null;
+    if (debouncedQuery) {
+      return `${filtered.length} result${filtered.length !== 1 ? "s" : ""} for \u2018${debouncedQuery}\u2019`;
+    }
+    return `${filtered.length} ${filtered.length === 1 ? "story" : "stories"}`;
+  }, [filtered.length, debouncedQuery, loading]);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
@@ -230,12 +265,128 @@ function BrowsePage() {
         </div>
       </motion.div>
 
+      {/* Just Published — horizontal scroll row */}
+      {showCuratedSections && justPublished.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="mb-10"
+        >
+          <h2 className="font-display text-lg text-paper font-semibold mb-4 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-amber">
+              <circle cx="8" cy="8" r="6.5" />
+              <path d="M8 4.5V8.5L10.5 10" />
+            </svg>
+            Just Published
+          </h2>
+          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+            {justPublished.map((story, i) => (
+              <motion.div
+                key={story.id}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.04 }}
+              >
+                <Link
+                  href={`/story/${story.slug || story.id}`}
+                  className="flex items-center gap-3 w-[300px] flex-shrink-0 bg-surface border border-border rounded-xl p-3 hover:border-amber/20 hover:bg-elevated/50 transition-all group"
+                >
+                  <div className="w-20 h-20 rounded-lg bg-elevated flex-shrink-0 overflow-hidden">
+                    {story.coverImageUrl ? (
+                      <img
+                        src={story.coverImageUrl}
+                        alt={story.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-amber/10 to-amber/[0.02] flex items-center justify-center">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-amber/30">
+                          <rect x="4" y="2" width="12" height="16" rx="1.5" />
+                          <path d="M7 6h6M7 9h4" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[13px] font-medium text-paper truncate group-hover:text-amber transition-colors">
+                      {story.title}
+                    </h3>
+                    <p className="text-[11px] text-text-secondary mt-0.5 truncate">
+                      {story.authorName || "Anonymous"}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      {story.genres.slice(0, 1).map((genre) => (
+                        <GenrePill key={genre} genre={genre} size="sm" />
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* Staff Picks — featured cards */}
+      {showCuratedSections && !isFilteringGenre && staffPicks.length >= 3 && (
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="mb-10"
+        >
+          <h2 className="font-display text-lg text-paper font-semibold mb-4 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-amber">
+              <path
+                d="M8 1.5l1.85 3.75 4.15.6-3 2.93.71 4.12L8 10.88 4.29 12.9l.71-4.12-3-2.93 4.15-.6L8 1.5z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth="0.5"
+              />
+            </svg>
+            Staff Picks
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {staffPicks.map((story, i) => (
+              <motion.div
+                key={story.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.14 + i * 0.05 }}
+              >
+                <StoryCard
+                  title={story.title}
+                  author={story.authorName || undefined}
+                  genres={story.genres}
+                  wordCount={story.totalWords || 0}
+                  chapterCount={story.chapterCount || 0}
+                  sparkCount={story.sparkCount || 0}
+                  contentRating={story.contentRating}
+                  slug={story.slug || story.id}
+                  coverUrl={story.coverImageUrl || undefined}
+                  excerpt={story.synopsis || undefined}
+                  variant="featured"
+                />
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
       {/* Stories */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
+        {/* Result count */}
+        {resultCountText && (
+          <p className="text-text-ghost text-[12px] mb-4">
+            {resultCountText}
+          </p>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-6 h-6 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
@@ -292,6 +443,38 @@ function BrowsePage() {
                 ? "Try a different search term or clear your filters."
                 : "No published stories yet. Be the first to share your work!"}
             </p>
+
+            {/* Popular fallback when search yields no results */}
+            {popularFallback.length > 0 && (
+              <div className="mt-12 w-full">
+                <h3 className="font-display text-lg text-paper font-semibold mb-5">
+                  You might enjoy these instead
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {popularFallback.map((story, i) => (
+                    <motion.div
+                      key={story.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + i * 0.04 }}
+                    >
+                      <StoryCard
+                        title={story.title}
+                        author={story.authorName || undefined}
+                        genres={story.genres}
+                        wordCount={story.totalWords || 0}
+                        chapterCount={story.chapterCount || 0}
+                        sparkCount={story.sparkCount || 0}
+                        contentRating={story.contentRating}
+                        slug={story.slug || story.id}
+                        coverUrl={story.coverImageUrl || undefined}
+                        excerpt={story.synopsis || undefined}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </motion.div>

@@ -13,6 +13,7 @@ interface ReaderScrollProps {
   nextChapterTitle?: string;
   authorNoteBefore?: string;
   authorNoteAfter?: string;
+  fontClass?: string;
 }
 
 export default function ReaderScroll({
@@ -25,6 +26,7 @@ export default function ReaderScroll({
   nextChapterTitle,
   authorNoteBefore,
   authorNoteAfter,
+  fontClass,
 }: ReaderScrollProps) {
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export default function ReaderScroll({
           )}
 
           <div
-            className="prose-reader"
+            className={`prose-reader ${fontClass || ""}`}
             dangerouslySetInnerHTML={{ __html: htmlContent }}
           />
 

@@ -23,6 +23,7 @@ import { exportPdf, exportEpub } from "@/lib/export";
 import { exportDocx } from "@/lib/export-docx";
 import ChapterNav from "@/components/editor/ChapterNav";
 import ProseEditor from "@/components/editor/ProseEditor";
+import FormatStub from "@/components/editor/FormatStub";
 import CommandPalette from "@/components/editor/CommandPalette";
 import CommentsSidebar from "@/components/editor/CommentsSidebar";
 import CommentPopover from "@/components/editor/CommentPopover";
@@ -199,6 +200,9 @@ export default function WriteStoryPage() {
   const [showToolkit, setShowToolkit] = useState(false);
   // Publish state
   const [isPublic, setIsPublic] = useState(false);
+  // Format-aware editor
+  const [storyFormat, setStoryFormat] = useState("novel");
+  const [useProseAnyway, setUseProseAnyway] = useState(false);
 
   // Track which chapters have unsaved content changes
   const pendingSaves = useRef<Map<string, string>>(new Map());
@@ -276,6 +280,7 @@ export default function WriteStoryPage() {
 
         setProject(proj);
         setIsPublic(!!story.isPublic);
+        setStoryFormat(story.format || "novel");
       } catch {
         setError("Failed to load story");
       } finally {
@@ -832,6 +837,18 @@ export default function WriteStoryPage() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  // Show format stub for non-novel formats (unless user opted into novel mode)
+  if (storyFormat !== "novel" && !useProseAnyway) {
+    return (
+      <FormatStub
+        format={storyFormat}
+        storyTitle={project.title}
+        storyId={storyId}
+        onUseProse={() => setUseProseAnyway(true)}
+      />
     );
   }
 
