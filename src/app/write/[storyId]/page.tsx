@@ -251,7 +251,7 @@ export default function WriteStoryPage() {
             coverImageDataUrl: story.coverImageUrl || null,
             synopsis: story.synopsis || "",
             genres: story.genres || [],
-            contentRating: story.contentRating || "everyone",
+            contentRating: story.contentRating || "G",
             status: story.status || "draft",
             language: story.language || "English",
             dedication: story.dedication || "",
@@ -862,7 +862,7 @@ export default function WriteStoryPage() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-void">
+      <div className="h-[calc(100vh-64px)] w-screen flex items-center justify-center bg-void">
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-2 border-text-ghost border-t-amber rounded-full animate-spin" />
           <p className="text-xs text-text-ghost">Loading your desk...</p>
@@ -873,7 +873,7 @@ export default function WriteStoryPage() {
 
   if (error || !project) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-void">
+      <div className="h-[calc(100vh-64px)] w-screen flex items-center justify-center bg-void">
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-text-secondary text-sm">{error || "Story not found"}</p>
           <button
@@ -902,7 +902,7 @@ export default function WriteStoryPage() {
   const totalWords = project.chapters.reduce((s, c) => s + c.wordCount, 0);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-void overflow-hidden">
+    <div className="h-[calc(100vh-64px)] w-screen flex flex-col bg-void overflow-hidden">
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Chapter Navigator — hidden in zen mode */}

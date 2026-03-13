@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { type Theme, getStoredTheme, setTheme } from "@/lib/theme";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -12,10 +13,15 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [currentTheme, setCurrentTheme] = useState<Theme>("dark");
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session, status: sessionStatus } = useSession();
   const isLoading = sessionStatus === "loading";
   const router = useRouter();
+
+  useEffect(() => {
+    setCurrentTheme(getStoredTheme());
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -61,25 +67,10 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50">
-      {/* Mahogany shelf background with wood-grain depth */}
-      <div
-        className="absolute inset-0 backdrop-blur-2xl"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(17,14,10,0.97) 0%, rgba(30,22,14,0.95) 60%, rgba(40,28,16,0.93) 100%)",
-        }}
-      />
-      {/* Subtle top highlight — light catching the shelf edge */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/10 to-transparent" />
-      {/* Ornamental gold filigree along the bottom edge */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/25 to-transparent" />
-      <div className="absolute bottom-[-1px] left-1/2 -translate-x-1/2 flex items-center gap-1 opacity-30">
-        <div className="w-16 h-px bg-gradient-to-r from-transparent to-gold/60" />
-        <svg width="8" height="8" viewBox="0 0 8 8" className="text-gold">
-          <path d="M4 0L5 3H8L5.5 5L6.5 8L4 6L1.5 8L2.5 5L0 3H3Z" fill="currentColor" />
-        </svg>
-        <div className="w-16 h-px bg-gradient-to-l from-transparent to-gold/60" />
-      </div>
+      {/* Background — blends with page */}
+      <div className="absolute inset-0 bg-void/90 backdrop-blur-2xl" />
+      {/* Bottom border */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
 
       <div className="relative max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
         {/* Logo — brass plate feel */}
@@ -179,6 +170,28 @@ export default function Navbar() {
                 My Desk
               </Link>
 
+              {/* Theme toggle — dark/light */}
+              <button
+                onClick={() => {
+                  const next: Theme = currentTheme === "dark" ? "light" : "dark";
+                  setTheme(next);
+                  setCurrentTheme(next);
+                }}
+                className="relative p-2 rounded-lg text-text-ghost hover:text-gold/80 hover:bg-gold/[0.05] transition-all duration-300 cursor-pointer"
+                aria-label={currentTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {currentTheme === "dark" ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="8" cy="8" r="3" />
+                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M13.5 8.5a5.5 5.5 0 01-7-7 5.5 5.5 0 107 7z" />
+                  </svg>
+                )}
+              </button>
+
               {/* Notifications — ember badge */}
               <Link
                 href="/notifications"
@@ -212,13 +225,8 @@ export default function Navbar() {
                       style={{ transformOrigin: "top center" }}
                       className="absolute right-0 top-11 w-52 overflow-hidden z-50 rounded-lg border border-gold/10 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_1px_rgba(200,150,60,0.1)]"
                     >
-                      {/* Scroll/parchment feel */}
-                      <div
-                        style={{
-                          background:
-                            "linear-gradient(180deg, rgba(30,22,14,0.98) 0%, rgba(22,17,11,0.98) 100%)",
-                        }}
-                      >
+                      <div className="bg-elevated">
+
                         {/* User identity header */}
                         <div className="px-4 py-3.5 border-b border-gold/8 bg-gradient-to-r from-gold/[0.04] to-transparent">
                           <p className="text-paper text-[13px] font-display font-medium truncate">
@@ -335,15 +343,9 @@ export default function Navbar() {
             className="relative md:hidden overflow-hidden"
           >
             {/* Drawer background */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(180deg, rgba(22,17,11,0.98) 0%, rgba(17,14,10,0.99) 100%)",
-              }}
-            />
-            {/* Top gold line */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/15 to-transparent" />
+            <div className="absolute inset-0 bg-surface/98 backdrop-blur-xl" />
+            {/* Top border */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-border" />
 
             <div className="relative px-6 py-5 flex flex-col gap-1">
               {/* Mobile search — inset brass frame */}

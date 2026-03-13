@@ -62,7 +62,7 @@ export const stories = pgTable("stories", {
     .array()
     .notNull()
     .default(sql`'{}'::text[]`),
-  contentRating: text("content_rating").notNull().default("everyone"),
+  contentRating: text("content_rating").notNull().default("G"),
   status: text("status").notNull().default("draft"),
   dedication: text("dedication").default(""),
   language: text("language").notNull().default("English"),

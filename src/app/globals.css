@@ -100,86 +100,46 @@ html, html.theme-dark {
   color-scheme: dark;
 }
 
-/* ─── Morning Journal (light) ──────────────────────────────── */
-/*   Warm cream paper, rich umber ink, morning coffee.          */
+/* ─── Morning Paper (light) ────────────────────────────────── */
+/*   Warm cream paper, walnut ink, a café table by the window.  */
+/*   Soft daylight, not sterile white. Still feels like home.   */
 
 html.theme-light {
-  --t-void: #FAF5EC;
-  --t-ink: #F2ECDF;
-  --t-surface: #E8E0D0;
-  --t-elevated: #F0E8D8;
-  --t-subtle: #DDD4C2;
+  --t-void: #F8F3E8;
+  --t-ink: #F0EAD8;
+  --t-surface: #E6DEC8;
+  --t-elevated: #EFEAD8;
+  --t-subtle: #D8D0BA;
 
-  --t-paper: #1A1610;
-  --t-text: #38322A;
-  --t-text-secondary: #5E5444;
-  --t-text-tertiary: #8A7E6A;
-  --t-text-ghost: #B0A48E;
+  --t-paper: #1C1810;
+  --t-text: #3A3228;
+  --t-text-secondary: #5C5040;
+  --t-text-tertiary: #887A64;
+  --t-text-ghost: #AEA28A;
 
-  --t-gold: #8A6428;
-  --t-gold-soft: #8A642825;
-  --t-gold-glow: #8A64280E;
-  --t-gold-light: #B08838;
-  --t-gold-dark: #6A4C1C;
+  /* Warm brass — deeper than dark theme gold, grounded */
+  --t-gold: #7C5A22;
+  --t-gold-soft: #7C5A2220;
+  --t-gold-glow: #7C5A220A;
+  --t-gold-light: #A07430;
+  --t-gold-dark: #5C4218;
 
   --t-ruby: #8A3038;
   --t-emerald: #2E6448;
-  --t-amethyst: #644A84;
-  --t-copper: #845830;
-  --t-teal: #2E5E68;
+  --t-amethyst: #5E4480;
+  --t-copper: #7A5028;
+  --t-teal: #2A5A64;
 
-  --t-charcoal: #E0D8C8;
-  --t-espresso: #D4CABA;
-  --t-walnut: #B8AA94;
-  --t-linen: #1A1610;
-  --t-cream: #2A2418;
-  --t-parchment: #4A4234;
-
-  --t-border: #C8B89830;
-  --t-border-subtle: #C8B89820;
-  --t-border-active: #C8B89840;
-
-  color-scheme: light;
-}
-
-/* ─── Old Library (sepia) ──────────────────────────────────── */
-/*   Aged paper, leather spines, oak and brass.                 */
-
-html.theme-sepia {
-  --t-void: #EDE2CC;
-  --t-ink: #E4D8BF;
-  --t-surface: #D8CCB2;
-  --t-elevated: #E4D8BF;
-  --t-subtle: #CCC0A6;
-
-  --t-paper: #221A10;
-  --t-text: #3A3024;
-  --t-text-secondary: #625438;
-  --t-text-tertiary: #907E60;
-  --t-text-ghost: #B8AA90;
-
-  --t-gold: #7A5620;
-  --t-gold-soft: #7A562025;
-  --t-gold-glow: #7A56200E;
-  --t-gold-light: #A07430;
-  --t-gold-dark: #5C4018;
-
-  --t-ruby: #7E3840;
-  --t-emerald: #2A5A42;
-  --t-amethyst: #584278;
-  --t-copper: #785028;
-  --t-teal: #245860;
-
-  --t-charcoal: #D8CEB8;
-  --t-espresso: #CCC0A4;
-  --t-walnut: #B0A080;
-  --t-linen: #221A10;
-  --t-cream: #302618;
+  --t-charcoal: #DCD4C0;
+  --t-espresso: #D0C6B0;
+  --t-walnut: #B0A488;
+  --t-linen: #1C1810;
+  --t-cream: #2A2218;
   --t-parchment: #4A4030;
 
-  --t-border: #B8A88830;
-  --t-border-subtle: #B8A88820;
-  --t-border-active: #B8A88840;
+  --t-border: #8A7A5C20;
+  --t-border-subtle: #8A7A5C14;
+  --t-border-active: #8A7A5C30;
 
   color-scheme: light;
 }

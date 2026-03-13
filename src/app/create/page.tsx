@@ -35,7 +35,7 @@ export default function CreatePage() {
   const [format, setFormat] = useState("novel");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [synopsis, setSynopsis] = useState("");
-  const [contentRating, setContentRating] = useState("everyone");
+  const [contentRating, setContentRating] = useState("G");
   const [isDragging, setIsDragging] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -362,7 +362,7 @@ export default function CreatePage() {
                       </AnimatePresence>
 
                       <AnimatePresence>
-                        {contentRating && contentRating !== "everyone" && (
+                        {contentRating && contentRating !== "G" && (
                           <motion.span
                             initial={{ opacity: 0, scale: 0.7, y: 4 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
