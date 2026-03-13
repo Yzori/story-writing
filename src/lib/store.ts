@@ -197,7 +197,7 @@ function createGoals(): WritingGoals {
 
 function createTypography(): TypographySettings {
   return {
-    dropCaps: true,
+    dropCaps: false,
     sceneBreakStyle: "asterism",
   };
 }

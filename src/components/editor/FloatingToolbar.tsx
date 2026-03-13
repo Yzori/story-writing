@@ -112,7 +112,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
           style={{ left: position.x, top: position.y }}
           onMouseDown={(e) => e.preventDefault()}
         >
-          <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50">
+          <div className="flex items-center gap-0.5 px-2 py-1.5 rounded-full bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 relative">
             {/* Bold */}
             <ToolbarButton
               active={editor.isActive("bold")}
@@ -226,6 +226,8 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
               </>
             )}
 
+            {/* Bubble tail */}
+            <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-elevated/95 border-b border-r border-border-active rotate-45" />
           </div>
         </motion.div>
       )}

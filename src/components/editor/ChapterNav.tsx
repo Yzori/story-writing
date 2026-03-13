@@ -40,7 +40,7 @@ export default function ChapterNav({
       initial={false}
       animate={{ width: collapsed ? 48 : 272 }}
       transition={{ type: "spring", stiffness: 400, damping: 35 }}
-      className="relative flex flex-col h-full bg-surface border-r border-border shrink-0 overflow-hidden"
+      className="relative flex flex-col h-full shrink-0 overflow-hidden"
     >
       {/* Collapse toggle */}
       <button

@@ -37,6 +37,7 @@ import ToolkitPanel from "@/components/editor/ToolkitPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
+import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography";
 
@@ -204,6 +205,13 @@ export default function WriteStoryPage() {
   const [storyFormat, setStoryFormat] = useState("novel");
   const [useProseAnyway, setUseProseAnyway] = useState(false);
 
+  // Canvas UI state
+  const [isTyping, setIsTyping] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [showChapterOutline, setShowChapterOutline] = useState(false);
+  const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
   // Save state indicator
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedFadeTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -264,7 +272,7 @@ export default function WriteStoryPage() {
           },
           bible: apiBibleToLocal(apiBibleEntries),
           goals: settings.goals ?? { dailyWordTarget: story.dailyWordTarget || 500, sessions: [] },
-          typography: settings.typography ?? { dropCaps: story.dropCaps ?? true, sceneBreakStyle: story.sceneBreakStyle || "asterism" },
+          typography: settings.typography ?? { dropCaps: story.dropCaps ?? false, sceneBreakStyle: story.sceneBreakStyle || "asterism" },
         };
 
         // If no chapters existed, create the first one via API
@@ -343,14 +351,21 @@ export default function WriteStoryPage() {
     };
   }, [project, storyId]);
 
-  // ── Keyboard shortcuts ────────────────────────────────────
+  // ── Keyboard shortcuts + typing detection ────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
 
+      // Grimoire toggle: "/" when not in an input, or Cmd+K
+      if (e.key === "/" && !isMod && !(e.target as HTMLElement)?.closest("[contenteditable], input, textarea, .tiptap-editor")) {
+        e.preventDefault();
+        setCommandOpen((v) => !v);
+        return;
+      }
       if (isMod && e.key === "k") {
         e.preventDefault();
         setCommandOpen((v) => !v);
+        return;
       }
       if (isMod && e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
@@ -389,10 +404,23 @@ export default function WriteStoryPage() {
       if (e.key === "Escape" && isZenMode) {
         setIsZenMode(false);
       }
+      if (e.key === "Escape" && commandOpen) {
+        setCommandOpen(false);
+      }
+
+      // Typing detection — hide UI while writing
+      if (!isMod && !e.shiftKey && e.key.length === 1) {
+        setIsTyping(true);
+        if (typingTimer.current) clearTimeout(typingTimer.current);
+        typingTimer.current = setTimeout(() => setIsTyping(false), 2000);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isZenMode]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+    };
+  }, [isZenMode, commandOpen]);
 
   const activeChapter = project?.chapters.find(
     (c) => c.id === project.activeChapterId
@@ -900,43 +928,78 @@ export default function WriteStoryPage() {
   }
 
   const totalWords = project.chapters.reduce((s, c) => s + c.wordCount, 0);
+  const showUI = !isTyping && !commandOpen;
 
   return (
-    <div className="h-[calc(100vh-64px)] w-screen flex flex-col bg-void overflow-hidden">
-      {/* Main area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Chapter Navigator — hidden in zen mode */}
+    <div className={`relative h-[calc(100vh-64px)] w-screen overflow-hidden selection:bg-amber/30 selection:text-white transition-colors duration-1000 ${isFocusMode ? "bg-[#030303]" : "bg-void"}`}>
+
+      {/* ── 1. Cinematic Canvas Background ──────────────────── */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        {/* Ambient amber glow */}
+        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] blur-[150px] rounded-full mix-blend-screen transition-all duration-1000 ${isFocusMode ? "bg-amber/[0.01] w-[400px]" : "bg-amber/[0.03]"}`} />
+        {/* Subtle vignette */}
+        <div className={`absolute inset-0 transition-opacity duration-1000 ${isFocusMode ? "shadow-[inset_0_0_250px_rgba(0,0,0,0.95)]" : "shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]"}`} />
+      </div>
+
+      {/* ── 2. Auto-Hiding Chapter Sidebar (Left) ───────────── */}
+      <div
+        className="absolute top-0 left-0 bottom-0 w-12 z-40"
+        onMouseEnter={() => setIsSidebarHovered(true)}
+        onMouseLeave={() => setIsSidebarHovered(false)}
+      >
         <AnimatePresence>
-          {!isZenMode && (
+          {isSidebarHovered && !commandOpen && !isTyping && (
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
+              initial={{ x: "-100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "-100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="absolute top-4 bottom-4 left-4 w-72 rounded-2xl bg-paper/[0.02] border border-paper/5 backdrop-blur-2xl shadow-2xl flex flex-col overflow-hidden"
             >
               <ChapterNav
                 chapters={project.chapters}
                 activeChapterId={project.activeChapterId}
                 storyTitle={project.title}
-                collapsed={navCollapsed}
+                collapsed={false}
                 onSelectChapter={handleSelectChapter}
                 onAddChapter={handleAddChapter}
                 onReorderChapters={handleReorderChapters}
                 onRenameChapter={handleRenameChapter}
                 onDeleteChapter={handleDeleteChapter}
-                onToggleCollapse={() => setNavCollapsed((v) => !v)}
+                onToggleCollapse={() => setIsSidebarHovered(false)}
                 onUpdateStoryTitle={handleUpdateStoryTitle}
                 onOpenToolkit={() => setShowToolkit((v) => !v)}
               />
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
 
-        {/* Editor area */}
-        <div className="flex-1 flex flex-col min-w-0 relative">
-          {/* Search bar */}
-          <AnimatePresence>
-            {showSearch && (
+      {/* ── 3. Chapter Outline Panel (Right) ────────────────── */}
+      <AnimatePresence>
+        {showChapterOutline && !isTyping && !commandOpen && activeChapter && (
+          <ChapterOutlinePanel
+            chapter={activeChapter}
+            onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
+            onClose={() => setShowChapterOutline(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
+      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-opacity duration-500 ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
+
+        {/* Chapter title area — fades out in focus mode */}
+        <div className={`w-full max-w-[680px] px-8 pt-24 transition-opacity duration-700 ${isFocusMode ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+          <p className="font-display text-[11px] tracking-[0.25em] text-amber/50 uppercase mb-4">{project.title}</p>
+          <h1 className="text-3xl md:text-4xl font-display text-paper/90 mb-2">{activeChapter?.title ?? "Untitled"}</h1>
+          <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mb-8" />
+        </div>
+
+        {/* Search bar */}
+        <AnimatePresence>
+          {showSearch && (
+            <div className="w-full max-w-[680px] px-8 relative z-20">
               <SearchReplace
                 chapters={project.chapters}
                 activeChapterId={project.activeChapterId}
@@ -944,30 +1007,13 @@ export default function WriteStoryPage() {
                 onUpdateChapterContent={handleUpdateChapterContent}
                 onClose={() => setShowSearch(false)}
               />
-            )}
-          </AnimatePresence>
+            </div>
+          )}
+        </AnimatePresence>
 
-          {/* Zen mode escape hint */}
-          <AnimatePresence>
-            {isZenMode && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute top-4 right-4 z-40"
-              >
-                <button
-                  onClick={() => setIsZenMode(false)}
-                  className="px-3 py-1.5 rounded-lg bg-elevated/80 backdrop-blur border border-border text-[11px] text-text-ghost hover:text-text-secondary transition-colors"
-                >
-                  ESC to exit Zen
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Editor or Outline View */}
-          {showOutline ? (
+        {/* Editor */}
+        {showOutline ? (
+          <div className="w-full max-w-[680px] px-8 flex-1 min-h-0">
             <OutlineView
               chapters={project.chapters}
               activeChapterId={project.activeChapterId}
@@ -977,33 +1023,56 @@ export default function WriteStoryPage() {
               }}
               onUpdateOutline={handleUpdateOutline}
             />
-          ) : (
-            activeChapter && (
-              <div
-                className={`flex-1 min-h-0 ${
-                  project.typography.dropCaps ? "drop-caps" : ""
-                } ${
-                  project.typography.sceneBreakStyle !== "asterism"
-                    ? `scene-break-${project.typography.sceneBreakStyle}`
-                    : ""
-                }`}
-              >
-                <ProseEditor
-                  key={activeChapter.id}
-                  content={activeChapter.content}
-                  onUpdate={handleUpdateContent}
-                  onEditorReady={handleEditorReady}
-                  onComment={handleAddComment}
-                  isFocusMode={isFocusMode}
-                />
-              </div>
-            )
-          )}
-        </div>
+          </div>
+        ) : (
+          activeChapter && (
+            <div
+              className={`w-full flex-1 min-h-0 ${
+                project.typography.dropCaps ? "drop-caps" : ""
+              } ${
+                project.typography.sceneBreakStyle !== "asterism"
+                  ? `scene-break-${project.typography.sceneBreakStyle}`
+                  : ""
+              }`}
+            >
+              <ProseEditor
+                key={activeChapter.id}
+                content={activeChapter.content}
+                onUpdate={handleUpdateContent}
+                onEditorReady={handleEditorReady}
+                onComment={handleAddComment}
+                isFocusMode={isFocusMode}
+              />
+            </div>
+          )
+        )}
+      </div>
 
-        {/* Right Panel */}
+      {/* ── 5. Floating Status Bar ──────────────────────────── */}
+      <AnimatePresence>
+        {showUI && (
+          <StatusBar
+            isFocusMode={isFocusMode}
+            isAudioPlaying={isAudioPlaying}
+            showOutline={showChapterOutline}
+            chapterWordCount={activeChapter?.wordCount ?? 0}
+            totalWords={totalWords}
+            goals={project.goals}
+            saveState={saveState}
+            onToggleFocus={() => setIsFocusMode((v) => !v)}
+            onToggleAudio={() => setIsAudioPlaying((v) => !v)}
+            onToggleOutline={() => setShowChapterOutline((v) => !v)}
+            onOpenGrimoire={() => setCommandOpen(true)}
+            onToggleComments={() => togglePanel("comments")}
+            onToggleSearch={() => setShowSearch((v) => !v)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── 6. Right Panels (overlay) ───────────────────────── */}
+      <div className="absolute top-0 right-0 bottom-0 z-40 flex">
         <AnimatePresence>
-          {rightPanel === "comments" && !isZenMode && (
+          {rightPanel === "comments" && (
             <CommentsSidebar
               threads={commentThreads}
               activeThreadId={activeThreadId}
@@ -1014,7 +1083,7 @@ export default function WriteStoryPage() {
               onClose={() => setRightPanel("none")}
             />
           )}
-          {rightPanel === "metadata" && !isZenMode && (
+          {rightPanel === "metadata" && (
             <MetadataPanel
               metadata={project.metadata}
               storyTitle={project.title}
@@ -1022,7 +1091,7 @@ export default function WriteStoryPage() {
               onClose={() => setRightPanel("none")}
             />
           )}
-          {rightPanel === "bible" && !isZenMode && (
+          {rightPanel === "bible" && (
             <StoryBiblePanel
               bible={project.bible}
               storyId={storyId}
@@ -1030,7 +1099,7 @@ export default function WriteStoryPage() {
               onClose={() => setRightPanel("none")}
             />
           )}
-          {rightPanel === "frontmatter" && !isZenMode && (
+          {rightPanel === "frontmatter" && (
             <FrontMatterPanel
               frontMatter={project.frontMatter}
               metadata={project.metadata}
@@ -1039,7 +1108,7 @@ export default function WriteStoryPage() {
               onClose={() => setRightPanel("none")}
             />
           )}
-          {rightPanel === "chapter" && !isZenMode && activeChapter && (
+          {rightPanel === "chapter" && activeChapter && (
             <ChapterSettingsPanel
               chapter={activeChapter}
               storyId={storyId}
@@ -1048,7 +1117,7 @@ export default function WriteStoryPage() {
               onClose={() => setRightPanel("none")}
             />
           )}
-          {rightPanel === "typography" && !isZenMode && (
+          {rightPanel === "typography" && (
             <TypographyPanel
               settings={project.typography}
               onUpdate={handleUpdateTypography}
@@ -1058,53 +1127,7 @@ export default function WriteStoryPage() {
         </AnimatePresence>
       </div>
 
-      {/* Status Bar — hidden in zen mode */}
-      <AnimatePresence>
-        {!isZenMode && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.15 }}
-            className="relative"
-          >
-            <StatusBar
-              wordCount={totalWords}
-              chapterWordCount={activeChapter?.wordCount ?? 0}
-              chapterTitle={activeChapter?.title ?? ""}
-              chapterIndex={activeChapterIndex}
-              totalChapters={project.chapters.length}
-              isFocusMode={isFocusMode}
-              isZenMode={isZenMode}
-              showComments={rightPanel === "comments"}
-              commentCount={
-                commentThreads.filter((t) => !t.resolved).length
-              }
-              goals={project.goals}
-              saveState={saveState}
-              onToggleFocus={() => setIsFocusMode((v) => !v)}
-              onToggleZen={() => setIsZenMode((v) => !v)}
-              onToggleComments={() => togglePanel("comments")}
-              onToggleSearch={() => setShowSearch((v) => !v)}
-              onToggleGoals={() => setShowGoals((v) => !v)}
-              onOpenCommand={() => setCommandOpen(true)}
-            />
-
-            {/* Goals popover */}
-            <AnimatePresence>
-              {showGoals && (
-                <GoalsPanel
-                  goals={project.goals}
-                  onUpdate={handleUpdateGoals}
-                  onClose={() => setShowGoals(false)}
-                />
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Comment Popover */}
+      {/* ── 7. Comment Popover ──────────────────────────────── */}
       <AnimatePresence>
         {commentPopover && (
           <CommentPopover
@@ -1116,9 +1139,9 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
-      {/* Toolkit Panel */}
+      {/* ── 8. Toolkit Panel ────────────────────────────────── */}
       <AnimatePresence>
-        {showToolkit && !isZenMode && (
+        {showToolkit && (
           <ToolkitPanel
             onClose={() => setShowToolkit(false)}
             isPublic={isPublic}
@@ -1151,7 +1174,7 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
-      {/* Command Palette */}
+      {/* ── 9. Command Palette / The Grimoire ───────────────── */}
       <CommandPalette
         open={commandOpen}
         onClose={() => setCommandOpen(false)}
@@ -1171,6 +1194,17 @@ export default function WriteStoryPage() {
         onExportEpub={() => project && exportEpub(project)}
         onExportDocx={() => project && exportDocx(project)}
       />
+
+      {/* Goals popover */}
+      <AnimatePresence>
+        {showGoals && (
+          <GoalsPanel
+            goals={project.goals}
+            onUpdate={handleUpdateGoals}
+            onClose={() => setShowGoals(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

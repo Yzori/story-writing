@@ -137,7 +137,7 @@ export default function ProseEditor({
 
   return (
     <div className={`flex-1 overflow-y-auto ${isFocusMode ? "focus-mode" : ""}`}>
-      <div className="max-w-[680px] mx-auto px-8 py-16 min-h-full">
+      <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full">
         <FloatingToolbar editor={editor} onComment={onComment} />
         <SlashMenu editor={editor} />
         <EditorContent

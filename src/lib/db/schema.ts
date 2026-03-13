@@ -70,7 +70,7 @@ export const stories = pgTable("stories", {
   epigraphAttribution: text("epigraph_attribution").default(""),
   foreword: text("foreword").default(""),
   showToc: boolean("show_toc").notNull().default(true),
-  dropCaps: boolean("drop_caps").notNull().default(true),
+  dropCaps: boolean("drop_caps").notNull().default(false),
   sceneBreakStyle: text("scene_break_style").notNull().default("asterism"),
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
   writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'
