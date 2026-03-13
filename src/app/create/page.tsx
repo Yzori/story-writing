@@ -149,209 +149,285 @@ export default function CreatePage() {
 
   const isCampaign = writingMode === "campaign";
   const accentColor = isCampaign ? "violet" : writingMode === "co-op" ? "teal" : "amber";
+  const modeData = MODES.find((m) => m.id === writingMode)!;
+  const modeLabel = writingMode === "co-op" ? "Co-op" : isCampaign ? "Adventure" : "Solo";
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10">
-      <motion.form
-        onSubmit={handleSubmit}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        {/* Back to mode selection — page-turn feel */}
-        <motion.button
-          type="button"
-          onClick={() => setWritingMode(null)}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="group flex items-center gap-2 text-text-ghost hover:text-amber transition-colors text-[13px] mb-10 cursor-pointer font-body"
-        >
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-border-subtle group-hover:border-amber/30 transition-colors">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M10 3L5 8l5 5" />
-            </svg>
-          </span>
-          <span className="italic">Turn back a page</span>
-        </motion.button>
+    <motion.form
+      onSubmit={handleSubmit}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-[calc(100vh-64px)] flex flex-col lg:flex-row"
+    >
+      {/* ── Left column: Cover & visual identity ─────────── */}
+      <div className="relative lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] w-full lg:w-[420px] xl:w-[480px] shrink-0 overflow-hidden">
+        {/* Mode image as blurred backdrop */}
+        <img
+          src={modeData.image}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover scale-110 blur-[2px]"
+          style={{ filter: "blur(2px) brightness(0.35) saturate(0.7)" }}
+        />
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-b from-void/60 via-void/30 to-void/80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-void/50 hidden lg:block" />
 
-        {/* Page heading */}
-        <div className="text-center mb-14">
-          <motion.div
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center justify-center h-full p-8 lg:p-10">
+          {/* Back button */}
+          <motion.button
+            type="button"
+            onClick={() => setWritingMode(null)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.05 }}
-            className="flex items-center justify-center gap-2.5 mb-4"
+            className="absolute top-6 left-6 group flex items-center gap-2 text-text-ghost hover:text-paper transition-colors text-[12px] cursor-pointer font-body"
           >
-            <span className={`px-3 py-1 text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full border ${
-              isCampaign
-                ? "bg-violet/10 text-violet border-violet/20"
-                : writingMode === "co-op"
-                ? "bg-teal/10 text-teal border-teal/20"
-                : "bg-amber/10 text-amber border-amber/20"
-            }`}>
-              {writingMode === "co-op" ? "Co-op" : isCampaign ? "Adventure" : "Solo"}
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-white/10 group-hover:border-white/25 backdrop-blur-md bg-white/5 transition-all">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M10 3L5 8l5 5" />
+              </svg>
             </span>
-          </motion.div>
+          </motion.button>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.08 }}
-            className="section-label text-text-ghost mb-5 max-w-xs mx-auto"
-          >
-            {isCampaign ? "Name Your Adventure" : "Begin a New Story"}
-          </motion.div>
-
-          {/* Manuscript-style title input with gold underline */}
-          <div className="relative">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={isCampaign ? "Untitled Adventure" : "Untitled Story"}
-              className="w-full text-center font-display text-3xl sm:text-4xl text-paper bg-transparent outline-none placeholder:text-text-ghost/40 border-none pb-3"
-              required
-            />
-            <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-px transition-all duration-500 ${
-              title
-                ? isCampaign ? "w-full bg-gradient-to-r from-transparent via-violet/50 to-transparent" : "w-full bg-gradient-to-r from-transparent via-amber/50 to-transparent"
-                : "w-24 bg-gradient-to-r from-transparent via-text-ghost/30 to-transparent"
-            }`} />
-          </div>
-        </div>
-
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
+          {/* Mode badge */}
+          <motion.span
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 px-4 py-3 card-page !border-rose/25 text-rose text-[13px] flex items-center gap-2"
+            transition={{ delay: 0.1 }}
+            className={`px-3 py-1 text-[10px] uppercase tracking-[0.14em] font-semibold rounded-full border backdrop-blur-md mb-6 ${
+              isCampaign
+                ? "bg-violet/15 text-violet border-violet/25"
+                : writingMode === "co-op"
+                ? "bg-teal/15 text-teal border-teal/25"
+                : "bg-amber/15 text-amber border-amber/25"
+            }`}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
-              <circle cx="7" cy="7" r="6" />
-              <path d="M7 4v3M7 9v.5" />
-            </svg>
-            {error}
-          </motion.div>
-        )}
+            {modeLabel}
+          </motion.span>
 
-        {/* Format selector -- only for solo + co-op */}
-        {!isCampaign && (
+          {/* Cover upload area — book-cover proportioned */}
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="mb-12"
+            className="w-full max-w-[240px]"
           >
-            <div className="section-label text-text-ghost mb-4">Format</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {FORMATS.map((f) => {
-                const isBeta = f.id !== "novel";
-                const isSelected = format === f.id;
-                return (
+            <input
+              type="file"
+              ref={coverInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleCoverFile(f);
+              }}
+            />
+            <div
+              onClick={() => coverInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleCoverFile(f);
+              }}
+              className={`relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer group transition-all duration-300 ${
+                isDragging
+                  ? `border-2 border-${accentColor}/50 shadow-[0_0_40px_rgba(200,150,60,0.1)]`
+                  : "border border-white/10 hover:border-white/20"
+              }`}
+            >
+              {coverPreview ? (
+                <>
+                  <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-void/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-paper">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    <p className="text-paper text-[12px] font-body">Change cover</p>
+                  </div>
                   <button
-                    key={f.id}
                     type="button"
-                    onClick={() => setFormat(f.id)}
-                    className={`card-page p-4 text-left transition-all duration-200 relative cursor-pointer ${
-                      isSelected
-                        ? "!border-amber/35 !shadow-[0_0_20px_rgba(200,150,60,0.08),0_2px_4px_rgba(0,0,0,0.2)] ring-1 ring-amber/10"
-                        : "hover:!border-border-active"
-                    }`}
+                    onClick={(e) => { e.stopPropagation(); setCoverPreview(null); }}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-void/70 backdrop-blur-md text-paper flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose/80"
                   >
-                    {isBeta && (
-                      <span className="absolute top-2 right-2 text-[9px] uppercase tracking-wider text-lavender/70 bg-lavender/10 px-1.5 py-0.5 rounded-full">
-                        Soon
-                      </span>
-                    )}
-                    <div className={`mb-2 ${isSelected ? "text-amber" : "text-text-tertiary"}`}>
-                      {f.icon}
-                    </div>
-                    <p className={`text-[13px] font-medium mb-0.5 ${isSelected ? "text-paper" : "text-text"}`}>
-                      {f.label}
-                    </p>
-                    <p className="text-[11px] text-text-tertiary leading-snug">
-                      {f.description}
-                    </p>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M3 3l6 6M9 3l-6 6" />
+                    </svg>
                   </button>
-                );
-              })}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/[0.03] backdrop-blur-sm">
+                  {/* Decorative corner marks */}
+                  <div className="absolute top-3 left-3 w-5 h-5 border-t border-l border-white/15" />
+                  <div className="absolute top-3 right-3 w-5 h-5 border-t border-r border-white/15" />
+                  <div className="absolute bottom-3 left-3 w-5 h-5 border-b border-l border-white/15" />
+                  <div className="absolute bottom-3 right-3 w-5 h-5 border-b border-r border-white/15" />
+
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-white/30 mb-3">
+                    <rect x="3" y="3" width="22" height="22" rx="2" />
+                    <circle cx="10" cy="10" r="2" />
+                    <path d="M3 21l6-6 4 4 3-3 9 9" />
+                  </svg>
+                  <p className="text-white/40 text-[12px] font-body mb-1">Add cover image</p>
+                  <p className="text-white/20 text-[10px] font-body">600 &times; 900px</p>
+                </div>
+              )}
             </div>
-            {format !== "novel" && (
-              <p className="text-[11px] text-lavender/70 mt-2.5 italic">
-                The {FORMATS.find((f) => f.id === format)?.label} editor is coming soon.
-                Your story will be created with the novel editor for now.
+          </motion.div>
+
+          {/* Title preview on the cover area */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
+            className="mt-6 text-center max-w-[280px]"
+          >
+            <p className={`font-display text-lg text-paper/90 leading-snug ${title ? "" : "italic text-white/20"}`}>
+              {title || "Your title here"}
+            </p>
+            {selectedGenres.length > 0 && (
+              <p className="text-white/30 text-[11px] mt-2 font-body">
+                {selectedGenres.slice(0, 3).join(" · ")}{selectedGenres.length > 3 ? ` +${selectedGenres.length - 3}` : ""}
               </p>
             )}
           </motion.div>
-        )}
+        </div>
+      </div>
 
-        {/* Adventure-specific GM hint */}
-        {isCampaign && (
+      {/* ── Right column: Form fields ────────────────────── */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-6 lg:px-10 xl:px-14 py-10 lg:py-14">
+
+          {/* Title input */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="mb-12 card-page !border-violet/20 p-5 relative overflow-hidden"
+            transition={{ delay: 0.1 }}
+            className="mb-10"
           >
-            {/* Mystical ambient glow */}
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-violet/8 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-copper/6 rounded-full blur-xl pointer-events-none" />
-
-            <div className="flex items-start gap-3.5 relative z-10">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet/15 to-copper/10 border border-violet/15 flex items-center justify-center shrink-0 mt-0.5">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet">
-                  <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3L10 14.5 5.1 17l.9-5.3-4-3.9 5.5-.8z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-paper text-sm font-display font-semibold mb-1.5">You&apos;ll be the Game Master</p>
-                <p className="text-text-secondary text-[13px] leading-relaxed">
-                  Create sessions, narrate the world, and guide your players through the story.
-                  After creation, invite players to join and create their characters.
-                </p>
-              </div>
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
+              {isCampaign ? "Adventure Title" : "Story Title"}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={isCampaign ? "Untitled Adventure" : "Untitled Story"}
+                className={`w-full font-display text-2xl sm:text-3xl text-paper bg-transparent outline-none placeholder:text-text-ghost/30 border-none pb-3`}
+                required
+              />
+              <div className={`absolute bottom-0 left-0 h-px transition-all duration-500 ${
+                title
+                  ? `w-full bg-gradient-to-r from-${accentColor}/50 via-${accentColor}/30 to-transparent`
+                  : "w-16 bg-gradient-to-r from-text-ghost/30 to-transparent"
+              }`} />
             </div>
           </motion.div>
-        )}
 
-        {/* Genre multi-select */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-12"
-        >
-          <div className="section-label text-text-ghost mb-4">
-            {isCampaign ? "Setting & Genres" : "Genres"}
-            {selectedGenres.length > 0 && (
-              <span className="text-text-tertiary ml-2 normal-case tracking-normal text-[11px]">
-                {selectedGenres.length} selected
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {GENRES.map((genre) => (
-              <GenrePill
-                key={genre}
-                genre={genre}
-                size="md"
-                selected={selectedGenres.includes(genre)}
-                onClick={() => toggleGenre(genre)}
-              />
-            ))}
-          </div>
-        </motion.div>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 px-4 py-3 rounded-xl border border-rose/25 bg-rose/5 text-rose text-[13px] flex items-center gap-2"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
+                <circle cx="7" cy="7" r="6" />
+                <path d="M7 4v3M7 9v.5" />
+              </svg>
+              {error}
+            </motion.div>
+          )}
 
-        {/* Synopsis — aged paper inset */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="mb-12"
-        >
-          <div className="section-label text-text-ghost mb-4">
-            {isCampaign ? "Adventure Premise" : "Synopsis"}
-          </div>
-          <div className="relative">
+          {/* Format selector -- only for solo + co-op */}
+          {!isCampaign && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-10"
+            >
+              <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">Format</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {FORMATS.map((f) => {
+                  const isBeta = f.id !== "novel";
+                  const isSelected = format === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFormat(f.id)}
+                      className={`relative rounded-xl border p-3.5 text-left transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? `border-${accentColor}/30 bg-${accentColor}/[0.04] ring-1 ring-${accentColor}/10`
+                          : "border-border hover:border-border-active bg-transparent"
+                      }`}
+                    >
+                      {isBeta && (
+                        <span className="absolute top-2.5 right-2.5 text-[9px] uppercase tracking-wider text-lavender/70 bg-lavender/10 px-1.5 py-0.5 rounded-full">
+                          Soon
+                        </span>
+                      )}
+                      <div className={`mb-1.5 ${isSelected ? `text-${accentColor}` : "text-text-tertiary"}`}>
+                        {f.icon}
+                      </div>
+                      <p className={`text-[13px] font-medium ${isSelected ? "text-paper" : "text-text"}`}>
+                        {f.label}
+                      </p>
+                      <p className="text-[11px] text-text-tertiary leading-snug mt-0.5">
+                        {f.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {format !== "novel" && (
+                <p className="text-[11px] text-lavender/70 mt-2.5 italic">
+                  The {FORMATS.find((f) => f.id === format)?.label} editor is coming soon.
+                  Your story will be created with the novel editor for now.
+                </p>
+              )}
+            </motion.div>
+          )}
+
+          {/* Adventure-specific GM hint */}
+          {isCampaign && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-10 rounded-xl border border-violet/20 p-5 relative overflow-hidden bg-violet/[0.03]"
+            >
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-violet/8 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-start gap-3.5 relative z-10">
+                <div className="w-9 h-9 rounded-lg bg-violet/10 border border-violet/15 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet">
+                    <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3L10 14.5 5.1 17l.9-5.3-4-3.9 5.5-.8z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-paper text-[13px] font-display font-semibold mb-1">You&apos;ll be the Game Master</p>
+                  <p className="text-text-secondary text-[12px] leading-relaxed">
+                    Create sessions, narrate the world, and guide your players through the story.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Synopsis */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-10"
+          >
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
+              {isCampaign ? "Adventure Premise" : "Synopsis"}
+            </label>
             <textarea
               value={synopsis}
               onChange={(e) => setSynopsis(e.target.value)}
@@ -361,181 +437,123 @@ export default function CreatePage() {
                   : "A brief description of your story. What will draw readers in?"
               }
               rows={4}
-              className={`w-full bg-ink/80 border border-border rounded-xl px-5 py-4 text-[13px] text-text font-body outline-none placeholder:text-text-ghost/60 placeholder:italic transition-all resize-none leading-relaxed ${
-                isCampaign
-                  ? "focus:border-violet/25 focus:shadow-[0_0_20px_rgba(126,94,158,0.06)]"
-                  : "focus:border-amber/25 focus:shadow-[0_0_20px_rgba(200,150,60,0.06)]"
-              }`}
-              style={{
-                backgroundImage: "linear-gradient(165deg, rgba(36,30,22,0.5) 0%, rgba(26,21,16,0.8) 100%)",
-              }}
+              className={`w-full bg-elevated border border-border rounded-xl px-4 py-3.5 text-[13px] text-text font-body outline-none placeholder:text-text-ghost/50 placeholder:italic transition-all resize-none leading-relaxed focus:border-${accentColor}/25`}
             />
-            {/* Parchment corner fold decoration */}
-            <div className="absolute top-0 right-0 w-5 h-5 pointer-events-none overflow-hidden rounded-tr-xl">
-              <div className="absolute top-0 right-0 w-0 h-0 border-t-[10px] border-t-surface/40 border-l-[10px] border-l-transparent" />
-            </div>
-          </div>
-          <p className="text-[11px] text-text-ghost mt-2 italic">
-            {synopsis.length}/500 characters
-          </p>
-        </motion.div>
+            <p className="text-[11px] text-text-ghost mt-1.5">
+              {synopsis.length}/500
+            </p>
+          </motion.div>
 
-        {/* Content Rating */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mb-12"
-        >
-          <div className="section-label text-text-ghost mb-4">Content Rating</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {CONTENT_RATINGS.map((rating) => {
-              const isSelected = contentRating === rating.value;
-              return (
-                <button
-                  key={rating.value}
-                  type="button"
-                  onClick={() => setContentRating(rating.value)}
-                  className={`card-page p-4 text-left transition-all duration-200 cursor-pointer ${
-                    isSelected
-                      ? `!border-${accentColor}/35 !shadow-[0_0_20px_rgba(200,150,60,0.08),0_2px_4px_rgba(0,0,0,0.2)] ring-1 ring-${accentColor}/10`
-                      : "hover:!border-border-active"
-                  }`}
-                >
-                  <p className={`text-[13px] font-medium mb-0.5 ${isSelected ? "text-paper" : "text-text"}`}>
-                    {rating.label}
-                  </p>
-                  <p className="text-[11px] text-text-tertiary leading-snug">
-                    {rating.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* Cover Upload — empty frame on a wall */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mb-14"
-        >
-          <div className="section-label text-text-ghost mb-4">Cover Image</div>
-          <input
-            type="file"
-            ref={coverInputRef}
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleCoverFile(f);
-            }}
-          />
-          <div
-            onClick={() => coverInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleCoverFile(f);
-            }}
-            className={`relative border-2 border-dashed rounded-xl text-center transition-all duration-300 cursor-pointer overflow-hidden group ${
-              isDragging
-                ? "border-amber/40 bg-amber/5 shadow-[inset_0_0_30px_rgba(200,150,60,0.05)]"
-                : "border-border-subtle hover:border-amber/25 hover:bg-surface/30"
-            } ${coverPreview ? "p-0" : "p-14"}`}
+          {/* Genres */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mb-10"
           >
-            {/* Frame ornament corners */}
-            {!coverPreview && (
-              <>
-                <div className="absolute top-2 left-2 w-4 h-4 border-t border-l border-amber/15 rounded-tl-sm pointer-events-none" />
-                <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-amber/15 rounded-tr-sm pointer-events-none" />
-                <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-amber/15 rounded-bl-sm pointer-events-none" />
-                <div className="absolute bottom-2 right-2 w-4 h-4 border-b border-r border-amber/15 rounded-br-sm pointer-events-none" />
-              </>
-            )}
-
-            {coverPreview ? (
-              <div className="relative group">
-                <img src={coverPreview} alt="Cover preview" className="w-full max-h-64 object-contain" />
-                <div className="absolute inset-0 bg-void/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <p className="text-paper text-[13px] font-display">Click to change</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setCoverPreview(null); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-void/80 text-paper flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose/80"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M3 3l6 6M9 3l-6 6" />
-                  </svg>
-                </button>
-              </div>
-            ) : (
-              <>
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.2" className="mx-auto text-text-ghost/60 mb-3">
-                  {/* Picture frame */}
-                  <rect x="4" y="4" width="24" height="24" rx="2" />
-                  <rect x="6" y="6" width="20" height="20" rx="1" strokeDasharray="3 3" className="text-text-ghost/30" />
-                  <circle cx="13" cy="13" r="2.5" />
-                  <path d="M6 24l6-6 4 4 3-3 7 7" />
-                </svg>
-                <p className="text-text-secondary text-[13px] mb-1">Drag and drop your cover image here</p>
-                <p className="text-text-ghost text-[11px] italic">PNG, JPG, or WebP &mdash; 600 x 900px recommended</p>
-              </>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Submit — wax seal / spell casting */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="flex flex-col items-center gap-3"
-        >
-          <div className="flourish w-48 text-text-ghost/40 mb-2" />
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`group relative font-display font-semibold px-10 py-3.5 rounded-full transition-all duration-300 text-[15px] flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ${
-              isCampaign
-                ? "bg-violet text-white hover:shadow-[0_0_30px_rgba(126,94,158,0.25)] hover:scale-[1.02]"
-                : "bg-amber text-void hover:shadow-[0_0_30px_rgba(200,150,60,0.25)] hover:scale-[1.02]"
-            }`}
-          >
-            {/* Warm glow behind button on hover */}
-            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
-              isCampaign
-                ? "bg-gradient-to-r from-violet/0 via-white/10 to-violet/0"
-                : "bg-gradient-to-r from-amber/0 via-white/15 to-amber/0"
-            }`} />
-            <span className="relative z-10 flex items-center gap-2.5">
-              {isSubmitting ? (
-                <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-              ) : isCampaign ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M8 1l2 4 4.4.6-3.2 3.1.8 4.3L8 11l-4 2 .8-4.3L1.6 5.6 6 5z" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="8" cy="8" r="5" />
-                  <path d="M8 5v3l2 1.5" />
-                </svg>
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
+              {isCampaign ? "Setting & Genres" : "Genres"}
+              {selectedGenres.length > 0 && (
+                <span className="text-text-tertiary ml-2 normal-case tracking-normal text-[11px]">
+                  {selectedGenres.length} selected
+                </span>
               )}
-              {isSubmitting
-                ? "Creating..."
-                : isCampaign
-                ? "Launch Adventure"
-                : "Create Story"}
-            </span>
-          </button>
-        </motion.div>
-      </motion.form>
-    </div>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {GENRES.map((genre) => (
+                <GenrePill
+                  key={genre}
+                  genre={genre}
+                  size="md"
+                  selected={selectedGenres.includes(genre)}
+                  onClick={() => toggleGenre(genre)}
+                />
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Content Rating */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mb-12"
+          >
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">Content Rating</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {CONTENT_RATINGS.map((rating) => {
+                const isSelected = contentRating === rating.value;
+                return (
+                  <button
+                    key={rating.value}
+                    type="button"
+                    onClick={() => setContentRating(rating.value)}
+                    className={`rounded-xl border p-3.5 text-left transition-all duration-200 cursor-pointer ${
+                      isSelected
+                        ? `border-${accentColor}/30 bg-${accentColor}/[0.04] ring-1 ring-${accentColor}/10`
+                        : "border-border hover:border-border-active bg-transparent"
+                    }`}
+                  >
+                    <p className={`text-[13px] font-medium ${isSelected ? "text-paper" : "text-text"}`}>
+                      {rating.label}
+                    </p>
+                    <p className="text-[11px] text-text-tertiary leading-snug mt-0.5">
+                      {rating.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Submit */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="flex items-center gap-4"
+          >
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`group relative font-display font-semibold px-8 py-3.5 rounded-full transition-all duration-300 text-[14px] flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ${
+                isCampaign
+                  ? "bg-violet text-white hover:shadow-[0_0_30px_rgba(126,94,158,0.25)] hover:scale-[1.02]"
+                  : `bg-${accentColor} text-void hover:shadow-[0_0_30px_rgba(200,150,60,0.25)] hover:scale-[1.02]`
+              }`}
+            >
+              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-white/15 to-transparent`} />
+              <span className="relative z-10 flex items-center gap-2.5">
+                {isSubmitting ? (
+                  <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                ) : isCampaign ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M8 1l2 4 4.4.6-3.2 3.1.8 4.3L8 11l-4 2 .8-4.3L1.6 5.6 6 5z" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 3l-7 7M5 10l-2 5 5-2M12 3l2 2-7 7" />
+                  </svg>
+                )}
+                {isSubmitting
+                  ? "Creating..."
+                  : isCampaign
+                  ? "Launch Adventure"
+                  : "Create Story"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setWritingMode(null)}
+              className="text-text-ghost hover:text-text-secondary text-[13px] transition-colors font-body"
+            >
+              Cancel
+            </button>
+          </motion.div>
+        </div>
+      </div>
+    </motion.form>
   );
 }
 
