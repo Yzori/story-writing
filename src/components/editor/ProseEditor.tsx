@@ -75,7 +75,7 @@ export default function ProseEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         horizontalRule: {},
-        dropcursor: { color: "#C48B4A", width: 2 },
+        dropcursor: { color: "var(--t-gold)", width: 2 },
       }),
       Placeholder.configure({
         placeholder: "Begin your story... (type / for commands)",

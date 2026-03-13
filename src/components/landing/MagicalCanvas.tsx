@@ -210,7 +210,7 @@ function Particles({
             top: `${p.y}%`,
             width: p.size,
             height: p.size,
-            backgroundColor: p.size > 2 ? "#D4A574" : "#E8E0D4",
+            backgroundColor: p.size > 2 ? "var(--t-gold)" : "var(--t-text-secondary)",
           }}
           animate={{
             y: [0, -p.drift, 0],
@@ -369,7 +369,7 @@ function MapNode({
               : `rgba(${node.accent},0.12)`,
             backgroundColor: isActive
               ? `rgba(${node.accent},0.12)`
-              : "rgba(42,37,32,0.5)",
+              : "rgba(128,128,128,0.3)",
             boxShadow: isActive
               ? `0 0 50px rgba(${node.accent},0.25), inset 0 0 30px rgba(${node.accent},0.08)`
               : "none",
@@ -405,7 +405,7 @@ function MapNode({
             fontSize: isActive ? (isGenesis ? "1.1rem" : "0.9rem") : "0.75rem",
             color: isActive
               ? `rgba(${node.accent},0.9)`
-              : "rgba(232,224,212,0.35)",
+              : "var(--t-text-ghost)",
           }}
         >
           {node.label}
@@ -485,13 +485,13 @@ export default function MagicalCanvas() {
       <motion.div
         className="absolute inset-0 pointer-events-none"
         animate={{
-          background: `radial-gradient(ellipse 70% 55% at 50% 48%, rgba(${activeNode.accent},0.07) 0%, rgba(15,13,11,1) 70%)`,
+          background: `radial-gradient(ellipse 70% 55% at 50% 48%, rgba(${activeNode.accent},0.07) 0%, var(--t-void) 70%)`,
         }}
         transition={{ duration: 1.5, ease: "easeInOut" }}
       />
 
       {/* Vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,rgba(15,13,11,0.9)_100%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,color-mix(in_srgb,var(--t-void)_90%,transparent)_100%)] pointer-events-none" />
 
       {/* Warm color washes */}
       <div className="absolute inset-0 pointer-events-none">

@@ -102,7 +102,7 @@ export default function Navbar() {
           <span
             className="font-display text-lg font-bold tracking-wide transition-all duration-500 group-hover:drop-shadow-[0_0_6px_rgba(200,150,60,0.3)]"
             style={{
-              background: "linear-gradient(180deg, #F2E8D0 0%, #C8963C 100%)",
+              background: "linear-gradient(180deg, var(--t-paper) 0%, var(--t-gold) 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}
