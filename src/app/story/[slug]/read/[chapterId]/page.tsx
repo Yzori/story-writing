@@ -10,9 +10,9 @@ import ReaderScroll from "@/components/reader/ReaderScroll";
 import ChapterComments from "@/components/reader/ChapterComments";
 import ChapterReactions from "@/components/reader/ChapterReactions";
 
-const READER_PREFS_KEY = "inkwell-reader-prefs";
-const READING_FONT_KEY = "inkwell-reading-font";
-const FONT_SIZE_KEY = "inkwell-reader-font-size";
+const READER_PREFS_KEY = "quiloria-reader-prefs";
+const READING_FONT_KEY = "quiloria-reading-font";
+const FONT_SIZE_KEY = "quiloria-reader-font-size";
 
 type ReadingFont = "default" | "serif" | "sans" | "mono";
 

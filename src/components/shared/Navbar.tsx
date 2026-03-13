@@ -116,7 +116,7 @@ export default function Navbar() {
               WebkitTextFillColor: "transparent",
             }}
           >
-            Inkwell
+            Quiloria
           </span>
         </Link>
 

@@ -1,6 +1,6 @@
 export type Theme = "dark" | "light" | "sepia";
 
-const STORAGE_KEY = "inkwell-theme";
+const STORAGE_KEY = "quiloria-theme";
 
 export function getStoredTheme(): Theme {
   if (typeof window === "undefined") return "light";

@@ -68,7 +68,7 @@ export default function RegisterPage() {
               <path d="M7 28L5 29L4 27L7 28Z" fill="currentColor" />
               <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
             </svg>
-            <span className="font-display text-sm font-bold text-paper tracking-wide">Inkwell</span>
+            <span className="font-display text-sm font-bold text-paper tracking-wide">Quiloria</span>
           </Link>
           <h1 className="font-display text-3xl text-paper font-semibold">Begin your journey</h1>
           <p className="text-text-secondary text-sm mt-2">Create an account and start writing</p>

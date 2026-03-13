@@ -53,7 +53,7 @@ export default function Footer() {
                 <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
               </svg>
               <span className="font-display text-lg font-bold text-cream">
-                Inkwell
+                Quiloria
               </span>
             </div>
             <p className="mt-4 text-sm text-linen/30 leading-relaxed max-w-[200px]">
@@ -88,7 +88,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 pt-6 border-t border-espresso/20 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-linen/20">
-            &copy; 2026 Inkwell. All rights reserved.
+            &copy; 2026 Quiloria. All rights reserved.
           </p>
           <div className="flex gap-6">
             {["Twitter", "Discord", "GitHub"].map((social) => (

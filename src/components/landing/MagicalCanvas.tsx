@@ -30,7 +30,7 @@ interface StoryNode {
 const nodes: Record<NodeId, StoryNode> = {
   genesis: {
     id: "genesis",
-    label: "Inkwell",
+    label: "Quiloria",
     title: "Every great story begins with a single word.",
     description:
       "A collaborative writing platform where writers, artists, and readers come together to craft stories that live and breathe.",
@@ -663,7 +663,7 @@ export default function MagicalCanvas() {
             <path d="M7 28L5 29L4 27L7 28Z" fill="currentColor" />
           </svg>
           <span className="font-display text-base font-bold text-cream/70 tracking-[0.25em] uppercase">
-            Inkwell
+            Quiloria
           </span>
         </div>
 

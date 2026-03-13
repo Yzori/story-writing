@@ -202,14 +202,14 @@ function HeroSection() {
         className="relative z-10 flex flex-col items-center text-center max-w-3xl mx-auto"
         style={{ y: headlineY, opacity: headlineOpacity }}
       >
-        {/* Inkwell wordmark */}
+        {/* Quiloria wordmark */}
         <motion.p
           className="section-label mb-10"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1.5, delay: 0.2 }}
         >
-          Inkwell
+          Quiloria
         </motion.p>
 
         {/* Headline */}

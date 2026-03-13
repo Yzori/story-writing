@@ -54,7 +54,7 @@ export default function Navbar() {
             <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
           </svg>
           <span className="font-display text-xl font-bold text-cream tracking-wide">
-            Inkwell
+            Quiloria
           </span>
         </a>
 

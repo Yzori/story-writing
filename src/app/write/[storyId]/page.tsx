@@ -42,7 +42,7 @@ type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "
 
 // Local storage key for editor-only settings (typography, goals, etc.)
 function editorSettingsKey(storyId: string) {
-  return `inkwell-editor-${storyId}`;
+  return `quiloria-editor-${storyId}`;
 }
 
 function loadEditorSettings(storyId: string) {

@@ -1,5 +1,5 @@
 /**
- * Data models and utilities for Inkwell.
+ * Data models and utilities for Quiloria.
  */
 
 import { ContentRating, StoryStatus } from "./genres";

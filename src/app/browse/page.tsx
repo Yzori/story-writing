@@ -70,12 +70,12 @@ function BrowsePage() {
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
-    const saved = localStorage.getItem("inkwell-comfort-rating");
+    const saved = localStorage.getItem("quiloria-comfort-rating");
     if (saved) setMaxRating(saved);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("inkwell-comfort-rating", maxRating);
+    localStorage.setItem("quiloria-comfort-rating", maxRating);
   }, [maxRating]);
 
   useEffect(() => {

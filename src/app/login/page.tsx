@@ -62,7 +62,7 @@ function LoginForm() {
               <path d="M7 28L5 29L4 27L7 28Z" fill="currentColor" />
               <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
             </svg>
-            <span className="font-display text-sm font-bold text-paper tracking-wide">Inkwell</span>
+            <span className="font-display text-sm font-bold text-paper tracking-wide">Quiloria</span>
           </Link>
           <h1 className="font-display text-3xl text-paper font-semibold">Welcome back</h1>
           <p className="text-text-secondary text-sm mt-2">
@@ -129,7 +129,7 @@ function LoginForm() {
         <p className="text-center text-text-secondary text-sm mt-6">
           Don&apos;t have an account?{" "}
           <Link href="/register" className="text-amber hover:text-amber-light transition-colors font-medium">
-            Join Inkwell
+            Join Quiloria
           </Link>
         </p>
       </motion.div>

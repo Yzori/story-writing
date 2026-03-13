@@ -31,12 +31,12 @@ export default function SettingsPage() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
 
   const loadLocalPrefs = useCallback(() => {
-    const rating = localStorage.getItem("inkwell-comfort-rating");
+    const rating = localStorage.getItem("quiloria-comfort-rating");
     if (rating) setComfortRating(rating);
-    const font = localStorage.getItem("inkwell-reading-font");
+    const font = localStorage.getItem("quiloria-reading-font");
     if (font) setReadingFont(font);
     try {
-      const prefs = JSON.parse(localStorage.getItem("inkwell-reader-prefs") || "{}");
+      const prefs = JSON.parse(localStorage.getItem("quiloria-reader-prefs") || "{}");
       if (prefs.mode) setReadingMode(prefs.mode);
     } catch {}
   }, []);
@@ -73,9 +73,9 @@ export default function SettingsPage() {
     setSaving(true);
 
     // Always write to localStorage
-    localStorage.setItem("inkwell-comfort-rating", comfortRating);
-    localStorage.setItem("inkwell-reading-font", readingFont);
-    localStorage.setItem("inkwell-reader-prefs", JSON.stringify({ mode: readingMode }));
+    localStorage.setItem("quiloria-comfort-rating", comfortRating);
+    localStorage.setItem("quiloria-reading-font", readingFont);
+    localStorage.setItem("quiloria-reader-prefs", JSON.stringify({ mode: readingMode }));
 
     // If logged in, also sync to API
     if (session?.user) {

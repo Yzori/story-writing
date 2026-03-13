@@ -41,7 +41,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Inkwell — Where Stories Come Alive",
+  title: "Quiloria — Where Stories Come Alive",
   description:
     "A collaborative writing platform where writers, artists, and readers come together to create stories that matter.",
 };
