@@ -96,6 +96,7 @@ html, html.theme-dark {
   --t-border: #C8963C12;
   --t-border-subtle: #C8963C0A;
   --t-border-active: #C8963C22;
+  --t-backdrop-opacity: 0.12;
 
   color-scheme: dark;
 }
@@ -140,6 +141,7 @@ html.theme-light {
   --t-border: #8A7A5C20;
   --t-border-subtle: #8A7A5C14;
   --t-border-active: #8A7A5C30;
+  --t-backdrop-opacity: 0.55;
 
   color-scheme: light;
 }
