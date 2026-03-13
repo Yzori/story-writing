@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, useMotionValue, AnimatePresence, animate } from "framer-motion";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 
@@ -165,9 +165,19 @@ function FireflyParticles() {
   );
 }
 
-// ── Hero Section ────────────────────────────────────────────
+// ── Ink particle type ────────────────────────────────────────
+type InkParticle = {
+  id: number;
+  left: number;
+  lineY: number;
+  offsetY: number;
+  size: number;
+};
+
+// ── Hero Section with Quill Writing Animation ───────────────
 function HeroSection() {
   const ref = useRef<HTMLDivElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start start", "end start"],
@@ -176,6 +186,119 @@ function HeroSection() {
   const headlineY = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const headlineOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
   const particleOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.3]);
+
+  // ── Quill writing animation state ──
+  const progress = useMotionValue(0);
+  const [writing, setWriting] = useState(false);
+  const [writingDone, setWritingDone] = useState(false);
+  const [inkParticles, setInkParticles] = useState<InkParticle[]>([]);
+  const hasTriggered = useRef(false);
+
+  // Clip-path reveals for 3 text lines
+  const line1Progress = useTransform(progress, [0, 33], [0, 100]);
+  const line1Clip = useTransform(line1Progress, (p) =>
+    `inset(0 ${100 - Math.max(0, Math.min(100, p))}% 0 0)`
+  );
+  const line2Progress = useTransform(progress, [33, 66], [0, 100]);
+  const line2Clip = useTransform(line2Progress, (p) =>
+    `inset(0 ${100 - Math.max(0, Math.min(100, p))}% 0 0)`
+  );
+  const line3Progress = useTransform(progress, [66, 100], [0, 100]);
+  const line3Clip = useTransform(line3Progress, (p) =>
+    `inset(0 ${100 - Math.max(0, Math.min(100, p))}% 0 0)`
+  );
+
+  // Quill position — tracks the writing edge
+  const quillLeft = useTransform(progress, (p) => {
+    if (p < 33) return `${(p / 33) * 100}%`;
+    if (p < 66) return `${((p - 33) / 33) * 100}%`;
+    return `${((p - 66) / 34) * 100}%`;
+  });
+  const quillTop = useTransform(progress, (p) => {
+    if (p < 33) return "0%";
+    if (p < 66) return "37%";
+    return "70%";
+  });
+
+  // Handwriting micro-motion
+  const bounceY = useTransform(progress, (p) =>
+    Math.sin(p * 2.5) * 6 + Math.cos(p * 15) * 4
+  );
+  const tiltR = useTransform(progress, (p) =>
+    Math.cos(p * 5) * 5 + Math.sin(p * 20) * 2
+  );
+  const quillOpacity = useTransform(progress, (p) =>
+    p > 0 && p < 99 ? 1 : 0
+  );
+
+  // Ink particle emitter — runs while writing
+  useEffect(() => {
+    if (!writing) return;
+    let requestId: number;
+    let lastEmit = 0;
+
+    const loop = (time: number) => {
+      if (time - lastEmit > 40) {
+        const p = progress.get();
+        if (p > 0 && p < 100) {
+          let lineY = 0;
+          let activeX = 0;
+          if (p < 33) { lineY = 0; activeX = (p / 33) * 100; }
+          else if (p < 66) { lineY = 37; activeX = ((p - 33) / 33) * 100; }
+          else { lineY = 70; activeX = ((p - 66) / 34) * 100; }
+
+          setInkParticles((prev) =>
+            [
+              ...prev,
+              {
+                id: Date.now() + Math.random(),
+                left: activeX,
+                lineY,
+                offsetY: (Math.random() - 0.5) * 30,
+                size: Math.random() * 3 + 1,
+              },
+            ].slice(-50)
+          );
+        }
+        lastEmit = time;
+      }
+      requestId = requestAnimationFrame(loop);
+    };
+
+    requestId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(requestId);
+  }, [writing, progress]);
+
+  // Auto-trigger writing when hero enters viewport
+  useEffect(() => {
+    const el = textContainerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTriggered.current) {
+          hasTriggered.current = true;
+          // Delay so the Quiloria label fades in first
+          setTimeout(() => {
+            setWriting(true);
+            animate(progress, 100, {
+              duration: 4,
+              ease: "linear",
+              onComplete: () => {
+                setWriting(false);
+                setWritingDone(true);
+                setTimeout(() => setInkParticles([]), 1500);
+              },
+            });
+          }, 800);
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [progress]);
 
   return (
     <section
@@ -212,35 +335,128 @@ function HeroSection() {
           Quiloria
         </motion.p>
 
-        {/* Headline */}
-        <motion.h1
-          className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-paper font-medium leading-[1.05] tracking-tight"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+        {/* Headline with quill writing animation */}
+        <h1
+          ref={textContainerRef}
+          className="relative font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-medium leading-[1.15] tracking-tight"
         >
-          Every story begins{" "}
-          <span className="text-gold italic">with a single word</span>
-        </motion.h1>
+          {/* Line 1: "Every story" */}
+          <div className="relative text-center">
+            <motion.div className="text-paper whitespace-nowrap" style={{ clipPath: line1Clip }}>
+              Every story
+            </motion.div>
+          </div>
 
-        {/* Subheadline */}
+          {/* Line 2: "begins with a" */}
+          <div className="relative text-center">
+            <motion.div className="whitespace-nowrap pr-2" style={{ clipPath: line2Clip }}>
+              <span className="text-paper">begins </span>
+              <span className="text-gold italic">with a</span>
+            </motion.div>
+          </div>
+
+          {/* Line 3: "single word" */}
+          <div className="relative text-center">
+            <motion.div className="text-gold italic whitespace-nowrap" style={{ clipPath: line3Clip }}>
+              single word
+            </motion.div>
+          </div>
+
+          {/* Ink particles & quill overlay */}
+          <div className="absolute inset-0 pointer-events-none z-30">
+            {/* Ink particles */}
+            <AnimatePresence>
+              {inkParticles.map((particle) => (
+                <motion.div
+                  key={particle.id}
+                  initial={{ opacity: 1, scale: 0 }}
+                  animate={{
+                    opacity: 0,
+                    scale: 1.5,
+                    y: particle.offsetY + 20 + Math.random() * 20,
+                    x: (Math.random() - 0.5) * 30,
+                  }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.2 + Math.random() * 0.5, ease: "easeOut" }}
+                  className="absolute rounded-full bg-gold shadow-[0_0_8px_var(--t-gold)]"
+                  style={{
+                    left: `${particle.left}%`,
+                    top: `${particle.lineY}%`,
+                    width: particle.size,
+                    height: particle.size,
+                    marginTop: "1.5em",
+                  }}
+                />
+              ))}
+            </AnimatePresence>
+
+            {/* Quill pen */}
+            <motion.div
+              className="absolute pointer-events-none z-40"
+              style={{
+                left: quillLeft,
+                top: quillTop,
+                y: bounceY,
+                rotate: tiltR,
+                opacity: quillOpacity,
+                marginTop: "0.2em",
+              }}
+            >
+              <div className="relative -left-1 -top-[60px] origin-bottom-left w-[70px] h-[70px] md:w-[90px] md:h-[90px]">
+                {/* Spark at tip */}
+                <motion.div
+                  className="absolute bottom-0 left-0 w-2.5 h-2.5 rounded-full bg-paper shadow-[0_0_12px_var(--t-paper),0_0_25px_var(--t-gold),0_0_40px_var(--t-gold)]"
+                  animate={{ scale: [1, 1.6, 1], opacity: [0.8, 1, 0.8] }}
+                  transition={{ repeat: Infinity, duration: 0.15 }}
+                />
+                {/* Feather SVG */}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-full h-full text-gold drop-shadow-[0_4px_12px_var(--t-gold)]"
+                  style={{ transform: "rotate(-10deg)" }}
+                >
+                  <path
+                    d="M1 23C1 23 8.35858 20.806 12 15M1 23C1.65751 18.2709 3.01633 13.928 6.5 10C8.5 7.74712 11.4589 6.20815 14.5 5.5C18.6738 4.52802 23 4 23 4C23 4 22 8.5 20.5 12C19.5218 14.3175 17.6534 16.3262 15.5 17.5C12.5 19.1352 8 20 8 20L1 23Z"
+                    fill="currentColor"
+                    fillOpacity="0.2"
+                    stroke="currentColor"
+                    strokeWidth="0.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M23 4C23 4 19.5 5 17.5 7.5C15.5 10 14.5 13.5 12 15M23 4L20 8M21 5L17 9.5M18.5 6L14 11M16 8L12 13M12.5 11L9.5 15"
+                    stroke="currentColor"
+                    strokeWidth="0.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </motion.div>
+          </div>
+        </h1>
+
+        {/* Subheadline — fades in after writing completes */}
         <motion.p
           className="mt-6 md:mt-8 text-text-secondary text-base md:text-lg font-body leading-relaxed max-w-lg"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.8 }}
+          animate={writingDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.8 }}
         >
           A place for writers and readers who believe stories deserve
           more than a feed. Novels, comics, poetry, screenplays — all
           under one roof, written with care.
         </motion.p>
 
-        {/* CTAs */}
+        {/* CTAs — fade in after writing completes */}
         <motion.div
           className="mt-10 md:mt-12 flex flex-col sm:flex-row gap-4 sm:gap-5 w-full sm:w-auto"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 1.1 }}
+          animate={writingDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
         >
           <Link
             href="/create"
@@ -261,12 +477,12 @@ function HeroSection() {
         </motion.div>
       </motion.div>
 
-      {/* Scroll hint */}
+      {/* Scroll hint — appears after writing */}
       <motion.div
         className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2, duration: 1 }}
+        animate={writingDone ? { opacity: 1 } : { opacity: 0 }}
+        transition={{ delay: 0.5, duration: 1 }}
       >
         <span className="text-text-ghost text-[10px] uppercase tracking-[0.2em] font-display">
           Scroll to explore
