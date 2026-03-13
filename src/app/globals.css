@@ -96,7 +96,7 @@ html, html.theme-dark {
   --t-border: #C8963C12;
   --t-border-subtle: #C8963C0A;
   --t-border-active: #C8963C22;
-  --t-backdrop-opacity: 0.12;
+  --t-backdrop-opacity: 0.20;
 
   color-scheme: dark;
 }
