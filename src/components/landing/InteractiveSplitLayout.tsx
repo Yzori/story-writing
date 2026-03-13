@@ -281,6 +281,340 @@ function HeroSection() {
   );
 }
 
+// ── Video Showcase — "Words Come Alive" ─────────────────────
+function VideoShowcase() {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+
+  const scale = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0.92, 1, 1, 0.96]);
+  const opacity = useTransform(scrollYProgress, [0, 0.15, 0.85, 1], [0, 1, 1, 0.3]);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const VIDEO_SRC = "/hero-video.mp4";
+  const HAS_VIDEO = true;
+
+  return (
+    <section ref={ref} className="relative py-16 md:py-24 px-6">
+      {/* Warm ambient glow behind the video frame */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[1000px] aspect-video pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(200,150,60,0.08) 0%, transparent 70%)",
+        }}
+        aria-hidden
+      />
+
+      <div className="max-w-5xl mx-auto">
+        {/* Section label */}
+        <motion.div
+          className="flourish mb-12 md:mb-16"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 1 }}
+        >
+          <span className="font-display text-[11px] uppercase tracking-[0.2em] text-text-ghost px-4">
+            Words Come Alive
+          </span>
+        </motion.div>
+
+        {/* Video frame */}
+        <motion.div
+          style={{ scale, opacity }}
+          className="relative mx-auto max-w-4xl"
+        >
+          {/* Ornamental frame — like a gilded picture frame */}
+          <div className="relative rounded-2xl overflow-hidden">
+            {/* Outer gold border glow */}
+            <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-gold/20 via-gold/8 to-gold/15 pointer-events-none" />
+
+            {/* Corner ornaments */}
+            <div className="absolute top-0 left-0 w-8 h-8 z-20 pointer-events-none">
+              <svg viewBox="0 0 32 32" fill="none" className="w-full h-full text-gold/40">
+                <path d="M0 8V0h8" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M0 0l6 6" stroke="currentColor" strokeWidth="0.75" opacity="0.5" />
+              </svg>
+            </div>
+            <div className="absolute top-0 right-0 w-8 h-8 z-20 pointer-events-none">
+              <svg viewBox="0 0 32 32" fill="none" className="w-full h-full text-gold/40">
+                <path d="M32 8V0h-8" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M32 0l-6 6" stroke="currentColor" strokeWidth="0.75" opacity="0.5" />
+              </svg>
+            </div>
+            <div className="absolute bottom-0 left-0 w-8 h-8 z-20 pointer-events-none">
+              <svg viewBox="0 0 32 32" fill="none" className="w-full h-full text-gold/40">
+                <path d="M0 24v8h8" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M0 32l6-6" stroke="currentColor" strokeWidth="0.75" opacity="0.5" />
+              </svg>
+            </div>
+            <div className="absolute bottom-0 right-0 w-8 h-8 z-20 pointer-events-none">
+              <svg viewBox="0 0 32 32" fill="none" className="w-full h-full text-gold/40">
+                <path d="M32 24v8h-8" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M32 32l-6-6" stroke="currentColor" strokeWidth="0.75" opacity="0.5" />
+              </svg>
+            </div>
+
+            {/* The actual video container */}
+            <div
+              className="relative aspect-video bg-ink rounded-2xl overflow-hidden border border-gold/10 cursor-pointer group"
+              onClick={handlePlay}
+            >
+              {HAS_VIDEO ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    src={VIDEO_SRC}
+                    className="w-full h-full object-cover"
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                  />
+
+                  {/* Play/pause overlay */}
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center transition-opacity duration-500 ${
+                      isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+                    }`}
+                  >
+                    <div className="absolute inset-0 bg-void/30" />
+                    <motion.div
+                      className="relative z-10 w-20 h-20 rounded-full bg-void/60 backdrop-blur-sm border border-gold/25 flex items-center justify-center"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {isPlaying ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-gold">
+                          <rect x="6" y="4" width="4" height="16" rx="1" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" />
+                        </svg>
+                      ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-gold ml-1">
+                          <path d="M8 5.14v13.72a1 1 0 001.5.86l11.04-6.86a1 1 0 000-1.72L9.5 4.28a1 1 0 00-1.5.86z" />
+                        </svg>
+                      )}
+                    </motion.div>
+                  </div>
+
+                  {/* Mute/unmute button — bottom right */}
+                  <button
+                    onClick={handleMute}
+                    className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-void/60 backdrop-blur-sm border border-gold/25 flex items-center justify-center hover:bg-void/80 transition-all duration-300"
+                    aria-label={isMuted ? "Unmute" : "Mute"}
+                  >
+                    {isMuted ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
+                        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                        <line x1="23" y1="9" x2="17" y2="15" />
+                        <line x1="17" y1="9" x2="23" y2="15" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
+                        <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                        <path d="M19.07 4.93a10 10 0 010 14.14" />
+                        <path d="M15.54 8.46a5 5 0 010 7.07" />
+                      </svg>
+                    )}
+                  </button>
+                </>
+              ) : (
+                /* ── Placeholder until the 3D video is ready ── */
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  {/* Animated placeholder scene */}
+                  <div className="relative w-full h-full">
+                    {/* Dark atmospheric background */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "radial-gradient(ellipse at 30% 50%, rgba(200,150,60,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 50%, rgba(126,94,158,0.05) 0%, transparent 50%)",
+                      }}
+                    />
+
+                    {/* Split line down the middle */}
+                    <div className="absolute top-[15%] bottom-[15%] left-1/2 w-px -translate-x-1/2">
+                      <motion.div
+                        className="w-full h-full bg-gradient-to-b from-transparent via-gold/30 to-transparent"
+                        animate={{ opacity: [0.3, 0.6, 0.3] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                    </div>
+
+                    {/* Left side — The Writer */}
+                    <div className="absolute inset-y-0 left-0 w-1/2 flex flex-col items-center justify-center px-8">
+                      <motion.div
+                        className="flex flex-col items-center gap-4"
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8, delay: 0.3 }}
+                      >
+                        {/* Quill icon */}
+                        <div className="w-14 h-14 rounded-2xl bg-gold/8 border border-gold/15 flex items-center justify-center">
+                          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-gold">
+                            <path d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z" />
+                            <circle cx="5" cy="28" r="1.5" />
+                          </svg>
+                        </div>
+                        <span className="font-display text-sm text-text-secondary tracking-wide">The Writer</span>
+
+                        {/* Animated text lines being "written" */}
+                        <div className="mt-2 space-y-2 w-full max-w-[180px]">
+                          {[0.8, 0.6, 0.9, 0.5].map((width, i) => (
+                            <motion.div
+                              key={i}
+                              className="h-[3px] rounded-full bg-gold/15"
+                              initial={{ scaleX: 0, originX: 0 }}
+                              whileInView={{ scaleX: 1 }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1.2, delay: 0.6 + i * 0.3, ease: "easeOut" }}
+                              style={{ width: `${width * 100}%` }}
+                            />
+                          ))}
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    {/* Flowing particles from writer to reader */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      {Array.from({ length: 6 }, (_, i) => {
+                        const seed = seededRandom(200 + i);
+                        const y = 30 + seed() * 40;
+                        return (
+                          <motion.div
+                            key={`flow-${i}`}
+                            className="absolute w-1.5 h-1.5 rounded-full bg-gold"
+                            style={{ top: `${y}%`, left: "35%", filter: "blur(0.5px)" }}
+                            animate={{
+                              x: [0, 80, 160, 240],
+                              opacity: [0, 0.8, 0.6, 0],
+                              scale: [0.5, 1.2, 1, 0.5],
+                            }}
+                            transition={{
+                              duration: 3 + seed() * 2,
+                              repeat: Infinity,
+                              delay: seed() * 4,
+                              ease: "easeInOut",
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    {/* Right side — The Reader */}
+                    <div className="absolute inset-y-0 right-0 w-1/2 flex flex-col items-center justify-center px-8">
+                      <motion.div
+                        className="flex flex-col items-center gap-4"
+                        initial={{ opacity: 0, x: 20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8, delay: 0.5 }}
+                      >
+                        {/* Book icon with glow */}
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-2xl bg-amethyst/8 border border-amethyst/15 flex items-center justify-center">
+                            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-amethyst">
+                              <path d="M4 6C4 6 8 4 16 4s12 2 12 2v20s-4-2-12-2-12 2-12 2V6z" />
+                              <path d="M16 4v20" />
+                            </svg>
+                          </div>
+                          {/* Imagination burst */}
+                          <motion.div
+                            className="absolute -inset-3 rounded-3xl bg-amethyst/5"
+                            animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.2, 0.5] }}
+                            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                          />
+                        </div>
+                        <span className="font-display text-sm text-text-secondary tracking-wide">The Reader</span>
+
+                        {/* Dragon silhouette forming */}
+                        <div className="mt-2 flex items-center gap-3">
+                          {[
+                            { delay: 1.2, color: "bg-amethyst/20" },
+                            { delay: 1.6, color: "bg-gold/20" },
+                            { delay: 2.0, color: "bg-teal/20" },
+                          ].map((item, i) => (
+                            <motion.div
+                              key={i}
+                              className={`w-8 h-8 rounded-lg ${item.color}`}
+                              initial={{ opacity: 0, scale: 0, rotate: -20 }}
+                              whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 0.6, delay: item.delay, ease: "backOut" }}
+                            />
+                          ))}
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    {/* Center label */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+                      <motion.p
+                        className="text-text-ghost text-[11px] font-display tracking-widest uppercase"
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 2 }}
+                      >
+                        3D Preview Coming Soon
+                      </motion.p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtle inner shadow for depth */}
+              <div className="absolute inset-0 pointer-events-none rounded-2xl shadow-[inset_0_2px_20px_rgba(0,0,0,0.4),inset_0_-2px_20px_rgba(0,0,0,0.2)]" />
+
+              {/* Film grain overlay on video */}
+              <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%20256%20256%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cfilter%20id%3D%22n%22%3E%3CfeTurbulence%20baseFrequency%3D%220.8%22%20numOctaves%3D%224%22%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20filter%3D%22url(%23n)%22%2F%3E%3C%2Fsvg%3E')] bg-repeat bg-[length:128px_128px]" />
+            </div>
+          </div>
+
+          {/* Caption below video */}
+          <motion.p
+            className="text-center mt-6 text-text-ghost text-[12px] font-body italic"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.5 }}
+          >
+            From the writer&apos;s imagination to the reader&apos;s world — stories that come alive.
+          </motion.p>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 // ── Format Carousel ─────────────────────────────────────────
 function FormatShowcase() {
   const [activeIdx, setActiveIdx] = useState(0);
@@ -509,6 +843,7 @@ export default function InteractiveSplitLayout() {
   return (
     <div className="relative w-full bg-void font-body text-text selection:bg-gold/20 selection:text-paper">
       <HeroSection />
+      <VideoShowcase />
       <FormatShowcase />
       <GenreShelves />
       <FinalCTA />
