@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Chapter } from "@/lib/store";
-import ReaderToolbar, { ReadingMode } from "@/components/reader/ReaderToolbar";
+import ReaderToolbar, { ReadingMode, FontSizeKey, FONT_SIZE_OPTIONS } from "@/components/reader/ReaderToolbar";
 import ReaderPaginated from "@/components/reader/ReaderPaginated";
 import ReaderScroll from "@/components/reader/ReaderScroll";
 import ChapterComments from "@/components/reader/ChapterComments";
@@ -11,6 +12,7 @@ import ChapterReactions from "@/components/reader/ChapterReactions";
 
 const READER_PREFS_KEY = "inkwell-reader-prefs";
 const READING_FONT_KEY = "inkwell-reading-font";
+const FONT_SIZE_KEY = "inkwell-reader-font-size";
 
 type ReadingFont = "default" | "serif" | "sans" | "mono";
 
@@ -28,6 +30,25 @@ function loadReadingFont(): ReadingFont {
     if (saved && saved in FONT_CLASS_MAP) return saved as ReadingFont;
   } catch {}
   return "default";
+}
+
+function loadFontSize(): FontSizeKey {
+  if (typeof window === "undefined") return "medium";
+  try {
+    const saved = localStorage.getItem(FONT_SIZE_KEY);
+    if (saved && FONT_SIZE_OPTIONS.some((o) => o.key === saved)) return saved as FontSizeKey;
+  } catch {}
+  return "medium";
+}
+
+function saveFontSize(size: FontSizeKey) {
+  try {
+    localStorage.setItem(FONT_SIZE_KEY, size);
+  } catch {}
+}
+
+function getFontSizeValue(key: FontSizeKey): string {
+  return FONT_SIZE_OPTIONS.find((o) => o.key === key)?.value || "1.1rem";
 }
 
 interface StoryData {
@@ -88,6 +109,7 @@ function saveReadingMode(mode: ReadingMode) {
 export default function ChapterReadPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const slug = params.slug as string;
   const chapterId = params.chapterId as string;
 
@@ -96,14 +118,20 @@ export default function ChapterReadPage() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
   const [mode, setMode] = useState<ReadingMode>("paginated");
+  const [fontSize, setFontSize] = useState<FontSizeKey>("medium");
   const [fontClass, setFontClass] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
+  const [initialScrollPercent, setInitialScrollPercent] = useState<number | null>(null);
+  const [initialPageNumber, setInitialPageNumber] = useState<number | null>(null);
+  const lastSaveRef = useRef<number>(0);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load story metadata and chapter list
   useEffect(() => {
     setMode(loadReadingMode());
+    setFontSize(loadFontSize());
     setFontClass(FONT_CLASS_MAP[loadReadingFont()]);
 
     async function load() {
@@ -158,6 +186,68 @@ export default function ChapterReadPage() {
     load();
   }, [slug, chapterId]);
 
+  // ── Reading progress: save helper ──────────────────────────
+  const saveProgress = useCallback(
+    (opts: { scrollPercent?: number; pageNumber?: number }) => {
+      if (!session?.user?.id || !storyId) return;
+      const now = Date.now();
+      // Debounce: skip if saved less than 5 seconds ago
+      if (now - lastSaveRef.current < 5000) {
+        // Schedule a trailing save
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => saveProgress(opts), 5000);
+        return;
+      }
+      lastSaveRef.current = now;
+      fetch("/api/reading-progress", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storyId,
+          chapterId,
+          scrollPercent: opts.scrollPercent ?? 0,
+          pageNumber: opts.pageNumber ?? 1,
+        }),
+      }).catch(() => {});
+    },
+    [session?.user?.id, storyId, chapterId]
+  );
+
+  // Fetch initial reading progress for this story to restore position
+  useEffect(() => {
+    if (!session?.user?.id || !storyId) return;
+    fetch(`/api/reading-progress?storyId=${storyId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data && json.data.chapterId === chapterId) {
+          setInitialScrollPercent(json.data.scrollPercent);
+          setInitialPageNumber(json.data.pageNumber);
+        }
+      })
+      .catch(() => {});
+  }, [session?.user?.id, storyId, chapterId]);
+
+  // Save progress on chapter navigation (unmount)
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
+  const handleScrollProgress = useCallback(
+    (percent: number) => {
+      saveProgress({ scrollPercent: Math.round(percent) });
+    },
+    [saveProgress]
+  );
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      saveProgress({ pageNumber: page });
+    },
+    [saveProgress]
+  );
+
   const activeChapterIndex = chapters.findIndex((ch) => ch.id === chapterId);
 
   const handleModeChange = useCallback((newMode: ReadingMode) => {
@@ -165,11 +255,30 @@ export default function ChapterReadPage() {
     saveReadingMode(newMode);
   }, []);
 
+  const handleFontSizeChange = useCallback((newSize: FontSizeKey) => {
+    setFontSize(newSize);
+    saveFontSize(newSize);
+  }, []);
+
   const navigateToChapter = useCallback(
     (id: string) => {
+      // Save progress immediately when switching chapters
+      if (session?.user?.id && storyId) {
+        lastSaveRef.current = Date.now();
+        fetch("/api/reading-progress", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storyId,
+            chapterId: id,
+            scrollPercent: 0,
+            pageNumber: 1,
+          }),
+        }).catch(() => {});
+      }
       router.push(`/story/${slug}/read/${id}`);
     },
-    [router, slug]
+    [router, slug, session?.user?.id, storyId]
   );
 
   const handlePrevChapter = useCallback(() => {
@@ -266,6 +375,8 @@ export default function ChapterReadPage() {
           totalChapters={chapters.length}
           mode={mode}
           onModeChange={handleModeChange}
+          fontSize={fontSize}
+          onFontSizeChange={handleFontSizeChange}
           onPrevChapter={handlePrevChapter}
           onNextChapter={handleNextChapter}
           onBack={handleBack}
@@ -291,6 +402,14 @@ export default function ChapterReadPage() {
             authorNoteBefore={activeChapter.authorNoteBefore}
             authorNoteAfter={activeChapter.authorNoteAfter}
             fontClass={fontClass}
+            fontSizeValue={getFontSizeValue(fontSize)}
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
+            initialPage={initialPageNumber ?? undefined}
+            onPageChange={handlePageChange}
           />
         ) : (
           <ReaderScroll
@@ -309,6 +428,9 @@ export default function ChapterReadPage() {
             authorNoteBefore={activeChapter.authorNoteBefore}
             authorNoteAfter={activeChapter.authorNoteAfter}
             fontClass={fontClass}
+            fontSizeValue={getFontSizeValue(fontSize)}
+            initialScrollPercent={initialScrollPercent ?? undefined}
+            onScrollProgress={handleScrollProgress}
           />
         )}
       </div>

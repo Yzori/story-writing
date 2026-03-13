@@ -5,6 +5,8 @@ import { formatNumber, estimateReadingTime, WritingGoals } from "@/lib/store";
 import { getTodaySession } from "@/lib/goals";
 import ThemeToggle from "./ThemeToggle";
 
+type SaveState = "idle" | "saving" | "saved" | "error";
+
 interface StatusBarProps {
   wordCount: number;
   chapterWordCount: number;
@@ -16,6 +18,7 @@ interface StatusBarProps {
   showComments: boolean;
   commentCount: number;
   goals: WritingGoals;
+  saveState?: SaveState;
   onToggleFocus: () => void;
   onToggleZen: () => void;
   onToggleComments: () => void;
@@ -35,6 +38,7 @@ export default function StatusBar({
   showComments,
   commentCount,
   goals,
+  saveState = "idle",
   onToggleFocus,
   onToggleZen,
   onToggleComments,
@@ -59,6 +63,44 @@ export default function StatusBar({
         </span>
         <span className="text-text-ghost/40">·</span>
         <span className="truncate max-w-[180px]">{chapterTitle}</span>
+        {saveState !== "idle" && (
+          <>
+            <span className="text-text-ghost/40">·</span>
+            <span
+              className={`flex items-center gap-1 transition-opacity duration-300 ${
+                saveState === "saving"
+                  ? "text-text-ghost"
+                  : saveState === "saved"
+                    ? "text-text-ghost"
+                    : "text-rose"
+              }`}
+            >
+              {saveState === "saving" && (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full border border-text-ghost/60 border-t-transparent animate-spin" />
+                  Saving...
+                </>
+              )}
+              {saveState === "saved" && (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 5.5l2 2 4-4.5" />
+                  </svg>
+                  Saved
+                </>
+              )}
+              {saveState === "error" && (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <circle cx="5" cy="5" r="4" />
+                    <path d="M5 3v2.5M5 7h.01" />
+                  </svg>
+                  Save failed
+                </>
+              )}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Center: word count + goals */}

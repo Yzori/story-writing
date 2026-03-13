@@ -672,6 +672,29 @@ export const loreEntriesRelations = relations(loreEntries, ({ one }) => ({
   }),
 }));
 
+// ── Staff Picks ─────────────────────────────────────────────
+
+export const staffPicks = pgTable("staff_picks", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  curatorNote: text("curator_note").notNull(),
+  pickedBy: text("picked_by").notNull(),
+  pickedAt: timestamp("picked_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const staffPicksRelations = relations(staffPicks, ({ one }) => ({
+  story: one(stories, {
+    fields: [staffPicks.storyId],
+    references: [stories.id],
+  }),
+}));
+
 // ── Player Characters (Campaign Mode) ──────────────────────
 
 export const playerCharacters = pgTable(
@@ -791,3 +814,52 @@ export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
     references: [playerCharacters.id],
   }),
 }));
+
+// ── Reading Progress ────────────────────────────────────────
+
+export const readingProgress = pgTable(
+  "reading_progress",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    chapterId: uuid("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    scrollPercent: integer("scroll_percent").notNull().default(0),
+    pageNumber: integer("page_number").notNull().default(1),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("reading_progress_user_story_unique").on(
+      table.userId,
+      table.storyId
+    ),
+  ]
+);
+
+export const readingProgressRelations = relations(
+  readingProgress,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [readingProgress.userId],
+      references: [users.id],
+    }),
+    story: one(stories, {
+      fields: [readingProgress.storyId],
+      references: [stories.id],
+    }),
+    chapter: one(chapters, {
+      fields: [readingProgress.chapterId],
+      references: [chapters.id],
+    }),
+  })
+);

@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
+import StoryCard from "@/components/shared/StoryCard";
 import ReportModal from "@/components/shared/ReportModal";
 
 interface Chapter {
@@ -147,6 +148,15 @@ export default function StoryPage() {
   const [postingUpdate, setPostingUpdate] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [readingProgressChapterId, setReadingProgressChapterId] = useState<string | null>(null);
+  const [readingProgressPercent, setReadingProgressPercent] = useState<number>(0);
+  const [moreByAuthor, setMoreByAuthor] = useState<Array<{
+    id: string; title: string; format: string; synopsis: string | null;
+    coverImageUrl: string | null; genres: string[]; status: string;
+    slug: string | null; authorName: string | null; chapterCount: number;
+    totalWords: number; sparkCount: number; contentRating: string;
+  }>>([]);
+  const [moreInGenre, setMoreInGenre] = useState<typeof moreByAuthor>([]);
 
   useEffect(() => {
     async function fetchStory() {
@@ -178,6 +188,20 @@ export default function StoryPage() {
           const collabJson = await collabRes.json();
           setCollaborators(collabJson.data?.filter((c: Collaborator) => c.status === "accepted") || []);
         }
+
+        // Fetch reading progress if logged in
+        if (session?.user?.id) {
+          try {
+            const progressRes = await fetch(`/api/reading-progress?storyId=${json.data.id}`);
+            if (progressRes.ok) {
+              const progressJson = await progressRes.json();
+              if (progressJson.data) {
+                setReadingProgressChapterId(progressJson.data.chapterId);
+                setReadingProgressPercent(progressJson.data.scrollPercent || 0);
+              }
+            }
+          } catch {}
+        }
       } catch {
         setError("Failed to load story");
       } finally {
@@ -185,7 +209,7 @@ export default function StoryPage() {
       }
     }
     fetchStory();
-  }, [slug]);
+  }, [slug, session?.user?.id]);
 
   // Fetch updates when switching to the updates tab
   useEffect(() => {
@@ -208,6 +232,47 @@ export default function StoryPage() {
     }
     fetchUpdates();
   }, [activeTab, story, updatesLoaded]);
+
+  // Fetch "More by Author" and "More in Genre"
+  useEffect(() => {
+    if (!story) return;
+
+    async function fetchRelated() {
+      try {
+        // More by same author
+        const authorRes = await fetch(
+          `/api/stories?public=true&limit=5&sort=most-sparked`
+        );
+        if (authorRes.ok) {
+          const json = await authorRes.json();
+          const others = (json.data.stories || []).filter(
+            (s: { id: string; userId: string }) =>
+              s.userId === story!.userId && s.id !== story!.id
+          );
+          setMoreByAuthor(others.slice(0, 4));
+        }
+
+        // More in same genre
+        if (story!.genres.length > 0) {
+          const genreRes = await fetch(
+            `/api/stories?public=true&limit=20&sort=most-sparked`
+          );
+          if (genreRes.ok) {
+            const json = await genreRes.json();
+            const primaryGenre = story!.genres[0];
+            const others = (json.data.stories || []).filter(
+              (s: { id: string; genres: string[] }) =>
+                s.id !== story!.id && s.genres.includes(primaryGenre)
+            );
+            setMoreInGenre(others.slice(0, 6));
+          }
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchRelated();
+  }, [story]);
 
   const handleFollow = async () => {
     if (!story || followLoading || !session?.user) return;
@@ -378,17 +443,21 @@ export default function StoryPage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Start Reading CTA */}
+            {/* Start / Continue Reading CTA */}
             {publishedChapters.length > 0 && (
               <Link
-                href={`/story/${slug}/read/${publishedChapters[0].id}`}
+                href={
+                  readingProgressChapterId
+                    ? `/story/${slug}/read/${readingProgressChapterId}`
+                    : `/story/${slug}/read/${publishedChapters[0].id}`
+                }
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 hover:shadow-lg hover:shadow-amber/15"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M2 3l6 2.5L14 3v9l-6 2.5L2 12V3z" />
                   <path d="M8 5.5V14" />
                 </svg>
-                Start Reading
+                {readingProgressChapterId ? "Continue Reading" : "Start Reading"}
               </Link>
             )}
 
@@ -805,6 +874,71 @@ export default function StoryPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* More by Author */}
+        {moreByAuthor.length > 0 && story.author && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12"
+          >
+            <div className="flourish mb-5">
+              <span className="font-display text-sm text-text-secondary tracking-wide">
+                More by {story.author.displayName}
+              </span>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {moreByAuthor.map((s) => (
+                <div key={s.id} className="flex-shrink-0 w-[280px]">
+                  <StoryCard
+                    title={s.title}
+                    author={s.authorName || undefined}
+                    genres={s.genres}
+                    wordCount={s.totalWords || 0}
+                    chapterCount={s.chapterCount || 0}
+                    sparkCount={s.sparkCount || 0}
+                    contentRating={s.contentRating}
+                    slug={s.slug || s.id}
+                    coverUrl={s.coverImageUrl || undefined}
+                    excerpt={s.synopsis || undefined}
+                  />
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* More in Genre */}
+        {moreInGenre.length > 0 && story.genres.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-16"
+          >
+            <div className="flourish mb-5">
+              <span className="font-display text-sm text-text-secondary tracking-wide">
+                More in {story.genres[0]}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {moreInGenre.map((s) => (
+                <StoryCard
+                  key={s.id}
+                  title={s.title}
+                  author={s.authorName || undefined}
+                  genres={s.genres}
+                  wordCount={s.totalWords || 0}
+                  chapterCount={s.chapterCount || 0}
+                  sparkCount={s.sparkCount || 0}
+                  contentRating={s.contentRating}
+                  slug={s.slug || s.id}
+                  coverUrl={s.coverImageUrl || undefined}
+                  excerpt={s.synopsis || undefined}
+                />
+              ))}
+            </div>
+          </motion.section>
+        )}
       </div>
 
       {/* Report Modal */}

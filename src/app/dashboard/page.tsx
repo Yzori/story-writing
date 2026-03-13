@@ -91,10 +91,28 @@ function formatTimeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+interface ReadingProgressItem {
+  storyId: string;
+  chapterId: string;
+  scrollPercent: number;
+  pageNumber: number;
+  updatedAt: string;
+  storyTitle: string;
+  storySlug: string | null;
+  storyCoverUrl: string | null;
+  storyGenres: string[];
+  chapterTitle: string;
+  chapterSortOrder: number;
+  authorName: string | null;
+  authorId: string;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [stories, setStories] = useState<Story[]>([]);
   const [followedStories, setFollowedStories] = useState<Story[]>([]);
+  const [continueReading, setContinueReading] = useState<ReadingProgressItem[]>([]);
+  const [continueLoading, setContinueLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [followedLoading, setFollowedLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +155,28 @@ export default function DashboardPage() {
       }
     }
     fetchFollowing();
+  }, [session?.user?.id]);
+
+  // Fetch reading progress
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setContinueLoading(false);
+      return;
+    }
+    async function fetchProgress() {
+      try {
+        const res = await fetch("/api/reading-progress");
+        const json = await res.json();
+        if (res.ok) {
+          setContinueReading(json.data || []);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setContinueLoading(false);
+      }
+    }
+    fetchProgress();
   }, [session?.user?.id]);
 
   const totalWords = stories.reduce((sum, s) => sum + (s.totalWords || 0), 0);
@@ -218,6 +258,74 @@ export default function DashboardPage() {
           </motion.div>
         ))}
       </motion.div>
+
+      {/* Continue Reading */}
+      {!continueLoading && continueReading.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-12"
+        >
+          <div className="flourish mb-5">
+            <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">Continue Reading</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {continueReading.slice(0, 6).map((item, i) => (
+              <motion.div
+                key={item.storyId}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 + i * 0.05 }}
+              >
+                <Link
+                  href={`/story/${item.storySlug || item.storyId}/read/${item.chapterId}`}
+                  className="card-page p-4 flex items-start gap-4 group transition-all duration-200 hover:border-amber/20"
+                >
+                  {/* Cover thumbnail */}
+                  <div className="w-12 h-16 rounded-lg bg-gradient-to-br from-amber/15 to-amber/5 border border-border-subtle flex-shrink-0 overflow-hidden flex items-center justify-center">
+                    {item.storyCoverUrl ? (
+                      <img
+                        src={item.storyCoverUrl}
+                        alt={item.storyTitle}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-text-ghost">
+                        <path d="M2 3l6 2.5L14 3v9l-6 2.5L2 12V3z" />
+                        <path d="M8 5.5V14" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-paper text-[13px] font-medium truncate group-hover:text-amber transition-colors">
+                      {item.storyTitle}
+                    </h3>
+                    {item.authorName && (
+                      <p className="text-text-ghost text-[11px] mt-0.5 truncate">
+                        by {item.authorName}
+                      </p>
+                    )}
+                    <p className="text-text-tertiary text-[11px] mt-1 truncate">
+                      Ch. {item.chapterSortOrder + 1}: {item.chapterTitle}
+                    </p>
+                    {/* Progress bar */}
+                    <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber/60 rounded-full transition-all"
+                        style={{ width: `${Math.max(item.scrollPercent, 5)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-text-ghost mt-1">
+                      {item.scrollPercent}% through chapter
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Story Grid or Empty State */}
       {stories.length > 0 ? (

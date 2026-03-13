@@ -553,7 +553,7 @@ body::after {
 .prose-reader {
   color: var(--t-text);
   font-family: var(--font-reading), var(--font-body), system-ui, serif;
-  font-size: 1.1rem;
+  font-size: var(--reader-font-size, 1.1rem);
   line-height: 1.85;
   font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "onum" 1, "pnum" 1;
 }

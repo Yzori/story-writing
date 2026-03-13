@@ -7,12 +7,48 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { Editor } from "@tiptap/react";
+import { Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
+
+const typewriterPluginKey = new PluginKey("typewriterScroll");
+
+function createTypewriterExtension(enabledRef: React.RefObject<boolean>) {
+  return Extension.create({
+    name: "typewriterScroll",
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          key: typewriterPluginKey,
+          view() {
+            return {
+              update(view) {
+                if (!enabledRef.current) return;
+                // Find the DOM position of the cursor
+                const { from } = view.state.selection;
+                const coords = view.coordsAtPos(from);
+                const editorElement = view.dom.closest(".overflow-y-auto");
+                if (!editorElement || !coords) return;
+                const containerRect = editorElement.getBoundingClientRect();
+                // Target: cursor at ~40% from top of the container
+                const targetY = containerRect.top + containerRect.height * 0.4;
+                const offset = coords.top - targetY;
+                if (Math.abs(offset) > 5) {
+                  editorElement.scrollBy({ top: offset, behavior: "smooth" });
+                }
+              },
+            };
+          },
+        }),
+      ];
+    },
+  });
+}
 
 interface ProseEditorProps {
   content: string;
@@ -29,6 +65,11 @@ export default function ProseEditor({
   onComment,
   isFocusMode,
 }: ProseEditorProps) {
+  const focusModeRef = useRef(isFocusMode);
+  useEffect(() => {
+    focusModeRef.current = isFocusMode;
+  }, [isFocusMode]);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -46,6 +87,7 @@ export default function ProseEditor({
       Underline,
       IllustrationBlock,
       CommentMark,
+      createTypewriterExtension(focusModeRef),
     ],
     content,
     editorProps: {

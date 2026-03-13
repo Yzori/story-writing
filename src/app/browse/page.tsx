@@ -26,6 +26,13 @@ interface Story {
   contentRating: string;
 }
 
+interface StaffPick extends Story {
+  pickId: string;
+  curatorNote: string;
+  pickedBy: string;
+  pickedAt: string;
+}
+
 const SORT_OPTIONS = ["Latest", "Most Sparked", "Most Read", "Rising"];
 const FORMAT_OPTIONS = [
   "All Formats",
@@ -58,6 +65,7 @@ function BrowsePage() {
   const [maxRating, setMaxRating] = useState<string>("all");
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -102,6 +110,22 @@ function BrowsePage() {
     fetchStories();
   }, [debouncedQuery, sortBy]);
 
+  // Fetch real staff picks from dedicated endpoint
+  useEffect(() => {
+    async function fetchStaffPicks() {
+      try {
+        const res = await fetch("/api/staff-picks");
+        if (res.ok) {
+          const json = await res.json();
+          setStaffPicks(json.data || []);
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchStaffPicks();
+  }, []);
+
   const RATING_LEVELS: Record<string, number> = { everyone: 0, teen: 1, mature: 2, explicit: 3 };
 
   const filtered = stories.filter((story) => {
@@ -124,13 +148,6 @@ function BrowsePage() {
     return [...stories]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 6);
-  }, [stories]);
-
-  // Staff Picks: top 3 stories by spark count (deterministic "random" via top sparks)
-  const staffPicks = useMemo(() => {
-    return [...stories]
-      .sort((a, b) => b.sparkCount - a.sparkCount)
-      .slice(0, 3);
   }, [stories]);
 
   // Popular fallback for empty results: top 6 by sparks from unfiltered stories
@@ -320,8 +337,8 @@ function BrowsePage() {
         </motion.section>
       )}
 
-      {/* Staff Picks — featured cards */}
-      {showCuratedSections && !isFilteringGenre && staffPicks.length >= 3 && (
+      {/* Staff Picks — curated featured cards with curator notes */}
+      {showCuratedSections && !isFilteringGenre && staffPicks.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -329,27 +346,39 @@ function BrowsePage() {
           className="mb-10"
         >
           <div className="flourish mb-4"><span className="font-display text-sm text-text-secondary tracking-wide">Staff Picks</span></div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {staffPicks.map((story, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {staffPicks.map((pick, i) => (
               <motion.div
-                key={story.id}
+                key={pick.pickId}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.14 + i * 0.05 }}
+                className="relative"
               >
-                <StoryCard
-                  title={story.title}
-                  author={story.authorName || undefined}
-                  genres={story.genres}
-                  wordCount={story.totalWords || 0}
-                  chapterCount={story.chapterCount || 0}
-                  sparkCount={story.sparkCount || 0}
-                  contentRating={story.contentRating}
-                  slug={story.slug || story.id}
-                  coverUrl={story.coverImageUrl || undefined}
-                  excerpt={story.synopsis || undefined}
-                  variant="featured"
-                />
+                <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-amber/20 via-amber/5 to-transparent pointer-events-none" />
+                <div className="relative bg-surface/80 border border-amber/10 rounded-2xl overflow-hidden">
+                  <StoryCard
+                    title={pick.title}
+                    author={pick.authorName || undefined}
+                    genres={pick.genres}
+                    wordCount={pick.totalWords || 0}
+                    chapterCount={pick.chapterCount || 0}
+                    sparkCount={pick.sparkCount || 0}
+                    contentRating={pick.contentRating}
+                    slug={pick.slug || pick.id}
+                    coverUrl={pick.coverImageUrl || undefined}
+                    excerpt={pick.synopsis || undefined}
+                    variant="featured"
+                  />
+                  <div className="px-5 pb-4 -mt-1">
+                    <p className="text-[12px] text-text-secondary italic leading-relaxed font-reading">
+                      &ldquo;{pick.curatorNote}&rdquo;
+                    </p>
+                    <p className="text-[10px] text-text-ghost mt-1.5">
+                      &mdash; {pick.pickedBy}
+                    </p>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>

@@ -15,7 +15,11 @@ interface ReaderPaginatedProps {
   authorNoteBefore?: string;
   authorNoteAfter?: string;
   fontClass?: string;
+  fontSizeValue?: string;
   commentCount?: number;
+  reactionsElement?: React.ReactNode;
+  initialPage?: number;
+  onPageChange?: (page: number) => void;
 }
 
 export default function ReaderPaginated({
@@ -30,7 +34,11 @@ export default function ReaderPaginated({
   authorNoteBefore,
   authorNoteAfter,
   fontClass,
+  fontSizeValue,
   commentCount,
+  reactionsElement,
+  initialPage,
+  onPageChange,
 }: ReaderPaginatedProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -59,9 +67,26 @@ export default function ReaderPaginated({
     setCurrentPage((prev) => Math.min(prev, pages));
   }, []);
 
+  // Track whether we've restored the initial page
+  const restoredRef = useRef(false);
+
   useEffect(() => {
     // Delay to ensure layout is settled
-    const timer = setTimeout(recalculate, 50);
+    const timer = setTimeout(() => {
+      recalculate();
+      // Restore initial page after first layout calculation
+      if (!restoredRef.current && initialPage && initialPage > 1) {
+        restoredRef.current = true;
+        setCurrentPage((prev) => {
+          // Only restore if we have enough pages
+          const container = containerRef.current;
+          const content = contentRef.current;
+          if (!container || !content) return prev;
+          const pages = Math.max(1, Math.ceil(content.scrollHeight / container.clientHeight));
+          return Math.min(initialPage, pages);
+        });
+      }
+    }, 50);
 
     const observer = new ResizeObserver(() => recalculate());
     if (containerRef.current) observer.observe(containerRef.current);
@@ -70,7 +95,13 @@ export default function ReaderPaginated({
       clearTimeout(timer);
       observer.disconnect();
     };
-  }, [recalculate, htmlContent]);
+  }, [recalculate, htmlContent, initialPage]);
+
+  // Recalculate pages when font size changes
+  useEffect(() => {
+    const timer = setTimeout(recalculate, 50);
+    return () => clearTimeout(timer);
+  }, [recalculate, fontSizeValue]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -82,10 +113,18 @@ export default function ReaderPaginated({
 
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
         e.preventDefault();
-        goToPage(currentPage + 1);
+        if (currentPage >= totalPages && hasNextChapter && onNextChapter) {
+          onNextChapter();
+        } else {
+          goToPage(currentPage + 1);
+        }
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
         e.preventDefault();
-        goToPage(currentPage - 1);
+        if (currentPage <= 1 && hasPrevChapter && onPrevChapter) {
+          onPrevChapter();
+        } else {
+          goToPage(currentPage - 1);
+        }
       } else if (e.key === "Home") {
         e.preventDefault();
         goToPage(1);
@@ -99,14 +138,15 @@ export default function ReaderPaginated({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [currentPage, totalPages, showJump]);
+  }, [currentPage, totalPages, showJump, hasNextChapter, hasPrevChapter, onNextChapter, onPrevChapter]);
 
-  const goToPage = (page: number) => {
+  const goToPage = useCallback((page: number) => {
     const clamped = Math.max(1, Math.min(page, totalPages));
     if (clamped === currentPage) return;
     setDirection(clamped > currentPage ? 1 : -1);
     setCurrentPage(clamped);
-  };
+    onPageChange?.(clamped);
+  }, [totalPages, currentPage, onPageChange]);
 
   const handleJumpSubmit = () => {
     const page = parseInt(jumpInput, 10);
@@ -148,10 +188,16 @@ export default function ReaderPaginated({
               )}
               <div
                 className={`prose-reader ${fontClass || ""}`}
+                style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
               />
               {authorNoteAfter?.trim() && (
                 <div className="author-note">{authorNoteAfter}</div>
+              )}
+              {reactionsElement && (
+                <div className="mt-8 border-t border-border pt-6">
+                  {reactionsElement}
+                </div>
               )}
             </motion.div>
           </div>
@@ -159,12 +205,18 @@ export default function ReaderPaginated({
           {/* Click zones for prev/next */}
           <div className="absolute inset-0 flex pointer-events-none">
             <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage <= 1}
+              onClick={() => {
+                if (currentPage <= 1 && hasPrevChapter && onPrevChapter) {
+                  onPrevChapter();
+                } else {
+                  goToPage(currentPage - 1);
+                }
+              }}
+              disabled={currentPage <= 1 && !hasPrevChapter}
               className="w-1/4 h-full cursor-w-resize disabled:cursor-default pointer-events-auto group"
               aria-label="Previous page"
             >
-              {currentPage > 1 && (
+              {(currentPage > 1 || hasPrevChapter) && (
                 <div className="flex items-center justify-start pl-2 h-full opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="p-2 rounded-full bg-elevated/80 backdrop-blur border border-border text-text-ghost">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -176,12 +228,18 @@ export default function ReaderPaginated({
             </button>
             <div className="flex-1" />
             <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage >= totalPages}
+              onClick={() => {
+                if (currentPage >= totalPages && hasNextChapter && onNextChapter) {
+                  onNextChapter();
+                } else {
+                  goToPage(currentPage + 1);
+                }
+              }}
+              disabled={currentPage >= totalPages && !hasNextChapter}
               className="w-1/4 h-full cursor-e-resize disabled:cursor-default pointer-events-auto group"
               aria-label="Next page"
             >
-              {currentPage < totalPages && (
+              {(currentPage < totalPages || hasNextChapter) && (
                 <div className="flex items-center justify-end pr-2 h-full opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="p-2 rounded-full bg-elevated/80 backdrop-blur border border-border text-text-ghost">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">

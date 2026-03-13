@@ -188,7 +188,7 @@ export default function CreatePage() {
                 ? "bg-teal/10 text-teal border-teal/20"
                 : "bg-amber/10 text-amber border-amber/20"
             }`}>
-              {writingMode === "co-op" ? "Co-op" : isCampaign ? "Campaign" : "Solo"}
+              {writingMode === "co-op" ? "Co-op" : isCampaign ? "Adventure" : "Solo"}
             </span>
           </motion.div>
 
@@ -198,7 +198,7 @@ export default function CreatePage() {
             transition={{ delay: 0.08 }}
             className="section-label text-text-ghost mb-5 max-w-xs mx-auto"
           >
-            {isCampaign ? "Name Your Campaign" : "Begin a New Story"}
+            {isCampaign ? "Name Your Adventure" : "Begin a New Story"}
           </motion.div>
 
           {/* Manuscript-style title input with gold underline */}
@@ -207,7 +207,7 @@ export default function CreatePage() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={isCampaign ? "Untitled Campaign" : "Untitled Story"}
+              placeholder={isCampaign ? "Untitled Adventure" : "Untitled Story"}
               className="w-full text-center font-display text-3xl sm:text-4xl text-paper bg-transparent outline-none placeholder:text-text-ghost/40 border-none pb-3"
               required
             />
@@ -284,7 +284,7 @@ export default function CreatePage() {
           </motion.div>
         )}
 
-        {/* Campaign-specific GM hint */}
+        {/* Adventure-specific GM hint */}
         {isCampaign && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -349,7 +349,7 @@ export default function CreatePage() {
           className="mb-12"
         >
           <div className="section-label text-text-ghost mb-4">
-            {isCampaign ? "Campaign Premise" : "Synopsis"}
+            {isCampaign ? "Adventure Premise" : "Synopsis"}
           </div>
           <div className="relative">
             <textarea
@@ -529,7 +529,7 @@ export default function CreatePage() {
               {isSubmitting
                 ? "Creating..."
                 : isCampaign
-                ? "Launch Campaign"
+                ? "Launch Adventure"
                 : "Create Story"}
             </span>
           </button>
@@ -539,291 +539,255 @@ export default function CreatePage() {
   );
 }
 
-// ── Mode Selection (Step 1) ─────────────────────────────────
+// ── Mode Selection (Step 1) — Card Panels ─────────────────
 
-function ModeSelection({ onSelect }: { onSelect: (mode: WritingMode) => void }) {
+const MODES = [
+  {
+    id: "solo" as WritingMode,
+    title: "The Study",
+    subtitle: "Write alone",
+    description: "A quiet room. A desk by the window. Your story, your pace.",
+    features: ["Rich prose editor", "Story bible", "Export anywhere"],
+    image: "/solo_story_mode.png",
+    color: "amber",
+    glowColor: "bg-amber/30",
+    borderColor: "border-amber/40",
+    textColor: "text-amber",
+  },
+  {
+    id: "co-op" as WritingMode,
+    title: "The Workshop",
+    subtitle: "Write together",
+    description: "A long table. Maps and manuscripts. Stories charted side by side.",
+    features: ["Invite collaborators", "Shared lore book", "Agreements & credit"],
+    image: "/coop_story_mode.png",
+    color: "teal",
+    glowColor: "bg-teal/30",
+    borderColor: "border-teal/40",
+    textColor: "text-teal",
+  },
+  {
+    id: "campaign" as WritingMode,
+    title: "The Tavern",
+    subtitle: "Adventure together",
+    description: "A round table. Dice on wood. Heroes waiting for their tale.",
+    features: ["GM narration & turns", "Character sheets", "Session adventures"],
+    badge: "New",
+    image: "/adventure_mode.png",
+    color: "violet",
+    glowColor: "bg-violet/30",
+    borderColor: "border-violet/40",
+    textColor: "text-violet",
+  },
+];
+
+function ModeSelection({
+  onSelect,
+}: {
+  onSelect: (mode: WritingMode) => void;
+}) {
   const [hoveredMode, setHoveredMode] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<WritingMode>(null);
+
+  const handleSelect = (mode: WritingMode) => {
+    setSelectedMode(mode);
+    setTimeout(() => onSelect(mode), 1000);
+  };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-4 sm:px-6 py-16">
-      {/* Header */}
+    <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-6 relative overflow-hidden bg-void">
+      {/* Dynamic Ambient Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-violet/5 blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-amber/5 blur-[120px]" />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-teal/5 blur-[120px]" />
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{
+          opacity: selectedMode ? 0 : 1,
+          y: selectedMode ? -40 : 0,
+        }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="text-center mb-6"
+        className="text-center mb-12 relative z-10"
       >
-        <p className="section-label text-text-ghost mb-5">
-          How do you want to write?
+        <p className="font-display text-[12px] uppercase tracking-[0.25em] text-text-ghost mb-4">
+          Choose your path
         </p>
-        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl text-paper font-semibold">
+        <h1 className="font-display text-4xl sm:text-5xl text-paper font-medium tracking-tight">
           Open a New Chapter
         </h1>
       </motion.div>
 
-      {/* Flourish divider */}
-      <motion.div
-        initial={{ opacity: 0, scaleX: 0 }}
-        animate={{ opacity: 1, scaleX: 1 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-        className="flourish w-64 text-amber/30 mb-14"
-      />
+      <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 h-[700px] relative z-10">
+        {MODES.map((mode) => {
+          const isHovered = hoveredMode === mode.id;
+          const isSelected = selectedMode === mode.id;
+          const isOtherSelected = selectedMode !== null && !isSelected;
 
-      {/* Three tome cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 w-full max-w-5xl">
+          return (
+            <motion.button
+              key={mode.id}
+              layout
+              initial={{ opacity: 0, y: 40 }}
+              animate={{
+                opacity: isOtherSelected ? 0 : 1,
+                y: isOtherSelected ? 20 : 0,
+                flex: isSelected ? 3 : isHovered ? 1.5 : 1,
+                scale: isSelected ? 1.02 : 1,
+              }}
+              transition={{
+                opacity: { duration: 0.4 },
+                y: { duration: 0.6, ease: "easeOut" },
+                flex: { type: "spring", stiffness: 200, damping: 25 },
+                scale: { duration: 0.6, ease: "backOut" },
+                layout: { type: "spring", stiffness: 200, damping: 25 },
+              }}
+              onMouseEnter={() => !selectedMode && setHoveredMode(mode.id)}
+              onMouseLeave={() => !selectedMode && setHoveredMode(null)}
+              onClick={() => !selectedMode && handleSelect(mode.id)}
+              disabled={!!selectedMode}
+              className={`relative rounded-3xl overflow-hidden group border border-border-subtle/30 bg-ink focus:outline-none transition-shadow duration-500 cursor-pointer shadow-xl ${
+                isHovered && !selectedMode ? `shadow-${mode.color}/10 ` + mode.borderColor : ""
+              } ${isSelected ? `shadow-2xl shadow-${mode.color}/20 ` + mode.borderColor : ""}`}
+            >
+              {/* Background Image Container */}
+              <div className="absolute inset-0 w-full h-full overflow-hidden">
+                <motion.img
+                  src={mode.image}
+                  alt={mode.title}
+                  animate={{
+                    scale: isHovered || isSelected ? 1.05 : 1,
+                    filter: isHovered || isSelected ? "brightness(0.9)" : "brightness(0.5) saturate(0.8)",
+                  }}
+                  transition={{ duration: 0.7, ease: "easeOut" }}
+                  className="w-full h-full object-cover"
+                />
 
-        {/* ── Solo: Personal Grimoire ────────────── */}
-        <motion.button
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.5 }}
-          whileHover={{ y: -6 }}
-          onMouseEnter={() => setHoveredMode("solo")}
-          onMouseLeave={() => setHoveredMode(null)}
-          onClick={() => onSelect("solo")}
-          className="group relative card-page p-8 pb-10 text-left transition-all duration-300 cursor-pointer overflow-hidden hover:!border-amber/40 hover:!shadow-[0_0_40px_rgba(200,150,60,0.1),0_4px_12px_rgba(0,0,0,0.3)]"
-        >
-          {/* Firelight glow through parchment */}
-          <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-amber/6 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-          {/* Inner page warm glow */}
-          <div className="absolute inset-0 bg-gradient-to-b from-amber/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-xl" />
+                {/* Vignette & Gradients */}
+                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent opacity-90" />
+                <div className="absolute inset-0 bg-gradient-to-b from-void/50 via-transparent to-transparent opacity-80" />
 
-          {/* Leather journal corner ornaments */}
-          <div className="absolute top-3 left-3 w-3 h-3 border-t border-l border-amber/10 group-hover:border-amber/25 rounded-tl-sm transition-colors duration-300 pointer-events-none" />
-          <div className="absolute top-3 right-3 w-3 h-3 border-t border-r border-amber/10 group-hover:border-amber/25 rounded-tr-sm transition-colors duration-300 pointer-events-none" />
-          <div className="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-amber/10 group-hover:border-amber/25 rounded-bl-sm transition-colors duration-300 pointer-events-none" />
-          <div className="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-amber/10 group-hover:border-amber/25 rounded-br-sm transition-colors duration-300 pointer-events-none" />
+                {/* Selection Glow Flash */}
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: [0, 0.4, 0] }}
+                      transition={{ duration: 1.5, ease: "easeInOut" }}
+                      className={`absolute inset-0 ${mode.glowColor} mix-blend-overlay`}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
 
-          {/* Icon — quill & journal */}
-          <div className="relative z-10 w-14 h-14 rounded-xl bg-gradient-to-br from-amber/12 via-amber/6 to-transparent border border-amber/10 flex items-center justify-center mb-6 group-hover:border-amber/30 group-hover:shadow-[0_0_16px_rgba(200,150,60,0.1)] transition-all duration-300">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" strokeWidth="1.2" className="text-amber">
-              {/* Book / journal */}
-              <rect x="5" y="4" width="14" height="20" rx="2" stroke="currentColor" />
-              <path d="M9 4v20" stroke="currentColor" strokeWidth="0.8" opacity="0.4" />
-              {/* Quill */}
-              <path d="M18 6l6-2-2 6-4 4-3 1 1-3z" stroke="currentColor" strokeWidth="1.1" />
-              <path d="M20 10l-2-2" stroke="currentColor" strokeWidth="0.8" />
-            </svg>
-          </div>
+              {/* Content Overlay */}
+              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 flex flex-col justify-end h-full">
 
-          {/* Content */}
-          <div className="relative z-10">
-            <h2 className="font-display text-2xl text-paper mb-1.5 group-hover:text-amber transition-colors duration-300">
-              Solo
-            </h2>
-            <p className="text-text-secondary text-[13px] leading-relaxed mb-5 italic">
-              A leather-bound journal, its pages waiting for your words alone.
-            </p>
-
-            {/* Feature inscriptions */}
-            <div className="space-y-2.5">
-              {["Chapters & rich text editor", "Story bible & world-building", "Export to PDF, EPUB, DOCX"].map((feat) => (
-                <div key={feat} className="flex items-center gap-2.5 text-text-ghost text-[12px]">
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className="shrink-0 text-amber/40">
-                    <path d="M4 0.5L5 3.5L4 3L3 3.5Z" fill="currentColor" />
-                    <path d="M4 7.5L3 4.5L4 5L5 4.5Z" fill="currentColor" />
-                    <path d="M0.5 4L3.5 3L3 4L3.5 5Z" fill="currentColor" />
-                    <path d="M7.5 4L4.5 5L5 4L4.5 3Z" fill="currentColor" />
-                  </svg>
-                  <span>{feat}</span>
+                {/* Top Badge Overlay */}
+                <div className="absolute top-6 left-6 flex justify-between w-[calc(100%-3rem)]">
+                  {mode.badge && (
+                    <span className={`px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] font-bold rounded-full bg-void/50 backdrop-blur-md border border-${mode.color}/30 ${mode.textColor}`}>
+                      {mode.badge}
+                    </span>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Arrow */}
-          <div className="absolute bottom-6 right-6 w-8 h-8 rounded-full bg-amber/10 flex items-center justify-center opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
-              <path d="M5 3l4 4-4 4" />
-            </svg>
-          </div>
-        </motion.button>
+                <div className="relative z-20 w-full flex flex-col items-start text-left">
+                  <motion.p
+                    animate={{
+                      color: isHovered || isSelected ? `var(--color-${mode.color})` : "var(--color-text-ghost)"
+                    }}
+                    className={`text-[12px] uppercase tracking-[0.15em] mb-2 transition-colors duration-300 ${mode.textColor}`}
+                  >
+                    {mode.subtitle}
+                  </motion.p>
 
-        {/* ── Co-op: Shared Chronicle ────────────── */}
-        <motion.button
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.5 }}
-          whileHover={{ y: -6 }}
-          onMouseEnter={() => setHoveredMode("co-op")}
-          onMouseLeave={() => setHoveredMode(null)}
-          onClick={() => onSelect("co-op")}
-          className="group relative card-page p-8 pb-10 text-left transition-all duration-300 cursor-pointer overflow-hidden hover:!border-teal/40 hover:!shadow-[0_0_40px_rgba(59,110,122,0.12),0_4px_12px_rgba(0,0,0,0.3)]"
-        >
-          {/* Moonlit stained-glass glow */}
-          <div className="absolute -top-16 -right-16 w-48 h-48 bg-teal/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-teal/6 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-b from-teal/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-xl" />
+                  <motion.h2
+                    layout="position"
+                    className="font-display text-3xl sm:text-4xl font-medium text-paper mb-4"
+                  >
+                    {mode.title}
+                  </motion.h2>
 
-          {/* Interlinked border ornaments */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-px bg-gradient-to-r from-transparent via-teal/15 to-transparent group-hover:via-teal/30 transition-all duration-300 pointer-events-none" />
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-12 h-px bg-gradient-to-r from-transparent via-teal/15 to-transparent group-hover:via-teal/30 transition-all duration-300 pointer-events-none" />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 h-12 w-px bg-gradient-to-b from-transparent via-teal/15 to-transparent group-hover:via-teal/30 transition-all duration-300 pointer-events-none" />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 h-12 w-px bg-gradient-to-b from-transparent via-teal/15 to-transparent group-hover:via-teal/30 transition-all duration-300 pointer-events-none" />
+                  <AnimatePresence>
+                    {(isHovered || isSelected) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0, y: 10 }}
+                        animate={{ opacity: 1, height: "auto", y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: 10 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="w-full overflow-hidden"
+                      >
+                        <div className="pt-4 border-t border-white/10 mt-2">
+                          <p className="text-text-secondary text-[14px] leading-relaxed mb-6 font-body">
+                            {mode.description}
+                          </p>
 
-          {/* Icon — connected atlas / map */}
-          <div className="relative z-10 w-14 h-14 rounded-xl bg-gradient-to-br from-teal/12 via-teal/6 to-transparent border border-teal/10 flex items-center justify-center mb-6 group-hover:border-teal/30 group-hover:shadow-[0_0_16px_rgba(59,110,122,0.12)] transition-all duration-300">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" strokeWidth="1.2" className="text-teal">
-              {/* Open book / atlas */}
-              <path d="M14 7C12 5 9 4 5 4v17c4 0 7 1 9 3" stroke="currentColor" />
-              <path d="M14 7c2-2 5-3 9-3v17c-4 0-7 1-9 3" stroke="currentColor" />
-              {/* Connection dots */}
-              <circle cx="9" cy="11" r="1" fill="currentColor" opacity="0.5" />
-              <circle cx="19" cy="11" r="1" fill="currentColor" opacity="0.5" />
-              <path d="M10 11h8" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.4" />
-            </svg>
-          </div>
+                          <ul className="space-y-3">
+                            {mode.features.map((feat, i) => (
+                              <motion.li
+                                key={feat}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.1 + 0.1 }}
+                                className="flex items-center gap-3 text-text text-[13px] font-medium"
+                              >
+                                <div className={`w-1.5 h-1.5 rounded-full bg-${mode.color} shadow-[0_0_8px_currentColor]`} />
+                                {feat}
+                              </motion.li>
+                            ))}
+                          </ul>
+                        </div>
 
-          {/* Content */}
-          <div className="relative z-10">
-            <h2 className="font-display text-2xl text-paper mb-1.5 group-hover:text-teal transition-colors duration-300">
-              Co-op
-            </h2>
-            <p className="text-text-secondary text-[13px] leading-relaxed mb-5 italic">
-              A map table where stories are charted together, page by page.
-            </p>
-
-            {/* Feature inscriptions */}
-            <div className="space-y-2.5">
-              {["Invite writers, editors, illustrators", "Collaborative lore book", "Creative agreements & credit"].map((feat) => (
-                <div key={feat} className="flex items-center gap-2.5 text-text-ghost text-[12px]">
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className="shrink-0 text-teal/40">
-                    <path d="M4 0.5L5 3.5L4 3L3 3.5Z" fill="currentColor" />
-                    <path d="M4 7.5L3 4.5L4 5L5 4.5Z" fill="currentColor" />
-                    <path d="M0.5 4L3.5 3L3 4L3.5 5Z" fill="currentColor" />
-                    <path d="M7.5 4L4.5 5L5 4L4.5 3Z" fill="currentColor" />
-                  </svg>
-                  <span>{feat}</span>
+                        {/* Selected State Arrow Indicator */}
+                        <AnimatePresence>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: 0.5 }}
+                              className="mt-8 flex justify-end w-full"
+                            >
+                              <div className={`w-10 h-10 rounded-full bg-${mode.color}/20 border border-${mode.color}/50 flex items-center justify-center text-${mode.color} backdrop-blur-md`}>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  <path d="M4 10h12M12 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Arrow */}
-          <div className="absolute bottom-6 right-6 w-8 h-8 rounded-full bg-teal/10 flex items-center justify-center opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal">
-              <path d="M5 3l4 4-4 4" />
-            </svg>
-          </div>
-        </motion.button>
-
-        {/* ── Campaign: Enchanted War Table ──────── */}
-        <motion.button
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.5 }}
-          whileHover={{ y: -6 }}
-          onMouseEnter={() => setHoveredMode("campaign")}
-          onMouseLeave={() => setHoveredMode(null)}
-          onClick={() => onSelect("campaign")}
-          className="group relative card-page p-8 pb-10 text-left transition-all duration-300 cursor-pointer overflow-hidden hover:!border-violet/40 hover:!shadow-[0_0_40px_rgba(126,94,158,0.12),0_0_20px_rgba(158,107,66,0.06),0_4px_12px_rgba(0,0,0,0.3)]"
-        >
-          {/* Arcane energy glow — more dramatic */}
-          <div className="absolute -top-20 -right-20 w-56 h-56 bg-violet/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-600 pointer-events-none" />
-          <div className="absolute -bottom-14 -left-14 w-44 h-44 bg-violet/6 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 bg-copper/6 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-b from-violet/[0.02] via-transparent to-copper/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-xl" />
-
-          {/* Mystical seal badge */}
-          <div className="absolute top-5 right-5 z-20">
-            <span className="relative px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] font-bold text-violet">
-              {/* Seal background */}
-              <span className="absolute inset-0 bg-violet/12 border border-violet/25 rounded-full group-hover:bg-violet/18 group-hover:border-violet/35 group-hover:shadow-[0_0_12px_rgba(126,94,158,0.15)] transition-all duration-300" />
-              <span className="relative">New</span>
-            </span>
-          </div>
-
-          {/* Arcane corner runes */}
-          <div className="absolute top-3 left-3 text-violet/10 group-hover:text-violet/25 transition-colors duration-300 pointer-events-none">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="0.8">
-              <path d="M0 5L5 0M0 0L3 3" />
-            </svg>
-          </div>
-          <div className="absolute top-3 right-14 text-violet/10 group-hover:text-violet/25 transition-colors duration-300 pointer-events-none">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="0.8">
-              <path d="M10 5L5 0M10 0L7 3" />
-            </svg>
-          </div>
-          <div className="absolute bottom-3 left-3 text-copper/10 group-hover:text-copper/25 transition-colors duration-300 pointer-events-none">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="0.8">
-              <path d="M0 5L5 10M0 10L3 7" />
-            </svg>
-          </div>
-          <div className="absolute bottom-3 right-3 text-copper/10 group-hover:text-copper/25 transition-colors duration-300 pointer-events-none">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="0.8">
-              <path d="M10 5L5 10M10 10L7 7" />
-            </svg>
-          </div>
-
-          {/* Icon — star / war table compass */}
-          <div className="relative z-10 w-14 h-14 rounded-xl bg-gradient-to-br from-violet/12 via-copper/8 to-transparent border border-violet/10 flex items-center justify-center mb-6 group-hover:border-violet/30 group-hover:shadow-[0_0_16px_rgba(126,94,158,0.12)] transition-all duration-300">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" strokeWidth="1.2" className="text-violet">
-              {/* Star / compass rose */}
-              <path d="M14 3l3 7 7.5 1-5.5 5.5 1.3 7.5L14 20.5 7.7 24l1.3-7.5L3.5 11l7.5-1z" stroke="currentColor" />
-              {/* Inner compass detail */}
-              <path d="M14 9v4M14 15v4M9 14h4M15 14h4" stroke="currentColor" strokeWidth="0.8" className="text-copper" />
-              <circle cx="14" cy="14" r="1.5" stroke="currentColor" strokeWidth="0.8" className="text-copper" />
-            </svg>
-          </div>
-
-          {/* Content */}
-          <div className="relative z-10">
-            <h2 className="font-display text-2xl text-paper mb-1.5 group-hover:text-violet transition-colors duration-300">
-              Campaign
-            </h2>
-            <p className="text-text-secondary text-[13px] leading-relaxed mb-5 italic">
-              An enchanted war table, awaiting its heroes and their tales.
-            </p>
-
-            {/* Feature inscriptions */}
-            <div className="space-y-2.5">
-              {["GM narration & player turns", "Character sheets & dice rolls", "Session-based adventures"].map((feat) => (
-                <div key={feat} className="flex items-center gap-2.5 text-text-ghost text-[12px]">
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className="shrink-0 text-violet/40">
-                    <path d="M4 0.5L5 3.5L4 3L3 3.5Z" fill="currentColor" />
-                    <path d="M4 7.5L3 4.5L4 5L5 4.5Z" fill="currentColor" />
-                    <path d="M0.5 4L3.5 3L3 4L3.5 5Z" fill="currentColor" />
-                    <path d="M7.5 4L4.5 5L5 4L4.5 3Z" fill="currentColor" />
-                  </svg>
-                  <span>{feat}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Arrow */}
-          <div className="absolute bottom-6 right-6 w-8 h-8 rounded-full bg-violet/10 flex items-center justify-center opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet">
-              <path d="M5 3l4 4-4 4" />
-            </svg>
-          </div>
-        </motion.button>
+              </div>
+            </motion.button>
+          );
+        })}
       </div>
 
-      {/* Whispered hint */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-        className="mt-12 text-center"
+        animate={{ opacity: selectedMode ? 0 : 1, y: selectedMode ? 20 : 0 }}
+        className="mt-10 text-center relative z-10 h-6"
       >
         <AnimatePresence mode="wait">
           <motion.p
             key={hoveredMode ?? "default"}
-            initial={{ opacity: 0, y: 4 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="text-text-ghost text-[11px] italic"
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.2 }}
+            className="text-text-ghost text-[13px] italic font-body max-w-md mx-auto"
           >
             {hoveredMode === "solo"
               ? "Perfect for novels, short stories, poetry, and screenplays."
               : hoveredMode === "co-op"
-              ? "Best for shared universes, anthology projects, and creative partnerships."
+              ? "Best for shared universes, anthology projects, and collaborative writing teams."
               : hoveredMode === "campaign"
-              ? "Think D&D meets collaborative fiction. Dice optional, imagination required."
-              : "You can always change how you collaborate later."}
+              ? "Think a TTRPG meets collaborative fiction. You become the Game Master."
+              : "Decide how you want to weave your next tale."}
           </motion.p>
         </AnimatePresence>
       </motion.div>

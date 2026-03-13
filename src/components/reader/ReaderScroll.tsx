@@ -14,6 +14,9 @@ interface ReaderScrollProps {
   authorNoteBefore?: string;
   authorNoteAfter?: string;
   fontClass?: string;
+  fontSizeValue?: string;
+  initialScrollPercent?: number;
+  onScrollProgress?: (percent: number) => void;
 }
 
 export default function ReaderScroll({
@@ -27,9 +30,13 @@ export default function ReaderScroll({
   authorNoteBefore,
   authorNoteAfter,
   fontClass,
+  fontSizeValue,
+  initialScrollPercent,
+  onScrollProgress,
 }: ReaderScrollProps) {
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -39,8 +46,10 @@ export default function ReaderScroll({
       setProgress(100);
       return;
     }
-    setProgress((el.scrollTop / scrollable) * 100);
-  }, []);
+    const pct = (el.scrollTop / scrollable) * 100;
+    setProgress(pct);
+    onScrollProgress?.(pct);
+  }, [onScrollProgress]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -49,6 +58,22 @@ export default function ReaderScroll({
     handleScroll();
     return () => el.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
+
+  // Restore initial scroll position
+  useEffect(() => {
+    if (restoredRef.current || !initialScrollPercent || initialScrollPercent <= 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    // Wait for content to render
+    const timer = setTimeout(() => {
+      const scrollable = el.scrollHeight - el.clientHeight;
+      if (scrollable > 0) {
+        el.scrollTop = (initialScrollPercent / 100) * scrollable;
+        restoredRef.current = true;
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [initialScrollPercent]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -74,6 +99,7 @@ export default function ReaderScroll({
 
           <div
             className={`prose-reader ${fontClass || ""}`}
+            style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
             dangerouslySetInnerHTML={{ __html: htmlContent }}
           />
 

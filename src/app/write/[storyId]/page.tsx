@@ -204,6 +204,10 @@ export default function WriteStoryPage() {
   const [storyFormat, setStoryFormat] = useState("novel");
   const [useProseAnyway, setUseProseAnyway] = useState(false);
 
+  // Save state indicator
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const savedFadeTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
   // Track which chapters have unsaved content changes
   const pendingSaves = useRef<Map<string, string>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -303,18 +307,39 @@ export default function WriteStoryPage() {
     // Flush pending chapter saves
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      pendingSaves.current.forEach((content, chapterId) => {
+      const entries = Array.from(pendingSaves.current.entries());
+      if (entries.length === 0) return;
+
+      setSaveState("saving");
+      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+
+      const saves = entries.map(([chapterId, content]) =>
         fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
-        }).catch(() => {}); // silent fail, will retry on next save
-      });
+        })
+      );
+
+      Promise.all(saves)
+        .then((responses) => {
+          if (responses.every((r) => r.ok)) {
+            setSaveState("saved");
+            savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+          } else {
+            setSaveState("error");
+          }
+        })
+        .catch(() => {
+          setSaveState("error");
+        });
+
       pendingSaves.current.clear();
     }, 1000);
 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
     };
   }, [project, storyId]);
 
@@ -338,6 +363,28 @@ export default function WriteStoryPage() {
       if (isMod && e.shiftKey && e.key.toLowerCase() === "h") {
         e.preventDefault();
         setShowSearch((v) => !v);
+      }
+      if (isMod && e.shiftKey && e.key === "ArrowDown") {
+        e.preventDefault();
+        setProject((prev) => {
+          if (!prev) return prev;
+          const idx = prev.chapters.findIndex((c) => c.id === prev.activeChapterId);
+          if (idx < prev.chapters.length - 1) {
+            return { ...prev, activeChapterId: prev.chapters[idx + 1].id };
+          }
+          return prev;
+        });
+      }
+      if (isMod && e.shiftKey && e.key === "ArrowUp") {
+        e.preventDefault();
+        setProject((prev) => {
+          if (!prev) return prev;
+          const idx = prev.chapters.findIndex((c) => c.id === prev.activeChapterId);
+          if (idx > 0) {
+            return { ...prev, activeChapterId: prev.chapters[idx - 1].id };
+          }
+          return prev;
+        });
       }
       if (e.key === "Escape" && isZenMode) {
         setIsZenMode(false);
@@ -1034,6 +1081,7 @@ export default function WriteStoryPage() {
                 commentThreads.filter((t) => !t.resolved).length
               }
               goals={project.goals}
+              saveState={saveState}
               onToggleFocus={() => setIsFocusMode((v) => !v)}
               onToggleZen={() => setIsZenMode((v) => !v)}
               onToggleComments={() => togglePanel("comments")}

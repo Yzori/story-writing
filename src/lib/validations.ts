@@ -248,3 +248,12 @@ export const createCampaignTurnSchema = z.object({
   content: z.string().min(1, "Content is required").max(10000),
   metadata: z.string().max(5000).optional(),
 });
+
+// ── Reading Progress ────────────────────────────────────────
+
+export const upsertReadingProgressSchema = z.object({
+  storyId: z.string().uuid("Invalid story ID"),
+  chapterId: z.string().uuid("Invalid chapter ID"),
+  scrollPercent: z.number().int().min(0).max(100).optional(),
+  pageNumber: z.number().int().min(1).optional(),
+});

@@ -7,6 +7,15 @@ import ThemeToggle from "@/components/editor/ThemeToggle";
 
 export type ReadingMode = "paginated" | "scroll";
 
+export type FontSizeKey = "small" | "medium" | "large" | "xl";
+
+export const FONT_SIZE_OPTIONS: { key: FontSizeKey; label: string; value: string }[] = [
+  { key: "small", label: "S", value: "0.95rem" },
+  { key: "medium", label: "M", value: "1.1rem" },
+  { key: "large", label: "L", value: "1.25rem" },
+  { key: "xl", label: "XL", value: "1.4rem" },
+];
+
 interface ReaderToolbarProps {
   storyTitle: string;
   chapter: Chapter;
@@ -14,6 +23,8 @@ interface ReaderToolbarProps {
   totalChapters: number;
   mode: ReadingMode;
   onModeChange: (mode: ReadingMode) => void;
+  fontSize: FontSizeKey;
+  onFontSizeChange: (size: FontSizeKey) => void;
   onPrevChapter: () => void;
   onNextChapter: () => void;
   onBack: () => void;
@@ -28,6 +39,8 @@ export default function ReaderToolbar({
   totalChapters,
   mode,
   onModeChange,
+  fontSize,
+  onFontSizeChange,
   onPrevChapter,
   onNextChapter,
   onBack,
@@ -137,6 +150,26 @@ export default function ReaderToolbar({
               </svg>
               Scroll
             </button>
+          </div>
+
+          <span className="text-text-ghost/30 mx-1">|</span>
+
+          {/* Font size selector */}
+          <div className="flex items-center bg-surface rounded-lg border border-border p-0.5">
+            {FONT_SIZE_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => onFontSizeChange(opt.key)}
+                className={`px-2 py-1 rounded-md text-[11px] transition-all ${
+                  fontSize === opt.key
+                    ? "bg-amber/15 text-amber"
+                    : "text-text-ghost hover:text-text-secondary"
+                }`}
+                title={`Font size: ${opt.key}`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
 
           <span className="text-text-ghost/30 mx-1">|</span>
