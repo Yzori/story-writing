@@ -54,6 +54,21 @@ interface CampaignSession {
   turnCount: number;
 }
 
+interface CampaignApplication {
+  id: string;
+  storyId: string;
+  userId: string;
+  pitch: string;
+  status: string;
+  votingDeadline: string | null;
+  createdAt: string;
+  user: {
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
+  voteCount?: { yes: number; no: number };
+}
+
 // ── Status badge colors ─────────────────────────────────────
 
 const CHARACTER_STATUS_STYLES: Record<string, string> = {
@@ -63,6 +78,7 @@ const CHARACTER_STATUS_STYLES: Record<string, string> = {
 };
 
 const SESSION_STATUS_STYLES: Record<string, string> = {
+  draft: "bg-lavender/15 text-lavender border-lavender/20",
   active: "bg-sage/15 text-sage border-sage/20",
   completed: "bg-amber/15 text-amber border-amber/20",
   archived: "bg-text-ghost/15 text-text-ghost border-text-ghost/20",
@@ -79,8 +95,11 @@ export default function CampaignPage() {
   const [story, setStory] = useState<StoryData | null>(null);
   const [characters, setCharacters] = useState<PlayerCharacter[]>([]);
   const [sessions, setSessions] = useState<CampaignSession[]>([]);
+  const [applications, setApplications] = useState<CampaignApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedPitch, setExpandedPitch] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Character creation form
   const [showCreateChar, setShowCreateChar] = useState(false);
@@ -89,10 +108,25 @@ export default function CampaignPage() {
   const [charTraits, setCharTraits] = useState("");
   const [charSubmitting, setCharSubmitting] = useState(false);
 
+  // Character stats
+  const [showStats, setShowStats] = useState(false);
+  const [statHpCurrent, setStatHpCurrent] = useState(10);
+  const [statHpMax, setStatHpMax] = useState(10);
+  const [statMpCurrent, setStatMpCurrent] = useState(5);
+  const [statMpMax, setStatMpMax] = useState(5);
+  const [statSTR, setStatSTR] = useState(10);
+  const [statDEX, setStatDEX] = useState(10);
+  const [statCON, setStatCON] = useState(10);
+  const [statINT, setStatINT] = useState(10);
+  const [statWIS, setStatWIS] = useState(10);
+  const [statCHA, setStatCHA] = useState(10);
+
   // New session form
   const [showNewSession, setShowNewSession] = useState(false);
   const [sessionTitle, setSessionTitle] = useState("");
+  const [sessionOpening, setSessionOpening] = useState("");
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
+  const [beginningSessionId, setBeginningSessionId] = useState<string | null>(null);
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
@@ -103,10 +137,11 @@ export default function CampaignPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [storyRes, charsRes, sessionsRes] = await Promise.all([
+      const [storyRes, charsRes, sessionsRes, appsRes] = await Promise.all([
         fetch(`/api/stories/${storyId}`),
         fetch(`/api/stories/${storyId}/campaign/characters`),
         fetch(`/api/stories/${storyId}/campaign/sessions`),
+        fetch(`/api/stories/${storyId}/campaign/applications`),
       ]);
 
       if (!storyRes.ok) throw new Error("Failed to load story");
@@ -122,6 +157,11 @@ export default function CampaignPage() {
       if (sessionsRes.ok) {
         const sessionsJson = await sessionsRes.json();
         setSessions(sessionsJson.data ?? []);
+      }
+
+      if (appsRes.ok) {
+        const appsJson = await appsRes.json();
+        setApplications(appsJson.data ?? []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -140,14 +180,23 @@ export default function CampaignPage() {
     if (!charName.trim() || charSubmitting) return;
     setCharSubmitting(true);
     try {
+      const payload: Record<string, unknown> = {
+        name: charName.trim(),
+        description: charDesc.trim(),
+        traits: charTraits.trim(),
+      };
+      if (showStats) {
+        payload.stats = JSON.stringify({
+          hp: { current: statHpCurrent, max: statHpMax },
+          mp: { current: statMpCurrent, max: statMpMax },
+          attributes: { STR: statSTR, DEX: statDEX, CON: statCON, INT: statINT, WIS: statWIS, CHA: statCHA },
+          items: [],
+        });
+      }
       const res = await fetch(`/api/stories/${storyId}/campaign/characters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: charName.trim(),
-          description: charDesc.trim(),
-          traits: charTraits.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -156,6 +205,11 @@ export default function CampaignPage() {
       setCharName("");
       setCharDesc("");
       setCharTraits("");
+      setShowStats(false);
+      setStatHpCurrent(10); setStatHpMax(10);
+      setStatMpCurrent(5); setStatMpMax(5);
+      setStatSTR(10); setStatDEX(10); setStatCON(10);
+      setStatINT(10); setStatWIS(10); setStatCHA(10);
       setShowCreateChar(false);
       fetchData();
     } catch (err) {
@@ -171,22 +225,90 @@ export default function CampaignPage() {
     if (!sessionTitle.trim() || sessionSubmitting) return;
     setSessionSubmitting(true);
     try {
+      const sessionPayload: Record<string, string> = { title: sessionTitle.trim() };
+      if (sessionOpening.trim()) {
+        sessionPayload.opening = sessionOpening.trim();
+      }
       const res = await fetch(`/api/stories/${storyId}/campaign/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: sessionTitle.trim() }),
+        body: JSON.stringify(sessionPayload),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error?.message ?? "Failed to create session");
       }
       setSessionTitle("");
+      setSessionOpening("");
       setShowNewSession(false);
       fetchData();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error creating session");
     } finally {
       setSessionSubmitting(false);
+    }
+  };
+
+  // ── Begin session (draft → active) ────────────────────────
+
+  const handleBeginSession = async (sessionId: string) => {
+    setBeginningSessionId(sessionId);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "active" }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? "Failed to begin session");
+      }
+      router.push(`/campaign/${storyId}/play/${sessionId}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error beginning session");
+    } finally {
+      setBeginningSessionId(null);
+    }
+  };
+
+  // ── Application actions ────────────────────────────────────
+
+  const handleApplicationAction = async (
+    applicationId: string,
+    action: "approved" | "declined" | "voting"
+  ) => {
+    setActionLoading(applicationId);
+    try {
+      const body: Record<string, unknown> = { status: action };
+      if (action === "voting") {
+        body.votingDeadline = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      }
+      const res = await fetch(
+        `/api/stories/${storyId}/campaign/applications/${applicationId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? "Action failed");
+      }
+      // Remove approved from list, update others in place
+      if (action === "approved") {
+        setApplications((prev) => prev.filter((a) => a.id !== applicationId));
+      } else {
+        setApplications((prev) =>
+          prev.map((a) =>
+            a.id === applicationId ? { ...a, status: action, ...(action === "voting" ? { votingDeadline: body.votingDeadline as string } : {}) } : a
+          )
+        );
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -336,8 +458,8 @@ export default function CampaignPage() {
               </div>
             )}
 
-            {/* Create character form (non-GM, no character yet) */}
-            {currentUserId && !userHasCharacter && (
+            {/* Create character form (non-GM players who don't have a character yet) */}
+            {currentUserId && !userHasCharacter && !isGM && (
               <div>
                 {!showCreateChar ? (
                   <button
@@ -389,6 +511,107 @@ export default function CampaignPage() {
                         />
                       </div>
 
+                      {/* Collapsible Character Stats */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setShowStats(!showStats)}
+                          className="flex items-center gap-2 text-sm text-text-secondary hover:text-paper transition-colors cursor-pointer"
+                        >
+                          <motion.svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            animate={{ rotate: showStats ? 90 : 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <path d="M4 2l4 4-4 4" />
+                          </motion.svg>
+                          Set up stats
+                        </button>
+
+                        <AnimatePresence>
+                          {showStats && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pt-3 space-y-4">
+                                {/* HP & MP */}
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">HP</label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        value={statHpCurrent}
+                                        onChange={(e) => setStatHpCurrent(Number(e.target.value))}
+                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
+                                      />
+                                      <span className="text-text-ghost text-sm">/</span>
+                                      <input
+                                        type="number"
+                                        value={statHpMax}
+                                        onChange={(e) => setStatHpMax(Number(e.target.value))}
+                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">MP</label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        value={statMpCurrent}
+                                        onChange={(e) => setStatMpCurrent(Number(e.target.value))}
+                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
+                                      />
+                                      <span className="text-text-ghost text-sm">/</span>
+                                      <input
+                                        type="number"
+                                        value={statMpMax}
+                                        onChange={(e) => setStatMpMax(Number(e.target.value))}
+                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Attributes 3x2 grid */}
+                                <div>
+                                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">Attributes</label>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    {([
+                                      ["STR", statSTR, setStatSTR],
+                                      ["DEX", statDEX, setStatDEX],
+                                      ["CON", statCON, setStatCON],
+                                      ["INT", statINT, setStatINT],
+                                      ["WIS", statWIS, setStatWIS],
+                                      ["CHA", statCHA, setStatCHA],
+                                    ] as [string, number, React.Dispatch<React.SetStateAction<number>>][]).map(([label, value, setter]) => (
+                                      <div key={label} className="space-y-1">
+                                        <label className="text-[10px] uppercase tracking-[0.1em] text-text-ghost/70 text-center block">{label}</label>
+                                        <input
+                                          type="number"
+                                          value={value}
+                                          onChange={(e) => setter(Number(e.target.value))}
+                                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       <div className="flex items-center gap-3 pt-1">
                         <button
                           onClick={handleCreateCharacter}
@@ -412,6 +635,173 @@ export default function CampaignPage() {
           </div>
         </motion.section>
 
+        {/* ── Applicants (GM only) ─────────────────────── */}
+        {isGM && (
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.07 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold">
+                Applicants
+              </h2>
+              <span className="text-[10px] text-text-ghost">
+                {applications.length} application{applications.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {applications.map((app) => {
+                  const isPending = app.status === "pending";
+                  const isVoting = app.status === "voting";
+                  const isExpanded = expandedPitch === app.id;
+                  const pitchTruncated = app.pitch && app.pitch.length > 120;
+
+                  // Calculate countdown for voting deadline
+                  let countdownText = "";
+                  if (isVoting && app.votingDeadline) {
+                    const remaining = new Date(app.votingDeadline).getTime() - Date.now();
+                    if (remaining > 0) {
+                      const hours = Math.floor(remaining / (1000 * 60 * 60));
+                      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                      countdownText = `${hours}h ${minutes}m remaining`;
+                    } else {
+                      countdownText = "Voting ended";
+                    }
+                  }
+
+                  const APP_STATUS_STYLES: Record<string, string> = {
+                    pending: "bg-amber/15 text-amber border-amber/20",
+                    voting: "bg-violet/15 text-violet border-violet/20",
+                    approved: "bg-sage/15 text-sage border-sage/20",
+                    declined: "bg-rose/15 text-rose border-rose/20",
+                  };
+
+                  return (
+                    <motion.div
+                      key={app.id}
+                      layout
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      className="card-page p-4 space-y-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
+                          {app.user.avatarUrl ? (
+                            <img src={app.user.avatarUrl} alt={app.user.displayName || ""} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-display text-text-ghost">
+                              {(app.user.displayName || "?").charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Name & date */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-paper text-sm truncate">
+                              {app.user.displayName || "Anonymous"}
+                            </span>
+                            <span className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] border rounded-full ${APP_STATUS_STYLES[app.status] ?? APP_STATUS_STYLES.pending}`}>
+                              {app.status}
+                            </span>
+                          </div>
+                          <p className="text-text-ghost text-[10px] mt-0.5">
+                            Applied {new Date(app.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Pitch text */}
+                      {app.pitch && (
+                        <div>
+                          <p className="text-text-secondary text-[13px] leading-relaxed font-reading whitespace-pre-wrap">
+                            {!isExpanded && pitchTruncated
+                              ? app.pitch.slice(0, 120) + "..."
+                              : app.pitch}
+                          </p>
+                          {pitchTruncated && (
+                            <button
+                              onClick={() => setExpandedPitch(isExpanded ? null : app.id)}
+                              className="text-amber text-[11px] mt-1 hover:text-amber-light transition-colors cursor-pointer"
+                            >
+                              {isExpanded ? "Show less" : "Read more"}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Voting info */}
+                      {isVoting && (
+                        <div className="flex items-center gap-4 text-[11px]">
+                          {app.voteCount && (
+                            <div className="flex items-center gap-3">
+                              <span className="text-sage">
+                                {app.voteCount.yes} yes
+                              </span>
+                              <span className="text-rose">
+                                {app.voteCount.no} no
+                              </span>
+                            </div>
+                          )}
+                          {countdownText && (
+                            <span className="text-text-ghost">
+                              {countdownText}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {(isPending || isVoting) && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => handleApplicationAction(app.id, "approved")}
+                            disabled={actionLoading === app.id}
+                            className="px-3.5 py-1.5 bg-sage/15 hover:bg-sage/25 border border-sage/20 text-sage text-[12px] font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {actionLoading === app.id ? "..." : "Approve"}
+                          </button>
+                          <button
+                            onClick={() => handleApplicationAction(app.id, "declined")}
+                            disabled={actionLoading === app.id}
+                            className="px-3.5 py-1.5 bg-rose/10 hover:bg-rose/20 border border-rose/20 text-rose text-[12px] font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Decline
+                          </button>
+                          {isPending && (
+                            <button
+                              onClick={() => handleApplicationAction(app.id, "voting")}
+                              disabled={actionLoading === app.id}
+                              className="px-3.5 py-1.5 bg-violet/10 hover:bg-violet/20 border border-violet/20 text-violet text-[12px] font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Put to Vote
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {applications.length === 0 && (
+                <div className="bg-surface/50 border border-border/50 border-dashed rounded-2xl p-8 text-center">
+                  <p className="text-text-ghost text-sm">No applications yet.</p>
+                  <p className="text-text-ghost/60 text-xs mt-1">
+                    Make sure your campaign is public so players can discover and apply.
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.section>
+        )}
+
         {/* ── Sessions List ──────────────────────────────── */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
@@ -426,40 +816,63 @@ export default function CampaignPage() {
           </div>
 
           <div className="space-y-3">
-            {sessions.map((s) => (
-              <motion.button
-                key={s.id}
-                layout
-                onClick={() => router.push(`/campaign/${storyId}/play/${s.id}`)}
-                className="w-full text-left card-page p-4 transition-all group cursor-pointer"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-ink flex items-center justify-center shrink-0">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-amber">
-                        <path d="M2 3l6 2.5L14 3v10l-6 2.5L2 13V3z" />
-                        <path d="M8 5.5v10" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0">
-                      <span className="font-semibold text-paper text-sm group-hover:text-amber transition-colors truncate block">
-                        {s.title}
-                      </span>
-                      <span className="text-text-ghost text-xs">{s.turnCount} turn{s.turnCount !== 1 ? "s" : ""}</span>
-                    </div>
-                  </div>
+            {sessions.map((s) => {
+              const isDraft = s.status === "draft";
+              const isCompleted = s.status === "completed";
+              const isClickable = !isDraft;
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] border rounded-full ${SESSION_STATUS_STYLES[s.status] ?? SESSION_STATUS_STYLES.active}`}>
-                      {s.status}
-                    </span>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost group-hover:text-amber transition-colors">
-                      <path d="M5 3l4 4-4 4" />
-                    </svg>
+              return (
+                <motion.div
+                  key={s.id}
+                  layout
+                  onClick={() => isClickable && router.push(`/campaign/${storyId}/play/${s.id}`)}
+                  className={`w-full text-left card-page p-4 transition-all group ${isClickable ? "cursor-pointer" : ""} ${isCompleted ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-ink flex items-center justify-center shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className={isDraft ? "text-lavender" : "text-amber"}>
+                          <path d="M2 3l6 2.5L14 3v10l-6 2.5L2 13V3z" />
+                          <path d="M8 5.5v10" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <span className={`font-semibold text-paper text-sm transition-colors truncate block ${isClickable ? "group-hover:text-amber" : ""}`}>
+                          {s.title}
+                        </span>
+                        <span className="text-text-ghost text-xs">{s.turnCount} turn{s.turnCount !== 1 ? "s" : ""}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] border rounded-full ${SESSION_STATUS_STYLES[s.status] ?? SESSION_STATUS_STYLES.active}`}>
+                        {s.status}
+                      </span>
+                      {isDraft ? (
+                        isGM ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBeginSession(s.id);
+                            }}
+                            disabled={beginningSessionId === s.id}
+                            className="px-3 py-1.5 bg-amber text-void font-semibold rounded-lg text-xs hover:bg-amber/90 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {beginningSessionId === s.id ? "Starting..." : "Begin Session"}
+                          </button>
+                        ) : (
+                          <span className="text-text-ghost text-xs italic">Preparing...</span>
+                        )
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost group-hover:text-amber transition-colors">
+                          <path d="M5 3l4 4-4 4" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.button>
-            ))}
+                </motion.div>
+              );
+            })}
 
             {sessions.length === 0 && (
               <div className="bg-surface/50 border border-border/50 border-dashed rounded-2xl p-8 text-center">
@@ -499,6 +912,18 @@ export default function CampaignPage() {
                           onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
                         />
                       </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Opening Narration <span className="normal-case tracking-normal text-text-ghost/60">(optional)</span></label>
+                        <textarea
+                          value={sessionOpening}
+                          onChange={(e) => setSessionOpening(e.target.value)}
+                          placeholder="Set the scene for your players..."
+                          rows={3}
+                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors resize-none"
+                        />
+                      </div>
+
                       <div className="flex items-center gap-3">
                         <button
                           onClick={handleCreateSession}

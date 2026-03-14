@@ -127,6 +127,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         storyId,
         title: parsed.data.title,
         summary: parsed.data.summary ?? "",
+        opening: parsed.data.opening ?? null,
+        status: "draft",
         sortOrder: nextOrder,
       })
       .returning();

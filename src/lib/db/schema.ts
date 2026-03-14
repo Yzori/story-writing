@@ -714,6 +714,7 @@ export const playerCharacters = pgTable(
     description: text("description").default(""),
     traits: text("traits").default(""), // free-form text
     backstory: text("backstory").default(""),
+    stats: text("stats"), // JSON: { hp: {current,max}, mp: {current,max}, attributes: Record<string,number>, items: string[] }
     status: text("status").notNull().default("active"), // 'active' | 'retired' | 'dead'
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -755,6 +756,8 @@ export const campaignSessions = pgTable("campaign_sessions", {
     .references(() => stories.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   summary: text("summary").default(""),
+  opening: text("opening"),
+  activePlayerId: uuid("active_player_id").references(() => users.id, { onDelete: "set null" }),
   sortOrder: integer("sort_order").notNull().default(0),
   status: text("status").notNull().default("active"), // 'active' | 'completed' | 'archived'
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -812,6 +815,90 @@ export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
   character: one(playerCharacters, {
     fields: [campaignTurns.characterId],
     references: [playerCharacters.id],
+  }),
+}));
+
+// ── Campaign Applications ───────────────────────────────────
+
+export const campaignApplications = pgTable(
+  "campaign_applications",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    pitch: text("pitch").notNull(),
+    status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'declined' | 'voting'
+    votingDeadline: timestamp("voting_deadline", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("campaign_applications_story_user_unique").on(
+      table.storyId,
+      table.userId
+    ),
+  ]
+);
+
+export const campaignApplicationsRelations = relations(
+  campaignApplications,
+  ({ one }) => ({
+    story: one(stories, {
+      fields: [campaignApplications.storyId],
+      references: [stories.id],
+    }),
+    user: one(users, {
+      fields: [campaignApplications.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+// ── Campaign Votes ──────────────────────────────────────────
+
+export const campaignVotes = pgTable(
+  "campaign_votes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => campaignApplications.id, { onDelete: "cascade" }),
+    voterId: uuid("voter_id")
+      .notNull()
+      .references(() => users.id),
+    vote: boolean("vote").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("campaign_votes_application_voter_unique").on(
+      table.applicationId,
+      table.voterId
+    ),
+  ]
+);
+
+export const campaignVotesRelations = relations(campaignVotes, ({ one }) => ({
+  application: one(campaignApplications, {
+    fields: [campaignVotes.applicationId],
+    references: [campaignApplications.id],
+  }),
+  voter: one(users, {
+    fields: [campaignVotes.voterId],
+    references: [users.id],
   }),
 }));
 

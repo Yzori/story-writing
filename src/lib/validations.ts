@@ -216,6 +216,7 @@ export const createPlayerCharacterSchema = z.object({
   description: z.string().max(5000).optional(),
   traits: z.string().max(5000).optional(),
   backstory: z.string().max(10000).optional(),
+  stats: z.string().max(10000).optional(),
 });
 
 export const updatePlayerCharacterSchema = z.object({
@@ -224,6 +225,7 @@ export const updatePlayerCharacterSchema = z.object({
   description: z.string().max(5000).optional(),
   traits: z.string().max(5000).optional(),
   backstory: z.string().max(10000).optional(),
+  stats: z.string().max(10000).optional(),
   status: z.enum(["active", "retired", "dead"]).optional(),
 });
 
@@ -232,21 +234,41 @@ export const updatePlayerCharacterSchema = z.object({
 export const createCampaignSessionSchema = z.object({
   title: z.string().min(1, "Session title is required").max(500),
   summary: z.string().max(5000).optional(),
+  opening: z.string().max(20000).optional(),
 });
 
 export const updateCampaignSessionSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   summary: z.string().max(5000).optional(),
-  status: z.enum(["active", "completed", "archived"]).optional(),
+  opening: z.string().max(20000).optional(),
+  status: z.enum(["draft", "active", "completed", "archived"]).optional(),
+  activePlayerId: z.string().uuid().nullable().optional(),
 });
 
 // ── Campaign Turns ─────────────────────────────────────────
 
 export const createCampaignTurnSchema = z.object({
   characterId: z.string().uuid().optional(),
-  type: z.enum(["narration", "action", "dialogue", "roll", "ooc"]),
+  type: z.enum(["narration", "consequence", "action", "dialogue", "reaction", "description", "roll", "roll-request", "ooc"]),
   content: z.string().min(1, "Content is required").max(10000),
   metadata: z.string().max(5000).optional(),
+});
+
+// ── Campaign Applications ───────────────────────────────────
+
+export const createApplicationSchema = z.object({
+  pitch: z.string().min(1, "Pitch is required").max(5000),
+});
+
+export const updateApplicationSchema = z.object({
+  status: z.enum(["approved", "declined", "voting"]),
+  votingDeadline: z.string().datetime().optional(),
+});
+
+// ── Campaign Votes ──────────────────────────────────────────
+
+export const createVoteSchema = z.object({
+  vote: z.boolean(),
 });
 
 // ── Reading Progress ────────────────────────────────────────

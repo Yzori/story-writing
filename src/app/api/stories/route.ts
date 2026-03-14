@@ -38,6 +38,11 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(stories.isPublic, true));
     }
 
+    const writingMode = searchParams.get("writingMode");
+    if (writingMode) {
+      conditions.push(eq(stories.writingMode, writingMode));
+    }
+
     if (search) {
       conditions.push(sql`${stories.title} ILIKE ${'%' + search + '%'}`);
     }

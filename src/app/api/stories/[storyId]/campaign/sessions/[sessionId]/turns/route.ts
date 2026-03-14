@@ -158,21 +158,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Only GM (story owner) can post narration
-    if (parsed.data.type === "narration" && check.story?.userId !== session.user.id) {
+    // Only GM (story owner) can post narration and consequence
+    const isStoryOwner = check.story?.userId === session.user.id;
+    const gmOnlyTypes = ["narration", "consequence", "roll-request"];
+    if (gmOnlyTypes.includes(parsed.data.type) && !isStoryOwner) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can narrate" } },
         { status: 403 }
       );
     }
 
-    const existing = await db
-      .select({ maxOrder: sql<number>`coalesce(max(${campaignTurns.sortOrder}), -1)` })
-      .from(campaignTurns)
-      .where(eq(campaignTurns.sessionId, sessionId));
+    // Enforce turn order: when activePlayerId is set, only that player can post
+    // story turns. GM narration/consequence bypass turn order (GM can always interject).
+    // OOC and rolls are always allowed regardless of turn.
+    const playerStoryTypes = ["action", "dialogue", "reaction", "description"];
+    const isPlayerStoryTurn = playerStoryTypes.includes(parsed.data.type);
+    if (
+      campaignSession.activePlayerId &&
+      isPlayerStoryTurn &&
+      campaignSession.activePlayerId !== session.user.id
+    ) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "It is not your turn" } },
+        { status: 403 }
+      );
+    }
 
-    const nextOrder = (existing[0]?.maxOrder ?? -1) + 1;
-
+    // Use a subquery insert to atomically compute the next sortOrder,
+    // preventing race conditions with concurrent inserts
     const [created] = await db
       .insert(campaignTurns)
       .values({
@@ -182,7 +195,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         type: parsed.data.type,
         content: parsed.data.content,
         metadata: parsed.data.metadata ?? null,
-        sortOrder: nextOrder,
+        sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
       })
       .returning();
 

@@ -38,10 +38,25 @@ interface StoryData {
   contentRating: string;
   status: string;
   slug: string | null;
+  writingMode: string | null;
   createdAt: string;
   updatedAt: string;
   author: Author | null;
   chapters: Chapter[];
+}
+
+interface CampaignApplication {
+  id: string;
+  storyId: string;
+  userId: string;
+  pitch: string;
+  status: string;
+  votingDeadline: string | null;
+  createdAt: string;
+  user: {
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
 }
 
 interface Update {
@@ -148,6 +163,13 @@ export default function StoryPage() {
   const [postingUpdate, setPostingUpdate] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+
+  // Campaign join flow state
+  const [campaignStatus, setCampaignStatus] = useState<"none" | "applied" | "player" | "gm">("none");
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [applyPitch, setApplyPitch] = useState("");
+  const [applySubmitting, setApplySubmitting] = useState(false);
+  const [applySent, setApplySent] = useState(false);
   const [readingProgressChapterId, setReadingProgressChapterId] = useState<string | null>(null);
   const [readingProgressPercent, setReadingProgressPercent] = useState<number>(0);
   const [moreByAuthor, setMoreByAuthor] = useState<Array<{
@@ -201,6 +223,42 @@ export default function StoryPage() {
               }
             }
           } catch {}
+        }
+
+        // Fetch campaign status if this is a campaign story
+        if (json.data.writingMode === "campaign" && session?.user?.id) {
+          if (json.data.userId === session.user.id) {
+            setCampaignStatus("gm");
+          } else {
+            try {
+              const [appRes, charRes] = await Promise.all([
+                fetch(`/api/stories/${json.data.id}/campaign/applications`),
+                fetch(`/api/stories/${json.data.id}/campaign/characters`),
+              ]);
+              // Check if user is already a player (has a character)
+              if (charRes.ok) {
+                const charJson = await charRes.json();
+                const userChar = (charJson.data ?? []).find(
+                  (c: { userId: string }) => c.userId === session.user!.id
+                );
+                if (userChar) {
+                  setCampaignStatus("player");
+                  return;
+                }
+              }
+              // Check if user has a pending application
+              if (appRes.ok) {
+                const appJson = await appRes.json();
+                const userApp = (appJson.data ?? []).find(
+                  (a: { userId: string }) => a.userId === session.user!.id
+                );
+                if (userApp) {
+                  setCampaignStatus("applied");
+                  return;
+                }
+              }
+            } catch {}
+          }
         }
       } catch {
         setError("Failed to load story");
@@ -325,6 +383,31 @@ export default function StoryPage() {
     }
   };
 
+  const handleApply = async () => {
+    if (!story || applySubmitting || !applyPitch.trim()) return;
+    setApplySubmitting(true);
+    try {
+      const res = await fetch(`/api/stories/${story.id}/campaign/applications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pitch: applyPitch.trim() }),
+      });
+      if (res.ok) {
+        setApplySent(true);
+        setCampaignStatus("applied");
+        setTimeout(() => {
+          setShowApplyModal(false);
+          setApplyPitch("");
+          setApplySent(false);
+        }, 2000);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setApplySubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -376,6 +459,15 @@ export default function StoryPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           {/* Badges */}
           <div className="flex items-center gap-2.5 mb-4">
+            {story.writingMode === "campaign" && (
+              <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-amber bg-amber/15 backdrop-blur-sm px-2.5 py-1 rounded-full border border-amber/25 flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+                  <path d="M8 8v6M3 5l5 3 5-3" />
+                </svg>
+                Adventure Campaign
+              </span>
+            )}
             <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost bg-surface/80 backdrop-blur-sm px-2.5 py-1 rounded-full border border-border-subtle">
               {FORMAT_LABELS[story.format] || story.format}
             </span>
@@ -515,6 +607,56 @@ export default function StoryPage() {
               >
                 Report
               </button>
+            )}
+
+            {/* Campaign join actions */}
+            {story.writingMode === "campaign" && session?.user && (
+              <>
+                {campaignStatus === "gm" && (
+                  <Link
+                    href={`/campaign/${story.id}`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet/15 border border-violet/25 text-violet font-semibold text-[13px] rounded-full hover:bg-violet/20 transition-all duration-200"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+                      <path d="M8 8v6M3 5l5 3 5-3" />
+                    </svg>
+                    Campaign Dashboard
+                  </Link>
+                )}
+                {campaignStatus === "player" && (
+                  <Link
+                    href={`/campaign/${story.id}`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-sage/15 border border-sage/25 text-sage font-semibold text-[13px] rounded-full hover:bg-sage/20 transition-all duration-200"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M5 3l6 5-6 5V3z" fill="currentColor" fillOpacity="0.3" />
+                    </svg>
+                    You&apos;re in this campaign
+                  </Link>
+                )}
+                {campaignStatus === "applied" && (
+                  <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-lavender/10 border border-lavender/20 text-lavender text-[13px] font-medium rounded-full">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="8" cy="8" r="6" />
+                      <path d="M8 5v3l2 1.5" />
+                    </svg>
+                    Application Pending
+                  </span>
+                )}
+                {campaignStatus === "none" && (
+                  <button
+                    onClick={() => setShowApplyModal(true)}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 hover:shadow-lg hover:shadow-amber/15 cursor-pointer"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+                      <path d="M8 8v6M3 5l5 3 5-3" />
+                    </svg>
+                    Apply to Join
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -940,6 +1082,103 @@ export default function StoryPage() {
           </motion.section>
         )}
       </div>
+
+      {/* Campaign Apply Modal */}
+      <AnimatePresence>
+        {showApplyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          >
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-void/80 backdrop-blur-sm"
+              onClick={() => !applySubmitting && setShowApplyModal(false)}
+            />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="relative w-full max-w-lg bg-surface border border-border rounded-2xl shadow-2xl shadow-void/50 overflow-hidden"
+            >
+              {/* Header glow */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent" />
+
+              <div className="p-6 space-y-5">
+                <div>
+                  <h3 className="font-display text-xl text-paper font-semibold">
+                    Join this Adventure
+                  </h3>
+                  <p className="text-text-secondary text-[13px] mt-1">
+                    Tell the GM why you want to join <span className="text-paper">{story.title}</span>
+                  </p>
+                </div>
+
+                {applySent ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center py-8 text-center"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-sage/15 border border-sage/25 flex items-center justify-center mb-4">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-sage">
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-paper text-[15px] font-medium">Application Sent!</p>
+                    <p className="text-text-secondary text-[13px] mt-1">The GM will review your pitch.</p>
+                  </motion.div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">
+                        Your Pitch
+                      </label>
+                      <textarea
+                        value={applyPitch}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) setApplyPitch(e.target.value);
+                        }}
+                        placeholder="Tell the GM why you want to join this adventure, what kind of character you'd like to play, and any relevant experience..."
+                        rows={5}
+                        className="w-full bg-ink border border-border rounded-xl px-4 py-3 text-text text-[13px] font-reading placeholder:text-text-ghost resize-none focus:outline-none focus:border-amber/30 transition-colors"
+                      />
+                      <div className="flex justify-end">
+                        <span className="text-[11px] text-text-ghost">{applyPitch.length}/1000</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        onClick={handleApply}
+                        disabled={applySubmitting || !applyPitch.trim()}
+                        className="px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {applySubmitting ? "Sending..." : "Send Application"}
+                      </button>
+                      <button
+                        onClick={() => setShowApplyModal(false)}
+                        disabled={applySubmitting}
+                        className="px-4 py-2.5 text-text-secondary hover:text-paper text-[13px] transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Report Modal */}
       <ReportModal

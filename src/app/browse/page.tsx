@@ -283,6 +283,7 @@ function BrowsePage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
+  const [campaignStories, setCampaignStories] = useState<Story[]>([]);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [searchFocused, setSearchFocused] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -339,6 +340,21 @@ function BrowsePage() {
       }
     }
     fetchStaffPicks();
+  }, []);
+
+  useEffect(() => {
+    async function fetchCampaigns() {
+      try {
+        const res = await fetch("/api/stories?public=true&writingMode=campaign&limit=6");
+        if (res.ok) {
+          const json = await res.json();
+          setCampaignStories(json.data.stories || []);
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchCampaigns();
   }, []);
 
   const RATING_LEVELS: Record<string, number> = { everyone: 0, teen: 1, mature: 2, explicit: 3 };
@@ -594,6 +610,94 @@ function BrowsePage() {
                     onClick={() => setSelectedGenre(selectedGenre === genre ? null : genre)}
                   />
                 </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            OPEN ADVENTURES — campaign stories seeking players
+            ══════════════════════════════════════════════════════════ */}
+        {showCuratedSections && !selectedGenre && campaignStories.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.43 }}
+            className="mb-14"
+          >
+            <div className="flourish mb-6">
+              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
+                Open Adventures
+              </span>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {campaignStories.map((campaign, i) => (
+                <motion.div
+                  key={campaign.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.45 + i * 0.04 }}
+                  className="flex-shrink-0 w-[300px]"
+                >
+                  <Link
+                    href={`/story/${campaign.slug || campaign.id}`}
+                    className="block group"
+                  >
+                    <div className="relative rounded-2xl overflow-hidden border border-amber/15 hover:border-amber/30 transition-all duration-300 bg-surface/60">
+                      {/* Top accent line */}
+                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet/40 to-transparent" />
+
+                      {/* Cover area */}
+                      <div className="h-32 relative overflow-hidden bg-gradient-to-br from-violet/10 via-amber/5 to-transparent">
+                        {campaign.coverImageUrl ? (
+                          <img
+                            src={campaign.coverImageUrl}
+                            alt={campaign.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" className="text-amber/25">
+                              <path d="M12 2L5 6v12l7 4 7-4V6l-7-4z" />
+                              <path d="M12 12v10M5 6l7 6 7-6" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/50 to-transparent" />
+
+                        {/* Adventure badge */}
+                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
+                            <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+                          </svg>
+                          <span className="text-[10px] text-amber font-medium uppercase tracking-wider">Adventure</span>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-4">
+                        <h3 className="font-display text-paper text-[15px] font-semibold group-hover:text-amber transition-colors leading-snug truncate">
+                          {campaign.title}
+                        </h3>
+                        {campaign.authorName && (
+                          <p className="text-text-secondary text-[11px] mt-1">
+                            GM: {campaign.authorName}
+                          </p>
+                        )}
+                        {campaign.synopsis && (
+                          <p className="text-text-tertiary text-[12px] leading-relaxed mt-2 font-reading line-clamp-2">
+                            {campaign.synopsis}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-3">
+                          {campaign.genres.slice(0, 2).map((g) => (
+                            <GenrePill key={g} genre={g} size="sm" />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
               ))}
             </div>
           </motion.section>

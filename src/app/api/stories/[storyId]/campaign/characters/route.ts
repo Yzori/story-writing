@@ -49,6 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         description: playerCharacters.description,
         traits: playerCharacters.traits,
         backstory: playerCharacters.backstory,
+        stats: playerCharacters.stats,
         status: playerCharacters.status,
         createdAt: playerCharacters.createdAt,
         updatedAt: playerCharacters.updatedAt,
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         description: parsed.data.description ?? "",
         traits: parsed.data.traits ?? "",
         backstory: parsed.data.backstory ?? "",
+        stats: parsed.data.stats ?? null,
       })
       .returning();
 
