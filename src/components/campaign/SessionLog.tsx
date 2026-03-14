@@ -80,22 +80,34 @@ export default function SessionLog({
             {turn.type === "roll-request" && (() => {
               let attribute = "";
               let reason = "";
+              let onSuccess = "";
+              let onFailure = "";
+              let fatal = false;
               try {
                 const meta = JSON.parse(turn.metadata ?? "{}");
                 attribute = meta.attribute ?? "";
                 reason = meta.reason ?? "";
+                onSuccess = meta.onSuccess ?? "";
+                onFailure = meta.onFailure ?? "";
+                fatal = meta.fatal === true;
               } catch { /* ignore */ }
 
               return (
                 <div className="flex flex-col items-center my-2">
-                  <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-3 w-full text-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 via-violet-500/5 to-violet-500/0" />
-                    <p className="text-[10px] text-violet-400 uppercase tracking-widest font-bold z-10 relative">
-                      Roll Requested
+                  <div className={`rounded-xl p-3 w-full text-center relative overflow-hidden ${fatal ? "bg-rose/10 border border-rose/30" : "bg-violet-500/10 border border-violet-500/30"}`}>
+                    <div className={`absolute inset-0 bg-gradient-to-r ${fatal ? "from-rose/0 via-rose/5 to-rose/0" : "from-violet-500/0 via-violet-500/5 to-violet-500/0"}`} />
+                    <p className={`text-[10px] uppercase tracking-widest font-bold z-10 relative ${fatal ? "text-rose" : "text-violet-400"}`}>
+                      {fatal ? "Fatal Roll" : "Roll Requested"}
                     </p>
                     <p className="text-xs text-white/60 mt-1 z-10 relative">
-                      {attribute.toUpperCase()} check — {reason}
+                      {attribute} check — {reason}
                     </p>
+                    {(onSuccess || onFailure) && (
+                      <div className="mt-2 space-y-1 z-10 relative">
+                        {onSuccess && <p className="text-[10px] text-emerald-400/50"><span className="font-bold">Win:</span> {onSuccess}</p>}
+                        {onFailure && <p className="text-[10px] text-red-400/50"><span className="font-bold">Lose:</span> {onFailure}</p>}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

@@ -65,9 +65,10 @@ interface DiceRollerProps {
   rollReason?: string | null;
   rollOnSuccess?: string | null;
   rollOnFailure?: string | null;
+  rollFatal?: boolean;
 }
 
-export default function DiceRoller({ visible, onClose, onRollComplete, characters, currentUserId, preSelectedAttribute, rollReason, rollOnSuccess, rollOnFailure }: DiceRollerProps) {
+export default function DiceRoller({ visible, onClose, onRollComplete, characters, currentUserId, preSelectedAttribute, rollReason, rollOnSuccess, rollOnFailure, rollFatal }: DiceRollerProps) {
   const [rolling, setRolling] = useState(false);
   const [die1, setDie1] = useState<number | null>(null);
   const [die2, setDie2] = useState<number | null>(null);
@@ -160,6 +161,14 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
             <p className="text-[10px] text-white/30 mb-5">
               10+ success &bull; 7-9 partial &bull; 6- fail
             </p>
+
+            {/* Fatal warning */}
+            {rollFatal && (
+              <div className="w-full max-w-[280px] mb-3 px-3 py-2 rounded-lg bg-rose/10 border border-rose/30 text-center">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-rose">Fatal Stakes</span>
+                <p className="text-[10px] text-rose/60 mt-0.5">Failure means death. Choose wisely.</p>
+              </div>
+            )}
 
             {/* Stakes */}
             {(rollOnSuccess || rollOnFailure) && (

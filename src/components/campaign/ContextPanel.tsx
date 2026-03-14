@@ -9,8 +9,9 @@ interface ContextPanelProps {
   myCharacter: PlayerCharacter | null;
   characters: PlayerCharacter[];
   activePlayerId: string | null;
-  onRequestRoll: (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string) => void;
+  onRequestRoll: (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => void;
   onPushEvent: (content: string) => void;
+  onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
 }
 
 export default function ContextPanel({
@@ -20,6 +21,7 @@ export default function ContextPanel({
   activePlayerId,
   onRequestRoll,
   onPushEvent,
+  onChangeCharacterStatus,
 }: ContextPanelProps) {
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
@@ -31,6 +33,7 @@ export default function ContextPanel({
   const [rollReason, setRollReason] = useState("");
   const [rollOnSuccess, setRollOnSuccess] = useState("");
   const [rollOnFailure, setRollOnFailure] = useState("");
+  const [rollFatal, setRollFatal] = useState(false);
 
   const activeChars = characters.filter((c) => c.status === "active");
 
@@ -58,21 +61,61 @@ export default function ContextPanel({
           {/* Party Status */}
           <div className="space-y-4 mb-8">
             <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Party Status</h3>
-            {activeChars.length === 0 && (
+            {characters.length === 0 && (
               <p className="text-[11px] text-white/20 italic font-serif">No players have joined yet.</p>
             )}
-            {activeChars.map((c) => {
+            {characters.map((c) => {
               const stats = parseStats(c.stats);
+              const isDead = c.status === "dead";
+              const isRetired = c.status === "retired";
+              const isInactive = isDead || isRetired;
+
               return (
-                <div key={c.id} className="flex justify-between items-center bg-white/[0.02] p-3 rounded-lg border border-white/5 hover:border-white/10 transition-colors group relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/[0.02] to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${c.userId === activePlayerId ? "bg-amber shadow-[0_0_8px_rgba(200,150,60,0.5)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"}`} />
-                    <span className="text-xs text-white/80">{c.name}</span>
+                <div key={c.id} className={`bg-white/[0.02] p-3 rounded-lg border border-white/5 transition-colors relative overflow-hidden ${isInactive ? "opacity-40" : "hover:border-white/10"}`}>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        isDead ? "bg-rose shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+                        : isRetired ? "bg-lavender/50"
+                        : c.userId === activePlayerId ? "bg-amber shadow-[0_0_8px_rgba(200,150,60,0.5)]"
+                        : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                      }`} />
+                      <span className={`text-xs ${isInactive ? "text-white/40 line-through" : "text-white/80"}`}>{c.name}</span>
+                      {isDead && <span className="text-[9px] text-rose/60 uppercase tracking-wider">Fallen</span>}
+                      {isRetired && <span className="text-[9px] text-lavender/60 uppercase tracking-wider">Retired</span>}
+                    </div>
+                    <span className="text-[10px] text-white/40">
+                      {stats && !isInactive ? `B${stats.approaches.Bold >= 0 ? "+" : ""}${stats.approaches.Bold} K${stats.approaches.Keen >= 0 ? "+" : ""}${stats.approaches.Keen} S${stats.approaches.Subtle >= 0 ? "+" : ""}${stats.approaches.Subtle}` : ""}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-white/40">
-                    {stats ? `B${stats.approaches.Bold >= 0 ? "+" : ""}${stats.approaches.Bold} K${stats.approaches.Keen >= 0 ? "+" : ""}${stats.approaches.Keen} S${stats.approaches.Subtle >= 0 ? "+" : ""}${stats.approaches.Subtle}` : c.user?.displayName ?? "Player"}
-                  </span>
+
+                  {/* GM character actions */}
+                  {!isInactive && (
+                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                      <button
+                        onClick={() => onChangeCharacterStatus(c.id, "retired")}
+                        className="text-[9px] text-lavender/50 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
+                      >
+                        Retire
+                      </button>
+                      <button
+                        onClick={() => onChangeCharacterStatus(c.id, "dead")}
+                        className="text-[9px] text-rose/50 hover:text-rose uppercase tracking-wider cursor-pointer transition-colors"
+                      >
+                        Kill
+                      </button>
+                    </div>
+                  )}
+                  {isInactive && (
+                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                      <button
+                        onClick={() => onChangeCharacterStatus(c.id, "active")}
+                        className="text-[9px] text-sage/50 hover:text-sage uppercase tracking-wider cursor-pointer transition-colors"
+                      >
+                        Revive
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -162,12 +205,30 @@ export default function ContextPanel({
                     />
                   </div>
 
+                  {/* Fatal stakes toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setRollFatal(!rollFatal)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer w-full ${
+                      rollFatal
+                        ? "bg-rose/15 border-rose/30 text-rose"
+                        : "bg-white/[0.02] border-white/10 text-white/30 hover:text-white/50"
+                    }`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2a5 5 0 0 1 5 5c0 2-1 3-2 4l-1 1v2h-4v-2l-1-1c-1-1-2-2-2-4a5 5 0 0 1 5-5z" />
+                      <path d="M10 20h4" /><path d="M10 22h4" />
+                    </svg>
+                    {rollFatal ? "Fatal stakes active" : "Fatal stakes"}
+                    {rollFatal && <span className="text-[8px] text-rose/50 font-normal normal-case ml-auto">Failure = death</span>}
+                  </button>
+
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => {
                         if (rollReason.trim()) {
-                          onRequestRoll(rollTarget, rollAttribute, rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim());
-                          setRollReason(""); setRollOnSuccess(""); setRollOnFailure("");
+                          onRequestRoll(rollTarget, rollAttribute, rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim(), rollFatal);
+                          setRollReason(""); setRollOnSuccess(""); setRollOnFailure(""); setRollFatal(false);
                           setShowRollForm(false);
                         }
                       }}

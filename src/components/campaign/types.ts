@@ -33,6 +33,7 @@ export interface RollRequest {
   reason: string;
   onSuccess: string;
   onFailure: string;
+  fatal: boolean;
   turnId: string;
   sortOrder: number;
 }

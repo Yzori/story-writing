@@ -61,6 +61,7 @@ export default function SessionPlayPage() {
           reason: string;
           onSuccess?: string;
           onFailure?: string;
+          fatal?: boolean;
         };
         if (meta.targetUserId !== currentUserId && meta.targetUserId !== "everyone") continue;
         const hasResponded = turns.some(
@@ -73,6 +74,7 @@ export default function SessionPlayPage() {
           reason: meta.reason,
           onSuccess: meta.onSuccess ?? "",
           onFailure: meta.onFailure ?? "",
+          fatal: meta.fatal === true,
           turnId: t.id,
           sortOrder: t.sortOrder,
         };
@@ -157,13 +159,51 @@ export default function SessionPlayPage() {
     }
   }, [story, setActivePlayer, showToast]);
 
+  // GM changes character status (kill / retire / revive)
+  const handleChangeCharacterStatus = useCallback(
+    async (characterId: string, status: "active" | "retired" | "dead") => {
+      try {
+        const res = await fetch(
+          `/api/stories/${storyId}/campaign/characters/${characterId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message ?? "Failed to update character");
+        }
+        const char = characters.find((c) => c.id === characterId);
+        const label = status === "dead" ? "has fallen" : status === "retired" ? "has retired" : "has been revived";
+        showToast(`${char?.name ?? "Character"} ${label}`);
+        if (status === "dead") {
+          await sendTurn("narration", `${char?.name ?? "A hero"} falls. The story remembers.`);
+        } else if (status === "retired") {
+          await sendTurn("narration", `${char?.name ?? "A companion"} departs, their chapter in this tale complete.`);
+        }
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to update character");
+      }
+    },
+    [storyId, characters, showToast, sendTurn]
+  );
+
   // Player completes a roll (responding to a roll-request)
+  // If the roll was fatal and the result is a failure, auto-trigger character death
   const handleRollComplete = useCallback(
     async (total: number, modifier: number, attribute: string) => {
       try {
         const characterId = myCharacter?.id;
         const tier = total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
-        const metadata = JSON.stringify({ total, modifier, attribute, tier, die: "2d6" });
+        const isFatal = pendingRollRequest?.onFailure && (() => {
+          // Check if the roll-request that triggered this had fatal: true
+          const rr = turns.find((t) => t.id === pendingRollRequest?.turnId);
+          if (!rr?.metadata) return false;
+          try { return JSON.parse(rr.metadata).fatal === true; } catch { return false; }
+        })();
+        const metadata = JSON.stringify({ total, modifier, attribute, tier, die: "2d6", fatal: isFatal && tier === "failure" });
         const tierLabel =
           tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
         const content =
@@ -171,27 +211,72 @@ export default function SessionPlayPage() {
             ? `Rolled 2d6${modifier >= 0 ? "+" : ""}${modifier} (${attribute.toUpperCase()}) = ${total} — ${tierLabel}`
             : `Rolled 2d6 = ${total} — ${tierLabel}`;
         await sendTurn("roll", content, characterId, metadata);
+
+        // Auto-post the stakes outcome as a consequence narration
+        {
+          const isFatalRoll = pendingRollRequest?.fatal === true;
+          const genericOutcomes: Record<string, string> = {
+            success: isFatalRoll ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
+            partial: isFatalRoll ? "They cling to life — but barely. The cost is terrible." : "A partial success — but not without cost.",
+            failure: isFatalRoll ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
+          };
+
+          let outcomeText = "";
+          if (pendingRollRequest) {
+            outcomeText = tier === "failure"
+              ? (pendingRollRequest.onFailure || genericOutcomes.failure)
+              : tier === "success"
+                ? (pendingRollRequest.onSuccess || genericOutcomes.success)
+                : pendingRollRequest.onSuccess && pendingRollRequest.onFailure
+                  ? `${pendingRollRequest.onSuccess} — but ${pendingRollRequest.onFailure.charAt(0).toLowerCase()}${pendingRollRequest.onFailure.slice(1)}`
+                  : genericOutcomes.partial;
+          } else {
+            outcomeText = genericOutcomes[tier] ?? "";
+          }
+
+          if (outcomeText) {
+            await sendTurn("consequence", outcomeText);
+          }
+        }
+
+        // Fatal failure: auto-kill the character
+        if (isFatal && tier === "failure" && characterId) {
+          await handleChangeCharacterStatus(characterId, "dead");
+        }
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to record roll");
       }
     },
-    [sendTurn, myCharacter, showToast]
+    [sendTurn, myCharacter, showToast, pendingRollRequest, turns, handleChangeCharacterStatus]
   );
 
-  // GM requests a roll from a player (with stakes)
+  // GM requests a roll from a player (with stakes, optionally fatal)
   const handleRequestRoll = useCallback(
-    async (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string) => {
+    async (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => {
       try {
         const targetChar = characters.find((c) => c.userId === targetUserId);
         const targetName = targetChar?.name ?? "the party";
-        const content = `The GM calls for a ${attribute.toUpperCase()} check from ${targetName} — ${reason}`;
-        const metadata = JSON.stringify({ targetUserId, attribute, reason, onSuccess, onFailure });
+        const fatalTag = fatal ? " [FATAL]" : "";
+        const content = `The GM calls for a ${attribute.toUpperCase()} check from ${targetName}${fatalTag} — ${reason}`;
+        const metadata = JSON.stringify({ targetUserId, attribute, reason, onSuccess, onFailure, fatal: !!fatal });
         await sendTurn("roll-request", content, undefined, metadata);
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to request roll");
       }
     },
     [sendTurn, characters, showToast]
+  );
+
+  // Player writes last words after character death
+  const handleLastWords = useCallback(
+    async (content: string) => {
+      try {
+        await sendTurn("description", content, myCharacter?.id);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to send last words");
+      }
+    },
+    [sendTurn, myCharacter, showToast]
   );
 
   // GM pushes a narrative event
@@ -328,6 +413,8 @@ export default function SessionPlayPage() {
         onTurnExpired={handleTurnExpired}
         onRollComplete={handleRollComplete}
         pendingRollRequest={pendingRollRequest}
+        myCharacterStatus={myCharacter?.status ?? null}
+        onLastWords={handleLastWords}
       />
 
       {/* Right Pillar */}
@@ -338,6 +425,7 @@ export default function SessionPlayPage() {
         activePlayerId={campaignSession?.activePlayerId ?? null}
         onRequestRoll={handleRequestRoll}
         onPushEvent={handlePushEvent}
+        onChangeCharacterStatus={handleChangeCharacterStatus}
       />
     </div>
   );

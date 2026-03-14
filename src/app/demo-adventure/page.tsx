@@ -9,7 +9,7 @@ import type { Turn, PlayerCharacter, RollRequest } from "@/components/campaign/t
 
 // ── Mock Data ──────────────────────────────────────────────
 
-const MOCK_CHARACTERS: PlayerCharacter[] = [
+const INITIAL_CHARACTERS: PlayerCharacter[] = [
   {
     id: "char-1", userId: "user-lyra", name: "Lyra Varen", portrait: null,
     description: "A forgekeeper seeking the Obsidian Crown", traits: "Lvl 4 Forgekeeper",
@@ -71,10 +71,11 @@ export default function DemoAdventurePage() {
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [mockCharacters, setMockCharacters] = useState<PlayerCharacter[]>(() => INITIAL_CHARACTERS.map(c => ({ ...c })));
 
   const currentUserId = viewAs === "gm" ? "gm" : viewAs === "lyra" ? "user-lyra" : "user-kaelen";
   const isGM = viewAs === "gm";
-  const myCharacter = MOCK_CHARACTERS.find((c) => c.userId === currentUserId) ?? null;
+  const myCharacter = mockCharacters.find((c) => c.userId === currentUserId) ?? null;
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -95,7 +96,7 @@ export default function DemoAdventurePage() {
           (r) => r.type === "roll" && r.userId === currentUserId && r.sortOrder > t.sortOrder
         );
         if (hasResponded) continue;
-        return { targetUserId: meta.targetUserId, attribute: meta.attribute, reason: meta.reason, onSuccess: meta.onSuccess ?? "", onFailure: meta.onFailure ?? "", turnId: t.id, sortOrder: t.sortOrder };
+        return { targetUserId: meta.targetUserId, attribute: meta.attribute, reason: meta.reason, onSuccess: meta.onSuccess ?? "", onFailure: meta.onFailure ?? "", fatal: meta.fatal === true, turnId: t.id, sortOrder: t.sortOrder };
       } catch { continue; }
     }
     return null;
@@ -132,7 +133,7 @@ export default function DemoAdventurePage() {
 
   const handlePassTurn = useCallback((userId: string) => {
     setActivePlayerId(userId);
-    const char = MOCK_CHARACTERS.find((c) => c.userId === userId);
+    const char = mockCharacters.find((c) => c.userId === userId);
     showToast(`Turn given to ${char?.name ?? "player"}`);
   }, [showToast]);
 
@@ -150,6 +151,13 @@ export default function DemoAdventurePage() {
     showToast("Turn timer expired — control returned to GM");
   }, [showToast]);
 
+  const handleChangeCharacterStatus = useCallback((characterId: string, status: "active" | "retired" | "dead") => {
+    setMockCharacters((prev) => prev.map((c) => c.id === characterId ? { ...c, status } : c));
+    const char = mockCharacters.find((c) => c.id === characterId);
+    const label = status === "dead" ? "has fallen" : status === "retired" ? "has retired" : "has been revived";
+    showToast(`${char?.name ?? "Character"} ${label}`);
+  }, [showToast, mockCharacters]);
+
   const handleRollComplete = useCallback((total: number, modifier: number, attribute: string) => {
     const tier = total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
     const tierLabel = tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
@@ -164,16 +172,56 @@ export default function DemoAdventurePage() {
       user: { id: currentUserId, displayName: myCharacter?.user?.displayName ?? "Player", avatarUrl: null },
       characterName: myCharacter?.name ?? null, characterPortrait: null,
     }]);
-    showToast(`Rolled ${total} — ${tierLabel}`);
-  }, [currentUserId, myCharacter, turnCounter, showToast]);
 
-  const handleRequestRoll = useCallback((targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string) => {
-    const targetChar = MOCK_CHARACTERS.find((c) => c.userId === targetUserId);
+    // Auto-post stakes outcome as a story consequence
+    {
+      const isFatalRoll = pendingRollRequest?.fatal === true;
+      const genericOutcomes: Record<string, string> = {
+        success: isFatalRoll ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
+        partial: isFatalRoll ? "They cling to life — but barely. The cost is terrible." : "A partial success — but not without cost.",
+        failure: isFatalRoll ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
+      };
+
+      let outcomeText = "";
+      if (pendingRollRequest) {
+        outcomeText = tier === "failure"
+          ? (pendingRollRequest.onFailure || genericOutcomes.failure)
+          : tier === "success"
+            ? (pendingRollRequest.onSuccess || genericOutcomes.success)
+            : pendingRollRequest.onSuccess && pendingRollRequest.onFailure
+              ? `${pendingRollRequest.onSuccess} — but ${pendingRollRequest.onFailure.charAt(0).toLowerCase()}${pendingRollRequest.onFailure.slice(1)}`
+              : genericOutcomes.partial;
+      } else {
+        outcomeText = genericOutcomes[tier] ?? "";
+      }
+
+      if (outcomeText) {
+        const outcomeId = `outcome-${Date.now()}`;
+        setStoryTurns((prev) => [...prev, {
+          id: outcomeId, sessionId: "s1", userId: "gm", characterId: null,
+          type: "consequence", content: outcomeText, metadata: null,
+          sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+          user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
+          characterName: null, characterPortrait: null,
+        }]);
+      }
+
+      // Fatal failure: auto-kill
+      if (pendingRollRequest?.fatal && tier === "failure") {
+        handleChangeCharacterStatus(myCharacter?.id ?? "", "dead");
+      }
+    }
+
+    showToast(`Rolled ${total} — ${tierLabel}`);
+  }, [currentUserId, myCharacter, turnCounter, showToast, pendingRollRequest, handleChangeCharacterStatus]);
+
+  const handleRequestRoll = useCallback((targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => {
+    const targetChar = mockCharacters.find((c) => c.userId === targetUserId);
     const content = `The GM calls for a ${attribute.toUpperCase()} check from ${targetChar?.name ?? "the party"} — ${reason}`;
     const id = `rr-${Date.now()}`;
     setLogTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: "gm", characterId: null,
-      type: "roll-request", content, metadata: JSON.stringify({ targetUserId, attribute, reason, onSuccess, onFailure }),
+      type: "roll-request", content, metadata: JSON.stringify({ targetUserId, attribute, reason, onSuccess, onFailure, fatal: !!fatal }),
       sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
       user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
       characterName: null, characterPortrait: null,
@@ -183,6 +231,10 @@ export default function DemoAdventurePage() {
 
   const handlePushEvent = useCallback((content: string) => {
     handleCommitDraft(content, "narration");
+  }, [handleCommitDraft]);
+
+  const handleLastWords = useCallback((content: string) => {
+    handleCommitDraft(content, "description");
   }, [handleCommitDraft]);
 
   return (
@@ -245,7 +297,7 @@ export default function DemoAdventurePage() {
         {/* Center Stage */}
         <StoryCanvas
           storyTurns={storyTurns}
-          characters={MOCK_CHARACTERS}
+          characters={mockCharacters}
           activePlayerId={activePlayerId}
           currentUserId={currentUserId}
           isGM={isGM}
@@ -261,16 +313,19 @@ export default function DemoAdventurePage() {
           onTurnExpired={handleTurnExpired}
           onRollComplete={handleRollComplete}
           pendingRollRequest={pendingRollRequest}
+          myCharacterStatus={myCharacter?.status ?? null}
+          onLastWords={handleLastWords}
         />
 
         {/* Right Pillar */}
         <ContextPanel
           isGM={isGM}
           myCharacter={myCharacter}
-          characters={MOCK_CHARACTERS}
+          characters={mockCharacters}
           activePlayerId={activePlayerId}
           onRequestRoll={handleRequestRoll}
           onPushEvent={handlePushEvent}
+          onChangeCharacterStatus={handleChangeCharacterStatus}
         />
       </div>
     </div>

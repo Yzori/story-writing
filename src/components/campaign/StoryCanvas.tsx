@@ -25,6 +25,8 @@ interface StoryCanvasProps {
   onTurnExpired: () => void;
   onRollComplete: (total: number, modifier: number, attribute: string) => void;
   pendingRollRequest: RollRequest | null;
+  myCharacterStatus: string | null;
+  onLastWords: (content: string) => void;
 }
 
 export default function StoryCanvas({
@@ -45,6 +47,8 @@ export default function StoryCanvas({
   onTurnExpired,
   onRollComplete,
   pendingRollRequest,
+  myCharacterStatus,
+  onLastWords,
 }: StoryCanvasProps) {
   const [draftContent, setDraftContent] = useState("");
   const [draftType, setDraftType] = useState<string>(isGM ? "narration" : "action");
@@ -53,10 +57,15 @@ export default function StoryCanvas({
 
   const isMyTurn = activePlayerId === currentUserId;
   const isActive = sessionStatus === "active";
+  const [lastWordsContent, setLastWordsContent] = useState("");
+  const [lastWordsSent, setLastWordsSent] = useState(false);
   const isDraft = sessionStatus === "draft";
+  const isCharDead = myCharacterStatus === "dead";
+  const isCharRetired = myCharacterStatus === "retired";
+  const isCharGone = isCharDead || isCharRetired;
 
-  // GM can always write. Players can write when it's their turn or floor is open.
-  const canWrite = isActive && (isGM || isMyTurn || !activePlayerId);
+  // GM can always write. Players can write when it's their turn or floor is open. Dead/retired characters can't.
+  const canWrite = isActive && !isCharGone && (isGM || isMyTurn || !activePlayerId);
 
   // Find who's currently writing for the lock screen
   const activeChar = characters.find((c) => c.userId === activePlayerId);
@@ -70,11 +79,31 @@ export default function StoryCanvas({
     }
   }, [storyTurns.length]);
 
+  // Find the current player's character name for the preview
+  const myCharName = characters.find((c) => c.userId === currentUserId)?.name ?? null;
+
   const handleCommit = () => {
     if (!draftContent.trim()) return;
-    onCommitDraft(draftContent.trim(), draftType);
+    let content = draftContent.trim();
+    // Auto-strip character name if the player typed it at the start
+    if (!isGM && myCharName) {
+      const namePattern = new RegExp(`^${myCharName}\\s*`, "i");
+      content = content.replace(namePattern, "");
+      if (!content) return; // nothing left after stripping
+    }
+    onCommitDraft(content, draftType);
     setDraftContent("");
   };
+
+  // Preview hints showing how the turn will render
+  const renderPreview: Record<string, string> = myCharName ? {
+    action: `${myCharName} [your text]`,
+    dialogue: `${myCharName} said, "[your text]"`,
+    reaction: `${myCharName} [your text] (italic)`,
+    description: "[your text] (italic, no name)",
+    narration: "[your text]",
+    consequence: "[your text]",
+  } : {};
 
   // Turn type options
   const GM_TYPES = [
@@ -117,8 +146,8 @@ export default function StoryCanvas({
     if (prev.userId === next.userId && playerProseTypes.includes(prev.type) && playerProseTypes.includes(next.type)) return true;
     // Description merges into preceding narration
     if (gmTypes.includes(prev.type) && next.type === "description") return true;
-    // Reaction merges into preceding action/dialogue from another character (it's a response)
-    if (next.type === "reaction" && playerProseTypes.includes(prev.type)) return true;
+    // Reaction merges only with same character's preceding turn
+    if (next.type === "reaction" && prev.userId === next.userId && playerProseTypes.includes(prev.type)) return true;
 
     return false;
   };
@@ -350,6 +379,13 @@ export default function StoryCanvas({
                 ))}
               </div>
 
+              {/* Render preview — shows how the turn will appear in the story */}
+              {!isGM && renderPreview[draftType] && (
+                <div className="mb-2 px-1 text-[11px] text-white/25 font-serif italic">
+                  Appears as: {renderPreview[draftType]}
+                </div>
+              )}
+
               <textarea
                 className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[120px] placeholder:text-white/20"
                 placeholder={draftPlaceholders[draftType] ?? "Write..."}
@@ -369,6 +405,57 @@ export default function StoryCanvas({
                   Ink to Story
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Last Words — when character has died */}
+        {!isGM && isCharDead && !lastWordsSent && isActive && (
+          <div className="w-full max-w-[650px] mt-auto">
+            <div className="bg-[#111] border border-rose/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
+              <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-rose">
+                Your character has fallen
+              </div>
+
+              <p className="text-xs text-white/40 font-serif italic mb-4">
+                Write your final moment — a last breath, a whispered name, a defiant gaze. This is your character&apos;s goodbye.
+              </p>
+
+              <textarea
+                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[80px] placeholder:text-white/20"
+                placeholder="Their final words, their last thought..."
+                value={lastWordsContent}
+                onChange={(e) => setLastWordsContent(e.target.value)}
+              />
+
+              <div className="flex items-center justify-end mt-4 pt-4 border-t border-rose/10">
+                <button
+                  onClick={() => {
+                    if (lastWordsContent.trim()) {
+                      onLastWords(lastWordsContent.trim());
+                      setLastWordsSent(true);
+                    }
+                  }}
+                  disabled={!lastWordsContent.trim()}
+                  className="bg-rose/10 hover:bg-rose border border-rose/20 text-rose hover:text-white transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Final Words
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Spectator mode — after death/retirement */}
+        {!isGM && isCharGone && (lastWordsSent || isCharRetired) && isActive && (
+          <div className="w-full max-w-[650px] mt-8">
+            <div className="text-center py-8 border border-white/5 rounded-2xl bg-white/[0.02]">
+              <p className="text-white/30 text-sm font-serif italic">
+                {isCharDead
+                  ? "Your character has passed. You are now a spectator."
+                  : "Your character has retired from this adventure."}
+              </p>
+              <p className="text-white/20 text-xs mt-2">You can still chat in the session log.</p>
             </div>
           </div>
         )}
@@ -397,6 +484,7 @@ export default function StoryCanvas({
         rollReason={pendingRollRequest?.reason ?? null}
         rollOnSuccess={pendingRollRequest?.onSuccess ?? null}
         rollOnFailure={pendingRollRequest?.onFailure ?? null}
+        rollFatal={pendingRollRequest?.fatal ?? false}
       />
 
       {/* Map Overlay */}
