@@ -108,18 +108,14 @@ export default function CampaignPage() {
   const [charTraits, setCharTraits] = useState("");
   const [charSubmitting, setCharSubmitting] = useState(false);
 
-  // Character stats
+  // Character stats (approaches + aspect)
   const [showStats, setShowStats] = useState(false);
-  const [statHpCurrent, setStatHpCurrent] = useState(10);
-  const [statHpMax, setStatHpMax] = useState(10);
-  const [statMpCurrent, setStatMpCurrent] = useState(5);
-  const [statMpMax, setStatMpMax] = useState(5);
-  const [statSTR, setStatSTR] = useState(10);
-  const [statDEX, setStatDEX] = useState(10);
-  const [statCON, setStatCON] = useState(10);
-  const [statINT, setStatINT] = useState(10);
-  const [statWIS, setStatWIS] = useState(10);
-  const [statCHA, setStatCHA] = useState(10);
+  const [statBold, setStatBold] = useState(0);
+  const [statKeen, setStatKeen] = useState(0);
+  const [statSubtle, setStatSubtle] = useState(0);
+  const [charAspect, setCharAspect] = useState("");
+  const pointsUsed = statBold + statKeen + statSubtle + 3; // each starts at -1, so +3 offset
+  const pointsRemaining = 3 - (statBold + 1) - (statKeen + 1) - (statSubtle + 1);
 
   // New session form
   const [showNewSession, setShowNewSession] = useState(false);
@@ -187,10 +183,8 @@ export default function CampaignPage() {
       };
       if (showStats) {
         payload.stats = JSON.stringify({
-          hp: { current: statHpCurrent, max: statHpMax },
-          mp: { current: statMpCurrent, max: statMpMax },
-          attributes: { STR: statSTR, DEX: statDEX, CON: statCON, INT: statINT, WIS: statWIS, CHA: statCHA },
-          items: [],
+          approaches: { Bold: statBold, Keen: statKeen, Subtle: statSubtle },
+          aspect: charAspect.trim(),
         });
       }
       const res = await fetch(`/api/stories/${storyId}/campaign/characters`, {
@@ -206,10 +200,8 @@ export default function CampaignPage() {
       setCharDesc("");
       setCharTraits("");
       setShowStats(false);
-      setStatHpCurrent(10); setStatHpMax(10);
-      setStatMpCurrent(5); setStatMpMax(5);
-      setStatSTR(10); setStatDEX(10); setStatCON(10);
-      setStatINT(10); setStatWIS(10); setStatCHA(10);
+      setStatBold(0); setStatKeen(0); setStatSubtle(0);
+      setCharAspect("");
       setShowCreateChar(false);
       fetchData();
     } catch (err) {
@@ -511,7 +503,7 @@ export default function CampaignPage() {
                         />
                       </div>
 
-                      {/* Collapsible Character Stats */}
+                      {/* Collapsible Character Identity */}
                       <div>
                         <button
                           type="button"
@@ -530,7 +522,7 @@ export default function CampaignPage() {
                           >
                             <path d="M4 2l4 4-4 4" />
                           </motion.svg>
-                          Set up stats
+                          Define identity
                         </button>
 
                         <AnimatePresence>
@@ -542,66 +534,52 @@ export default function CampaignPage() {
                               className="overflow-hidden"
                             >
                               <div className="pt-3 space-y-4">
-                                {/* HP & MP */}
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">HP</label>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="number"
-                                        value={statHpCurrent}
-                                        onChange={(e) => setStatHpCurrent(Number(e.target.value))}
-                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
-                                      />
-                                      <span className="text-text-ghost text-sm">/</span>
-                                      <input
-                                        type="number"
-                                        value={statHpMax}
-                                        onChange={(e) => setStatHpMax(Number(e.target.value))}
-                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">MP</label>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="number"
-                                        value={statMpCurrent}
-                                        onChange={(e) => setStatMpCurrent(Number(e.target.value))}
-                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
-                                      />
-                                      <span className="text-text-ghost text-sm">/</span>
-                                      <input
-                                        type="number"
-                                        value={statMpMax}
-                                        onChange={(e) => setStatMpMax(Number(e.target.value))}
-                                        className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
-                                      />
-                                    </div>
-                                  </div>
+                                {/* Aspect */}
+                                <div className="space-y-1">
+                                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Aspect</label>
+                                  <p className="text-[10px] text-text-ghost/50 mb-1">A defining phrase — who your character truly is. Invoke it during rolls for +1.</p>
+                                  <input
+                                    type="text"
+                                    value={charAspect}
+                                    onChange={(e) => setCharAspect(e.target.value)}
+                                    placeholder="e.g. Believes every problem has a chemical solution"
+                                    className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-violet/40 transition-colors"
+                                  />
                                 </div>
 
-                                {/* Attributes 3x2 grid */}
+                                {/* Approaches */}
                                 <div>
-                                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">Attributes</label>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Approaches</label>
+                                    <span className={`text-[10px] ${pointsRemaining < 0 ? "text-rose" : pointsRemaining === 0 ? "text-sage" : "text-text-ghost"}`}>
+                                      {pointsRemaining} points left
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-text-ghost/50 mb-2">Distribute 3 points. Each starts at -1. How does your character solve problems?</p>
                                   <div className="grid grid-cols-3 gap-3">
                                     {([
-                                      ["STR", statSTR, setStatSTR],
-                                      ["DEX", statDEX, setStatDEX],
-                                      ["CON", statCON, setStatCON],
-                                      ["INT", statINT, setStatINT],
-                                      ["WIS", statWIS, setStatWIS],
-                                      ["CHA", statCHA, setStatCHA],
-                                    ] as [string, number, React.Dispatch<React.SetStateAction<number>>][]).map(([label, value, setter]) => (
-                                      <div key={label} className="space-y-1">
-                                        <label className="text-[10px] uppercase tracking-[0.1em] text-text-ghost/70 text-center block">{label}</label>
-                                        <input
-                                          type="number"
-                                          value={value}
-                                          onChange={(e) => setter(Number(e.target.value))}
-                                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm text-center focus:outline-none focus:border-amber/40 transition-colors"
-                                        />
+                                      ["Bold", "Force & courage", statBold, setStatBold],
+                                      ["Keen", "Wit & cunning", statKeen, setStatKeen],
+                                      ["Subtle", "Grace & finesse", statSubtle, setStatSubtle],
+                                    ] as [string, string, number, React.Dispatch<React.SetStateAction<number>>][]).map(([label, desc, value, setter]) => (
+                                      <div key={label} className="flex flex-col items-center gap-1.5 bg-ink/50 border border-border rounded-xl p-3">
+                                        <span className="text-[10px] uppercase tracking-[0.1em] text-text-ghost/70 font-medium">{label}</span>
+                                        <span className="text-[8px] text-text-ghost/40">{desc}</span>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => setter(Math.max(-1, value - 1))}
+                                            className="w-6 h-6 rounded bg-surface border border-border text-text-ghost hover:text-paper text-sm flex items-center justify-center cursor-pointer"
+                                          >-</button>
+                                          <span className={`text-lg font-display w-8 text-center ${value > 0 ? "text-amber" : value < 0 ? "text-rose/60" : "text-paper"}`}>
+                                            {value >= 0 ? `+${value}` : value}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setter(Math.min(2, value + 1))}
+                                            className="w-6 h-6 rounded bg-surface border border-border text-text-ghost hover:text-paper text-sm flex items-center justify-center cursor-pointer"
+                                          >+</button>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>

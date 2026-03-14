@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PlayerCharacter } from "./types";
-import { parseStats } from "./types";
+import { parseStats, APPROACHES } from "./types";
 
 interface ContextPanelProps {
   isGM: boolean;
@@ -27,16 +27,14 @@ export default function ContextPanel({
   // Roll request form state
   const [showRollForm, setShowRollForm] = useState(false);
   const [rollTarget, setRollTarget] = useState<string>("everyone");
-  const [rollAttribute, setRollAttribute] = useState("STR");
+  const [rollAttribute, setRollAttribute] = useState("Bold");
   const [rollReason, setRollReason] = useState("");
   const [rollOnSuccess, setRollOnSuccess] = useState("");
   const [rollOnFailure, setRollOnFailure] = useState("");
 
   const activeChars = characters.filter((c) => c.status === "active");
 
-  // Get available attributes from the first character that has stats (as a template)
-  const sampleStats = activeChars.length > 0 ? parseStats(activeChars[0].stats) : null;
-  const availableAttributes = sampleStats ? Object.keys(sampleStats.attributes) : ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
+  const availableApproaches = [...APPROACHES];
 
   if (isGM) {
     return (
@@ -72,8 +70,8 @@ export default function ContextPanel({
                     <span className={`w-2 h-2 rounded-full ${c.userId === activePlayerId ? "bg-amber shadow-[0_0_8px_rgba(200,150,60,0.5)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"}`} />
                     <span className="text-xs text-white/80">{c.name}</span>
                   </div>
-                  <span className="text-[10px] text-white/40 uppercase">
-                    {stats ? `HP ${stats.hp.current}/${stats.hp.max}` : c.user?.displayName ?? "Player"}
+                  <span className="text-[10px] text-white/40">
+                    {stats ? `B${stats.approaches.Bold >= 0 ? "+" : ""}${stats.approaches.Bold} K${stats.approaches.Keen >= 0 ? "+" : ""}${stats.approaches.Keen} S${stats.approaches.Subtle >= 0 ? "+" : ""}${stats.approaches.Subtle}` : c.user?.displayName ?? "Player"}
                   </span>
                 </div>
               );
@@ -110,21 +108,21 @@ export default function ContextPanel({
                     </select>
                   </div>
 
-                  {/* Attribute */}
+                  {/* Approach */}
                   <div>
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Attribute</label>
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Approach</label>
                     <div className="flex gap-1.5 mt-1 flex-wrap">
-                      {availableAttributes.map((attr) => (
+                      {availableApproaches.map((approach) => (
                         <button
-                          key={attr}
-                          onClick={() => setRollAttribute(attr)}
-                          className={`px-2 py-1 text-[10px] uppercase rounded border transition-all cursor-pointer ${
-                            rollAttribute === attr
+                          key={approach}
+                          onClick={() => setRollAttribute(approach)}
+                          className={`px-2.5 py-1.5 text-[10px] rounded border transition-all cursor-pointer ${
+                            rollAttribute === approach
                               ? "bg-violet-500/20 border-violet-500/40 text-violet-400"
                               : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
                           }`}
                         >
-                          {attr}
+                          {approach}
                         </button>
                       ))}
                     </div>
@@ -296,47 +294,36 @@ export default function ContextPanel({
           </div>
         ) : stats ? (
           <>
-            <div className="space-y-4 mb-8">
-              <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Vitals</h3>
-              <div className="flex justify-between items-center bg-white/[0.02] p-3 rounded-lg border border-white/5">
-                <span className="text-xs text-white/60">Health Points</span>
-                <span className="text-sm text-rose font-medium">{stats.hp.current} <span className="text-white/30">/ {stats.hp.max}</span></span>
-              </div>
-              <div className="flex justify-between items-center bg-white/[0.02] p-3 rounded-lg border border-white/5">
-                <span className="text-xs text-white/60">Magic Spark</span>
-                <span className="text-sm text-indigo-400 font-medium">{stats.mp.current} <span className="text-white/30">/ {stats.mp.max}</span></span>
-              </div>
-            </div>
-
-            {Object.keys(stats.attributes).length > 0 && (
-              <div className="space-y-4 mb-8">
-                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Attributes</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(stats.attributes).map(([key, val]) => {
-                    const isHighest = val === Math.max(...Object.values(stats.attributes));
-                    return (
-                      <div key={key} className={`rounded-lg p-2 flex flex-col items-center ${isHighest ? "bg-[#111] border border-amber/30 shadow-[inset_0_2px_10px_rgba(200,150,60,0.1)]" : "bg-[#111] border border-white/10"}`}>
-                        <span className={`text-[9px] uppercase ${isHighest ? "text-amber/60" : "text-white/40"}`}>{key}</span>
-                        <span className={`text-lg font-display mt-1 ${isHighest ? "text-amber" : "text-white"}`}>{val}</span>
-                      </div>
-                    );
-                  })}
+            {/* Aspect */}
+            {stats.aspect && (
+              <div className="mb-6">
+                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Aspect</h3>
+                <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl px-4 py-3">
+                  <p className="text-sm text-violet-300 font-serif italic leading-relaxed">&ldquo;{stats.aspect}&rdquo;</p>
+                  <p className="text-[9px] text-violet-400/40 uppercase tracking-widest mt-2">Invoke for +1 when relevant</p>
                 </div>
               </div>
             )}
 
-            {stats.items.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Key Items</h3>
-                <ul className="text-xs text-white/60 font-serif space-y-2 leading-relaxed">
-                  {stats.items.map((item, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className={i === 0 ? "text-amber" : "text-white/30"}>{i === 0 ? "✦" : "-"}</span>{item}
-                    </li>
-                  ))}
-                </ul>
+            {/* Approaches */}
+            <div className="space-y-4 mb-8">
+              <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Approaches</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(stats.approaches).map(([key, val]) => {
+                  const isHighest = val === Math.max(...Object.values(stats.approaches));
+                  const descriptions: Record<string, string> = { Bold: "Force & courage", Keen: "Wit & cunning", Subtle: "Grace & finesse" };
+                  return (
+                    <div key={key} className={`rounded-lg p-3 flex flex-col items-center ${isHighest ? "bg-[#111] border border-amber/30 shadow-[inset_0_2px_10px_rgba(200,150,60,0.1)]" : "bg-[#111] border border-white/10"}`}>
+                      <span className={`text-[9px] uppercase ${isHighest ? "text-amber/60" : "text-white/40"}`}>{key}</span>
+                      <span className={`text-2xl font-display mt-1 ${isHighest ? "text-amber" : val < 0 ? "text-red-400/60" : "text-white"}`}>
+                        {val >= 0 ? `+${val}` : val}
+                      </span>
+                      <span className="text-[8px] text-white/20 mt-1">{descriptions[key]}</span>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </>
         ) : (
           <div className="space-y-4">
