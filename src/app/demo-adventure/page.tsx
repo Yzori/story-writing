@@ -7,6 +7,7 @@ import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import type { Turn, PlayerCharacter, RollRequest } from "@/components/campaign/types";
 import StoryMoment from "@/components/campaign/StoryMoment";
+import { LOBBY_THEMES } from "@/components/campaign/SessionLobby";
 
 // ── Mock Data ──────────────────────────────────────────────
 
@@ -71,8 +72,9 @@ export default function DemoAdventurePage() {
   const [storyTurns, setStoryTurns] = useState<Turn[]>(INITIAL_TURNS);
   const [logTurns, setLogTurns] = useState<Turn[]>(INITIAL_LOG_TURNS);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<string>("active");
+  const [sessionStatus, setSessionStatus] = useState<string>("draft");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
+  const [lobbyTheme, setLobbyTheme] = useState<string>("campfire");
   const [chatInput, setChatInput] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [mockCharacters, setMockCharacters] = useState<PlayerCharacter[]>(() => INITIAL_CHARACTERS.map(c => ({ ...c })));
@@ -291,6 +293,11 @@ export default function DemoAdventurePage() {
     showToast(`${charName} reacted: ${reactions[reactionKey] ?? reactionKey}`);
   }, [myCharacter, showToast]);
 
+  const handleBeginSession = useCallback(() => {
+    setSessionStatus("active");
+    showToast("The story begins!");
+  }, [showToast]);
+
   return (
     <div className="flex flex-col w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden">
       {/* Demo Controls Bar */}
@@ -316,10 +323,38 @@ export default function DemoAdventurePage() {
           </button>
         ))}
         <div className="w-px h-5 bg-violet-500/20" />
+        {sessionStatus === "draft" && (
+          <>
+            <span className="text-[10px] text-white/40">Lobby:</span>
+            <div className="flex items-center gap-1">
+              {LOBBY_THEMES.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setLobbyTheme(t.key)}
+                  title={t.label}
+                  className={`w-7 h-5 rounded-sm overflow-hidden border transition-all cursor-pointer ${
+                    lobbyTheme === t.key
+                      ? "border-violet-400 ring-1 ring-violet-400/50"
+                      : "border-white/10 hover:border-white/30 opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  <img
+                    src={t.image}
+                    alt={t.label}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-5 bg-violet-500/20" />
+          </>
+        )}
         <span className="text-[10px] text-white/30">
-          {sessionStatus === "completed"
-            ? "Session ended — GM can compile to chapter"
-            : isGM ? "Click a player avatar to give them the turn" : activePlayerId === currentUserId ? "It's your turn — write!" : "Waiting..."}
+          {sessionStatus === "draft"
+            ? "Pre-session lobby — GM can begin the story"
+            : sessionStatus === "completed"
+              ? "Session ended — GM can compile to chapter"
+              : isGM ? "Click a player avatar to give them the turn" : activePlayerId === currentUserId ? "It's your turn — write!" : "Waiting..."}
         </span>
       </div>
 
@@ -387,6 +422,8 @@ export default function DemoAdventurePage() {
           myCharacterStatus={myCharacter?.status ?? null}
           onLastWords={handleLastWords}
           onReaction={handleReaction}
+          lobbyTheme={lobbyTheme}
+          onBeginSession={handleBeginSession}
         />
 
         {/* Right Pillar */}

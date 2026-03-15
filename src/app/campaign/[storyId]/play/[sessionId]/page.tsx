@@ -474,6 +474,15 @@ export default function SessionPlayPage() {
         sessionTitle={campaignSession?.title ?? "Session"}
         sessionStatus={campaignSession?.status ?? "draft"}
         sessionOpening={campaignSession?.opening ?? null}
+        lobbyTheme="campfire"
+        onBeginSession={async () => {
+          try {
+            await updateSession({ status: "active" });
+            showToast("The story begins!");
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "Failed to begin session");
+          }
+        }}
         showDiceRoller={showDiceRoller || !!pendingRollRequest}
         onCloseDiceRoller={() => setShowDiceRoller(false)}
         onCommitDraft={handleCommitDraft}

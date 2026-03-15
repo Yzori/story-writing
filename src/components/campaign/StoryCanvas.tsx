@@ -6,6 +6,7 @@ import type { Turn, PlayerCharacter, RollRequest } from "./types";
 import { getPlayerColor } from "./types";
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
+import SessionLobby from "./SessionLobby";
 
 interface StoryCanvasProps {
   sessionId: string;
@@ -30,6 +31,8 @@ interface StoryCanvasProps {
   myCharacterStatus: string | null;
   onLastWords: (content: string) => void;
   onReaction?: (reactionKey: string) => void;
+  lobbyTheme?: string;
+  onBeginSession?: () => void;
 }
 
 // ── Session Ended Block (compile to chapter) ────────────────
@@ -197,6 +200,8 @@ export default function StoryCanvas({
   myCharacterStatus,
   onLastWords,
   onReaction,
+  lobbyTheme,
+  onBeginSession,
 }: StoryCanvasProps) {
   const [draftContent, setDraftContent] = useState("");
   const [draftType, setDraftType] = useState<string>(isGM ? "narration" : "action");
@@ -571,17 +576,16 @@ export default function StoryCanvas({
           ))}
         </AnimatePresence>
 
-        {/* Draft status */}
+        {/* Pre-session lobby */}
         {isDraft && (
-          <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center pointer-events-none">
-            <div className="flex flex-col items-center gap-4 text-white/50">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-              </svg>
-              <p className="font-serif italic text-lg">Session has not started yet</p>
-              {isGM && <p className="text-xs text-amber/50">Begin the session from the campaign dashboard.</p>}
-            </div>
-          </div>
+          <SessionLobby
+            lobbyTheme={lobbyTheme ?? "campfire"}
+            sessionTitle={sessionTitle}
+            sessionOpening={sessionOpening}
+            characters={characters}
+            isGM={isGM}
+            onBeginSession={onBeginSession ?? (() => {})}
+          />
         )}
 
         {/* Story Content */}
