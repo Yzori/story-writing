@@ -9,6 +9,7 @@ import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import type { RollRequest } from "@/components/campaign/types";
+import StoryMoment from "@/components/campaign/StoryMoment";
 
 export default function SessionPlayPage() {
   const params = useParams();
@@ -36,6 +37,11 @@ export default function SessionPlayPage() {
   const [chatInput, setChatInput] = useState("");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
+  const [activeStoryMoment, setActiveStoryMoment] = useState<{
+    mood: string;
+    text: string;
+    subtext?: string;
+  } | null>(null);
 
   // ── Turn routing ──────────────────────────────────────────
   // Left pillar: only meta/mechanical stuff (chat, dice, roll requests)
@@ -179,6 +185,11 @@ export default function SessionPlayPage() {
         const label = status === "dead" ? "has fallen" : status === "retired" ? "has retired" : "has been revived";
         showToast(`${char?.name ?? "Character"} ${label}`);
         if (status === "dead") {
+          setActiveStoryMoment({
+            mood: "death",
+            text: `${char?.name ?? "A hero"} has fallen`,
+            subtext: "The story remembers.",
+          });
           await sendTurn("narration", `${char?.name ?? "A hero"} falls. The story remembers.`);
         } else if (status === "retired") {
           await sendTurn("narration", `${char?.name ?? "A companion"} departs, their chapter in this tale complete.`);
@@ -239,8 +250,13 @@ export default function SessionPlayPage() {
           }
         }
 
-        // Fatal failure: auto-kill the character
+        // Fatal failure: auto-kill the character + cinematic moment
         if (isFatal && tier === "failure" && characterId) {
+          setActiveStoryMoment({
+            mood: "death",
+            text: `${myCharacter?.name ?? "A hero"} has fallen`,
+            subtext: "The dice have spoken.",
+          });
           await handleChangeCharacterStatus(characterId, "dead");
         }
       } catch (err) {
@@ -279,6 +295,16 @@ export default function SessionPlayPage() {
     [sendTurn, myCharacter, showToast]
   );
 
+  // Player sends an ephemeral reaction while waiting
+  const handleReaction = useCallback(
+    (reactionKey: string) => {
+      const reactions: Record<string, string> = { tension: "\u2694\uFE0F", gasp: "\uD83D\uDE2E", bravo: "\uD83D\uDC4F", laugh: "\uD83D\uDE02", dread: "\uD83D\uDC80" };
+      const charName = myCharacter?.name ?? "Someone";
+      showToast(`${charName} reacted: ${reactions[reactionKey] ?? reactionKey}`);
+    },
+    [myCharacter, showToast]
+  );
+
   // GM pushes a narrative event
   const handlePushEvent = useCallback(
     async (content: string) => {
@@ -286,6 +312,35 @@ export default function SessionPlayPage() {
         await sendTurn("narration", content);
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to push event");
+      }
+    },
+    [sendTurn, showToast]
+  );
+
+  // GM creates a scene break
+  const handleSceneBreak = useCallback(
+    async (title: string, mood: string) => {
+      try {
+        const metadata = JSON.stringify({ title, mood });
+        await sendTurn("scene-break", "", undefined, metadata);
+        showToast(title ? `Scene: ${title}` : `Scene break (${mood})`);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to create scene break");
+      }
+    },
+    [sendTurn, showToast]
+  );
+
+  // GM triggers a cinematic story moment overlay
+  const handleStoryMoment = useCallback(
+    async (text: string, mood: string, subtext?: string) => {
+      setActiveStoryMoment({ mood, text, subtext });
+      // Also create a scene-break turn so the moment leaves a trace in the story
+      try {
+        const metadata = JSON.stringify({ mood, title: text, cinematic: true });
+        await sendTurn("scene-break", text, undefined, metadata);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to create story moment");
       }
     },
     [sendTurn, showToast]
@@ -335,6 +390,19 @@ export default function SessionPlayPage() {
           >
             {toast}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Story Moment Overlay */}
+      <AnimatePresence>
+        {activeStoryMoment && (
+          <StoryMoment
+            key="story-moment"
+            mood={activeStoryMoment.mood}
+            text={activeStoryMoment.text}
+            subtext={activeStoryMoment.subtext}
+            onComplete={() => setActiveStoryMoment(null)}
+          />
         )}
       </AnimatePresence>
 
@@ -396,6 +464,8 @@ export default function SessionPlayPage() {
 
       {/* Center Stage */}
       <StoryCanvas
+        sessionId={sessionId}
+        storyId={storyId}
         storyTurns={storyTurns}
         characters={characters}
         activePlayerId={campaignSession?.activePlayerId ?? null}
@@ -415,6 +485,7 @@ export default function SessionPlayPage() {
         pendingRollRequest={pendingRollRequest}
         myCharacterStatus={myCharacter?.status ?? null}
         onLastWords={handleLastWords}
+        onReaction={handleReaction}
       />
 
       {/* Right Pillar */}
@@ -425,7 +496,9 @@ export default function SessionPlayPage() {
         activePlayerId={campaignSession?.activePlayerId ?? null}
         onRequestRoll={handleRequestRoll}
         onPushEvent={handlePushEvent}
+        onSceneBreak={handleSceneBreak}
         onChangeCharacterStatus={handleChangeCharacterStatus}
+        onStoryMoment={handleStoryMoment}
       />
     </div>
   );

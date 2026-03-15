@@ -12,6 +12,8 @@ interface ContextPanelProps {
   onRequestRoll: (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => void;
   onPushEvent: (content: string) => void;
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
+  onSceneBreak?: (title: string, mood: string) => void;
+  onStoryMoment?: (text: string, mood: string, subtext?: string) => void;
 }
 
 export default function ContextPanel({
@@ -22,9 +24,22 @@ export default function ContextPanel({
   onRequestRoll,
   onPushEvent,
   onChangeCharacterStatus,
+  onSceneBreak,
+  onStoryMoment,
 }: ContextPanelProps) {
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
+
+  // Scene break form state
+  const [showSceneBreakForm, setShowSceneBreakForm] = useState(false);
+  const [sceneBreakTitle, setSceneBreakTitle] = useState("");
+  const [sceneBreakMood, setSceneBreakMood] = useState("ominous");
+
+  // Story moment form state
+  const [showStoryMomentForm, setShowStoryMomentForm] = useState(false);
+  const [storyMomentText, setStoryMomentText] = useState("");
+  const [storyMomentSubtext, setStoryMomentSubtext] = useState("");
+  const [storyMomentMood, setStoryMomentMood] = useState("ominous");
 
   // Roll request form state
   const [showRollForm, setShowRollForm] = useState(false);
@@ -251,6 +266,198 @@ export default function ContextPanel({
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-400/50 group-hover:translate-x-1 transition-transform">
                     <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                   </svg>
+                </button>
+              )}
+
+              {/* Scene Break */}
+              {showSceneBreakForm ? (
+                <div className="bg-amber/5 border border-amber/20 rounded-lg p-3 space-y-3">
+                  <p className="text-[10px] uppercase tracking-widest text-amber font-bold">Scene Break</p>
+
+                  {/* Title */}
+                  <div>
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Title (optional)</label>
+                    <input
+                      type="text"
+                      value={sceneBreakTitle}
+                      onChange={(e) => setSceneBreakTitle(e.target.value)}
+                      placeholder="The Descent Begins..."
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Mood pills */}
+                  <div>
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Mood</label>
+                    <div className="flex gap-1.5 mt-1 flex-wrap">
+                      {(["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic"] as const).map((mood) => {
+                        const moodColors: Record<string, string> = {
+                          tense: "bg-rose/20 border-rose/40 text-rose",
+                          calm: "bg-sage/20 border-sage/40 text-sage",
+                          ominous: "bg-violet/20 border-violet/40 text-violet",
+                          triumphant: "bg-amber/20 border-amber/40 text-amber",
+                          melancholy: "bg-indigo-400/20 border-indigo-400/40 text-indigo-400",
+                          chaotic: "bg-orange-400/20 border-orange-400/40 text-orange-400",
+                          mysterious: "bg-cyan-400/20 border-cyan-400/40 text-cyan-400",
+                          romantic: "bg-pink-400/20 border-pink-400/40 text-pink-400",
+                        };
+                        return (
+                          <button
+                            key={mood}
+                            onClick={() => setSceneBreakMood(mood)}
+                            className={`px-2.5 py-1.5 text-[10px] rounded border transition-all cursor-pointer capitalize ${
+                              sceneBreakMood === mood
+                                ? moodColors[mood]
+                                : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                            }`}
+                          >
+                            {mood}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        onSceneBreak?.(sceneBreakTitle.trim(), sceneBreakMood);
+                        setSceneBreakTitle("");
+                        setSceneBreakMood("ominous");
+                        setShowSceneBreakForm(false);
+                      }}
+                      className="flex-1 bg-amber/20 hover:bg-amber/30 text-amber text-[10px] uppercase tracking-wider font-bold rounded py-1.5 cursor-pointer"
+                    >
+                      Set Scene
+                    </button>
+                    <button onClick={() => setShowSceneBreakForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSceneBreakForm(true)}
+                  className="bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
+                >
+                  <span className="text-sm text-amber/90 font-medium">Scene Break...</span>
+                  <span className="text-[10px] text-white/40 mt-1">Mark a new scene or act in the story.</span>
+                </button>
+              )}
+
+              {/* Story Moment */}
+              {showStoryMomentForm ? (
+                <div className="relative bg-black/60 border border-amber/30 rounded-lg p-3 space-y-3 shadow-[0_0_20px_rgba(200,150,60,0.08),inset_0_1px_0_rgba(200,150,60,0.1)]">
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-amber/5 to-rose/5 pointer-events-none" />
+                  <div className="relative space-y-3">
+                    <p className="text-[10px] uppercase tracking-widest font-bold flex items-center gap-2">
+                      <span className="bg-gradient-to-r from-amber to-rose bg-clip-text text-transparent">Story Moment</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="url(#moment-grad)" strokeWidth="2">
+                        <defs>
+                          <linearGradient id="moment-grad" x1="0" y1="0" x2="24" y2="24">
+                            <stop offset="0%" stopColor="rgb(200,150,60)" />
+                            <stop offset="100%" stopColor="rgb(244,63,94)" />
+                          </linearGradient>
+                        </defs>
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                    </p>
+
+                    {/* Text */}
+                    <div>
+                      <label className="text-[9px] uppercase text-white/30 tracking-wider">Text</label>
+                      <input
+                        type="text"
+                        value={storyMomentText}
+                        onChange={(e) => setStoryMomentText(e.target.value)}
+                        placeholder="The temple crumbles around them..."
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Subtext */}
+                    <div>
+                      <label className="text-[9px] uppercase text-white/30 tracking-wider">Subtext (optional)</label>
+                      <input
+                        type="text"
+                        value={storyMomentSubtext}
+                        onChange={(e) => setStoryMomentSubtext(e.target.value)}
+                        placeholder="Optional secondary line..."
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30"
+                      />
+                    </div>
+
+                    {/* Mood pills */}
+                    <div>
+                      <label className="text-[9px] uppercase text-white/30 tracking-wider">Mood</label>
+                      <div className="flex gap-1.5 mt-1 flex-wrap">
+                        {(["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic", "death", "betrayal"] as const).map((mood) => {
+                          const moodColors: Record<string, string> = {
+                            tense: "bg-rose/20 border-rose/40 text-rose",
+                            calm: "bg-sage/20 border-sage/40 text-sage",
+                            ominous: "bg-violet/20 border-violet/40 text-violet",
+                            triumphant: "bg-amber/20 border-amber/40 text-amber",
+                            melancholy: "bg-indigo-400/20 border-indigo-400/40 text-indigo-400",
+                            chaotic: "bg-orange-400/20 border-orange-400/40 text-orange-400",
+                            mysterious: "bg-cyan-400/20 border-cyan-400/40 text-cyan-400",
+                            romantic: "bg-pink-400/20 border-pink-400/40 text-pink-400",
+                            death: "bg-red-900/30 border-red-700/50 text-red-400",
+                            betrayal: "bg-fuchsia-900/30 border-fuchsia-700/50 text-fuchsia-400",
+                          };
+                          return (
+                            <button
+                              key={mood}
+                              onClick={() => setStoryMomentMood(mood)}
+                              className={`px-2.5 py-1.5 text-[10px] rounded border transition-all cursor-pointer capitalize ${
+                                storyMomentMood === mood
+                                  ? moodColors[mood]
+                                  : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                              }`}
+                            >
+                              {mood}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          if (storyMomentText.trim()) {
+                            onStoryMoment?.(storyMomentText.trim(), storyMomentMood, storyMomentSubtext.trim() || undefined);
+                            setStoryMomentText("");
+                            setStoryMomentSubtext("");
+                            setStoryMomentMood("ominous");
+                            setShowStoryMomentForm(false);
+                          }
+                        }}
+                        disabled={!storyMomentText.trim()}
+                        className="flex-1 bg-gradient-to-r from-amber/30 to-rose/30 hover:from-amber/40 hover:to-rose/40 text-white text-[10px] uppercase tracking-wider font-bold rounded py-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed border border-amber/20 shadow-[0_0_12px_rgba(200,150,60,0.15)]"
+                      >
+                        Play Moment
+                      </button>
+                      <button onClick={() => setShowStoryMomentForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowStoryMomentForm(true)}
+                  className="relative bg-black/40 hover:bg-black/60 border border-amber/15 hover:border-amber/30 rounded-lg p-3 text-left transition-all flex flex-col group cursor-pointer overflow-hidden shadow-[0_0_15px_rgba(200,150,60,0.05)]"
+                >
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-amber/5 to-rose/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                  <span className="relative text-sm font-medium flex items-center gap-2">
+                    <span className="bg-gradient-to-r from-amber to-rose bg-clip-text text-transparent">Story Moment...</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  </span>
+                  <span className="relative text-[10px] text-white/40 mt-1">Play a cinematic overlay moment.</span>
                 </button>
               )}
 

@@ -6,6 +6,7 @@ import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import type { Turn, PlayerCharacter, RollRequest } from "@/components/campaign/types";
+import StoryMoment from "@/components/campaign/StoryMoment";
 
 // ── Mock Data ──────────────────────────────────────────────
 
@@ -50,9 +51,11 @@ const INITIAL_TURNS: Turn[] = [
   { id: "t3", sessionId: "s1", userId: "user-kaelen", characterId: "char-2", type: "dialogue", content: "Is that blood on the blade?", metadata: null, sortOrder: 2, createdAt: "2026-03-14T20:01:30Z", user: { id: "user-kaelen", displayName: "James", avatarUrl: null }, characterName: "Kaelen", characterPortrait: null },
   { id: "t4", sessionId: "s1", userId: "user-lyra", characterId: "char-1", type: "reaction", content: "Her breath catches. This was the weapon — the one the old histories claimed was lost forever.", metadata: null, sortOrder: 3, createdAt: "2026-03-14T20:02:00Z", user: { id: "user-lyra", displayName: "Sarah", avatarUrl: null }, characterName: "Lyra", characterPortrait: null },
   { id: "t5", sessionId: "s1", userId: "gm", characterId: null, type: "consequence", content: "The altar begins to hum beneath her touch, a sound that seems to rise from the earth itself. Runes ignite with pale blue light, casting strange writhing shadows across the vaulted ceiling.", metadata: null, sortOrder: 4, createdAt: "2026-03-14T20:03:00Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
-  { id: "t6", sessionId: "s1", userId: "user-elara", characterId: "char-3", type: "description", content: "The air grows cold, impossibly cold, and a distant chime echoes through the chamber — a sound from somewhere outside of time.", metadata: null, sortOrder: 5, createdAt: "2026-03-14T20:03:30Z", user: { id: "user-elara", displayName: "Elena", avatarUrl: null }, characterName: "Elara", characterPortrait: null },
-  { id: "t7", sessionId: "s1", userId: "user-kaelen", characterId: "char-2", type: "action", content: "draws his sword defensively, the blade ringing as it clears the scabbard.", metadata: null, sortOrder: 6, createdAt: "2026-03-14T20:04:00Z", user: { id: "user-kaelen", displayName: "James", avatarUrl: null }, characterName: "Kaelen", characterPortrait: null },
-  { id: "t8", sessionId: "s1", userId: "user-elara", characterId: "char-3", type: "dialogue", content: "We should leave. Now.", metadata: null, sortOrder: 7, createdAt: "2026-03-14T20:04:30Z", user: { id: "user-elara", displayName: "Elena", avatarUrl: null }, characterName: "Elara", characterPortrait: null },
+  { id: "t-scene-1", sessionId: "s1", userId: "gm", characterId: null, type: "scene-break", content: "", metadata: JSON.stringify({ mood: "ominous", title: "The Awakening" }), sortOrder: 5, createdAt: "2026-03-14T20:03:15Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
+  { id: "t6", sessionId: "s1", userId: "user-elara", characterId: "char-3", type: "description", content: "The air grows cold, impossibly cold, and a distant chime echoes through the chamber — a sound from somewhere outside of time.", metadata: null, sortOrder: 6, createdAt: "2026-03-14T20:03:30Z", user: { id: "user-elara", displayName: "Elena", avatarUrl: null }, characterName: "Elara", characterPortrait: null },
+  { id: "t7", sessionId: "s1", userId: "user-kaelen", characterId: "char-2", type: "action", content: "draws his sword defensively, the blade ringing as it clears the scabbard.", metadata: null, sortOrder: 7, createdAt: "2026-03-14T20:04:00Z", user: { id: "user-kaelen", displayName: "James", avatarUrl: null }, characterName: "Kaelen", characterPortrait: null },
+  { id: "t8", sessionId: "s1", userId: "user-elara", characterId: "char-3", type: "dialogue", content: "We should leave. Now.", metadata: null, sortOrder: 8, createdAt: "2026-03-14T20:04:30Z", user: { id: "user-elara", displayName: "Elena", avatarUrl: null }, characterName: "Elara", characterPortrait: null },
+  { id: "t-scene-2", sessionId: "s1", userId: "gm", characterId: null, type: "scene-break", content: "", metadata: JSON.stringify({ mood: "tense" }), sortOrder: 9, createdAt: "2026-03-14T20:05:00Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
 ];
 
 const INITIAL_LOG_TURNS: Turn[] = [
@@ -68,10 +71,16 @@ export default function DemoAdventurePage() {
   const [storyTurns, setStoryTurns] = useState<Turn[]>(INITIAL_TURNS);
   const [logTurns, setLogTurns] = useState<Turn[]>(INITIAL_LOG_TURNS);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<string>("active");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [mockCharacters, setMockCharacters] = useState<PlayerCharacter[]>(() => INITIAL_CHARACTERS.map(c => ({ ...c })));
+  const [activeStoryMoment, setActiveStoryMoment] = useState<{
+    mood: string;
+    text: string;
+    subtext?: string;
+  } | null>(null);
 
   const currentUserId = viewAs === "gm" ? "gm" : viewAs === "lyra" ? "user-lyra" : "user-kaelen";
   const isGM = viewAs === "gm";
@@ -143,7 +152,9 @@ export default function DemoAdventurePage() {
   }, [showToast]);
 
   const handleEndSession = useCallback(() => {
-    showToast("Session ended (demo)");
+    setSessionStatus("completed");
+    setActivePlayerId(null);
+    showToast("Session ended — you can now compile to chapter");
   }, [showToast]);
 
   const handleTurnExpired = useCallback(() => {
@@ -156,6 +167,13 @@ export default function DemoAdventurePage() {
     const char = mockCharacters.find((c) => c.id === characterId);
     const label = status === "dead" ? "has fallen" : status === "retired" ? "has retired" : "has been revived";
     showToast(`${char?.name ?? "Character"} ${label}`);
+    if (status === "dead") {
+      setActiveStoryMoment({
+        mood: "death",
+        text: `${char?.name ?? "A hero"} has fallen`,
+        subtext: "The story remembers.",
+      });
+    }
   }, [showToast, mockCharacters]);
 
   const handleRollComplete = useCallback((total: number, modifier: number, attribute: string) => {
@@ -206,8 +224,13 @@ export default function DemoAdventurePage() {
         }]);
       }
 
-      // Fatal failure: auto-kill
+      // Fatal failure: auto-kill + cinematic moment
       if (pendingRollRequest?.fatal && tier === "failure") {
+        setActiveStoryMoment({
+          mood: "death",
+          text: `${myCharacter?.name ?? "A hero"} has fallen`,
+          subtext: "The dice have spoken.",
+        });
         handleChangeCharacterStatus(myCharacter?.id ?? "", "dead");
       }
     }
@@ -229,6 +252,31 @@ export default function DemoAdventurePage() {
     showToast(`Roll requested from ${targetChar?.name ?? "party"}`);
   }, [turnCounter, showToast]);
 
+  const handleSceneBreak = useCallback((title: string, mood: string) => {
+    const id = `scene-${Date.now()}`;
+    setStoryTurns((prev) => [...prev, {
+      id, sessionId: "s1", userId: "gm", characterId: null,
+      type: "scene-break", content: "", metadata: JSON.stringify({ mood, title: title || undefined }),
+      sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+      user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
+      characterName: null, characterPortrait: null,
+    }]);
+    showToast(`Scene break: ${title || mood}`);
+  }, [turnCounter, showToast]);
+
+  const handleStoryMoment = useCallback((text: string, mood: string, subtext?: string) => {
+    setActiveStoryMoment({ mood, text, subtext });
+    // Also create a scene-break turn so the moment leaves a trace in the story
+    const id = `moment-${Date.now()}`;
+    setStoryTurns((prev) => [...prev, {
+      id, sessionId: "s1", userId: "gm", characterId: null,
+      type: "scene-break", content: text, metadata: JSON.stringify({ mood, title: text, cinematic: true }),
+      sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+      user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
+      characterName: null, characterPortrait: null,
+    }]);
+  }, [turnCounter]);
+
   const handlePushEvent = useCallback((content: string) => {
     handleCommitDraft(content, "narration");
   }, [handleCommitDraft]);
@@ -236,6 +284,12 @@ export default function DemoAdventurePage() {
   const handleLastWords = useCallback((content: string) => {
     handleCommitDraft(content, "description");
   }, [handleCommitDraft]);
+
+  const handleReaction = useCallback((reactionKey: string) => {
+    const reactions: Record<string, string> = { tension: "\u2694\uFE0F", gasp: "\uD83D\uDE2E", bravo: "\uD83D\uDC4F", laugh: "\uD83D\uDE02", dread: "\uD83D\uDC80" };
+    const charName = myCharacter?.name ?? "Someone";
+    showToast(`${charName} reacted: ${reactions[reactionKey] ?? reactionKey}`);
+  }, [myCharacter, showToast]);
 
   return (
     <div className="flex flex-col w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden">
@@ -263,7 +317,9 @@ export default function DemoAdventurePage() {
         ))}
         <div className="w-px h-5 bg-violet-500/20" />
         <span className="text-[10px] text-white/30">
-          {isGM ? "Click a player avatar to give them the turn" : activePlayerId === currentUserId ? "It's your turn — write!" : "Waiting..."}
+          {sessionStatus === "completed"
+            ? "Session ended — GM can compile to chapter"
+            : isGM ? "Click a player avatar to give them the turn" : activePlayerId === currentUserId ? "It's your turn — write!" : "Waiting..."}
         </span>
       </div>
 
@@ -283,6 +339,19 @@ export default function DemoAdventurePage() {
           )}
         </AnimatePresence>
 
+        {/* Story Moment Overlay */}
+        <AnimatePresence>
+          {activeStoryMoment && (
+            <StoryMoment
+              key="story-moment"
+              mood={activeStoryMoment.mood}
+              text={activeStoryMoment.text}
+              subtext={activeStoryMoment.subtext}
+              onComplete={() => setActiveStoryMoment(null)}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Left Pillar */}
         <SessionLog
           turns={logTurns}
@@ -296,13 +365,15 @@ export default function DemoAdventurePage() {
 
         {/* Center Stage */}
         <StoryCanvas
+          sessionId="demo-session"
+          storyId="demo-story"
           storyTurns={storyTurns}
           characters={mockCharacters}
           activePlayerId={activePlayerId}
           currentUserId={currentUserId}
           isGM={isGM}
           sessionTitle="The Ruined Throne"
-          sessionStatus="active"
+          sessionStatus={sessionStatus}
           sessionOpening={OPENING}
           showDiceRoller={showDiceRoller || !!pendingRollRequest}
           onCloseDiceRoller={() => setShowDiceRoller(false)}
@@ -315,6 +386,7 @@ export default function DemoAdventurePage() {
           pendingRollRequest={pendingRollRequest}
           myCharacterStatus={myCharacter?.status ?? null}
           onLastWords={handleLastWords}
+          onReaction={handleReaction}
         />
 
         {/* Right Pillar */}
@@ -326,6 +398,8 @@ export default function DemoAdventurePage() {
           onRequestRoll={handleRequestRoll}
           onPushEvent={handlePushEvent}
           onChangeCharacterStatus={handleChangeCharacterStatus}
+          onSceneBreak={handleSceneBreak}
+          onStoryMoment={handleStoryMoment}
         />
       </div>
     </div>
