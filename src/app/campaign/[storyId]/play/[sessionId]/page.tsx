@@ -516,6 +516,9 @@ export default function SessionPlayPage() {
         onLastWords={handleLastWords}
         onReaction={handleReaction}
         onEditTurn={handleEditTurn}
+        mapPins={[]}
+        onAddMapPin={() => showToast("Map pins coming soon")}
+        onRemoveMapPin={() => showToast("Map pins coming soon")}
       />
 
       {/* Right Pillar */}

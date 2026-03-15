@@ -6,6 +6,7 @@ import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import type { Turn, PlayerCharacter, RollRequest } from "@/components/campaign/types";
+import type { MapPin } from "@/components/campaign/LoreMap";
 import StoryMoment from "@/components/campaign/StoryMoment";
 import { LOBBY_THEMES } from "@/components/campaign/SessionLobby";
 
@@ -83,6 +84,11 @@ export default function DemoAdventurePage() {
     text: string;
     subtext?: string;
   } | null>(null);
+  const [mapPins, setMapPins] = useState<MapPin[]>([
+    { id: "pin-1", x: 25, y: 40, label: "The Ruined Throne Room", mood: "ominous", description: "Where the party first discovered the altar." },
+    { id: "pin-2", x: 60, y: 65, label: "The Obsidian Gate", mood: "tense", description: "The sealed entrance to the lower chambers." },
+    { id: "pin-3", x: 45, y: 25, label: "The Whispering Gallery", mood: "mysterious", description: "Elara hears the dead most clearly here." },
+  ]);
 
   const currentUserId = viewAs === "gm" ? "gm" : viewAs === "lyra" ? "user-lyra" : "user-kaelen";
   const isGM = viewAs === "gm";
@@ -305,6 +311,17 @@ export default function DemoAdventurePage() {
     showToast("The story begins!");
   }, [showToast]);
 
+  const handleAddMapPin = useCallback((pin: Omit<MapPin, "id">) => {
+    const id = `pin-${Date.now()}`;
+    setMapPins((prev) => [...prev, { ...pin, id }]);
+    showToast(`Pin placed: ${pin.label}`);
+  }, [showToast]);
+
+  const handleRemoveMapPin = useCallback((pinId: string) => {
+    setMapPins((prev) => prev.filter((p) => p.id !== pinId));
+    showToast("Pin removed");
+  }, [showToast]);
+
   return (
     <div className="flex flex-col w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden">
       {/* Demo Controls Bar */}
@@ -432,6 +449,9 @@ export default function DemoAdventurePage() {
           onEditTurn={handleEditTurn}
           lobbyTheme={lobbyTheme}
           onBeginSession={handleBeginSession}
+          mapPins={mapPins}
+          onAddMapPin={handleAddMapPin}
+          onRemoveMapPin={handleRemoveMapPin}
         />
 
         {/* Right Pillar */}

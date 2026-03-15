@@ -7,6 +7,10 @@ import { getPlayerColor } from "./types";
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
 import SessionLobby from "./SessionLobby";
+import LoreMap from "./LoreMap";
+import type { MapPin } from "./LoreMap";
+
+export type { MapPin };
 
 interface StoryCanvasProps {
   sessionId: string;
@@ -34,6 +38,10 @@ interface StoryCanvasProps {
   onEditTurn?: (turnId: string, newContent: string) => void;
   lobbyTheme?: string;
   onBeginSession?: () => void;
+  mapImage?: string | null;
+  mapPins?: MapPin[];
+  onAddMapPin?: (pin: Omit<MapPin, "id">) => void;
+  onRemoveMapPin?: (pinId: string) => void;
 }
 
 // ── Session Ended Block (compile to chapter) ────────────────
@@ -204,6 +212,10 @@ export default function StoryCanvas({
   onEditTurn,
   lobbyTheme,
   onBeginSession,
+  mapImage,
+  mapPins,
+  onAddMapPin,
+  onRemoveMapPin,
 }: StoryCanvasProps) {
   const [draftContent, setDraftContent] = useState("");
   const [draftType, setDraftType] = useState<string>(isGM ? "narration" : "action");
@@ -1123,20 +1135,14 @@ export default function StoryCanvas({
             className="absolute inset-x-8 inset-y-8 z-40 bg-[#15100a] rounded-3xl border border-amber/20 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
           >
             <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] pointer-events-none" />
-            <div className="p-6 relative z-10 flex justify-between items-center border-b border-white/5 bg-black/40 backdrop-blur-sm">
-              <h2 className="text-xl font-display text-amber/90 tracking-widest uppercase">World Map</h2>
-              <button onClick={() => setShowMap(false)} className="text-white/40 hover:text-white cursor-pointer">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="flex-1 relative z-10 flex items-center justify-center">
-              <div className="w-[80%] h-[80%] border-2 border-dashed border-amber/10 rounded-xl flex items-center justify-center flex-col gap-4">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-amber/30">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-                </svg>
-                <p className="font-serif italic text-white/30 text-lg">Interactive Map Canvas</p>
-              </div>
-            </div>
+            <LoreMap
+              mapImage={mapImage ?? null}
+              pins={mapPins ?? []}
+              isGM={isGM}
+              onAddPin={onAddMapPin ?? (() => {})}
+              onRemovePin={onRemoveMapPin}
+              onClose={() => setShowMap(false)}
+            />
           </motion.div>
         )}
       </AnimatePresence>
