@@ -365,6 +365,76 @@ export default function StoryCanvas({
     setEditContent("");
   }, []);
 
+  // ── Voice-to-text (Speech Recognition) ─────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type SpeechRecognitionInstance = any;
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance>(null);
+  const [hasSpeechSupport, setHasSpeechSupport] = useState(false);
+
+  useEffect(() => {
+    setHasSpeechSupport("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  }, []);
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SpeechRecognitionAPI = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    let finalTranscript = "";
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += text;
+        } else {
+          interim = text;
+        }
+      }
+      // Append finalized text to draft, show interim as preview
+      setDraftContent((prev) => {
+        const base = prev.endsWith(" ") || prev === "" ? prev : prev + " ";
+        const finalized = finalTranscript ? base + finalTranscript : prev;
+        finalTranscript = ""; // Reset after applying
+        return interim ? finalized + (finalized.endsWith(" ") || finalized === "" ? "" : " ") + interim : finalized;
+      });
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening]);
+
+  // Stop listening when component unmounts or draft is submitted
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
   // GM can always write. Players can write when it's their turn or floor is open. Dead/retired characters can't.
   const canWrite = isActive && !isCharGone && (isGM || isMyTurn || !activePlayerId);
 
@@ -404,6 +474,11 @@ export default function StoryCanvas({
       const namePattern = new RegExp(`^${myCharName}\\s*`, "i");
       content = content.replace(namePattern, "");
       if (!content) return; // nothing left after stripping
+    }
+    // Stop voice recording if active
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
     }
     onCommitDraft(content, draftType);
     setDraftContent("");
@@ -868,14 +943,39 @@ export default function StoryCanvas({
                   {draftSaved && draftContent && (
                     <span className="text-white/20 text-[10px] not-italic">Draft saved</span>
                   )}
+                  {isListening && (
+                    <span className="text-rose/60 text-[10px] not-italic flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose animate-pulse" />
+                      Listening...
+                    </span>
+                  )}
                 </div>
-                <button
-                  onClick={handleCommit}
-                  disabled={!draftContent.trim()}
-                  className="bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] disabled:opacity-50 disabled:hover:bg-amber/10 disabled:hover:text-amber disabled:cursor-not-allowed cursor-pointer"
-                >
-                  Ink to Story
-                </button>
+                <div className="flex items-center gap-2">
+                  {hasSpeechSupport && (
+                    <button
+                      onClick={toggleListening}
+                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
+                        isListening
+                          ? "bg-rose/20 border-rose/40 text-rose shadow-[0_0_12px_rgba(244,63,94,0.3)]"
+                          : "bg-white/5 border-white/10 text-white/40 hover:text-white/60 hover:bg-white/10"
+                      }`}
+                      title={isListening ? "Stop dictation" : "Voice dictation"}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" x2="12" y1="19" y2="22" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCommit}
+                    disabled={!draftContent.trim()}
+                    className="bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] disabled:opacity-50 disabled:hover:bg-amber/10 disabled:hover:text-amber disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Ink to Story
+                  </button>
+                </div>
               </div>
             </div>
           </div>
