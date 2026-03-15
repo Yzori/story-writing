@@ -198,18 +198,21 @@ export default function StoryCanvas({
   onLastWords,
   onReaction,
 }: StoryCanvasProps) {
-  const [draftContent, setDraftContent] = useState(() => {
-    if (typeof window === "undefined") return "";
+  const [draftContent, setDraftContent] = useState("");
+  const [draftType, setDraftType] = useState<string>(isGM ? "narration" : "action");
+  const [hydratedDraft, setHydratedDraft] = useState(false);
+
+  // Hydrate draft from localStorage after mount (avoids SSR mismatch)
+  useEffect(() => {
+    if (hydratedDraft) return;
     try {
-      return localStorage.getItem(`inkwell-draft-${sessionId}`) ?? "";
-    } catch { return ""; }
-  });
-  const [draftType, setDraftType] = useState<string>(() => {
-    if (typeof window === "undefined") return isGM ? "narration" : "action";
-    try {
-      return localStorage.getItem(`inkwell-draft-type-${sessionId}`) ?? (isGM ? "narration" : "action");
-    } catch { return isGM ? "narration" : "action"; }
-  });
+      const savedContent = localStorage.getItem(`inkwell-draft-${sessionId}`);
+      const savedType = localStorage.getItem(`inkwell-draft-type-${sessionId}`);
+      if (savedContent) setDraftContent(savedContent);
+      if (savedType) setDraftType(savedType);
+    } catch { /* ignore */ }
+    setHydratedDraft(true);
+  }, [sessionId, hydratedDraft]);
   const [draftSaved, setDraftSaved] = useState(false);
   const [showTurnHelp, setShowTurnHelp] = useState(false);
   const [showMap, setShowMap] = useState(false);
