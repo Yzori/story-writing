@@ -107,6 +107,38 @@ const MOOD_PRESETS: Record<string, MoodPreset> = {
     textEffect: "standard",
     holdAnimation: { scale: [1, 1.02, 1, 1.02, 1], transition: { duration: 3, ease: "easeInOut", repeat: 0 } },
   },
+  // Aliases and extended moods for ContextPanel compatibility
+  triumphant: {
+    bg: "radial-gradient(ellipse at 50% 45%, rgba(200, 150, 60, 0.25) 0%, rgba(0,0,0,0.95) 65%)",
+    vignette: 80,
+    textClass: "font-display font-bold text-amber",
+    subtextClass: "font-serif italic text-amber/50",
+    textEffect: "standard",
+    holdAnimation: { scale: [1, 1.05, 1.05], transition: { duration: 1.5, ease: "easeInOut" } },
+  },
+  melancholy: {
+    bg: "radial-gradient(ellipse at 50% 55%, rgba(60, 60, 120, 0.12) 0%, rgba(5, 5, 15, 0.98) 70%)",
+    vignette: 100,
+    textClass: "font-reading italic text-indigo-300/70",
+    subtextClass: "font-serif text-indigo-400/35",
+    textEffect: "drift-down",
+    contentDrift: true,
+  },
+  chaotic: {
+    bg: "radial-gradient(ellipse at 50% 50%, rgba(180, 80, 20, 0.15) 0%, rgba(10, 5, 0, 0.98) 65%)",
+    vignette: 110,
+    textClass: "font-display uppercase tracking-[0.2em] text-orange-300/80",
+    subtextClass: "font-serif text-orange-400/40",
+    textEffect: "slam",
+  },
+  romantic: {
+    bg: "radial-gradient(ellipse at 50% 45%, rgba(160, 60, 100, 0.1) 0%, rgba(10, 0, 5, 0.97) 70%)",
+    vignette: 70,
+    textClass: "font-serif italic text-pink-300/80",
+    subtextClass: "font-serif text-pink-400/40",
+    textEffect: "standard",
+    holdAnimation: { scale: [1, 1.02, 1, 1.02, 1], transition: { duration: 3, ease: "easeInOut", repeat: 0 } },
+  },
 };
 
 // ── Particle Effect (CSS-only falling particles) ───────────────

@@ -50,7 +50,7 @@ export default function SessionPlayPage() {
   );
   // Center stage: all narrative content (no mechanical turns)
   const storyTurns = turns.filter((t) =>
-    ["narration", "consequence", "action", "dialogue", "reaction", "description"].includes(t.type)
+    ["narration", "consequence", "action", "dialogue", "reaction", "description", "scene-break"].includes(t.type)
   );
 
   // ── Pending roll request for the current player ───────────
