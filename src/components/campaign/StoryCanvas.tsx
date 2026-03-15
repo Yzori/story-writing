@@ -260,6 +260,13 @@ export default function StoryCanvas({
   const isCharRetired = myCharacterStatus === "retired";
   const isCharGone = isCharDead || isCharRetired;
 
+  // Reset lastWordsSent when character is revived (status changes from dead/retired to active)
+  useEffect(() => {
+    if (!isCharGone) {
+      setLastWordsSent(false);
+    }
+  }, [isCharGone]);
+
   // ── Reaction state ──────────────────────────────────────
   const [floatingReactions, setFloatingReactions] = useState<Array<{
     id: string;

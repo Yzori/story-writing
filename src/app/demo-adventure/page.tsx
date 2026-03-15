@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
@@ -91,7 +91,7 @@ export default function DemoAdventurePage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  let turnCounter = storyTurns.length + logTurns.length + 200;
+  const turnCounterRef = useRef(storyTurns.length + logTurns.length + 200);
 
   const pendingRollRequest = useMemo((): RollRequest | null => {
     if (!currentUserId || isGM) return null;
@@ -115,19 +115,19 @@ export default function DemoAdventurePage() {
     const id = `log-${Date.now()}`;
     setLogTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: currentUserId, characterId: myCharacter?.id ?? null,
-      type: "ooc", content: message, metadata: null, sortOrder: ++turnCounter,
+      type: "ooc", content: message, metadata: null, sortOrder: ++turnCounterRef.current,
       createdAt: new Date().toISOString(),
       user: { id: currentUserId, displayName: isGM ? "AlexTheGM" : myCharacter?.user?.displayName ?? "Player", avatarUrl: null },
       characterName: myCharacter?.name ?? null, characterPortrait: null,
     }]);
-  }, [currentUserId, isGM, myCharacter, turnCounter]);
+  }, [currentUserId, isGM, myCharacter]);
 
   const handleCommitDraft = useCallback((content: string, type: string) => {
     const id = `turn-${Date.now()}`;
     const gmTypes = ["narration", "consequence"];
     setStoryTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: currentUserId, characterId: gmTypes.includes(type) ? null : myCharacter?.id ?? null,
-      type, content, metadata: null, sortOrder: ++turnCounter,
+      type, content, metadata: null, sortOrder: ++turnCounterRef.current,
       createdAt: new Date().toISOString(),
       user: { id: currentUserId, displayName: isGM ? "AlexTheGM" : myCharacter?.user?.displayName ?? "Player", avatarUrl: null },
       characterName: gmTypes.includes(type) ? null : myCharacter?.name ?? null, characterPortrait: null,
@@ -138,7 +138,7 @@ export default function DemoAdventurePage() {
       setActivePlayerId("gm");
     }
     showToast(isGM ? "Narration added" : "Turn committed");
-  }, [currentUserId, isGM, myCharacter, activePlayerId, turnCounter, showToast]);
+  }, [currentUserId, isGM, myCharacter, activePlayerId, showToast]);
 
   const handlePassTurn = useCallback((userId: string) => {
     setActivePlayerId(userId);
@@ -186,7 +186,7 @@ export default function DemoAdventurePage() {
     setLogTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: currentUserId, characterId: myCharacter?.id ?? null,
       type: "roll", content, metadata: JSON.stringify({ total, modifier, attribute, tier, die: "2d6" }),
-      sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+      sortOrder: ++turnCounterRef.current, createdAt: new Date().toISOString(),
       user: { id: currentUserId, displayName: myCharacter?.user?.displayName ?? "Player", avatarUrl: null },
       characterName: myCharacter?.name ?? null, characterPortrait: null,
     }]);
@@ -218,7 +218,7 @@ export default function DemoAdventurePage() {
         setStoryTurns((prev) => [...prev, {
           id: outcomeId, sessionId: "s1", userId: "gm", characterId: null,
           type: "consequence", content: outcomeText, metadata: null,
-          sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+          sortOrder: ++turnCounterRef.current, createdAt: new Date().toISOString(),
           user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
           characterName: null, characterPortrait: null,
         }]);
@@ -236,7 +236,7 @@ export default function DemoAdventurePage() {
     }
 
     showToast(`Rolled ${total} — ${tierLabel}`);
-  }, [currentUserId, myCharacter, turnCounter, showToast, pendingRollRequest, handleChangeCharacterStatus]);
+  }, [currentUserId, myCharacter, showToast, pendingRollRequest, handleChangeCharacterStatus]);
 
   const handleRequestRoll = useCallback((targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => {
     const targetChar = mockCharacters.find((c) => c.userId === targetUserId);
@@ -245,24 +245,24 @@ export default function DemoAdventurePage() {
     setLogTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: "gm", characterId: null,
       type: "roll-request", content, metadata: JSON.stringify({ targetUserId, attribute, reason, onSuccess, onFailure, fatal: !!fatal }),
-      sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+      sortOrder: ++turnCounterRef.current, createdAt: new Date().toISOString(),
       user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
       characterName: null, characterPortrait: null,
     }]);
     showToast(`Roll requested from ${targetChar?.name ?? "party"}`);
-  }, [turnCounter, showToast]);
+  }, [showToast]);
 
   const handleSceneBreak = useCallback((title: string, mood: string) => {
     const id = `scene-${Date.now()}`;
     setStoryTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: "gm", characterId: null,
       type: "scene-break", content: "", metadata: JSON.stringify({ mood, title: title || undefined }),
-      sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+      sortOrder: ++turnCounterRef.current, createdAt: new Date().toISOString(),
       user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
       characterName: null, characterPortrait: null,
     }]);
     showToast(`Scene break: ${title || mood}`);
-  }, [turnCounter, showToast]);
+  }, [showToast]);
 
   const handleStoryMoment = useCallback((text: string, mood: string, subtext?: string) => {
     setActiveStoryMoment({ mood, text, subtext });
@@ -271,11 +271,11 @@ export default function DemoAdventurePage() {
     setStoryTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: "gm", characterId: null,
       type: "scene-break", content: text, metadata: JSON.stringify({ mood, title: text, cinematic: true }),
-      sortOrder: ++turnCounter, createdAt: new Date().toISOString(),
+      sortOrder: ++turnCounterRef.current, createdAt: new Date().toISOString(),
       user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
       characterName: null, characterPortrait: null,
     }]);
-  }, [turnCounter]);
+  }, []);
 
   const handlePushEvent = useCallback((content: string) => {
     handleCommitDraft(content, "narration");
