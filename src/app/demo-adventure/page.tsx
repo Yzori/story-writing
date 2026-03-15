@@ -293,6 +293,13 @@ export default function DemoAdventurePage() {
     showToast(`${charName} reacted: ${reactions[reactionKey] ?? reactionKey}`);
   }, [myCharacter, showToast]);
 
+  const handleEditTurn = useCallback((turnId: string, newContent: string) => {
+    setStoryTurns((prev) => prev.map((t) =>
+      t.id === turnId ? { ...t, content: newContent } : t
+    ));
+    showToast("Turn updated");
+  }, [showToast]);
+
   const handleBeginSession = useCallback(() => {
     setSessionStatus("active");
     showToast("The story begins!");
@@ -422,6 +429,7 @@ export default function DemoAdventurePage() {
           myCharacterStatus={myCharacter?.status ?? null}
           onLastWords={handleLastWords}
           onReaction={handleReaction}
+          onEditTurn={handleEditTurn}
           lobbyTheme={lobbyTheme}
           onBeginSession={handleBeginSession}
         />

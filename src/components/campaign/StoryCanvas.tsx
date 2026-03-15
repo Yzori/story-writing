@@ -31,6 +31,7 @@ interface StoryCanvasProps {
   myCharacterStatus: string | null;
   onLastWords: (content: string) => void;
   onReaction?: (reactionKey: string) => void;
+  onEditTurn?: (turnId: string, newContent: string) => void;
   lobbyTheme?: string;
   onBeginSession?: () => void;
 }
@@ -200,6 +201,7 @@ export default function StoryCanvas({
   myCharacterStatus,
   onLastWords,
   onReaction,
+  onEditTurn,
   lobbyTheme,
   onBeginSession,
 }: StoryCanvasProps) {
@@ -305,6 +307,64 @@ export default function StoryCanvas({
     setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
+  // ── 30-second edit window ──────────────────────────────────
+  const [editingTurnId, setEditingTurnId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const editWindowRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastSubmittedTurnId, setLastSubmittedTurnId] = useState<string | null>(null);
+  const [editWindowOpen, setEditWindowOpen] = useState(false);
+
+  // Track the most recent turn submitted by this user (within 30s)
+  const editableTurn = storyTurns.length > 0
+    ? (() => {
+        const last = storyTurns[storyTurns.length - 1];
+        if (last.id === lastSubmittedTurnId && last.userId === currentUserId && editWindowOpen) {
+          return last;
+        }
+        return null;
+      })()
+    : null;
+
+  // Close edit window when active player changes (GM passed the turn)
+  useEffect(() => {
+    if (editWindowOpen) {
+      setEditWindowOpen(false);
+      setEditingTurnId(null);
+      setEditContent("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlayerId]);
+
+  const startEditWindow = useCallback((turnId: string) => {
+    setLastSubmittedTurnId(turnId);
+    setEditWindowOpen(true);
+    // Auto-close after 30 seconds
+    if (editWindowRef.current) clearTimeout(editWindowRef.current);
+    editWindowRef.current = setTimeout(() => {
+      setEditWindowOpen(false);
+      setEditingTurnId(null);
+      setEditContent("");
+    }, 30000);
+  }, []);
+
+  const handleEditClick = useCallback((turn: Turn) => {
+    setEditingTurnId(turn.id);
+    setEditContent(turn.content);
+  }, []);
+
+  const handleEditSave = useCallback(() => {
+    if (!editingTurnId || !editContent.trim()) return;
+    onEditTurn?.(editingTurnId, editContent.trim());
+    setEditingTurnId(null);
+    setEditContent("");
+    // Keep the window open for further edits until 30s expires
+  }, [editingTurnId, editContent, onEditTurn]);
+
+  const handleEditCancel = useCallback(() => {
+    setEditingTurnId(null);
+    setEditContent("");
+  }, []);
+
   // GM can always write. Players can write when it's their turn or floor is open. Dead/retired characters can't.
   const canWrite = isActive && !isCharGone && (isGM || isMyTurn || !activePlayerId);
 
@@ -314,11 +374,24 @@ export default function StoryCanvas({
     ? `${activeChar.user?.displayName ?? "Someone"} (${activeChar.name})`
     : "another player";
 
+  // Auto-scroll on new turns
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [storyTurns.length]);
+
+  // Detect when this user's new turn appears → start the 30s edit window
+  const prevTurnCountRef = useRef(storyTurns.length);
+  useEffect(() => {
+    if (storyTurns.length > prevTurnCountRef.current) {
+      const newest = storyTurns[storyTurns.length - 1];
+      if (newest.userId === currentUserId && newest.type !== "scene-break") {
+        startEditWindow(newest.id);
+      }
+    }
+    prevTurnCountRef.current = storyTurns.length;
+  }, [storyTurns.length, storyTurns, currentUserId, startEditWindow]);
 
   // Find the current player's character name for the preview
   const myCharName = characters.find((c) => c.userId === currentUserId)?.name ?? null;
@@ -642,13 +715,69 @@ export default function StoryCanvas({
                   );
                 }
 
+                const groupHasEditable = editableTurn && group.some((t) => t.id === editableTurn.id);
+
                 return (
-                  <p key={group[0].id}>
-                    {group.map((turn, ti) => renderTurnInContext(turn, ti, group, globalIdx + ti))}
-                    {pi === paragraphs.length - 1 && (
-                      <span className="inline-block w-1.5 h-5 bg-amber/40 ml-1 animate-pulse align-middle" />
-                    )}
-                  </p>
+                  <div key={group[0].id}>
+                    <p className="relative group/para">
+                      {group.map((turn, ti) => renderTurnInContext(turn, ti, group, globalIdx + ti))}
+                      {pi === paragraphs.length - 1 && !groupHasEditable && (
+                        <span className="inline-block w-1.5 h-5 bg-amber/40 ml-1 animate-pulse align-middle" />
+                      )}
+                      {groupHasEditable && editingTurnId !== editableTurn.id && (
+                        <button
+                          onClick={() => handleEditClick(editableTurn)}
+                          className="inline-flex items-center gap-1 ml-2 align-middle opacity-0 group-hover/para:opacity-100 transition-opacity cursor-pointer"
+                          title="Edit (30s window)"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                          </svg>
+                          <span className="text-[9px] text-amber/30 uppercase tracking-wider">edit</span>
+                        </button>
+                      )}
+                    </p>
+                    {/* Inline edit box */}
+                    <AnimatePresence>
+                      {editingTurnId && editableTurn && group.some((t) => t.id === editingTurnId) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="bg-amber/5 border border-amber/20 rounded-xl p-4 mt-2 mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[9px] uppercase tracking-widest text-amber/50 font-display">Quick Edit</span>
+                              <span className="text-[9px] text-white/20">Changes apply instantly</span>
+                            </div>
+                            <textarea
+                              className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[60px] placeholder:text-white/20"
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              autoFocus
+                            />
+                            <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-amber/10">
+                              <button
+                                onClick={handleEditCancel}
+                                className="text-[10px] text-white/40 hover:text-white/60 px-3 py-1 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleEditSave}
+                                disabled={!editContent.trim()}
+                                className="bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[10px] uppercase tracking-wider font-bold rounded-full px-4 py-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 );
               })}
             </div>

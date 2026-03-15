@@ -305,6 +305,26 @@ export default function SessionPlayPage() {
     [myCharacter, showToast]
   );
 
+  // Edit a recently submitted turn (30s window)
+  const handleEditTurn = useCallback(
+    async (turnId: string, newContent: string) => {
+      try {
+        const res = await fetch(
+          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}`,
+          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: newContent }) }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message ?? "Failed to edit turn");
+        }
+        showToast("Turn updated");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to edit turn");
+      }
+    },
+    [storyId, sessionId, showToast]
+  );
+
   // GM pushes a narrative event
   const handlePushEvent = useCallback(
     async (content: string) => {
@@ -495,6 +515,7 @@ export default function SessionPlayPage() {
         myCharacterStatus={myCharacter?.status ?? null}
         onLastWords={handleLastWords}
         onReaction={handleReaction}
+        onEditTurn={handleEditTurn}
       />
 
       {/* Right Pillar */}
