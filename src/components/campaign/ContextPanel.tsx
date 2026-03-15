@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlayerCharacter } from "./types";
+import type { PlayerCharacter, StarterItem } from "./types";
 import { parseStats, APPROACHES } from "./types";
 
 interface ContextPanelProps {
@@ -14,6 +14,11 @@ interface ContextPanelProps {
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
   onSceneBreak?: (title: string, mood: string) => void;
   onStoryMoment?: (text: string, mood: string, subtext?: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  /** Map of characterId → starter items */
+  characterItems?: Record<string, StarterItem[]>;
+  onUseItem?: (characterId: string, item: StarterItem) => void;
 }
 
 export default function ContextPanel({
@@ -26,9 +31,21 @@ export default function ContextPanel({
   onChangeCharacterStatus,
   onSceneBreak,
   onStoryMoment,
+  isCollapsed = false,
+  onToggleCollapse,
+  characterItems = {},
+  onUseItem,
 }: ContextPanelProps) {
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
+
+  // Confirmation modal state for destructive actions (Retire/Kill)
+  const [confirmAction, setConfirmAction] = useState<{
+    characterId: string;
+    characterName: string;
+    status: "retired" | "dead";
+  } | null>(null);
+
 
   // Scene break form state
   const [showSceneBreakForm, setShowSceneBreakForm] = useState(false);
@@ -54,6 +71,36 @@ export default function ContextPanel({
 
   const availableApproaches = [...APPROACHES];
 
+  // Collapsed sidebar (shared between GM and player views)
+  if (isCollapsed) {
+    return (
+      <div className="w-12 h-full flex flex-col items-center border-l border-white/5 bg-[#050505] shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex py-4 gap-3">
+        <button
+          onClick={onToggleCollapse}
+          className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/10 transition-all cursor-pointer"
+          title={isGM ? "Expand GM Dashboard" : "Expand Character Sheet"}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div className="w-px flex-1 bg-white/5" />
+        <div className="flex flex-col items-center gap-2">
+          {isGM ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-rose/20 flex items-center justify-center text-rose text-[10px] font-display border border-rose/30">
+              {myCharacter?.name?.charAt(0) ?? "?"}
+            </div>
+          )}
+          <span className="text-[9px] text-white/30 font-mono">{characters.filter(c => c.status === "active").length}P</span>
+        </div>
+      </div>
+    );
+  }
+
   if (isGM) {
     return (
       <div className="w-[300px] h-full flex flex-col border-l border-white/5 bg-[#050505] shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex">
@@ -65,10 +112,21 @@ export default function ContextPanel({
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-sm font-bold text-amber/90">Game Master</h2>
               <p className="text-[10px] text-white/40 uppercase tracking-widest">Dashboard & Tools</p>
             </div>
+            {onToggleCollapse && (
+              <button
+                onClick={onToggleCollapse}
+                className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
+                title="Collapse GM Dashboard"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -85,36 +143,50 @@ export default function ContextPanel({
               const isRetired = c.status === "retired";
               const isInactive = isDead || isRetired;
 
+              const isActivePlayer = c.userId === activePlayerId;
+
               return (
-                <div key={c.id} className={`bg-white/[0.02] p-3 rounded-lg border border-white/5 transition-colors relative overflow-hidden ${isInactive ? "opacity-40" : "hover:border-white/10"}`}>
-                  <div className="flex justify-between items-center">
+                <div key={c.id} className={`bg-white/[0.02] p-3 rounded-lg border transition-all relative overflow-hidden ${
+                  isInactive
+                    ? "opacity-40 border-white/5"
+                    : isActivePlayer
+                      ? "border-amber/30 shadow-[0_0_15px_rgba(200,150,60,0.15),inset_0_1px_0_rgba(200,150,60,0.1)]"
+                      : "border-white/5 hover:border-white/10"
+                }`}>
+                  {/* Active player glow accent */}
+                  {isActivePlayer && !isInactive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-amber/5 to-transparent pointer-events-none animate-pulse" style={{ animationDuration: "3s" }} />
+                  )}
+
+                  <div className="flex justify-between items-center relative">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${
+                      <span className={`w-2 h-2 rounded-full transition-all ${
                         isDead ? "bg-rose shadow-[0_0_8px_rgba(244,63,94,0.4)]"
                         : isRetired ? "bg-lavender/50"
-                        : c.userId === activePlayerId ? "bg-amber shadow-[0_0_8px_rgba(200,150,60,0.5)]"
+                        : isActivePlayer ? "bg-amber shadow-[0_0_10px_rgba(200,150,60,0.6)] animate-pulse"
                         : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                       }`} />
-                      <span className={`text-xs ${isInactive ? "text-white/40 line-through" : "text-white/80"}`}>{c.name}</span>
+                      <span className={`text-xs ${isInactive ? "text-white/40 line-through" : isActivePlayer ? "text-amber/90 font-medium" : "text-white/80"}`}>{c.name}</span>
                       {isDead && <span className="text-[9px] text-rose/60 uppercase tracking-wider">Fallen</span>}
                       {isRetired && <span className="text-[9px] text-lavender/60 uppercase tracking-wider">Retired</span>}
+                      {isActivePlayer && !isInactive && <span className="text-[9px] text-amber/50 uppercase tracking-wider">Writing</span>}
                     </div>
                     <span className="text-[10px] text-white/40">
                       {stats && !isInactive ? `B${stats.approaches.Bold >= 0 ? "+" : ""}${stats.approaches.Bold} K${stats.approaches.Keen >= 0 ? "+" : ""}${stats.approaches.Keen} S${stats.approaches.Subtle >= 0 ? "+" : ""}${stats.approaches.Subtle}` : ""}
                     </span>
                   </div>
 
-                  {/* GM character actions */}
+                  {/* GM character actions — with confirmation */}
                   {!isInactive && (
-                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5 relative">
                       <button
-                        onClick={() => onChangeCharacterStatus(c.id, "retired")}
+                        onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "retired" })}
                         className="text-[9px] text-lavender/50 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
                       >
                         Retire
                       </button>
                       <button
-                        onClick={() => onChangeCharacterStatus(c.id, "dead")}
+                        onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "dead" })}
                         className="text-[9px] text-rose/50 hover:text-rose uppercase tracking-wider cursor-pointer transition-colors"
                       >
                         Kill
@@ -131,10 +203,74 @@ export default function ContextPanel({
                       </button>
                     </div>
                   )}
+
+                  {/* Starter items (GM sees all) */}
+                  {characterItems[c.id] && characterItems[c.id].length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                      {characterItems[c.id].map((item) => (
+                        <div key={item.id} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-amber/[0.04]">
+                          <div className="w-1 h-1 rounded-full bg-amber/40 shrink-0" />
+                          <span className="text-[10px] text-amber/60 truncate flex-1" title={item.description}>{item.name}</span>
+                          <span className="text-[8px] text-white/20 uppercase shrink-0">{item.tag}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* Confirmation Modal for Retire/Kill */}
+          {confirmAction && (
+            <div className="mb-6 bg-black/60 border rounded-xl p-4 space-y-3 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
+              style={{
+                borderColor: confirmAction.status === "dead" ? "rgba(244,63,94,0.3)" : "rgba(167,139,250,0.3)",
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                  className={confirmAction.status === "dead" ? "text-rose" : "text-lavender"}
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span className={`text-[10px] uppercase tracking-widest font-bold ${
+                  confirmAction.status === "dead" ? "text-rose" : "text-lavender"
+                }`}>
+                  Confirm {confirmAction.status === "dead" ? "Kill" : "Retire"}
+                </span>
+              </div>
+              <p className="text-xs text-white/60">
+                Are you sure you want to {confirmAction.status === "dead" ? "kill" : "retire"}{" "}
+                <span className="text-white/90 font-medium">{confirmAction.characterName}</span>?
+                {confirmAction.status === "dead" && (
+                  <span className="text-rose/60"> This triggers a death cinematic.</span>
+                )}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    onChangeCharacterStatus(confirmAction.characterId, confirmAction.status);
+                    setConfirmAction(null);
+                  }}
+                  className={`flex-1 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 cursor-pointer transition-colors ${
+                    confirmAction.status === "dead"
+                      ? "bg-rose/20 hover:bg-rose/30 text-rose"
+                      : "bg-lavender/20 hover:bg-lavender/30 text-lavender"
+                  }`}
+                >
+                  Yes, {confirmAction.status === "dead" ? "Kill" : "Retire"}
+                </button>
+                <button
+                  onClick={() => setConfirmAction(null)}
+                  className="px-4 text-[10px] text-white/40 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* GM Actions */}
           <div className="space-y-4">
@@ -520,20 +656,24 @@ export default function ContextPanel({
               </svg>
               Synchronized Audio
             </h3>
-            <div className="bg-[#111] border border-white/5 rounded-lg p-3">
+            <div className="bg-[#111] border border-white/5 rounded-lg p-3 opacity-50">
               <div className="flex justify-between items-center mb-3">
-                <span className="text-xs text-white/80 font-medium">Cavern Ambience</span>
-                <div className="w-8 h-4 bg-cyan-400/20 rounded-full flex items-center p-0.5 relative cursor-pointer">
-                  <div className="w-3 h-3 bg-cyan-400 rounded-full absolute right-0.5 shadow-[0_0_8px_rgba(34,211,238,0.7)]" />
+                <span className="text-xs text-white/50 font-medium">Cavern Ambience</span>
+                <div className="w-8 h-4 bg-white/10 rounded-full flex items-center p-0.5 relative cursor-not-allowed" title="Coming soon">
+                  <div className="w-3 h-3 bg-white/30 rounded-full absolute left-0.5" />
                 </div>
               </div>
               <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                <div className="w-[65%] h-full bg-cyan-400/50" />
+                <div className="w-0 h-full bg-cyan-400/50" />
               </div>
-              <p className="text-[9px] text-white/30 uppercase tracking-widest mt-3 text-center">Coming soon</p>
+              <div className="mt-3 flex items-center justify-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/30" />
+                <p className="text-[10px] text-cyan-400/40 uppercase tracking-widest font-bold">Coming Soon</p>
+              </div>
             </div>
           </div>
         </div>
+
       </div>
     );
   }
@@ -548,10 +688,21 @@ export default function ContextPanel({
           <div className="w-8 h-8 rounded-full bg-rose/20 flex items-center justify-center font-display text-rose text-lg border border-rose/30">
             {myCharacter ? myCharacter.name.charAt(0).toUpperCase() : "?"}
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="text-sm font-bold text-white/90">{myCharacter?.name ?? "No Character"}</h2>
             <p className="text-[10px] text-white/40 uppercase tracking-widest">{myCharacter?.traits ?? "Create a character to play"}</p>
           </div>
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
+              title="Collapse Character Sheet"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -592,6 +743,41 @@ export default function ContextPanel({
                 })}
               </div>
             </div>
+
+            {/* Starter Items */}
+            {myCharacter && characterItems[myCharacter.id] && characterItems[myCharacter.id].length > 0 && (
+              <div>
+                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Items</h3>
+                <div className="space-y-2">
+                  {characterItems[myCharacter.id].map((item) => (
+                    <div key={item.id} className="bg-amber/[0.04] border border-amber/10 rounded-xl p-3 group/item">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-xs text-amber/80 font-medium">{item.name}</span>
+                          <p className="text-[10px] text-white/40 mt-0.5 leading-relaxed font-serif italic">{item.description}</p>
+                        </div>
+                        <span className="text-[8px] text-white/20 uppercase tracking-wider border border-white/10 rounded px-1.5 py-0.5 shrink-0">{item.tag}</span>
+                      </div>
+                      {onUseItem && (
+                        <button
+                          onClick={() => onUseItem(myCharacter.id, item)}
+                          className="mt-2 w-full bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[9px] uppercase tracking-widest font-bold rounded-lg py-1.5 cursor-pointer transition-colors"
+                        >
+                          Use in Story
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {myCharacter && (!characterItems[myCharacter.id] || characterItems[myCharacter.id].length === 0) && (
+              <div>
+                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Items</h3>
+                <p className="text-[10px] text-white/20 italic font-serif">No items remaining.</p>
+              </div>
+            )}
           </>
         ) : (
           <div className="space-y-4">

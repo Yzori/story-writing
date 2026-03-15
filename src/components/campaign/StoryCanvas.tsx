@@ -42,6 +42,154 @@ interface StoryCanvasProps {
   mapPins?: MapPin[];
   onAddMapPin?: (pin: Omit<MapPin, "id">) => void;
   onRemoveMapPin?: (pinId: string) => void;
+  logTurns?: Turn[];
+}
+
+// ── Session Highlights ───────────────────────────────────────
+
+interface Highlight {
+  icon: string;
+  label: string;
+  text: string;
+  color: string; // tailwind text color
+}
+
+function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlight[] {
+  const highlights: Highlight[] = [];
+
+  // 1. Scene breaks with titles (Story Moments / major beats)
+  for (const t of storyTurns) {
+    if (t.type !== "scene-break" || !t.metadata) continue;
+    try {
+      const meta = JSON.parse(t.metadata);
+      if (meta.cinematic && meta.title) {
+        highlights.push({
+          icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
+          label: "Story Moment",
+          text: meta.title,
+          color: meta.mood === "death" ? "text-rose" : "text-amber",
+        });
+      } else if (meta.title) {
+        highlights.push({
+          icon: "\uD83C\uDFAC",
+          label: "Scene",
+          text: meta.title,
+          color: "text-white/60",
+        });
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 2. Dramatic dice rolls (successes, failures, fatal rolls)
+  for (const t of logTurns) {
+    if (t.type !== "roll" || !t.metadata) continue;
+    try {
+      const meta = JSON.parse(t.metadata);
+      const total = meta.total ?? 0;
+      const tier = meta.tier ?? "";
+      const charName = t.characterName ?? t.user?.displayName ?? "Someone";
+
+      if (tier === "success" && total >= 11) {
+        highlights.push({
+          icon: "\uD83C\uDFB2",
+          label: "Critical Roll",
+          text: `${charName} rolled ${total} \u2014 a triumphant success`,
+          color: "text-amber",
+        });
+      } else if (tier === "failure" && total <= 4) {
+        highlights.push({
+          icon: "\uD83C\uDFB2",
+          label: "Dramatic Failure",
+          text: `${charName} rolled ${total} \u2014 a devastating miss`,
+          color: "text-red-400",
+        });
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 3. Character deaths (consequence turns mentioning "fallen")
+  for (const t of storyTurns) {
+    if (t.type !== "scene-break" || !t.metadata) continue;
+    try {
+      const meta = JSON.parse(t.metadata);
+      if (meta.mood === "death" && !meta.cinematic) {
+        highlights.push({
+          icon: "\u2020",
+          label: "Fallen",
+          text: meta.title || "A hero has fallen",
+          color: "text-rose",
+        });
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 4. Session stats summary
+  const playerTurns = storyTurns.filter((t) => !["narration", "consequence", "scene-break"].includes(t.type));
+  const gmTurns = storyTurns.filter((t) => ["narration", "consequence"].includes(t.type));
+  const rollCount = logTurns.filter((t) => t.type === "roll").length;
+  const sceneCount = storyTurns.filter((t) => t.type === "scene-break").length;
+
+  if (playerTurns.length + gmTurns.length > 0) {
+    const parts: string[] = [];
+    parts.push(`${playerTurns.length + gmTurns.length} turns written`);
+    if (sceneCount > 0) parts.push(`${sceneCount} scene${sceneCount > 1 ? "s" : ""}`);
+    if (rollCount > 0) parts.push(`${rollCount} roll${rollCount > 1 ? "s" : ""}`);
+
+    highlights.push({
+      icon: "\uD83D\uDCDC",
+      label: "Session Stats",
+      text: parts.join(" \u00B7 "),
+      color: "text-white/50",
+    });
+  }
+
+  return highlights;
+}
+
+function SessionHighlights({ storyTurns, logTurns }: { storyTurns: Turn[]; logTurns: Turn[] }) {
+  const [expanded, setExpanded] = useState(true);
+  const highlights = extractHighlights(storyTurns, logTurns);
+
+  if (highlights.length === 0) return null;
+
+  return (
+    <div className="w-full max-w-[650px] mt-6">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-2 mb-3 cursor-pointer group"
+      >
+        <svg
+          width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          className={`text-white/30 transition-transform ${expanded ? "rotate-90" : ""}`}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <span className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 group-hover:text-white/50 transition-colors">
+          Session Highlights
+        </span>
+        <span className="text-[9px] text-white/20">{highlights.length}</span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-2">
+          {highlights.map((h, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-3 px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl"
+            >
+              <span className="text-base leading-none mt-0.5 shrink-0">{h.icon}</span>
+              <div className="min-w-0">
+                <span className={`text-[9px] uppercase tracking-widest font-bold ${h.color}`}>
+                  {h.label}
+                </span>
+                <p className="text-sm text-white/60 font-serif mt-0.5 leading-relaxed">{h.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Session Ended Block (compile to chapter) ────────────────
@@ -50,10 +198,14 @@ function SessionEndedBlock({
   sessionId,
   storyId,
   isGM,
+  storyTurns,
+  logTurns,
 }: {
   sessionId: string;
   storyId?: string;
   isGM: boolean;
+  storyTurns: Turn[];
+  logTurns: Turn[];
 }) {
   const [compileState, setCompileState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [compiledChapterId, setCompiledChapterId] = useState<string | null>(null);
@@ -90,7 +242,9 @@ function SessionEndedBlock({
   };
 
   return (
-    <div className="w-full max-w-[650px] mt-8">
+    <>
+    <SessionHighlights storyTurns={storyTurns} logTurns={logTurns} />
+    <div className="w-full max-w-[650px] mt-4">
       <div className="text-center py-8 border border-white/5 rounded-2xl bg-white/[0.02]">
         <p className="text-white/40 text-sm font-serif italic">This session has ended.</p>
 
@@ -145,6 +299,7 @@ function SessionEndedBlock({
         )}
       </div>
     </div>
+    </>
   );
 }
 
@@ -216,7 +371,12 @@ export default function StoryCanvas({
   mapPins,
   onAddMapPin,
   onRemoveMapPin,
+  logTurns = [],
 }: StoryCanvasProps) {
+  const TURNS_PER_BATCH = 50;
+  const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
+    Math.max(0, storyTurns.length - TURNS_PER_BATCH)
+  );
   const [draftContent, setDraftContent] = useState("");
   const [draftType, setDraftType] = useState<string>(isGM ? "narration" : "action");
   const [hydratedDraft, setHydratedDraft] = useState(false);
@@ -463,6 +623,32 @@ export default function StoryCanvas({
     }
   }, [storyTurns.length]);
 
+  // Reset visible window when turns are cleared (e.g. new session)
+  const prevTotalTurnsRef = useRef(storyTurns.length);
+  useEffect(() => {
+    if (storyTurns.length < prevTotalTurnsRef.current) {
+      setVisibleStartIndex(Math.max(0, storyTurns.length - TURNS_PER_BATCH));
+    }
+    prevTotalTurnsRef.current = storyTurns.length;
+  }, [storyTurns.length]);
+
+  const hasEarlierTurns = visibleStartIndex > 0;
+
+  const handleLoadEarlier = useCallback(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    const prevScrollHeight = scrollEl.scrollHeight;
+    const prevScrollTop = scrollEl.scrollTop;
+
+    setVisibleStartIndex((prev) => Math.max(0, prev - TURNS_PER_BATCH));
+
+    // Preserve scroll position after new content renders above
+    requestAnimationFrame(() => {
+      const newScrollHeight = scrollEl.scrollHeight;
+      scrollEl.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+    });
+  }, []);
+
   // Detect when this user's new turn appears → start the 30s edit window
   const prevTurnCountRef = useRef(storyTurns.length);
   useEffect(() => {
@@ -595,9 +781,12 @@ export default function StoryCanvas({
     return false;
   };
 
+  // Slice to only the visible turns (paginated from the end)
+  const visibleTurns = storyTurns.slice(visibleStartIndex);
+
   // Group turns into paragraphs
   const paragraphs: Turn[][] = [];
-  for (const turn of storyTurns) {
+  for (const turn of visibleTurns) {
     const lastGroup = paragraphs[paragraphs.length - 1];
     if (lastGroup && shouldMerge(lastGroup[lastGroup.length - 1], turn)) {
       lastGroup.push(turn);
@@ -608,6 +797,41 @@ export default function StoryCanvas({
 
   // Stable player color map
   const playerUserIds = characters.filter((c) => c.status === "active").map((c) => c.userId);
+
+  // ── Mood Tinting — derive from latest scene-break ──────────
+  const currentMood = (() => {
+    for (let i = storyTurns.length - 1; i >= 0; i--) {
+      if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
+        try {
+          return JSON.parse(storyTurns[i].metadata!).mood ?? null;
+        } catch { /* ignore */ }
+      }
+    }
+    return null;
+  })();
+
+  const MOOD_TINT_COLORS: Record<string, string> = {
+    tense: "rgba(244,63,94,0.04)",
+    calm: "rgba(120,180,130,0.04)",
+    ominous: "rgba(139,92,246,0.06)",
+    triumphant: "rgba(200,150,60,0.05)",
+    melancholy: "rgba(99,102,241,0.05)",
+    chaotic: "rgba(251,146,60,0.04)",
+    mysterious: "rgba(34,211,238,0.04)",
+    romantic: "rgba(236,72,153,0.04)",
+  };
+
+  const MOOD_VIGNETTE_COLORS: Record<string, string> = {
+    tense: "rgba(180,30,50,0.12)",
+    ominous: "rgba(80,40,160,0.12)",
+    death: "rgba(120,10,10,0.18)",
+    melancholy: "rgba(50,50,140,0.10)",
+    chaotic: "rgba(180,80,20,0.10)",
+  };
+
+  const moodTint = currentMood ? MOOD_TINT_COLORS[currentMood] ?? null : null;
+  const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
+
 
   // Render a single turn within a paragraph, with context awareness
   const renderTurnInContext = (turn: Turn, idx: number, group: Turn[], globalIdx: number) => {
@@ -705,6 +929,24 @@ export default function StoryCanvas({
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-amber/[0.02] blur-[100px] rounded-full mix-blend-screen" />
         <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]" />
+
+        {/* Mood tint overlay — shifts color based on current scene mood */}
+        {moodTint && (
+          <div
+            className="absolute inset-0 transition-all duration-[3000ms] ease-in-out"
+            style={{ backgroundColor: moodTint }}
+          />
+        )}
+
+        {/* Mood vignette — darker, more dramatic moods get an edge vignette */}
+        {moodVignette && (
+          <div
+            className="absolute inset-0 transition-all duration-[3000ms] ease-in-out"
+            style={{
+              boxShadow: `inset 0 0 150px 40px ${moodVignette}`,
+            }}
+          />
+        )}
       </div>
 
       {/* Initiative Bar */}
@@ -769,9 +1011,23 @@ export default function StoryCanvas({
               </p>
             </div>
           ) : (
-            <div className="text-[19px] leading-[2.1] font-serif space-y-6">
+            <div className="text-[19px] leading-[2.1] font-serif space-y-6 break-words">
+              {/* Load earlier turns */}
+              {hasEarlierTurns && (
+                <div className="flex justify-center !mb-8">
+                  <button
+                    onClick={handleLoadEarlier}
+                    className="bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-white/20 text-white/40 hover:text-white/60 rounded-full px-5 py-2.5 text-[11px] uppercase tracking-widest font-display transition-all cursor-pointer group"
+                  >
+                    Load earlier turns
+                    <span className="ml-2 text-white/20 group-hover:text-white/30 transition-colors">
+                      ({visibleStartIndex} more)
+                    </span>
+                  </button>
+                </div>
+              )}
               {paragraphs.map((group, pi) => {
-                let globalIdx = 0;
+                let globalIdx = visibleStartIndex;
                 for (let p = 0; p < pi; p++) globalIdx += paragraphs[p].length;
 
                 // Scene-break turns render as ornamental dividers
@@ -1103,6 +1359,8 @@ export default function StoryCanvas({
             sessionId={sessionId}
             storyId={storyId}
             isGM={isGM}
+            storyTurns={storyTurns}
+            logTurns={logTurns}
           />
         )}
       </div>

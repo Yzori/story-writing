@@ -12,6 +12,8 @@ interface SessionLogProps {
   onSendChat: (message: string) => void;
   chatInput: string;
   setChatInput: (val: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function SessionLog({
@@ -22,6 +24,8 @@ export default function SessionLog({
   onSendChat,
   chatInput,
   setChatInput,
+  isCollapsed = false,
+  onToggleCollapse,
 }: SessionLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -42,12 +46,50 @@ export default function SessionLog({
     setChatInput("");
   };
 
+  if (isCollapsed) {
+    return (
+      <div className="w-12 h-full flex flex-col items-center border-r border-white/5 bg-[#050505] shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 py-4 gap-3">
+        <button
+          onClick={onToggleCollapse}
+          className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/10 transition-all cursor-pointer"
+          title="Expand Session Log"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+        <div className="w-px flex-1 bg-white/5" />
+        <div className="flex flex-col items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span className="text-[9px] text-white/30 font-mono tabular-nums">{turns.length}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-[320px] lg:w-[380px] h-full flex flex-col border-r border-white/5 bg-[#050505] shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0">
       {/* Header */}
       <div className="p-6 border-b border-white/5 bg-black/40 backdrop-blur-md pb-4 shrink-0">
-        <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">Session Log</h2>
-        <p className="text-white/40 text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">Session Log</h2>
+            <p className="text-white/40 text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
+          </div>
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
+              title="Collapse Session Log"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Event Log */}
