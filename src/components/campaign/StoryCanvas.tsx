@@ -30,6 +30,7 @@ interface StoryCanvasProps {
   onOpenFloor: () => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
+  onExtendTimer?: () => void;
   onRollComplete: (total: number, modifier: number, attribute: string) => void;
   pendingRollRequest: RollRequest | null;
   myCharacterStatus: string | null;
@@ -370,6 +371,7 @@ export default function StoryCanvas({
   onOpenFloor,
   onEndSession,
   onTurnExpired,
+  onExtendTimer,
   onRollComplete,
   pendingRollRequest,
   myCharacterStatus,
@@ -818,16 +820,20 @@ export default function StoryCanvas({
   // Stable player color map
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
 
-  // ── Mood Tinting — derive from latest scene-break ──────────
-  const currentMood = useMemo(() => {
+  // ── Mood & Aspects — derive from latest scene-break ──────────
+  const { currentMood, currentSceneAspects } = useMemo(() => {
     for (let i = storyTurns.length - 1; i >= 0; i--) {
       if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
         try {
-          return JSON.parse(storyTurns[i].metadata!).mood ?? null;
+          const meta = JSON.parse(storyTurns[i].metadata!);
+          return {
+            currentMood: meta.mood ?? null,
+            currentSceneAspects: (meta.aspects as string[]) ?? [],
+          };
         } catch { /* ignore */ }
       }
     }
-    return null;
+    return { currentMood: null, currentSceneAspects: [] };
   }, [storyTurns]);
 
   const MOOD_TINT_COLORS: Record<string, string> = {
@@ -982,7 +988,46 @@ export default function StoryCanvas({
         onOpenFloor={onOpenFloor}
         onEndSession={onEndSession}
         onTurnExpired={onTurnExpired}
+        onExtendTimer={onExtendTimer}
       />
+
+      {/* Scene Aspect Tags — floating pills below initiative bar */}
+      <AnimatePresence>
+        {currentSceneAspects.length > 0 && sessionStatus === "active" && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="w-full flex items-center justify-center gap-2 px-8 py-2 z-20 shrink-0"
+          >
+            {currentSceneAspects.map((aspect, i) => {
+              const moodBorderColors: Record<string, string> = {
+                tense: "border-rose/30 text-rose/50",
+                calm: "border-sage/30 text-sage/50",
+                ominous: "border-violet/30 text-violet/50",
+                triumphant: "border-amber/30 text-amber/50",
+                melancholy: "border-indigo-400/30 text-indigo-400/50",
+                chaotic: "border-orange-400/30 text-orange-400/50",
+                mysterious: "border-cyan-400/30 text-cyan-400/50",
+                romantic: "border-pink-400/30 text-pink-400/50",
+              };
+              const colors = moodBorderColors[currentMood ?? ""] ?? "border-white/20 text-white/40";
+              return (
+                <motion.span
+                  key={aspect}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.08 }}
+                  className={`px-3 py-1 rounded-full border bg-black/30 backdrop-blur-sm text-[10px] font-serif italic ${colors}`}
+                >
+                  {aspect}
+                </motion.span>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Story Canvas */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto pt-16 pb-64 px-12 flex flex-col items-center z-10 relative scroll-smooth" style={{ scrollbarWidth: "none" }}>

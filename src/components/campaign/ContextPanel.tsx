@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { PlayerCharacter, StarterItem, SessionRosterEntry } from "./types";
 import { parseStats, APPROACHES } from "./types";
+import ProgressClock from "./ProgressClock";
+import type { ProgressClockData } from "./ProgressClock";
 
 interface ContextPanelProps {
   isGM: boolean;
@@ -12,7 +14,7 @@ interface ContextPanelProps {
   onRequestRoll: (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => void;
   onPushEvent: (content: string) => void;
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
-  onSceneBreak?: (title: string, mood: string) => void;
+  onSceneBreak?: (title: string, mood: string, aspects?: string[]) => void;
   onStoryMoment?: (text: string, mood: string, subtext?: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -21,6 +23,9 @@ interface ContextPanelProps {
   onUseItem?: (characterId: string, item: StarterItem) => void;
   roster?: SessionRosterEntry[];
   onInviteNewCharacter?: (userId: string) => void;
+  /** Tension clocks — local session-scoped state */
+  clocks?: ProgressClockData[];
+  onClocksChange?: (clocks: ProgressClockData[]) => void;
 }
 
 export default function ContextPanel({
@@ -39,6 +44,8 @@ export default function ContextPanel({
   onUseItem,
   roster = [],
   onInviteNewCharacter,
+  clocks = [],
+  onClocksChange,
 }: ContextPanelProps) {
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
@@ -55,6 +62,8 @@ export default function ContextPanel({
   const [showSceneBreakForm, setShowSceneBreakForm] = useState(false);
   const [sceneBreakTitle, setSceneBreakTitle] = useState("");
   const [sceneBreakMood, setSceneBreakMood] = useState("ominous");
+  const [sceneBreakAspects, setSceneBreakAspects] = useState<string[]>([]);
+  const [sceneBreakAspectInput, setSceneBreakAspectInput] = useState("");
 
   // Story moment form state
   const [showStoryMomentForm, setShowStoryMomentForm] = useState(false);
@@ -65,11 +74,18 @@ export default function ContextPanel({
   // Roll request form state
   const [showRollForm, setShowRollForm] = useState(false);
   const [rollTarget, setRollTarget] = useState<string>("everyone");
-  const [rollAttribute, setRollAttribute] = useState("Bold");
   const [rollReason, setRollReason] = useState("");
   const [rollOnSuccess, setRollOnSuccess] = useState("");
   const [rollOnFailure, setRollOnFailure] = useState("");
-  const [rollFatal, setRollFatal] = useState(false);
+
+  // Character stats disclosure state (which cards are expanded)
+  const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set());
+
+  // Add clock form state
+  const [showAddClockForm, setShowAddClockForm] = useState(false);
+  const [newClockName, setNewClockName] = useState("");
+  const [newClockSegments, setNewClockSegments] = useState<4 | 6 | 8>(4);
+  const [newClockType, setNewClockType] = useState<"danger" | "progress" | "racing">("danger");
 
   const activeChars = characters.filter((c) => c.status === "active");
 
@@ -88,9 +104,6 @@ export default function ContextPanel({
   const spectatingChars = hasRoster
     ? characters.filter((c) => rosterStatusMap.get(c.id) === "spectating")
     : [];
-  const absentChars = hasRoster
-    ? characters.filter((c) => rosterStatusMap.get(c.id) === "absent")
-    : [];
 
   // Check if a dead character's player has no other active character
   const deadCharsNeedingInvite = characters.filter((c) => {
@@ -101,7 +114,49 @@ export default function ContextPanel({
     return !hasActiveChar;
   });
 
-  const availableApproaches = [...APPROACHES];
+  // Helper: add aspect tag
+  const addAspect = () => {
+    const tag = sceneBreakAspectInput.trim();
+    if (tag && !sceneBreakAspects.includes(tag)) {
+      setSceneBreakAspects((prev) => [...prev, tag]);
+    }
+    setSceneBreakAspectInput("");
+  };
+
+  // Helper: toggle clock segment
+  const handleToggleClockSegment = (clockId: string, segmentIndex: number) => {
+    if (!onClocksChange) return;
+    const updated = clocks.map((c) => {
+      if (c.id !== clockId) return c;
+      // If clicking a filled segment, unfill from that point. If clicking unfilled, fill up to that point.
+      const newFilled = segmentIndex < c.filled ? segmentIndex : segmentIndex + 1;
+      return { ...c, filled: Math.min(newFilled, c.segments) };
+    });
+    onClocksChange(updated);
+  };
+
+  // Helper: add new clock
+  const handleAddClock = () => {
+    if (!newClockName.trim() || !onClocksChange) return;
+    const newClock: ProgressClockData = {
+      id: `clock-${Date.now()}`,
+      name: newClockName.trim(),
+      segments: newClockSegments,
+      filled: 0,
+      type: newClockType,
+    };
+    onClocksChange([...clocks, newClock]);
+    setNewClockName("");
+    setNewClockSegments(4);
+    setNewClockType("danger");
+    setShowAddClockForm(false);
+  };
+
+  // Helper: delete clock
+  const handleDeleteClock = (clockId: string) => {
+    if (!onClocksChange) return;
+    onClocksChange(clocks.filter((c) => c.id !== clockId));
+  };
 
   // Collapsed sidebar (shared between GM and player views)
   if (isCollapsed) {
@@ -163,6 +218,120 @@ export default function ContextPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: "none" }}>
+          {/* Tension Clocks */}
+          {(clocks.length > 0 || onClocksChange) && (
+            <div className="space-y-4 mb-8">
+              <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-rose/60 border-b border-rose/10 pb-2 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Tension Clocks
+                </span>
+                {onClocksChange && (
+                  <button
+                    onClick={() => setShowAddClockForm(!showAddClockForm)}
+                    className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
+                    title="Add clock"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </button>
+                )}
+              </h3>
+
+              {/* Add Clock Form */}
+              {showAddClockForm && (
+                <div className="bg-white/[0.02] border border-white/10 rounded-lg p-3 space-y-2">
+                  <input
+                    type="text"
+                    value={newClockName}
+                    onChange={(e) => setNewClockName(e.target.value)}
+                    placeholder="Clock name..."
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none placeholder:text-white/20 focus:border-white/30"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddClock();
+                      if (e.key === "Escape") setShowAddClockForm(false);
+                    }}
+                  />
+                  <div className="flex gap-1.5">
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider self-center mr-1">Segments</label>
+                    {([4, 6, 8] as const).map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setNewClockSegments(n)}
+                        className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer ${
+                          newClockSegments === n
+                            ? "bg-white/10 border-white/30 text-white"
+                            : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider self-center mr-1">Type</label>
+                    {(["danger", "progress", "racing"] as const).map((t) => {
+                      const typeColors: Record<string, string> = {
+                        danger: "bg-rose/20 border-rose/40 text-rose",
+                        progress: "bg-amber/20 border-amber/40 text-amber",
+                        racing: "bg-indigo-400/20 border-indigo-400/40 text-indigo-400",
+                      };
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => setNewClockType(t)}
+                          className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer capitalize ${
+                            newClockType === t
+                              ? typeColors[t]
+                              : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={handleAddClock}
+                      disabled={!newClockName.trim()}
+                      className="flex-1 bg-white/10 hover:bg-white/15 text-white/80 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      Add Clock
+                    </button>
+                    <button onClick={() => setShowAddClockForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Clock display */}
+              {clocks.length > 0 && (
+                <div className="flex flex-wrap gap-4 justify-center">
+                  {clocks.map((clock) => (
+                    <ProgressClock
+                      key={clock.id}
+                      clock={clock}
+                      size={60}
+                      interactive
+                      onToggleSegment={(idx) => handleToggleClockSegment(clock.id, idx)}
+                      onDelete={() => handleDeleteClock(clock.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {clocks.length === 0 && !showAddClockForm && (
+                <p className="text-[10px] text-white/20 italic font-serif text-center">No tension clocks yet.</p>
+              )}
+            </div>
+          )}
+
           {/* Party Status */}
           <div className="space-y-4 mb-8">
             <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Party Status</h3>
@@ -174,8 +343,8 @@ export default function ContextPanel({
               const isDead = c.status === "dead";
               const isRetired = c.status === "retired";
               const isInactive = isDead || isRetired;
-
               const isActivePlayer = c.userId === activePlayerId;
+              const isExpanded = expandedStats.has(c.id);
 
               return (
                 <div key={c.id} className={`bg-white/[0.02] p-3 rounded-lg border transition-all relative overflow-hidden ${
@@ -190,7 +359,8 @@ export default function ContextPanel({
                     <div className="absolute inset-0 bg-gradient-to-r from-amber/5 to-transparent pointer-events-none animate-pulse" style={{ animationDuration: "3s" }} />
                   )}
 
-                  <div className="flex justify-between items-center relative">
+                  {/* Character name + traits + aspect (narrative-first) */}
+                  <div className="relative">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full transition-all ${
                         isDead ? "bg-rose shadow-[0_0_8px_rgba(244,63,94,0.4)]"
@@ -200,28 +370,70 @@ export default function ContextPanel({
                       }`} />
                       <span className={`text-xs ${isInactive ? "text-white/40 line-through" : isActivePlayer ? "text-amber/90 font-medium" : "text-white/80"}`}>{c.name}</span>
                       {isDead && <span className="text-[9px] text-rose/60 uppercase tracking-wider">Fallen</span>}
-                      {isRetired && <span className="text-[9px] text-lavender/60 uppercase tracking-wider">Retired</span>}
+                      {isRetired && <span className="text-[9px] text-lavender/60 uppercase tracking-wider">Departed</span>}
                       {isActivePlayer && !isInactive && <span className="text-[9px] text-amber/50 uppercase tracking-wider">Writing</span>}
                     </div>
-                    <span className="text-[10px] text-white/40">
-                      {stats && !isInactive ? `B${stats.approaches.Bold >= 0 ? "+" : ""}${stats.approaches.Bold} K${stats.approaches.Keen >= 0 ? "+" : ""}${stats.approaches.Keen} S${stats.approaches.Subtle >= 0 ? "+" : ""}${stats.approaches.Subtle}` : ""}
-                    </span>
+
+                    {/* Traits line */}
+                    {c.traits && !isInactive && (
+                      <p className="text-[10px] text-white/30 ml-4 mt-0.5">{c.traits}</p>
+                    )}
+
+                    {/* Aspect — italic serif, shown prominently */}
+                    {stats?.aspect && !isInactive && (
+                      <p className="text-[10px] text-violet-300/60 font-serif italic ml-4 mt-1 leading-relaxed">&ldquo;{stats.aspect}&rdquo;</p>
+                    )}
+
+                    {/* Stats disclosure toggle */}
+                    {stats && !isInactive && (
+                      <button
+                        onClick={() => {
+                          const next = new Set(expandedStats);
+                          if (isExpanded) next.delete(c.id);
+                          else next.add(c.id);
+                          setExpandedStats(next);
+                        }}
+                        className="flex items-center gap-1 mt-1.5 ml-3 text-[9px] text-white/20 hover:text-white/40 transition-colors cursor-pointer"
+                      >
+                        <svg
+                          width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                          className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                        >
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                        <span className="uppercase tracking-wider">Approaches</span>
+                      </button>
+                    )}
+
+                    {/* Expandable stats */}
+                    {isExpanded && stats && !isInactive && (
+                      <div className="mt-2 ml-4 flex gap-3">
+                        {Object.entries(stats.approaches).map(([key, val]) => (
+                          <span key={key} className="text-[10px] text-white/40">
+                            <span className="text-white/20 uppercase">{key}</span>{" "}
+                            <span className={val > 0 ? "text-amber/60" : val < 0 ? "text-red-400/50" : "text-white/30"}>
+                              {val >= 0 ? `+${val}` : val}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* GM character actions — with confirmation */}
+                  {/* GM character actions — with confirmation, narrative language */}
                   {!isInactive && (
                     <div className="flex gap-2 mt-2 pt-2 border-t border-white/5 relative">
                       <button
                         onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "retired" })}
                         className="text-[9px] text-lavender/50 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
                       >
-                        Retire
+                        They Depart
                       </button>
                       <button
                         onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "dead" })}
                         className="text-[9px] text-rose/50 hover:text-rose uppercase tracking-wider cursor-pointer transition-colors"
                       >
-                        Kill
+                        Their Story Ends
                       </button>
                     </div>
                   )}
@@ -236,14 +448,20 @@ export default function ContextPanel({
                     </div>
                   )}
 
-                  {/* Starter items (GM sees all) */}
+                  {/* Starter items (GM sees all) — narrative-first display */}
                   {characterItems[c.id] && characterItems[c.id].length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                    <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
                       {characterItems[c.id].map((item) => (
-                        <div key={item.id} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-amber/[0.04]">
-                          <div className="w-1 h-1 rounded-full bg-amber/40 shrink-0" />
-                          <span className="text-[10px] text-amber/60 truncate flex-1" title={item.description}>{item.name}</span>
-                          <span className="text-[8px] text-white/20 uppercase shrink-0">{item.tag}</span>
+                        <div key={item.id} className="px-2 py-1.5 rounded bg-amber/[0.04]">
+                          <div className="flex items-start gap-1.5">
+                            <div className="w-1 h-1 rounded-full bg-amber/40 shrink-0 mt-1.5" />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] text-amber/60 font-medium">{item.name}</span>
+                              <p className="text-[9px] text-white/30 font-serif italic leading-relaxed mt-0.5">{item.description}</p>
+                              <p className="text-[9px] text-white/40 leading-relaxed mt-0.5">{item.effect}</p>
+                              <span className="text-[7px] text-white/15 uppercase tracking-widest">{item.tag}</span>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -288,7 +506,7 @@ export default function ContextPanel({
             )}
           </div>
 
-          {/* Confirmation Modal for Retire/Kill */}
+          {/* Confirmation Modal for Retire/Kill — narrative language */}
           {confirmAction && (
             <div className="mb-6 bg-black/60 border rounded-xl p-4 space-y-3 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
               style={{
@@ -305,11 +523,11 @@ export default function ContextPanel({
                 <span className={`text-[10px] uppercase tracking-widest font-bold ${
                   confirmAction.status === "dead" ? "text-rose" : "text-lavender"
                 }`}>
-                  Confirm {confirmAction.status === "dead" ? "Kill" : "Retire"}
+                  {confirmAction.status === "dead" ? "Their Story Ends" : "They Depart"}
                 </span>
               </div>
               <p className="text-xs text-white/60">
-                Are you sure you want to {confirmAction.status === "dead" ? "kill" : "retire"}{" "}
+                Are you sure you want to {confirmAction.status === "dead" ? "end the story of" : "write the departure of"}{" "}
                 <span className="text-white/90 font-medium">{confirmAction.characterName}</span>?
                 {confirmAction.status === "dead" && (
                   <span className="text-rose/60"> This triggers a death cinematic.</span>
@@ -327,7 +545,7 @@ export default function ContextPanel({
                       : "bg-lavender/20 hover:bg-lavender/30 text-lavender"
                   }`}
                 >
-                  Yes, {confirmAction.status === "dead" ? "Kill" : "Retire"}
+                  {confirmAction.status === "dead" ? "Yes, End Their Story" : "Yes, Write Their Departure"}
                 </button>
                 <button
                   onClick={() => setConfirmAction(null)}
@@ -349,10 +567,10 @@ export default function ContextPanel({
             </h3>
 
             <div className="grid grid-cols-1 gap-2">
-              {/* Request Roll — structured form */}
+              {/* Call for a Moment of Truth (formerly Request Roll) */}
               {showRollForm ? (
                 <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg p-3 space-y-3">
-                  <p className="text-[10px] uppercase tracking-widest text-violet-400 font-bold">Request Roll</p>
+                  <p className="text-[10px] uppercase tracking-widest text-violet-400 font-bold">Call for a Moment of Truth</p>
 
                   {/* Target */}
                   <div>
@@ -369,91 +587,57 @@ export default function ContextPanel({
                     </select>
                   </div>
 
-                  {/* Approach */}
+                  {/* What's at stake */}
                   <div>
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Approach</label>
-                    <div className="flex gap-1.5 mt-1 flex-wrap">
-                      {availableApproaches.map((approach) => (
-                        <button
-                          key={approach}
-                          onClick={() => setRollAttribute(approach)}
-                          className={`px-2.5 py-1.5 text-[10px] rounded border transition-all cursor-pointer ${
-                            rollAttribute === approach
-                              ? "bg-violet-500/20 border-violet-500/40 text-violet-400"
-                              : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
-                          }`}
-                        >
-                          {approach}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Reason */}
-                  <div>
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider">What for</label>
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider">What&rsquo;s at stake?</label>
                     <input
                       type="text"
                       value={rollReason}
                       onChange={(e) => setRollReason(e.target.value)}
-                      placeholder="to pick the lock, to notice the trap..."
+                      placeholder="The bridge crumbles beneath their feet..."
                       className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20"
                     />
                   </div>
 
                   {/* Stakes */}
                   <div>
-                    <label className="text-[9px] uppercase text-emerald-400/60 tracking-wider">On success</label>
+                    <label className="text-[9px] uppercase text-emerald-400/60 tracking-wider">If they succeed...</label>
                     <input
                       type="text"
                       value={rollOnSuccess}
                       onChange={(e) => setRollOnSuccess(e.target.value)}
-                      placeholder="You slip through undetected"
+                      placeholder="They leap across just in time"
                       className="w-full bg-black/30 border border-emerald-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-emerald-500/30"
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] uppercase text-red-400/60 tracking-wider">On failure</label>
-                    <input
-                      type="text"
+                    <label className="text-[9px] uppercase text-red-400/60 tracking-wider">If they fail...</label>
+                    <textarea
                       value={rollOnFailure}
                       onChange={(e) => setRollOnFailure(e.target.value)}
-                      placeholder="The lockpick snaps — guards hear you"
-                      className="w-full bg-black/30 border border-red-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-red-500/30"
+                      placeholder="The stones give way and they plunge into darkness"
+                      className="w-full bg-black/30 border border-red-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-red-500/30 resize-none"
+                      rows={2}
                     />
+                    <p className="text-[8px] text-white/15 mt-1 font-serif italic leading-relaxed">
+                      If failure means death, say so in your stakes — the narrative will carry the weight.
+                    </p>
                   </div>
-
-                  {/* Fatal stakes toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setRollFatal(!rollFatal)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer w-full ${
-                      rollFatal
-                        ? "bg-rose/15 border-rose/30 text-rose"
-                        : "bg-white/[0.02] border-white/10 text-white/30 hover:text-white/50"
-                    }`}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2a5 5 0 0 1 5 5c0 2-1 3-2 4l-1 1v2h-4v-2l-1-1c-1-1-2-2-2-4a5 5 0 0 1 5-5z" />
-                      <path d="M10 20h4" /><path d="M10 22h4" />
-                    </svg>
-                    {rollFatal ? "Fatal stakes active" : "Fatal stakes"}
-                    {rollFatal && <span className="text-[8px] text-rose/50 font-normal normal-case ml-auto">Failure = death</span>}
-                  </button>
 
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => {
                         if (rollReason.trim()) {
-                          onRequestRoll(rollTarget, rollAttribute, rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim(), rollFatal);
-                          setRollReason(""); setRollOnSuccess(""); setRollOnFailure(""); setRollFatal(false);
+                          // Pass "Bold" as default — the player chooses their own approach when rolling
+                          onRequestRoll(rollTarget, "Bold", rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim());
+                          setRollReason(""); setRollOnSuccess(""); setRollOnFailure("");
                           setShowRollForm(false);
                         }
                       }}
                       disabled={!rollReason.trim()}
                       className="flex-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                     >
-                      Request
+                      Call for the Roll
                     </button>
                     <button onClick={() => setShowRollForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
                       Cancel
@@ -465,7 +649,7 @@ export default function ContextPanel({
                   onClick={() => setShowRollForm(true)}
                   className="bg-violet-500/10 hover:bg-violet-500/15 border border-violet-500/20 rounded-lg p-3 text-left transition-colors flex items-center justify-between group cursor-pointer"
                 >
-                  <span className="text-sm text-violet-400 font-medium">Request Roll...</span>
+                  <span className="text-sm text-violet-400 font-medium">Moment of Truth...</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-400/50 group-hover:translate-x-1 transition-transform">
                     <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                   </svg>
@@ -522,12 +706,56 @@ export default function ContextPanel({
                     </div>
                   </div>
 
+                  {/* Aspect tags input */}
+                  <div>
+                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Scene Aspects (optional)</label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {sceneBreakAspects.map((aspect) => (
+                        <span
+                          key={aspect}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded-full text-[9px] text-white/50 font-serif italic"
+                        >
+                          {aspect}
+                          <button
+                            onClick={() => setSceneBreakAspects((prev) => prev.filter((a) => a !== aspect))}
+                            className="text-white/30 hover:text-white/60 cursor-pointer"
+                          >
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={sceneBreakAspectInput}
+                      onChange={(e) => setSceneBreakAspectInput(e.target.value)}
+                      placeholder="e.g. Torrential Rain, No Escape..."
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          addAspect();
+                        }
+                      }}
+                    />
+                    <p className="text-[8px] text-white/15 mt-0.5">Press Enter or comma to add</p>
+                  </div>
+
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => {
-                        onSceneBreak?.(sceneBreakTitle.trim(), sceneBreakMood);
+                        // Add any pending aspect text
+                        const finalAspects = [...sceneBreakAspects];
+                        if (sceneBreakAspectInput.trim()) {
+                          finalAspects.push(sceneBreakAspectInput.trim());
+                        }
+                        onSceneBreak?.(sceneBreakTitle.trim(), sceneBreakMood, finalAspects.length > 0 ? finalAspects : undefined);
                         setSceneBreakTitle("");
                         setSceneBreakMood("ominous");
+                        setSceneBreakAspects([]);
+                        setSceneBreakAspectInput("");
                         setShowSceneBreakForm(false);
                       }}
                       className="flex-1 bg-amber/20 hover:bg-amber/30 text-amber text-[10px] uppercase tracking-wider font-bold rounded py-1.5 cursor-pointer"
@@ -779,6 +1007,22 @@ export default function ContextPanel({
         </div>
       </div>
 
+      {/* Player-visible tension clocks */}
+      {clocks.length > 0 && (
+        <div className="px-6 py-3 border-b border-white/5 bg-black/20">
+          <div className="flex flex-wrap gap-3 justify-center">
+            {clocks.map((clock) => (
+              <ProgressClock
+                key={clock.id}
+                clock={clock}
+                size={40}
+                interactive={false}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Spectator banner */}
       {isSpectating && myCharacter && (
         <div className="px-6 py-4 bg-gradient-to-r from-violet-500/10 to-rose/10 border-b border-white/5">
@@ -826,7 +1070,7 @@ export default function ContextPanel({
               </div>
             </div>
 
-            {/* Starter Items */}
+            {/* Starter Items — narrative-first display for players */}
             {myCharacter && characterItems[myCharacter.id] && characterItems[myCharacter.id].length > 0 && (
               <div>
                 <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Items</h3>
@@ -838,8 +1082,10 @@ export default function ContextPanel({
                           <span className="text-xs text-amber/80 font-medium">{item.name}</span>
                           <p className="text-[10px] text-white/40 mt-0.5 leading-relaxed font-serif italic">{item.description}</p>
                         </div>
-                        <span className="text-[8px] text-white/20 uppercase tracking-wider border border-white/10 rounded px-1.5 py-0.5 shrink-0">{item.tag}</span>
                       </div>
+                      {/* Effect text as main content for "Use in Story" */}
+                      <p className="text-[10px] text-white/50 mt-1.5 leading-relaxed">{item.effect}</p>
+                      <span className="text-[7px] text-white/15 uppercase tracking-widest">{item.tag}</span>
                       {onUseItem && (
                         <button
                           onClick={() => onUseItem(myCharacter.id, item)}

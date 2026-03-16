@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { PlayerCharacter } from "./types";
 import { getPlayerColor } from "./types";
 
@@ -18,6 +18,7 @@ interface InitiativeBarProps {
   onOpenFloor: () => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
+  onExtendTimer?: () => void;
   rosterCharacters?: PlayerCharacter[];
 }
 
@@ -33,6 +34,7 @@ export default function InitiativeBar({
   onOpenFloor,
   onEndSession,
   onTurnExpired,
+  onExtendTimer,
   rosterCharacters,
 }: InitiativeBarProps) {
   const activeChars = rosterCharacters ?? characters.filter((c) => c.status === "active");
@@ -41,6 +43,9 @@ export default function InitiativeBar({
 
   // Is a player currently active (not GM, not null/open floor)?
   const isPlayerTurn = activePlayerId !== null && activeChars.some((c) => c.userId === activePlayerId);
+
+  // Is it the current user's turn?
+  const isMyTurn = isPlayerTurn && activePlayerId === currentUserId;
 
   // ── Turn Timer ──────────────────────────────────────────
   const [secondsLeft, setSecondsLeft] = useState(turnDuration);
@@ -75,6 +80,29 @@ export default function InitiativeBar({
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [activePlayerId, isPlayerTurn, isActive, turnDuration, onTurnExpired]);
+
+  // Handle timer extension
+  const handleExtendTimer = useCallback(() => {
+    setSecondsLeft((prev) => prev + 180);
+    expiredRef.current = false;
+    // Restart the interval if it was cleared
+    if (!timerRef.current && isPlayerTurn && isActive) {
+      timerRef.current = setInterval(() => {
+        setSecondsLeft((prev) => {
+          if (prev <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            if (!expiredRef.current) {
+              expiredRef.current = true;
+              setTimeout(() => onTurnExpired(), 0);
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    onExtendTimer?.();
+  }, [isPlayerTurn, isActive, onTurnExpired, onExtendTimer]);
 
   // Format MM:SS
   const minutes = Math.floor(secondsLeft / 60);
@@ -111,6 +139,9 @@ export default function InitiativeBar({
     : activePlayerId
       ? isPlayerTurn ? "Player's Turn" : "GM Narrating"
       : "Open Floor";
+
+  // Show extend button when timer < 60s and it's the current player's turn
+  const showExtendButton = isMyTurn && isActive && secondsLeft > 0 && secondsLeft < 60;
 
   return (
     <div className="w-full h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl flex items-center justify-between px-8 z-30 shrink-0">
@@ -162,6 +193,14 @@ export default function InitiativeBar({
               )}
             </div>
 
+            {/* "Writing..." indicator for active player */}
+            {activePlayerId === p.userId && isActive && (
+              <div className="absolute -bottom-5 flex items-center gap-1 whitespace-nowrap">
+                <div className="w-1 h-1 rounded-full bg-amber/60 animate-pulse" />
+                <span className="text-[8px] uppercase tracking-widest text-amber/40 font-display">Writing...</span>
+              </div>
+            )}
+
             {/* Tooltip */}
             <div className="absolute top-12 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity bg-black border border-white/10 rounded px-2 py-1 flex flex-col items-center whitespace-nowrap pointer-events-none z-50">
               <span className={`text-[10px] font-bold ${p.color}`}>{p.name}</span>
@@ -194,6 +233,17 @@ export default function InitiativeBar({
             <span className={`text-xs font-mono font-bold tabular-nums ${timerColor}`}>
               {timeStr}
             </span>
+
+            {/* Extend timer button — visible when < 60s and it's current player's turn */}
+            {showExtendButton && (
+              <button
+                onClick={handleExtendTimer}
+                className="text-[9px] uppercase tracking-wider text-amber/60 hover:text-amber border border-amber/20 hover:border-amber/40 rounded-full px-2 py-0.5 transition-all cursor-pointer"
+                title="Add 3 more minutes"
+              >
+                Extend +3min
+              </button>
+            )}
           </div>
         )}
       </div>

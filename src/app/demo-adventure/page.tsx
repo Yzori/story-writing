@@ -7,6 +7,7 @@ import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import type { Turn, PlayerCharacter, RollRequest, StarterItem, SessionRosterEntry } from "@/components/campaign/types";
 import { rollStarterItems } from "@/components/campaign/types";
+import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import type { MapPin } from "@/components/campaign/LoreMap";
 import StoryMoment from "@/components/campaign/StoryMoment";
 import { LOBBY_THEMES } from "@/components/campaign/SessionLobby";
@@ -54,11 +55,11 @@ const INITIAL_TURNS: Turn[] = [
   { id: "t3", sessionId: "s1", userId: "user-kaelen", characterId: "char-2", type: "dialogue", content: "Is that blood on the blade?", metadata: null, sortOrder: 2, createdAt: "2026-03-14T20:01:30Z", user: { id: "user-kaelen", displayName: "James", avatarUrl: null }, characterName: "Kaelen", characterPortrait: null },
   { id: "t4", sessionId: "s1", userId: "user-lyra", characterId: "char-1", type: "reaction", content: "Her breath catches. This was the weapon — the one the old histories claimed was lost forever.", metadata: null, sortOrder: 3, createdAt: "2026-03-14T20:02:00Z", user: { id: "user-lyra", displayName: "Sarah", avatarUrl: null }, characterName: "Lyra", characterPortrait: null },
   { id: "t5", sessionId: "s1", userId: "gm", characterId: null, type: "consequence", content: "The altar begins to hum beneath her touch, a sound that seems to rise from the earth itself. Runes ignite with pale blue light, casting strange writhing shadows across the vaulted ceiling.", metadata: null, sortOrder: 4, createdAt: "2026-03-14T20:03:00Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
-  { id: "t-scene-1", sessionId: "s1", userId: "gm", characterId: null, type: "scene-break", content: "", metadata: JSON.stringify({ mood: "ominous", title: "The Awakening" }), sortOrder: 5, createdAt: "2026-03-14T20:03:15Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
+  { id: "t-scene-1", sessionId: "s1", userId: "gm", characterId: null, type: "scene-break", content: "", metadata: JSON.stringify({ mood: "ominous", title: "The Awakening", aspects: ["Ancient Runes Glow", "The Air Grows Cold"] }), sortOrder: 5, createdAt: "2026-03-14T20:03:15Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
   { id: "t6", sessionId: "s1", userId: "user-elara", characterId: "char-3", type: "description", content: "The air grows cold, impossibly cold, and a distant chime echoes through the chamber — a sound from somewhere outside of time.", metadata: null, sortOrder: 6, createdAt: "2026-03-14T20:03:30Z", user: { id: "user-elara", displayName: "Elena", avatarUrl: null }, characterName: "Elara", characterPortrait: null },
   { id: "t7", sessionId: "s1", userId: "user-kaelen", characterId: "char-2", type: "action", content: "draws his sword defensively, the blade ringing as it clears the scabbard.", metadata: null, sortOrder: 7, createdAt: "2026-03-14T20:04:00Z", user: { id: "user-kaelen", displayName: "James", avatarUrl: null }, characterName: "Kaelen", characterPortrait: null },
   { id: "t8", sessionId: "s1", userId: "user-elara", characterId: "char-3", type: "dialogue", content: "We should leave. Now.", metadata: null, sortOrder: 8, createdAt: "2026-03-14T20:04:30Z", user: { id: "user-elara", displayName: "Elena", avatarUrl: null }, characterName: "Elara", characterPortrait: null },
-  { id: "t-scene-2", sessionId: "s1", userId: "gm", characterId: null, type: "scene-break", content: "", metadata: JSON.stringify({ mood: "tense" }), sortOrder: 9, createdAt: "2026-03-14T20:05:00Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
+  { id: "t-scene-2", sessionId: "s1", userId: "gm", characterId: null, type: "scene-break", content: "", metadata: JSON.stringify({ mood: "tense", aspects: ["Torrential Rain", "No Escape", "The Clock Ticks"] }), sortOrder: 9, createdAt: "2026-03-14T20:05:00Z", user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null }, characterName: null, characterPortrait: null },
 ];
 
 const INITIAL_LOG_TURNS: Turn[] = [
@@ -113,6 +114,12 @@ export default function DemoAdventurePage() {
       status: "present" as const,
     }))
   );
+
+  // Tension clocks — local session-scoped state
+  const [clocks, setClocks] = useState<ProgressClockData[]>([
+    { id: "demo-clock-1", name: "The Ritual", segments: 6, filled: 3, type: "danger" },
+    { id: "demo-clock-2", name: "Dawn Approaches", segments: 4, filled: 1, type: "progress" },
+  ]);
 
   const rosterCharacters = useMemo(() => {
     const presentIds = new Set(
@@ -237,6 +244,20 @@ export default function DemoAdventurePage() {
     showToast("Turn timer expired — control returned to GM");
   }, [showToast]);
 
+  const handleExtendTimer = useCallback(() => {
+    const charName = myCharacter?.name ?? "A player";
+    showToast("Timer extended by 3 minutes");
+    const id = `log-ext-${Date.now()}`;
+    setLogTurns((prev) => [...prev, {
+      id, sessionId: "s1", userId: currentUserId, characterId: myCharacter?.id ?? null,
+      type: "ooc", content: `[${charName}] requested more time to write`,
+      metadata: null, sortOrder: ++turnCounterRef.current,
+      createdAt: new Date().toISOString(),
+      user: { id: currentUserId, displayName: isGM ? "AlexTheGM" : myCharacter?.user?.displayName ?? "Player", avatarUrl: null },
+      characterName: myCharacter?.name ?? null, characterPortrait: null,
+    }]);
+  }, [showToast, myCharacter, currentUserId, isGM]);
+
   const handleChangeCharacterStatus = useCallback((characterId: string, status: "active" | "retired" | "dead") => {
     setMockCharacters((prev) => prev.map((c) => c.id === characterId ? { ...c, status } : c));
     const char = mockCharacters.find((c) => c.id === characterId);
@@ -339,11 +360,11 @@ export default function DemoAdventurePage() {
     showToast(`Roll requested from ${targetChar?.name ?? "party"}`);
   }, [showToast]);
 
-  const handleSceneBreak = useCallback((title: string, mood: string) => {
+  const handleSceneBreak = useCallback((title: string, mood: string, aspects?: string[]) => {
     const id = `scene-${Date.now()}`;
     setStoryTurns((prev) => [...prev, {
       id, sessionId: "s1", userId: "gm", characterId: null,
-      type: "scene-break", content: "", metadata: JSON.stringify({ mood, title: title || undefined }),
+      type: "scene-break", content: "", metadata: JSON.stringify({ mood, title: title || undefined, ...(aspects && aspects.length > 0 ? { aspects } : {}) }),
       sortOrder: ++turnCounterRef.current, createdAt: new Date().toISOString(),
       user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
       characterName: null, characterPortrait: null,
@@ -645,6 +666,7 @@ export default function DemoAdventurePage() {
           onOpenFloor={handleOpenFloor}
           onEndSession={handleEndSession}
           onTurnExpired={handleTurnExpired}
+          onExtendTimer={handleExtendTimer}
           onRollComplete={handleRollComplete}
           pendingRollRequest={pendingRollRequest}
           myCharacterStatus={myCharacter?.status ?? null}
@@ -678,6 +700,8 @@ export default function DemoAdventurePage() {
           onUseItem={handleUseItem}
           roster={roster}
           onInviteNewCharacter={handleInviteNewCharacter}
+          clocks={clocks}
+          onClocksChange={setClocks}
         />
       </div>
     </div>

@@ -9,6 +9,7 @@ import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import type { RollRequest } from "@/components/campaign/types";
+import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
 
 export default function SessionPlayPage() {
@@ -49,6 +50,9 @@ export default function SessionPlayPage() {
     text: string;
     subtext?: string;
   } | null>(null);
+
+  // Tension clocks — local session-scoped state (no backend)
+  const [clocks, setClocks] = useState<ProgressClockData[]>([]);
 
   // Detect session ending via poll (for players) — play cinematic
   // Detect session transitions via poll — play cinematics for non-GM players
@@ -226,6 +230,17 @@ export default function SessionPlayPage() {
       showToast(err instanceof Error ? err.message : "Failed to expire turn");
     }
   }, [story, setActivePlayer, showToast]);
+
+  // Player extends their turn timer
+  const handleExtendTimer = useCallback(async () => {
+    showToast("Timer extended by 3 minutes");
+    try {
+      const charName = myCharacter?.name ?? "A player";
+      await sendTurn("ooc", `[${charName}] requested more time to write`);
+    } catch {
+      // Non-critical — don't show error for OOC message
+    }
+  }, [showToast, myCharacter, sendTurn]);
 
   // GM changes character status (kill / retire / revive)
   const handleChangeCharacterStatus = useCallback(
@@ -421,11 +436,11 @@ export default function SessionPlayPage() {
     [sendTurn, showToast]
   );
 
-  // GM creates a scene break
+  // GM creates a scene break (with optional aspect tags)
   const handleSceneBreak = useCallback(
-    async (title: string, mood: string) => {
+    async (title: string, mood: string, aspects?: string[]) => {
       try {
-        const metadata = JSON.stringify({ title, mood });
+        const metadata = JSON.stringify({ title, mood, ...(aspects && aspects.length > 0 ? { aspects } : {}) });
         await sendTurn("scene-break", "", undefined, metadata);
         showToast(title ? `Scene: ${title}` : `Scene break (${mood})`);
       } catch (err) {
@@ -670,6 +685,7 @@ export default function SessionPlayPage() {
         onOpenFloor={handleOpenFloor}
         onEndSession={handleEndSession}
         onTurnExpired={handleTurnExpired}
+        onExtendTimer={handleExtendTimer}
         onRollComplete={handleRollComplete}
         pendingRollRequest={pendingRollRequest}
         myCharacterStatus={myCharacter?.status ?? null}
@@ -694,6 +710,8 @@ export default function SessionPlayPage() {
         onStoryMoment={handleStoryMoment}
         roster={roster}
         onInviteNewCharacter={handleInviteNewCharacter}
+        clocks={clocks}
+        onClocksChange={setClocks}
       />
     </div>
   );
