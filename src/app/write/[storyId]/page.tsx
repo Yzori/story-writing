@@ -447,6 +447,21 @@ export default function WriteStoryPage() {
     [updateProject]
   );
 
+  // ── Scene break style change (from inline picker in editor) ──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const style = (e as CustomEvent).detail as "asterism" | "fleuron" | "dots" | "line" | "space";
+      if (style) {
+        updateProject((prev) => ({
+          ...prev,
+          typography: { ...prev.typography, sceneBreakStyle: style },
+        }));
+      }
+    };
+    window.addEventListener("scene-break-style-change", handler);
+    return () => window.removeEventListener("scene-break-style-change", handler);
+  }, [updateProject]);
+
   const handleAddChapter = useCallback(async () => {
     const title = `Chapter ${(project?.chapters.length ?? 0) + 1}`;
 
