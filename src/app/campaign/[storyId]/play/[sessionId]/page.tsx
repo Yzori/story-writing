@@ -51,21 +51,33 @@ export default function SessionPlayPage() {
   } | null>(null);
 
   // Detect session ending via poll (for players) — play cinematic
+  // Detect session transitions via poll — play cinematics for non-GM players
   const prevSessionStatusRef = useRef(campaignSession?.status);
   useEffect(() => {
-    if (
-      prevSessionStatusRef.current === "active" &&
-      campaignSession?.status === "completed" &&
-      !isGM
-    ) {
-      setActiveStoryMoment({
-        mood: campaignSession?.closingMood ?? "calm",
-        text: campaignSession?.epilogue || "The story pauses here...",
-        subtext: "Until next time.",
-      });
+    const prev = prevSessionStatusRef.current;
+    const next = campaignSession?.status;
+
+    if (!isGM && prev !== next) {
+      // Session began — play opening cinematic
+      if (prev === "draft" && next === "active" && campaignSession?.opening) {
+        const opening = campaignSession.opening;
+        setActiveStoryMoment({
+          mood: "calm",
+          text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
+          subtext: campaignSession?.title ?? "The story begins.",
+        });
+      }
+      // Session ended — play closing cinematic
+      if (prev === "active" && next === "completed") {
+        setActiveStoryMoment({
+          mood: campaignSession?.closingMood ?? "calm",
+          text: campaignSession?.epilogue || "The story pauses here...",
+          subtext: "Until next time.",
+        });
+      }
     }
-    prevSessionStatusRef.current = campaignSession?.status;
-  }, [campaignSession?.status, campaignSession?.epilogue, campaignSession?.closingMood, isGM]);
+    prevSessionStatusRef.current = next;
+  }, [campaignSession?.status, campaignSession?.opening, campaignSession?.epilogue, campaignSession?.closingMood, campaignSession?.title, isGM]);
 
   // ── Turn routing ──────────────────────────────────────────
   // Left pillar: only meta/mechanical stuff (chat, dice, roll requests)
@@ -634,7 +646,19 @@ export default function SessionPlayPage() {
         onBeginSession={async () => {
           try {
             await updateSession({ status: "active" });
-            showToast("The story begins!");
+            const opening = campaignSession?.opening;
+            if (opening) {
+              // Play opening narration as a cinematic moment
+              setActiveStoryMoment({
+                mood: "calm",
+                text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
+                subtext: campaignSession?.title ?? "The story begins.",
+              });
+              // Post the opening as the first narration turn
+              await sendTurn("narration", opening);
+            } else {
+              showToast("The story begins!");
+            }
           } catch (err) {
             showToast(err instanceof Error ? err.message : "Failed to begin session");
           }

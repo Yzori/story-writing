@@ -387,7 +387,16 @@ export default function DemoAdventurePage() {
 
   const handleBeginSession = useCallback(() => {
     setSessionStatus("active");
-    showToast("The story begins!");
+    // Play opening narration as cinematic moment
+    if (OPENING) {
+      setActiveStoryMoment({
+        mood: "calm",
+        text: OPENING.length > 120 ? OPENING.slice(0, 120).trimEnd() + "..." : OPENING,
+        subtext: "The Ruined Throne",
+      });
+    } else {
+      showToast("The story begins!");
+    }
   }, [showToast]);
 
   const handleAddMapPin = useCallback((pin: Omit<MapPin, "id">) => {
