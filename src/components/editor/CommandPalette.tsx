@@ -295,9 +295,39 @@ export default function CommandPalette({
     if (open) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      // Try focusing immediately, then retry after animation
+      requestAnimationFrame(() => inputRef.current?.focus());
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
+
+  // Global keyboard handler when palette is open — catches arrow keys
+  // even if the input hasn't received focus yet
+  useEffect(() => {
+    if (!open) return;
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+        inputRef.current?.focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+        inputRef.current?.focus();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const cmd = filtered[selectedIndex];
+        if (cmd) {
+          cmd.action();
+          onClose();
+        }
+      } else if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [open, filtered, selectedIndex, onClose]);
 
   useEffect(() => {
     setSelectedIndex(0);
