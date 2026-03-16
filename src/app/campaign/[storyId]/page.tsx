@@ -20,6 +20,7 @@ interface StoryData {
   title: string;
   slug: string | null;
   writingMode: string;
+  isPublic: boolean;
   author: Author | null;
 }
 
@@ -149,6 +150,27 @@ export default function CampaignPage() {
   const userCharacters = characters.filter((c) => c.userId === currentUserId);
   const userDeadOrRetiredChars = userCharacters.filter((c) => c.status === "dead" || c.status === "retired");
   const isReplacementCharacter = userDeadOrRetiredChars.length > 0 && !userHasActiveCharacter;
+  const isPublicCampaign = story?.isPublic ?? false;
+
+  const handleToggleDiscoverable = async () => {
+    if (!story) return;
+    const newValue = !isPublicCampaign;
+    // Optimistic update
+    setStory({ ...story, isPublic: newValue });
+    try {
+      const res = await fetch(`/api/stories/${storyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: newValue }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setStory({ ...story, isPublic: !newValue });
+      }
+    } catch {
+      setStory({ ...story, isPublic: !newValue });
+    }
+  };
 
   // ── Fetch data ──────────────────────────────────────────────
 
@@ -611,6 +633,36 @@ export default function CampaignPage() {
                   <p className="text-text-ghost text-xs mt-1 font-mono">
                     /campaign/{storyId}
                   </p>
+                </div>
+
+                {/* Discoverable toggle */}
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={handleToggleDiscoverable}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                      isPublicCampaign ? "bg-sage/40" : "bg-surface border border-border"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full transition-all duration-200 ${
+                        isPublicCampaign
+                          ? "translate-x-6 bg-sage shadow-sm shadow-sage/30"
+                          : "translate-x-1 bg-text-ghost/50"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs text-text-secondary">
+                    {isPublicCampaign ? (
+                      <span className="text-sage">Discoverable</span>
+                    ) : (
+                      <span className="text-text-ghost">Private</span>
+                    )}
+                  </span>
+                  <span className="text-[10px] text-text-ghost/60">
+                    {isPublicCampaign
+                      ? "Listed in Browse"
+                      : "Invite-only"}
+                  </span>
                 </div>
 
                 {/* Transfer GM — only show if there are players to transfer to */}

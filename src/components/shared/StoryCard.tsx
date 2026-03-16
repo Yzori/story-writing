@@ -26,6 +26,7 @@ interface StoryCardProps {
   lastEdited?: string;
   variant?: "default" | "featured";
   excerpt?: string;
+  writingMode?: string;
 }
 
 const STATUS_STYLES: Record<string, { label: string; dot: string; className: string }> = {
@@ -72,6 +73,7 @@ export default function StoryCard({
   lastEdited,
   variant = "default",
   excerpt,
+  writingMode,
 }: StoryCardProps) {
   const linkHref = href || `/story/${slug}`;
   const statusInfo = status ? STATUS_STYLES[status] : null;
@@ -97,6 +99,15 @@ export default function StoryCard({
             <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
             {/* Shimmer on hover */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            {/* Campaign badge */}
+            {writingMode === "campaign" && (
+              <span className="absolute top-3 left-3 text-[10px] font-medium tracking-wider text-amber bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
+                  <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+                </svg>
+                Adventure
+              </span>
+            )}
           </div>
           <div className="p-5 -mt-10 relative">
             <h3 className="font-display text-paper text-lg font-semibold mb-1.5 group-hover:text-amber transition-colors duration-200 leading-snug">
@@ -171,6 +182,15 @@ export default function StoryCard({
           )}
           {/* Shimmer */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          {/* Campaign badge */}
+          {writingMode === "campaign" && (
+            <span className="absolute top-3 left-3 text-[10px] font-medium tracking-wider text-amber bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
+                <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+              </svg>
+              Adventure
+            </span>
+          )}
         </div>
 
         {/* Content */}
