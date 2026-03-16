@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
-import type { Turn, PlayerCharacter, RollRequest, StarterItem, SessionRosterEntry } from "@/components/campaign/types";
-import { rollStarterItems } from "@/components/campaign/types";
+import type { Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/components/campaign/types";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import type { MapPin } from "@/components/campaign/LoreMap";
 import StoryMoment from "@/components/campaign/StoryMoment";
@@ -88,15 +87,6 @@ export default function DemoAdventurePage() {
   } | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-
-  // Starter items — each character gets 1 random item seeded by their ID
-  const [characterItems, setCharacterItems] = useState<Record<string, StarterItem[]>>(() => {
-    const items: Record<string, StarterItem[]> = {};
-    for (const c of INITIAL_CHARACTERS) {
-      items[c.id] = rollStarterItems(c.id, 1);
-    }
-    return items;
-  });
 
   const [mapPins, setMapPins] = useState<MapPin[]>([
     { id: "pin-1", x: 25, y: 40, label: "The Ruined Throne Room", mood: "ominous", description: "Where the party first discovered the altar." },
@@ -446,32 +436,6 @@ export default function DemoAdventurePage() {
     showToast(`Invitation sent to ${char?.user?.displayName ?? "player"} — they can create a new character.`);
   }, [mockCharacters, showToast]);
 
-  const handleUseItem = useCallback((characterId: string, item: StarterItem) => {
-    const char = mockCharacters.find((c) => c.id === characterId);
-    if (!char) return;
-
-    // Create a story turn describing the item use
-    const id = `item-use-${Date.now()}`;
-    setStoryTurns((prev) => [...prev, {
-      id, sessionId: "s1", userId: char.userId, characterId,
-      type: "action",
-      content: `reaches for the ${item.name} and ${item.effect}.`,
-      metadata: JSON.stringify({ itemUsed: item.name, itemTag: item.tag }),
-      sortOrder: ++turnCounterRef.current,
-      createdAt: new Date().toISOString(),
-      user: { id: char.userId, displayName: char.user?.displayName ?? "Player", avatarUrl: null },
-      characterName: char.name, characterPortrait: null,
-    }]);
-
-    // Remove the item
-    setCharacterItems((prev) => ({
-      ...prev,
-      [characterId]: (prev[characterId] ?? []).filter((i) => i.id !== item.id),
-    }));
-
-    showToast(`${char.name} used ${item.name}!`);
-  }, [mockCharacters, showToast]);
-
   return (
     <div className="flex flex-col w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden">
       {/* Demo Controls Bar */}
@@ -696,8 +660,6 @@ export default function DemoAdventurePage() {
           onStoryMoment={handleStoryMoment}
           isCollapsed={rightCollapsed}
           onToggleCollapse={() => setRightCollapsed((v) => !v)}
-          characterItems={characterItems}
-          onUseItem={handleUseItem}
           roster={roster}
           onInviteNewCharacter={handleInviteNewCharacter}
           clocks={clocks}

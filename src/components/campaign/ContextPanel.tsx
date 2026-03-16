@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlayerCharacter, StarterItem, SessionRosterEntry } from "./types";
+import type { PlayerCharacter, SessionRosterEntry } from "./types";
 import { parseStats, APPROACHES } from "./types";
 import ProgressClock from "./ProgressClock";
 import type { ProgressClockData } from "./ProgressClock";
@@ -18,9 +18,6 @@ interface ContextPanelProps {
   onStoryMoment?: (text: string, mood: string, subtext?: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
-  /** Map of characterId → starter items */
-  characterItems?: Record<string, StarterItem[]>;
-  onUseItem?: (characterId: string, item: StarterItem) => void;
   roster?: SessionRosterEntry[];
   onInviteNewCharacter?: (userId: string) => void;
   /** Tension clocks — local session-scoped state */
@@ -40,8 +37,6 @@ export default function ContextPanel({
   onStoryMoment,
   isCollapsed = false,
   onToggleCollapse,
-  characterItems = {},
-  onUseItem,
   roster = [],
   onInviteNewCharacter,
   clocks = [],
@@ -448,24 +443,6 @@ export default function ContextPanel({
                     </div>
                   )}
 
-                  {/* Starter items (GM sees all) — narrative-first display */}
-                  {characterItems[c.id] && characterItems[c.id].length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
-                      {characterItems[c.id].map((item) => (
-                        <div key={item.id} className="px-2 py-1.5 rounded bg-amber/[0.04]">
-                          <div className="flex items-start gap-1.5">
-                            <div className="w-1 h-1 rounded-full bg-amber/40 shrink-0 mt-1.5" />
-                            <div className="min-w-0 flex-1">
-                              <span className="text-[10px] text-amber/60 font-medium">{item.name}</span>
-                              <p className="text-[9px] text-white/30 font-serif italic leading-relaxed mt-0.5">{item.description}</p>
-                              <p className="text-[9px] text-white/40 leading-relaxed mt-0.5">{item.effect}</p>
-                              <span className="text-[7px] text-white/15 uppercase tracking-widest">{item.tag}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -1070,42 +1047,6 @@ export default function ContextPanel({
               </div>
             </div>
 
-            {/* Starter Items — narrative-first display for players */}
-            {myCharacter && characterItems[myCharacter.id] && characterItems[myCharacter.id].length > 0 && (
-              <div>
-                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Items</h3>
-                <div className="space-y-2">
-                  {characterItems[myCharacter.id].map((item) => (
-                    <div key={item.id} className="bg-amber/[0.04] border border-amber/10 rounded-xl p-3 group/item">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="text-xs text-amber/80 font-medium">{item.name}</span>
-                          <p className="text-[10px] text-white/40 mt-0.5 leading-relaxed font-serif italic">{item.description}</p>
-                        </div>
-                      </div>
-                      {/* Effect text as main content for "Use in Story" */}
-                      <p className="text-[10px] text-white/50 mt-1.5 leading-relaxed">{item.effect}</p>
-                      <span className="text-[7px] text-white/15 uppercase tracking-widest">{item.tag}</span>
-                      {onUseItem && (
-                        <button
-                          onClick={() => onUseItem(myCharacter.id, item)}
-                          className="mt-2 w-full bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[9px] uppercase tracking-widest font-bold rounded-lg py-1.5 cursor-pointer transition-colors"
-                        >
-                          Use in Story
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {myCharacter && (!characterItems[myCharacter.id] || characterItems[myCharacter.id].length === 0) && (
-              <div>
-                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Items</h3>
-                <p className="text-[10px] text-white/20 italic font-serif">No items remaining.</p>
-              </div>
-            )}
           </>
         ) : (
           <div className="space-y-4">
