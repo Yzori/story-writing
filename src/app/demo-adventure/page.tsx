@@ -16,7 +16,7 @@ import { LOBBY_THEMES } from "@/components/campaign/SessionLobby";
 const INITIAL_CHARACTERS: PlayerCharacter[] = [
   {
     id: "char-1", userId: "user-lyra", name: "Lyra Varen", portrait: null,
-    description: "A forgekeeper seeking the Obsidian Crown", traits: "Lvl 4 Forgekeeper",
+    description: "A forgekeeper seeking the Obsidian Crown", traits: "Trusts chemicals more than people",
     stats: JSON.stringify({
       approaches: { Bold: -1, Keen: 2, Subtle: 0 },
       aspect: "Believes every problem has a chemical solution",
@@ -26,7 +26,7 @@ const INITIAL_CHARACTERS: PlayerCharacter[] = [
   },
   {
     id: "char-2", userId: "user-kaelen", name: "Kaelen", portrait: null,
-    description: "A wandering bladesinger with a dark past", traits: "Lvl 4 Bladesinger",
+    description: "A wandering bladesinger with a dark past", traits: "Haunted by a debt he can never repay",
     stats: JSON.stringify({
       approaches: { Bold: 2, Keen: -1, Subtle: 0 },
       aspect: "A blade for every shadow, a shadow for every blade",
@@ -36,7 +36,7 @@ const INITIAL_CHARACTERS: PlayerCharacter[] = [
   },
   {
     id: "char-3", userId: "user-elara", name: "Elara", portrait: null,
-    description: "A healer who hears the whispers of the dead", traits: "Lvl 4 Spiritseer",
+    description: "A healer who hears the whispers of the dead", traits: "Hears the dead whether she wants to or not",
     stats: JSON.stringify({
       approaches: { Bold: -1, Keen: 1, Subtle: 1 },
       aspect: "Hears the whispers of the dead whether she wants to or not",

@@ -545,11 +545,11 @@ export default function CampaignPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Traits</label>
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Who are they? <span className="normal-case tracking-normal text-text-ghost/60">(a line others can write them by)</span></label>
                         <textarea
                           value={charTraits}
                           onChange={(e) => setCharTraits(e.target.value)}
-                          placeholder="Brave, cunning, has a weakness for pastries..."
+                          placeholder="Trusts no one but her blade, speaks in half-truths..."
                           rows={2}
                           className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors resize-none"
                         />
