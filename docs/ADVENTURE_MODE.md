@@ -109,7 +109,22 @@ Only the GM can create sessions. Each session has:
 - **Summary** (optional, up to 5,000 characters)
 - **Opening narration** (optional, up to 20,000 characters) -- played as a cinematic moment when the session begins
 
-Sessions are created in `draft` status. When created, the system:
+Sessions are created in `draft` status.
+
+#### Session State Machine
+
+```
+draft → active → completed → archived
+```
+
+**Transition rules:**
+- Only forward transitions are allowed -- there is no reopening a completed session
+- At most **one active session** per story at any time
+- Multiple draft sessions are allowed (plan ahead)
+- Completed sessions are immutable except for metadata fields (epilogue, summary)
+- Archived sessions are fully read-only and excluded from the default campaign hub session list
+
+When created, the system:
 
 1. Auto-populates the session roster with all active characters
 2. Detects which characters are new (never appeared in a prior session roster) and marks them as `introduced` (others are `present`)
@@ -230,13 +245,55 @@ When a player completes their turn, control automatically returns to the GM (act
 | `roll-request` | GM only | Session Log | GM calls for a dice roll |
 | `ooc` | Anyone | Session Log | Out-of-character chat |
 
+##### Turn Permission Matrix
+
+| Turn Type | GM | Player (their turn) | Player (not their turn) | Player (open floor) | Spectator |
+|-----------|----|--------------------|------------------------|--------------------|-----------|
+| narration | Yes | No | No | No | No |
+| consequence | Yes | No | No | No | No |
+| action | No | Yes | No | Yes (first-come) | No |
+| dialogue | No | Yes | No | Yes (first-come) | No |
+| reaction | No | Yes | No | Yes (first-come) | No |
+| description | No | Yes | No | Yes (first-come) | No |
+| illustration | Yes | No | No | No | No |
+| roll-request | Yes | No | No | No | No |
+| roll | No | Yes (with request) | No | No | No |
+| ooc | Yes | Yes | Yes | Yes | Yes |
+| scene-break | Yes | No | No | No | No |
+
+##### Open Floor Behavior
+
+- Open floor = `activePlayerId` is null
+- First-come, first-served: the first player to submit gets their turn in
+- After one player submits a story turn, control automatically returns to the GM
+- GM can re-open the floor or assign the next player
+- The turn timer does NOT run during open floor
+- Multiple players can type simultaneously but only the first submission counts as the "turn"
+
 **Turn enforcement:** The API enforces turn order. When `activePlayerId` is set, only that player can post player story types (action/dialogue/reaction/description). GM narration/consequence, OOC messages, and rolls bypass turn order.
 
 **Turn timer:** A 3-minute countdown timer starts when a player receives the turn. Visual urgency increases (white -> amber -> red) as time runs out. When the timer expires, control returns to the GM. Players can extend the timer by 3 minutes when under 60 seconds remain (sends an OOC notification).
 
+**Timer details:**
+- Timer is client-side (180 seconds default)
+- "Extend +3min" button appears when < 60 seconds remain on your turn
+- Extension adds 180 seconds locally and sends an OOC notification to the party
+- Timer extension is client-only (not server-persisted) -- page refresh resets the timer
+- When timer expires, control returns to GM automatically
+- Draft text is auto-saved to localStorage (survives refresh but not timer expiry)
+- GM can skip a player at any time by passing the turn -- no need to wait for timer
+
 **"Writing..." indicator:** The active player's avatar in the Initiative Bar shows a pulsing amber dot and "Writing..." label.
 
 **Turn editing:** Players can edit recently submitted turns within a 30-second window via `PATCH /api/stories/[storyId]/campaign/sessions/[sessionId]/turns/[turnId]`.
+
+**Edit window rules:**
+- 30-second window after submitting a turn
+- Editable types: narration, consequence, action, dialogue, reaction, description, ooc
+- Non-editable: roll, roll-request, scene-break, illustration (mechanical turns are immutable)
+- Window closes if the GM passes the turn to someone else
+- Edits are immediate (no versioning/audit log yet)
+- Compiled chapters reflect the latest edited content
 
 #### Prose Assembly Engine
 
@@ -296,6 +353,20 @@ The Story Canvas assembles individual turns into flowing prose paragraphs. The a
 8. **Consequence is auto-posted** as a `consequence` turn using the GM's pre-written success/failure text (or generic fallback text)
 9. **Fatal failure:** If the roll was marked fatal and the result is a failure, the character is automatically killed, a death cinematic Story Moment plays, and a narration turn is posted
 
+**"Everyone" roll resolution:**
+- When a roll request targets "everyone," each player with a pending roll sees the DiceRoller
+- Each player rolls independently
+- Each roll generates its own outcome (success/partial/failure)
+- The GM writes a single consequence turn that addresses all outcomes
+- A roll request is "resolved" for a player once they've posted a roll turn with sortOrder > the request's sortOrder
+- Multiple active roll requests can coexist (e.g., different attributes for different players)
+
+**Fatal roll safety:**
+- Fatal stakes are narrative, not mechanical -- the GM describes the stakes in prose; there is no "fatal" checkbox on the roll request form
+- Character death requires GM action via "Their Story Ends" -- a failed roll alone does not auto-kill
+- Exception: if the GM set up the roll with death stakes in the narrative, the system plays the death cinematic automatically
+- Campaign-level safety settings (opt-in lethal play) are not yet implemented but planned
+
 **Approach modifiers:** Based on the character's stats. Chosen approach during character creation gives +2 to one approach, 0 to the next, -1 to the last.
 
 **Approach descriptions:**
@@ -334,7 +405,9 @@ Borrowed from Blades in the Dark. Visual pie-chart clocks that track escalating 
 - Three sizes: 4, 6, or 8 segments
 - Interactive: GM clicks segments to fill/unfill them
 - Deletable on hover
-- Session-scoped (local state, not persisted to database)
+- Persisted to the database (`progressClocks` table), stored per-session
+- Visible to all players and survive page refresh
+- Synced via polling; GM creates/updates/deletes via API
 
 **2. Push Event (Narrative Push)**
 
@@ -423,7 +496,13 @@ Auto-death from fatal dice rolls follows the same flow but is triggered automati
 4. A narration turn is posted: "CharName departs, their chapter in this tale complete."
 5. The player can create a new character from the campaign hub
 
-**Multi-character support:** A user can have multiple characters in a campaign (one active at a time). Dead/retired characters appear in the "Characters Past" memorial section on the campaign hub.
+**Multi-character rules:**
+- A user may own multiple characters in a campaign (e.g., one dead, one active)
+- Only **one character per user** may have `status = 'active'` at any time
+- Only the active character can appear on a session roster
+- Dead/retired characters are preserved as narrative history and appear in the "Characters Past" memorial section on the campaign hub
+- Creating a new character requires no active character (all previous must be dead or retired)
+- The GM must explicitly invite a player to create a replacement character
 
 **New character invitation:** When a player's character dies and they have no other active character, the GM sees an "Invite New Character" button in the Context Panel. Clicking it sends a notification to the player directing them to the campaign hub to create a replacement.
 
@@ -440,6 +519,12 @@ An interactive map component accessible from the Story Canvas toolbar. Features:
 - **Fog of war** -- vignette overlay around the edges
 
 Each pin has: `{ id, x, y, label, mood?, description?, sceneBreakId? }`
+
+**Known limitations:**
+- Lore Map pins are currently client-side only in the demo
+- The Lore Book API (lore entries) exists but is separate from map pins
+- Full map pin persistence (DB table + API) is planned but not yet implemented
+- Map pins are story-level (shared across sessions) when implemented
 
 ### 6. Ending a Session
 
@@ -702,6 +787,15 @@ Unique constraint on (pollId, userId).
 | `src/app/campaign/[storyId]/page.tsx` | Campaign hub: character management, session list, applications, polls, scheduling |
 | `src/app/campaign/[storyId]/play/[sessionId]/page.tsx` | Play page: wires up all three panels, handles all turn routing and GM/player actions |
 
+### Notification Types
+
+Current notification types used by adventure mode:
+
+- `collaboration` -- used for session begin/end, session creation, poll creation, poll close
+- All notifications are in-app only (no email/push yet)
+- Notifications have read/unread state
+- Badge count polls every 60 seconds from the navbar
+
 ### Polling and Real-Time Updates
 
 The system uses HTTP polling (not WebSockets) for real-time updates:
@@ -710,6 +804,20 @@ The system uses HTTP polling (not WebSockets) for real-time updates:
 - **Session state:** Session metadata (status, activePlayerId, epilogue) returned with every turn poll response
 - **Characters and roster:** Refreshed every 6th poll cycle (~30 seconds)
 - **Deduplication:** New turns are deduplicated by ID before appending to local state
+
+---
+
+## Known Limitations
+
+- **No GM ownership transfer** -- the story creator is always the GM. Planned for future.
+- **No co-GM support** -- only one GM per campaign.
+- **Timer is client-side** -- extensions don't persist across page refreshes.
+- **Lore Map pins are not persisted** -- demo-only feature currently.
+- **No content moderation** -- user-generated content (prose, illustrations, OOC) is not moderated.
+- **No timezone handling in polls** -- options are free text, no date parsing.
+- **Illustration URLs are not validated** -- any URL is accepted; broken images fail silently.
+- **No campaign-level safety settings** -- no opt-in/opt-out for lethal play.
+- **`introduced` roster status** mixes first-appearance with attendance; may be split into a boolean in future.
 
 ---
 
