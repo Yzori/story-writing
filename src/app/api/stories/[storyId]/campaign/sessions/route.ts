@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { campaignSessions, campaignTurns } from "@/lib/db/schema";
+import { campaignSessions, campaignTurns, playerCharacters } from "@/lib/db/schema";
 import { eq, asc, sql, count } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createCampaignSessionSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
 import { applyRateLimit } from "@/lib/api-utils";
+import { createBulkNotifications } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -136,6 +137,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         sortOrder: nextOrder,
       })
       .returning();
+
+    // Notify players that a new session is available
+    const players = await db.query.playerCharacters.findMany({
+      where: eq(playerCharacters.storyId, storyId),
+    });
+    const playerUserIds = [...new Set(
+      players.map((p) => p.userId).filter((id) => id !== session.user.id)
+    )];
+    if (playerUserIds.length > 0) {
+      await createBulkNotifications(
+        playerUserIds,
+        "collaboration",
+        `New session "${created.title}" created in ${check.story?.title ?? "a campaign"}`,
+        `/campaign/${storyId}`
+      );
+    }
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {

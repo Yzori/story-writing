@@ -118,7 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const nextOrder = (maxResult?.maxOrder ?? -1) + 1;
     const wordCount = countWords(compiledHTML);
 
-    // Create the chapter draft
+    // Create the chapter draft linked to the session
     const [chapter] = await db
       .insert(chapters)
       .values({
@@ -128,8 +128,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         wordCount,
         sortOrder: nextOrder,
         status: "draft",
+        sessionId,
       })
       .returning();
+
+    // Link the session back to the chapter
+    await db
+      .update(campaignSessions)
+      .set({ chapterId: chapter.id })
+      .where(eq(campaignSessions.id, sessionId));
 
     return NextResponse.json(
       {

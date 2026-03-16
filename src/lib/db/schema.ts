@@ -116,6 +116,7 @@ export const chapters = pgTable("chapters", {
   authorNoteBefore: text("author_note_before").default(""),
   authorNoteAfter: text("author_note_after").default(""),
   outline: text("outline").default(""),
+  sessionId: uuid("session_id"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -129,6 +130,10 @@ export const chaptersRelations = relations(chapters, ({ one, many }) => ({
   story: one(stories, {
     fields: [chapters.storyId],
     references: [stories.id],
+  }),
+  session: one(campaignSessions, {
+    fields: [chapters.sessionId],
+    references: [campaignSessions.id],
   }),
   snapshots: many(chapterSnapshots),
 }));
@@ -760,6 +765,7 @@ export const campaignSessions = pgTable("campaign_sessions", {
   opening: text("opening"),
   epilogue: text("epilogue"),
   closingMood: text("closing_mood"),
+  chapterId: uuid("chapter_id"),
   activePlayerId: uuid("active_player_id").references(() => users.id, { onDelete: "set null" }),
   sortOrder: integer("sort_order").notNull().default(0),
   status: text("status").notNull().default("active"), // 'draft' | 'active' | 'completed' | 'archived'

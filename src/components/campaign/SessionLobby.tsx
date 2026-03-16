@@ -211,6 +211,21 @@ export default function SessionLobby({
         />
         {/* Dark overlay gradient */}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40" />
+
+        {/* Previous session mood tint */}
+        {previousMood && (() => {
+          const moodTints: Record<string, string> = {
+            tense: "rgba(244,63,94,0.06)",
+            ominous: "rgba(139,92,246,0.08)",
+            triumphant: "rgba(200,150,60,0.06)",
+            melancholy: "rgba(99,102,241,0.07)",
+            chaotic: "rgba(251,146,60,0.06)",
+            mysterious: "rgba(34,211,238,0.06)",
+            romantic: "rgba(236,72,153,0.06)",
+          };
+          const tint = moodTints[previousMood];
+          return tint ? <div className="absolute inset-0 transition-all duration-[3000ms]" style={{ backgroundColor: tint }} /> : null;
+        })()}
       </div>
 
       {/* Layer 3 — Ambient Particles (rendered behind content but above background) */}
