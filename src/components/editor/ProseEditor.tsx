@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Node, mergeAttributes, nodeInputRule } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
@@ -10,14 +11,70 @@ import Underline from "@tiptap/extension-underline";
 import { useEffect, useCallback, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
 
-// Use default HorizontalRule — no custom NodeView.
-// Styling handled purely via CSS on the native <hr> element.
+// Scene break as a normal block node (not void <hr>).
+// Renders as <div class="scene-break">⁂</div> — a real element CSS can style.
+const SceneBreak = Node.create({
+  name: "horizontalRule", // keep the name so setHorizontalRule() still works
+  group: "block",
+  atom: true, // non-editable, treated as a single unit
+
+  parseHTML() {
+    return [
+      { tag: "hr" },
+      { tag: 'div.scene-break' },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["div", mergeAttributes(HTMLAttributes, { class: "scene-break", contenteditable: "false" }), "\u2042"];
+  },
+
+  addCommands() {
+    return {
+      setHorizontalRule: () => ({ chain, state }) => {
+        return chain()
+          .insertContent({ type: this.name })
+          .command(({ tr, dispatch }) => {
+            if (dispatch) {
+              const { $to } = tr.selection;
+              const posAfter = $to.end();
+              if ($to.nodeAfter) {
+                tr.setSelection(
+                  state.schema.nodes.paragraph
+                    ? TextSelection.create(tr.doc, $to.pos + 1)
+                    : tr.selection
+                );
+              } else {
+                const node = state.schema.nodes.paragraph?.create();
+                if (node) {
+                  tr.insert(posAfter, node);
+                  tr.setSelection(TextSelection.create(tr.doc, posAfter + 1));
+                }
+              }
+              tr.scrollIntoView();
+            }
+            return true;
+          })
+          .run();
+      },
+    };
+  },
+
+  addInputRules() {
+    return [
+      nodeInputRule({
+        find: /^(?:---|—-|___\s|\*\*\*\s)$/,
+        type: this.type,
+      }),
+    ];
+  },
+});
 
 const typewriterPluginKey = new PluginKey("typewriterScroll");
 
@@ -77,9 +134,10 @@ export default function ProseEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        horizontalRule: {},
+        horizontalRule: false,
         dropcursor: { color: "var(--t-gold)", width: 2 },
       }),
+      SceneBreak,
       Placeholder.configure({
         placeholder: "Begin your story... (type / for commands)",
         emptyEditorClass: "is-editor-empty",

@@ -349,49 +349,44 @@ body::after {
   font-style: italic;
 }
 
-/* Scene break — uses inline SVG background-image (works on void <hr>) */
+/* Scene break — a real block element, not a void <hr> */
 
-.tiptap-editor hr,
+.tiptap-editor .scene-break,
 .prose-reader hr {
-  all: unset;
-  display: block;
-  height: 1.6em;
-  width: 100%;
-  margin: 2em 0;
-  background: transparent;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='18' fill='%23a08050'%3E%E2%81%82%3C/text%3E%3C/svg%3E");
+  text-align: center;
+  margin: 2.5em 0;
+  color: var(--t-gold-dark);
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
+  user-select: none;
   cursor: default;
+  line-height: 1;
 }
 
-/* Variants — swap the SVG background */
-.scene-break-fleuron .tiptap-editor hr,
-.scene-break-fleuron .prose-reader hr {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='20' fill='%23a08050'%3E%E2%9D%A7%3C/text%3E%3C/svg%3E");
+.prose-reader hr {
+  border: none;
+  height: auto;
+  overflow: visible;
 }
-.scene-break-dots .tiptap-editor hr,
-.scene-break-dots .prose-reader hr {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='24'%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='14' letter-spacing='8' fill='%23a08050'%3E%E2%80%A2%E2%80%A2%E2%80%A2%3C/text%3E%3C/svg%3E");
+
+.prose-reader hr::before {
+  content: "\2042";
 }
-.scene-break-line .tiptap-editor hr,
-.scene-break-line .prose-reader hr {
-  background-image: none;
-  height: 1px;
-  width: 4em;
-  background-color: rgba(160, 128, 80, 0.4);
-  margin: 2.5em auto;
-}
-.scene-break-space .tiptap-editor hr,
-.scene-break-space .prose-reader hr {
-  background-image: none;
-  height: 0;
-  margin: 3.5em auto;
-}
-.scene-break-asterism .tiptap-editor hr,
-.scene-break-asterism .prose-reader hr {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-size='18' fill='%23a08050'%3E%E2%81%82%3C/text%3E%3C/svg%3E");
-}
+
+/* Variants */
+.scene-break-fleuron .tiptap-editor .scene-break,
+.scene-break-fleuron .prose-reader hr::before { content: "\2767"; font-size: 1.4rem; letter-spacing: 0; }
+.scene-break-dots .tiptap-editor .scene-break,
+.scene-break-dots .prose-reader hr::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
+.scene-break-line .tiptap-editor .scene-break { font-size: 0; }
+.scene-break-line .tiptap-editor .scene-break::after { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); margin: 0 auto; }
+.scene-break-line .prose-reader hr { height: 1px; width: 4em; background: var(--t-text-ghost); margin: 2.5em auto; }
+.scene-break-line .prose-reader hr::before { content: ""; }
+.scene-break-space .tiptap-editor .scene-break { font-size: 0; margin: 3.5em 0; }
+.scene-break-space .prose-reader hr { margin: 3.5em auto; }
+.scene-break-space .prose-reader hr::before { content: ""; }
+.scene-break-asterism .tiptap-editor .scene-break,
+.scene-break-asterism .prose-reader hr::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
 
 /* Drop caps — ornate, like an illuminated manuscript */
 .drop-caps .tiptap-editor > p:first-of-type::first-letter,
