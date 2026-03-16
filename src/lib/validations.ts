@@ -273,6 +273,16 @@ export const createVoteSchema = z.object({
   vote: z.boolean(),
 });
 
+// ── Session Roster ──────────────────────────────────────────
+
+export const updateSessionRosterSchema = z.object({
+  characterIds: z.array(z.string().uuid()),
+});
+
+export const updateRosterEntrySchema = z.object({
+  status: z.enum(["present", "absent", "introduced", "spectating"]),
+});
+
 // ── Reading Progress ────────────────────────────────────────
 
 export const upsertReadingProgressSchema = z.object({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { playerCharacters, stories } from "@/lib/db/schema";
+import { playerCharacters, stories, sessionRoster, campaignSessions } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { updatePlayerCharacterSchema } from "@/lib/validations";
@@ -83,6 +83,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .set({ ...parsed.data, updatedAt: new Date() })
       .where(eq(playerCharacters.id, characterId))
       .returning();
+
+    // If character became dead or retired, update roster in any active session to 'spectating'
+    if (parsed.data.status === "dead" || parsed.data.status === "retired") {
+      const activeSessions = await db
+        .select({ id: campaignSessions.id })
+        .from(campaignSessions)
+        .where(
+          and(
+            eq(campaignSessions.storyId, storyId),
+            eq(campaignSessions.status, "active")
+          )
+        );
+
+      for (const activeSession of activeSessions) {
+        await db
+          .update(sessionRoster)
+          .set({ status: "spectating" })
+          .where(
+            and(
+              eq(sessionRoster.sessionId, activeSession.id),
+              eq(sessionRoster.characterId, characterId)
+            )
+          );
+      }
+    }
 
     return NextResponse.json({ data: updated });
   } catch (error) {

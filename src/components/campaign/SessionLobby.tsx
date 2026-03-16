@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import type { PlayerCharacter } from "./types";
+import type { PlayerCharacter, SessionRosterEntry } from "./types";
 import { getPlayerColor } from "./types";
 
 // ── Lobby Theme Data ────────────────────────────────────────────
@@ -30,6 +30,9 @@ interface SessionLobbyProps {
   characters: PlayerCharacter[];
   isGM: boolean;
   onBeginSession: () => void;
+  roster?: SessionRosterEntry[];
+  allCharacters?: PlayerCharacter[];
+  onUpdateRoster?: (characterIds: string[]) => void;
 }
 
 // ── Rising Embers (ambient particles) ───────────────────────────
@@ -181,6 +184,109 @@ function EmptySlot({ index }: { index: number }) {
 
 // ── Main Component ──────────────────────────────────────────────
 
+// ── Roster Toggle Card (GM only) ─────────────────────────────
+
+function RosterToggleCard({
+  character,
+  isPresent,
+  isIntroduced,
+  onToggle,
+  allUserIds,
+  index,
+}: {
+  character: PlayerCharacter;
+  isPresent: boolean;
+  isIntroduced: boolean;
+  onToggle: () => void;
+  allUserIds: string[];
+  index: number;
+}) {
+  const colorClass = getPlayerColor(character.userId, allUserIds);
+  const initial = character.name.charAt(0).toUpperCase();
+  const playerName = character.user?.displayName ?? "Player";
+
+  const colorMap: Record<string, string> = {
+    "text-rose": "rgba(244, 63, 94, 0.4)",
+    "text-indigo-400": "rgba(129, 140, 248, 0.4)",
+    "text-emerald-400": "rgba(52, 211, 153, 0.4)",
+    "text-violet-400": "rgba(167, 139, 250, 0.4)",
+    "text-cyan-400": "rgba(34, 211, 238, 0.4)",
+    "text-orange-400": "rgba(251, 146, 60, 0.4)",
+    "text-pink-400": "rgba(244, 114, 182, 0.4)",
+    "text-lime-400": "rgba(163, 230, 53, 0.4)",
+  };
+  const glowColor = colorMap[colorClass] ?? "rgba(220, 170, 60, 0.4)";
+
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.1 + index * 0.08 }}
+      onClick={onToggle}
+      className={`flex items-center gap-3 px-4 py-3 rounded-2xl backdrop-blur-sm transition-all cursor-pointer ${
+        isPresent
+          ? "bg-white/[0.05] border-2 border-white/15"
+          : "bg-white/[0.02] border-2 border-dashed border-white/10 opacity-40"
+      }`}
+      style={{ minWidth: 180 }}
+    >
+      {/* Avatar */}
+      <div className="relative shrink-0">
+        {isPresent && (
+          <motion.div
+            className="absolute -inset-0.5 rounded-full"
+            style={{ boxShadow: `0 0 10px ${glowColor}` }}
+            animate={{ opacity: [0.3, 0.7, 0.3] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+        )}
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-display font-bold border-2 ${
+            isPresent ? "border-white/20 bg-white/10" : "border-white/5 bg-white/5"
+          } ${colorClass}`}
+        >
+          {initial}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="flex flex-col items-start min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className={`text-sm font-bold truncate ${isPresent ? "text-white/90" : "text-white/40"}`}>
+            {character.name}
+          </span>
+          {isIntroduced && (
+            <span className="text-[8px] uppercase tracking-wider bg-amber/20 text-amber border border-amber/30 rounded-full px-1.5 py-0.5 font-bold">
+              New
+            </span>
+          )}
+        </div>
+        <span className={`text-[10px] ${isPresent ? "text-white/40" : "text-white/20"}`}>
+          {playerName}
+        </span>
+      </div>
+
+      {/* Toggle indicator */}
+      <div className="ml-auto shrink-0">
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+          isPresent
+            ? "border-emerald-400/50 bg-emerald-400/20"
+            : "border-white/15 bg-transparent"
+        }`}>
+          {isPresent && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="w-2 h-2 rounded-full bg-emerald-400"
+            />
+          )}
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
 export default function SessionLobby({
   lobbyTheme,
   sessionTitle,
@@ -190,13 +296,55 @@ export default function SessionLobby({
   characters,
   isGM,
   onBeginSession,
+  roster = [],
+  allCharacters,
+  onUpdateRoster,
 }: SessionLobbyProps) {
   const theme = LOBBY_THEMES.find((t) => t.key === lobbyTheme) ?? LOBBY_THEMES[0];
   const activeCharacters = characters.filter((c) => c.status === "active");
   const allUserIds = activeCharacters.map((c) => c.userId);
 
+  // For GM roster management: use allCharacters (all active in campaign) if provided
+  const rosterCandidates = (allCharacters ?? characters).filter((c) => c.status === "active");
+  const rosterCandidateUserIds = rosterCandidates.map((c) => c.userId);
+
+  // Build a set of present/introduced character IDs from roster
+  const presentCharIds = useMemo(() => {
+    const ids = new Set<string>();
+    roster.forEach((r) => {
+      if (r.status === "present" || r.status === "introduced") ids.add(r.characterId);
+    });
+    return ids;
+  }, [roster]);
+
+  const introducedCharIds = useMemo(() => {
+    const ids = new Set<string>();
+    roster.forEach((r) => {
+      if (r.status === "introduced") ids.add(r.characterId);
+    });
+    return ids;
+  }, [roster]);
+
+  const handleToggleCharacter = (characterId: string) => {
+    if (!onUpdateRoster) return;
+    const currentPresent = rosterCandidates
+      .filter((c) => presentCharIds.has(c.id))
+      .map((c) => c.id);
+
+    if (currentPresent.includes(characterId)) {
+      onUpdateRoster(currentPresent.filter((id) => id !== characterId));
+    } else {
+      onUpdateRoster([...currentPresent, characterId]);
+    }
+  };
+
+  // Characters to show in the party circle (players see only present)
+  const displayCharacters = roster.length > 0
+    ? characters.filter((c) => presentCharIds.has(c.id))
+    : characters;
+
   // Show a couple of empty slots if fewer than 4 characters
-  const emptySlotCount = Math.max(0, 4 - characters.length);
+  const emptySlotCount = Math.max(0, 4 - displayCharacters.length);
 
   return (
     <div className="absolute inset-0 z-50 overflow-hidden">
@@ -292,7 +440,7 @@ export default function SessionLobby({
             transition={{ duration: 0.5, delay: 0.5 }}
             className="flex flex-wrap justify-center gap-3 mb-4"
           >
-            {characters.map((char, i) => (
+            {displayCharacters.map((char, i) => (
               <CharacterCard
                 key={char.id}
                 character={char}
@@ -312,8 +460,35 @@ export default function SessionLobby({
             transition={{ duration: 0.5, delay: 0.9 }}
             className="text-[11px] text-white/25 mb-10 tracking-wide"
           >
-            {activeCharacters.length} of {characters.length + emptySlotCount} gathered
+            {displayCharacters.filter((c) => c.status === "active").length} of {displayCharacters.length + emptySlotCount} gathered
           </motion.p>
+
+          {/* GM Roster Management */}
+          {isGM && roster.length > 0 && onUpdateRoster && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="mb-10 w-full max-w-lg"
+            >
+              <p className="text-[11px] text-white/30 font-serif italic text-center mb-4">
+                Who&rsquo;s at the table tonight?
+              </p>
+              <div className="flex flex-col gap-2">
+                {rosterCandidates.map((char, i) => (
+                  <RosterToggleCard
+                    key={char.id}
+                    character={char}
+                    isPresent={presentCharIds.has(char.id)}
+                    isIntroduced={introducedCharIds.has(char.id)}
+                    onToggle={() => handleToggleCharacter(char.id)}
+                    allUserIds={rosterCandidateUserIds}
+                    index={i}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Opening narration preview */}
           {sessionOpening && (

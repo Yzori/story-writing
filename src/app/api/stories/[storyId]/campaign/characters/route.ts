@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { playerCharacters, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createPlayerCharacterSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/lib/collaboration";
@@ -122,6 +122,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Check if the user already has an active character in this story
+    const existingActive = await db.query.playerCharacters.findFirst({
+      where: and(
+        eq(playerCharacters.storyId, storyId),
+        eq(playerCharacters.userId, session.user.id),
+        eq(playerCharacters.status, "active")
+      ),
+    });
+
+    if (existingActive) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "You already have an active character in this campaign",
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     const [created] = await db
       .insert(playerCharacters)
       .values({
@@ -137,22 +158,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .returning();
 
     return NextResponse.json({ data: created }, { status: 201 });
-  } catch (error: unknown) {
-    // Handle unique constraint violation (one character per user per story)
-    if (
-      error instanceof Error &&
-      error.message.includes("player_characters_story_user_unique")
-    ) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "CONFLICT",
-            message: "You already have a character in this campaign",
-          },
-        },
-        { status: 409 }
-      );
-    }
+  } catch (error) {
     console.error("POST /api/stories/[storyId]/campaign/characters error:", error);
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create player character" } },

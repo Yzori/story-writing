@@ -128,7 +128,10 @@ export default function CampaignPage() {
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
-  const userHasCharacter = characters.some((c) => c.userId === currentUserId);
+  const userHasActiveCharacter = characters.some((c) => c.userId === currentUserId && c.status === "active");
+  const userCharacters = characters.filter((c) => c.userId === currentUserId);
+  const userDeadOrRetiredChars = userCharacters.filter((c) => c.status === "dead" || c.status === "retired");
+  const isReplacementCharacter = userDeadOrRetiredChars.length > 0 && !userHasActiveCharacter;
 
   // ── Fetch data ──────────────────────────────────────────────
 
@@ -452,15 +455,56 @@ export default function CampaignPage() {
               </div>
             )}
 
-            {/* Create character form (non-GM players who don't have a character yet) */}
-            {currentUserId && !userHasCharacter && !isGM && (
+            {/* Memorial section — Characters Past */}
+            {currentUserId && !isGM && userDeadOrRetiredChars.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card-page p-5 space-y-3"
+              >
+                <h3 className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost/60">
+                    <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                  </svg>
+                  Characters Past
+                </h3>
+                <div className="space-y-2">
+                  {userDeadOrRetiredChars.map((c) => (
+                    <div key={c.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-ink/30 border border-border/30">
+                      {c.status === "dead" ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose/50 shrink-0">
+                          <circle cx="9" cy="9" r="1" fill="currentColor" /><circle cx="15" cy="9" r="1" fill="currentColor" />
+                          <path d="M12 2a8 8 0 0 0-8 8c0 3 1.5 5 3 6v2h10v-2c1.5-1 3-3 3-6a8 8 0 0 0-8-8z" />
+                          <path d="M9 18v2a3 3 0 0 0 6 0v-2" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-lavender/50 shrink-0">
+                          <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                        </svg>
+                      )}
+                      <span className="text-sm text-paper/60">{c.name}</span>
+                      <span className={`ml-auto px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] border rounded-full ${
+                        c.status === "dead"
+                          ? "bg-rose/10 text-rose/60 border-rose/15"
+                          : "bg-lavender/10 text-lavender/60 border-lavender/15"
+                      }`}>
+                        {c.status === "dead" ? "Fallen" : "Retired"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Create character form (non-GM players who don't have an active character) */}
+            {currentUserId && !userHasActiveCharacter && !isGM && (
               <div>
                 {!showCreateChar ? (
                   <button
                     onClick={() => setShowCreateChar(true)}
                     className="w-full py-3 bg-amber/10 hover:bg-amber/15 border border-amber/20 rounded-2xl text-amber text-sm font-medium transition-colors cursor-pointer"
                   >
-                    + Create Your Character
+                    {isReplacementCharacter ? "Create a New Character" : "+ Create Your Character"}
                   </button>
                 ) : (
                   <AnimatePresence>
@@ -470,7 +514,13 @@ export default function CampaignPage() {
                       exit={{ opacity: 0, height: 0 }}
                       className="card-page p-5 space-y-4 overflow-hidden"
                     >
-                      <h3 className="text-sm font-semibold text-paper">Create Character</h3>
+                      <h3 className="text-sm font-semibold text-paper">
+                        {isReplacementCharacter ? (
+                          <span className="font-serif italic text-amber/90">A new face emerges from the crowd...</span>
+                        ) : (
+                          "Create Character"
+                        )}
+                      </h3>
 
                       <div className="space-y-1">
                         <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Name</label>

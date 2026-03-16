@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { campaignSessions, campaignTurns, playerCharacters } from "@/lib/db/schema";
-import { eq, asc, sql, count } from "drizzle-orm";
+import { campaignSessions, campaignTurns, playerCharacters, sessionRoster } from "@/lib/db/schema";
+import { eq, and, ne, asc, sql, count } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createCampaignSessionSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
@@ -137,6 +137,48 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         sortOrder: nextOrder,
       })
       .returning();
+
+    // Auto-populate the roster with active characters
+    const activeCharacters = await db
+      .select({ id: playerCharacters.id, userId: playerCharacters.userId })
+      .from(playerCharacters)
+      .where(
+        and(
+          eq(playerCharacters.storyId, storyId),
+          eq(playerCharacters.status, "active")
+        )
+      );
+
+    if (activeCharacters.length > 0) {
+      // Check which characters have been in any prior session roster (to detect 'introduced' vs 'present')
+      const priorRosterEntries = await db
+        .select({ characterId: sessionRoster.characterId })
+        .from(sessionRoster)
+        .innerJoin(
+          campaignSessions,
+          eq(sessionRoster.sessionId, campaignSessions.id)
+        )
+        .where(
+          and(
+            eq(campaignSessions.storyId, storyId),
+            ne(sessionRoster.sessionId, created.id),
+            eq(sessionRoster.status, "present")
+          )
+        );
+
+      const priorCharacterIds = new Set(
+        priorRosterEntries.map((e) => e.characterId)
+      );
+
+      const rosterValues = activeCharacters.map((char) => ({
+        sessionId: created.id,
+        characterId: char.id,
+        userId: char.userId,
+        status: priorCharacterIds.has(char.id) ? "present" : "introduced",
+      }));
+
+      await db.insert(sessionRoster).values(rosterValues);
+    }
 
     // Notify players that a new session is available
     const players = await db.query.playerCharacters.findMany({

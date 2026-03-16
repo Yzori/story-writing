@@ -18,6 +18,7 @@ interface InitiativeBarProps {
   onOpenFloor: () => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
+  rosterCharacters?: PlayerCharacter[];
 }
 
 export default function InitiativeBar({
@@ -32,8 +33,9 @@ export default function InitiativeBar({
   onOpenFloor,
   onEndSession,
   onTurnExpired,
+  rosterCharacters,
 }: InitiativeBarProps) {
-  const activeChars = characters.filter((c) => c.status === "active");
+  const activeChars = rosterCharacters ?? characters.filter((c) => c.status === "active");
   const playerUserIds = activeChars.map((c) => c.userId);
   const isActive = sessionStatus === "active";
 

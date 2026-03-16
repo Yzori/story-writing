@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Turn, PlayerCharacter, RollRequest } from "./types";
+import type { Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "./types";
 import { getPlayerColor } from "./types";
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
@@ -45,6 +45,10 @@ interface StoryCanvasProps {
   onAddMapPin?: (pin: Omit<MapPin, "id">) => void;
   onRemoveMapPin?: (pinId: string) => void;
   logTurns?: Turn[];
+  roster?: SessionRosterEntry[];
+  rosterCharacters?: PlayerCharacter[];
+  allCharacters?: PlayerCharacter[];
+  onUpdateRoster?: (characterIds: string[]) => void;
 }
 
 // ── Session Highlights ───────────────────────────────────────
@@ -381,6 +385,10 @@ export default function StoryCanvas({
   onAddMapPin,
   onRemoveMapPin,
   logTurns = [],
+  roster,
+  rosterCharacters,
+  allCharacters,
+  onUpdateRoster,
 }: StoryCanvasProps) {
   const TURNS_PER_BATCH = 50;
   const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
@@ -964,6 +972,7 @@ export default function StoryCanvas({
       {/* Initiative Bar */}
       <InitiativeBar
         characters={characters}
+        rosterCharacters={rosterCharacters}
         activePlayerId={activePlayerId}
         currentUserId={currentUserId}
         isGM={isGM}
@@ -998,9 +1007,12 @@ export default function StoryCanvas({
             sessionOpening={sessionOpening}
             previousEpilogue={previousEpilogue}
             previousMood={previousMood}
-            characters={characters}
+            characters={rosterCharacters ?? characters}
             isGM={isGM}
             onBeginSession={onBeginSession ?? (() => {})}
+            roster={roster}
+            allCharacters={allCharacters ?? characters}
+            onUpdateRoster={onUpdateRoster}
           />
         )}
 

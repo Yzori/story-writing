@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import type { Turn, CampaignSession, PlayerCharacter, StoryData } from "./types";
+import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry } from "./types";
 
 export function useCampaignSession(storyId: string, sessionId: string) {
   const { data: authSession } = useSession();
@@ -16,13 +16,37 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   const [toast, setToast] = useState<string | null>(null);
   const [previousEpilogue, setPreviousEpilogue] = useState<string | null>(null);
   const [previousMood, setPreviousMood] = useState<string | null>(null);
+  const [roster, setRoster] = useState<SessionRosterEntry[]>([]);
 
   const maxSortRef = useRef(-1);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
-  const myCharacter = useMemo(() => characters.find((c) => c.userId === currentUserId) ?? null, [characters, currentUserId]);
+
+  // Characters present in this session's roster (present or introduced)
+  const rosterCharacters = useMemo(() => {
+    if (roster.length === 0) return characters.filter((c) => c.status === "active");
+    const presentIds = new Set(
+      roster.filter((r) => r.status === "present" || r.status === "introduced").map((r) => r.characterId)
+    );
+    return characters.filter((c) => presentIds.has(c.id));
+  }, [characters, roster]);
+
+  // Current user's character — prefer roster-present character, fallback to any active character
+  const myCharacter = useMemo(() => {
+    if (!currentUserId) return null;
+    if (roster.length > 0) {
+      const myRosterEntry = roster.find(
+        (r) => r.userId === currentUserId && (r.status === "present" || r.status === "introduced")
+      );
+      if (myRosterEntry) {
+        return characters.find((c) => c.id === myRosterEntry.characterId) ?? null;
+      }
+    }
+    // Graceful degradation: fallback to first active character owned by user
+    return characters.find((c) => c.userId === currentUserId && c.status === "active") ?? null;
+  }, [characters, currentUserId, roster]);
 
   // ── Toast helper ───────────────────────────────────────────
   const showToast = useCallback((msg: string) => {
@@ -37,10 +61,11 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     const fetchInitial = async () => {
       try {
         setLoading(true);
-        const [storyRes, turnsRes, charsRes] = await Promise.all([
+        const [storyRes, turnsRes, charsRes, rosterRes] = await Promise.all([
           fetch(`/api/stories/${storyId}`),
           fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/turns`),
           fetch(`/api/stories/${storyId}/campaign/characters`),
+          fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`),
         ]);
 
         if (!storyRes.ok) throw new Error("Failed to load story");
@@ -61,6 +86,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
         if (charsRes.ok) {
           const charsJson = await charsRes.json();
           setCharacters(charsJson.data ?? []);
+        }
+
+        // Roster may not exist yet (API being built concurrently) — graceful fallback
+        if (rosterRes.ok) {
+          try {
+            const rosterJson = await rosterRes.json();
+            setRoster(rosterJson.data ?? []);
+          } catch { /* roster API may not return expected shape yet */ }
         }
 
         // Fetch previous session's epilogue for "Previously on..." in lobby
@@ -128,14 +161,23 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           });
         }
 
-        // Refresh character list every 6th poll (~30s)
+        // Refresh character list + roster every 6th poll (~30s)
         charPollCount++;
         if (charPollCount >= 6) {
           charPollCount = 0;
-          const charsRes = await fetch(`/api/stories/${storyId}/campaign/characters`);
+          const [charsRes, rosterPollRes] = await Promise.all([
+            fetch(`/api/stories/${storyId}/campaign/characters`),
+            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`),
+          ]);
           if (charsRes.ok) {
             const charsJson = await charsRes.json();
             setCharacters(charsJson.data ?? []);
+          }
+          if (rosterPollRes.ok) {
+            try {
+              const rosterJson = await rosterPollRes.json();
+              setRoster(rosterJson.data ?? []);
+            } catch { /* ignore */ }
           }
         }
       } catch {
@@ -207,6 +249,45 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     [storyId, sessionId]
   );
 
+  // ── Update roster (GM sets who's present) ────────────────────
+  const updateRoster = useCallback(
+    async (characterIds: string[]) => {
+      // Optimistic update: mark listed characters as present, others as absent
+      setRoster((prev) => {
+        if (prev.length === 0) return prev;
+        return prev.map((entry) => ({
+          ...entry,
+          status: characterIds.includes(entry.characterId) ? "present" as const : "absent" as const,
+        }));
+      });
+
+      try {
+        const res = await fetch(
+          `/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ characterIds }),
+          }
+        );
+        if (res.ok) {
+          const json = await res.json();
+          setRoster(json.data ?? []);
+        }
+      } catch {
+        // Revert on error by re-fetching
+        try {
+          const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`);
+          if (res.ok) {
+            const json = await res.json();
+            setRoster(json.data ?? []);
+          }
+        } catch { /* ignore */ }
+      }
+    },
+    [storyId, sessionId]
+  );
+
   // ── Update session (status, title, etc.) ───────────────────
   const updateSession = useCallback(
     async (data: Record<string, unknown>) => {
@@ -234,6 +315,8 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     campaignSession,
     turns,
     characters,
+    roster,
+    rosterCharacters,
     loading,
     error,
     toast,
@@ -246,5 +329,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     sendTurn,
     setActivePlayer,
     updateSession,
+    updateRoster,
   };
 }

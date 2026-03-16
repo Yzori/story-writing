@@ -22,6 +22,8 @@ export default function SessionPlayPage() {
     campaignSession,
     turns,
     characters,
+    roster,
+    rosterCharacters,
     loading,
     error,
     toast,
@@ -34,6 +36,7 @@ export default function SessionPlayPage() {
     sendTurn,
     setActivePlayer,
     updateSession,
+    updateRoster,
   } = useCampaignSession(storyId, sessionId);
 
   const [chatInput, setChatInput] = useState("");
@@ -372,6 +375,28 @@ export default function SessionPlayPage() {
     [storyId, sessionId, showToast]
   );
 
+  // GM invites a player to create a new character (after death)
+  const handleInviteNewCharacter = useCallback(
+    async (userId: string) => {
+      try {
+        await fetch(`/api/notifications`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            type: "campaign-invite-character",
+            message: `The GM invites you to create a new character for "${story?.title ?? "the campaign"}"`,
+            link: `/campaign/${storyId}`,
+          }),
+        });
+        showToast("Invitation sent — the player can create a new character from the campaign hub.");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to send invitation");
+      }
+    },
+    [storyId, story?.title, showToast]
+  );
+
   // GM pushes a narrative event
   const handlePushEvent = useCallback(
     async (content: string) => {
@@ -593,6 +618,10 @@ export default function SessionPlayPage() {
         storyId={storyId}
         storyTurns={storyTurns}
         characters={characters}
+        rosterCharacters={rosterCharacters}
+        allCharacters={characters}
+        roster={roster}
+        onUpdateRoster={updateRoster}
         activePlayerId={campaignSession?.activePlayerId ?? null}
         currentUserId={currentUserId}
         isGM={isGM}
@@ -639,6 +668,8 @@ export default function SessionPlayPage() {
         onSceneBreak={handleSceneBreak}
         onChangeCharacterStatus={handleChangeCharacterStatus}
         onStoryMoment={handleStoryMoment}
+        roster={roster}
+        onInviteNewCharacter={handleInviteNewCharacter}
       />
     </div>
   );

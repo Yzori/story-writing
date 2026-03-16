@@ -728,13 +728,7 @@ export const playerCharacters = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-  },
-  (table) => [
-    unique("player_characters_story_user_unique").on(
-      table.storyId,
-      table.userId
-    ),
-  ]
+  }
 );
 
 export const playerCharactersRelations = relations(
@@ -785,8 +779,55 @@ export const campaignSessionsRelations = relations(
       references: [stories.id],
     }),
     turns: many(campaignTurns),
+    roster: many(sessionRoster),
   })
 );
+
+// ── Session Roster ──────────────────────────────────────────
+
+export const sessionRoster = pgTable(
+  "session_roster",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => playerCharacters.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status").notNull().default("present"), // 'present' | 'absent' | 'introduced' | 'spectating'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("session_roster_session_character_unique").on(
+      table.sessionId,
+      table.characterId
+    ),
+    index("idx_session_roster_session").on(table.sessionId),
+  ]
+);
+
+export const sessionRosterRelations = relations(sessionRoster, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [sessionRoster.sessionId],
+    references: [campaignSessions.id],
+  }),
+  character: one(playerCharacters, {
+    fields: [sessionRoster.characterId],
+    references: [playerCharacters.id],
+  }),
+  user: one(users, {
+    fields: [sessionRoster.userId],
+    references: [users.id],
+  }),
+}));
 
 // ── Campaign Turns ─────────────────────────────────────────
 

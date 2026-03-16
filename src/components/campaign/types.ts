@@ -56,6 +56,14 @@ export interface PlayerCharacter {
   };
 }
 
+export interface SessionRosterEntry {
+  id: string;
+  sessionId: string;
+  characterId: string;
+  userId: string;
+  status: "present" | "absent" | "introduced" | "spectating";
+}
+
 export interface StoryData {
   id: string;
   userId: string;

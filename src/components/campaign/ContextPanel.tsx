@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlayerCharacter, StarterItem } from "./types";
+import type { PlayerCharacter, StarterItem, SessionRosterEntry } from "./types";
 import { parseStats, APPROACHES } from "./types";
 
 interface ContextPanelProps {
@@ -19,6 +19,8 @@ interface ContextPanelProps {
   /** Map of characterId → starter items */
   characterItems?: Record<string, StarterItem[]>;
   onUseItem?: (characterId: string, item: StarterItem) => void;
+  roster?: SessionRosterEntry[];
+  onInviteNewCharacter?: (userId: string) => void;
 }
 
 export default function ContextPanel({
@@ -35,6 +37,8 @@ export default function ContextPanel({
   onToggleCollapse,
   characterItems = {},
   onUseItem,
+  roster = [],
+  onInviteNewCharacter,
 }: ContextPanelProps) {
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
@@ -68,6 +72,34 @@ export default function ContextPanel({
   const [rollFatal, setRollFatal] = useState(false);
 
   const activeChars = characters.filter((c) => c.status === "active");
+
+  // Build roster status map: characterId → roster status
+  const rosterStatusMap = new Map<string, SessionRosterEntry["status"]>();
+  roster.forEach((r) => rosterStatusMap.set(r.characterId, r.status));
+
+  // Group characters by roster status for GM view
+  const hasRoster = roster.length > 0;
+  const presentChars = hasRoster
+    ? characters.filter((c) => {
+        const rs = rosterStatusMap.get(c.id);
+        return rs === "present" || rs === "introduced" || (!rs && c.status === "active");
+      })
+    : characters;
+  const spectatingChars = hasRoster
+    ? characters.filter((c) => rosterStatusMap.get(c.id) === "spectating")
+    : [];
+  const absentChars = hasRoster
+    ? characters.filter((c) => rosterStatusMap.get(c.id) === "absent")
+    : [];
+
+  // Check if a dead character's player has no other active character
+  const deadCharsNeedingInvite = characters.filter((c) => {
+    if (c.status !== "dead") return false;
+    const hasActiveChar = characters.some(
+      (other) => other.userId === c.userId && other.id !== c.id && other.status === "active"
+    );
+    return !hasActiveChar;
+  });
 
   const availableApproaches = [...APPROACHES];
 
@@ -137,7 +169,7 @@ export default function ContextPanel({
             {characters.length === 0 && (
               <p className="text-[11px] text-white/20 italic font-serif">No players have joined yet.</p>
             )}
-            {characters.map((c) => {
+            {presentChars.map((c) => {
               const stats = parseStats(c.stats);
               const isDead = c.status === "dead";
               const isRetired = c.status === "retired";
@@ -219,6 +251,41 @@ export default function ContextPanel({
                 </div>
               );
             })}
+
+            {/* Spectating characters */}
+            {spectatingChars.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <p className="text-[9px] uppercase tracking-widest text-white/20 mb-2">Spectating</p>
+                {spectatingChars.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 opacity-40">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400/30" />
+                    <span className="text-[11px] text-white/50">{c.name}</span>
+                    <span className="text-[8px] text-cyan-400/40 uppercase tracking-wider ml-auto">Spectating</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Invite New Character — for dead characters whose players have no active character */}
+            {deadCharsNeedingInvite.length > 0 && onInviteNewCharacter && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                {deadCharsNeedingInvite.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between gap-2 px-2 py-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-rose/40" />
+                      <span className="text-[11px] text-white/40 line-through truncate">{c.name}</span>
+                      <span className="text-[8px] text-rose/40 uppercase tracking-wider">Fallen</span>
+                    </div>
+                    <button
+                      onClick={() => onInviteNewCharacter(c.userId)}
+                      className="shrink-0 text-[9px] uppercase tracking-wider font-bold text-amber bg-amber/10 hover:bg-amber/20 border border-amber/20 rounded-full px-2.5 py-1 cursor-pointer transition-colors"
+                    >
+                      Invite New Character
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Confirmation Modal for Retire/Kill */}
@@ -681,6 +748,12 @@ export default function ContextPanel({
   // ── Player View ──────────────────────────────────────────────
   const stats = myCharacter ? parseStats(myCharacter.stats) : null;
 
+  // Check if the current player is spectating (dead/spectating, no active char)
+  const currentUserId = myCharacter?.userId;
+  const isSpectating = currentUserId && !myCharacter?.status?.match(/^active$/) && !characters.some(
+    (c) => c.userId === currentUserId && c.id !== myCharacter?.id && c.status === "active"
+  );
+
   return (
     <div className="w-[300px] h-full flex flex-col border-l border-white/5 bg-[#050505] shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex">
       <div className="p-6 border-b border-white/5 bg-black/40 backdrop-blur-md">
@@ -705,6 +778,15 @@ export default function ContextPanel({
           )}
         </div>
       </div>
+
+      {/* Spectator banner */}
+      {isSpectating && myCharacter && (
+        <div className="px-6 py-4 bg-gradient-to-r from-violet-500/10 to-rose/10 border-b border-white/5">
+          <p className="text-xs text-white/50 font-serif italic leading-relaxed">
+            Your character&rsquo;s story has ended. When the GM invites you, you can create a new character from the campaign hub.
+          </p>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: "none" }}>
         {!myCharacter ? (
