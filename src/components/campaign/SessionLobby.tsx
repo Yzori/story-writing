@@ -528,7 +528,9 @@ export default function SessionLobby({
                 Begin the Story
               </motion.button>
               <span className="text-[10px] text-white/20">
-                Your players are waiting.
+                {sessionOpening
+                  ? "Your opening narration will play as a cinematic moment."
+                  : "Your players are waiting."}
               </span>
             </motion.div>
           ) : (

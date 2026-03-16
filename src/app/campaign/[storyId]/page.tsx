@@ -963,6 +963,7 @@ export default function CampaignPage() {
                           rows={3}
                           className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors resize-none"
                         />
+                        <p className="text-[9px] text-text-ghost/50 italic">This will play as a cinematic moment when you begin the session, and become the first turn of the story.</p>
                       </div>
 
                       <div className="flex items-center gap-3">
