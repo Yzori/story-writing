@@ -349,30 +349,61 @@ body::after {
   font-style: italic;
 }
 
+/* Scene break — the <hr> itself is hidden; we style the Tiptap wrapper div */
 .tiptap-editor hr,
+.prose-reader hr {
+  border: none;
+  margin: 0;
+  padding: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.tiptap-editor div[data-type="horizontalRule"],
+.tiptap-editor [data-node-type="horizontalRule"] {
+  margin: 2.5em 0;
+  text-align: center;
+  cursor: default;
+}
+
+.tiptap-editor div[data-type="horizontalRule"]::before,
+.tiptap-editor [data-node-type="horizontalRule"]::before {
+  content: "\2767";
+  color: var(--t-gold-dark);
+  font-size: 1.3rem;
+}
+
+/* Reader keeps the hr-based approach (no Tiptap wrapper) */
 .prose-reader hr {
   border: none;
   margin: 2.5em auto;
   width: 100%;
-  display: flex;
-  justify-content: center;
+  height: auto;
+  overflow: visible;
+  text-align: center;
 }
 
-.tiptap-editor hr::after,
 .prose-reader hr::after {
   content: "\2767";
   color: var(--t-gold-dark);
   font-size: 1.3rem;
-  letter-spacing: 0;
 }
 
-/* Scene break variants */
-.scene-break-fleuron hr::after { content: "\2767"; letter-spacing: 0; font-size: 1.4rem; }
-.scene-break-dots hr::after { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
-.scene-break-line hr::after { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); }
-.scene-break-space hr::after { content: ""; }
-.scene-break-space hr { margin: 3.5em auto; }
-.scene-break-asterism hr::after { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
+/* Scene break variants — editor */
+.scene-break-fleuron .tiptap-editor div[data-type="horizontalRule"]::before { content: "\2767"; font-size: 1.4rem; }
+.scene-break-dots .tiptap-editor div[data-type="horizontalRule"]::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
+.scene-break-line .tiptap-editor div[data-type="horizontalRule"]::before { content: ""; display: inline-block; width: 4em; height: 1px; background: var(--t-text-ghost); vertical-align: middle; }
+.scene-break-space .tiptap-editor div[data-type="horizontalRule"]::before { content: ""; }
+.scene-break-space .tiptap-editor div[data-type="horizontalRule"] { margin: 3.5em 0; }
+.scene-break-asterism .tiptap-editor div[data-type="horizontalRule"]::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
+
+/* Scene break variants — reader */
+.scene-break-fleuron .prose-reader hr::after { content: "\2767"; font-size: 1.4rem; }
+.scene-break-dots .prose-reader hr::after { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
+.scene-break-line .prose-reader hr::after { content: ""; display: inline-block; width: 4em; height: 1px; background: var(--t-text-ghost); vertical-align: middle; }
+.scene-break-space .prose-reader hr::after { content: ""; }
+.scene-break-space .prose-reader hr { margin: 3.5em auto; }
+.scene-break-asterism .prose-reader hr::after { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
 
 /* Drop caps — ornate, like an illuminated manuscript */
 .drop-caps .tiptap-editor > p:first-of-type::first-letter,
