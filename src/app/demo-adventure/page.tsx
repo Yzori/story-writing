@@ -445,6 +445,12 @@ export default function DemoAdventurePage() {
     showToast("Roster updated");
   }, [showToast]);
 
+  // Poll preview
+  const [showPollPreview, setShowPollPreview] = useState(false);
+  const [demoPollVotes, setDemoPollVotes] = useState<number[]>([0]);
+  const demoPollOptions = ["Saturday 8pm EST", "Sunday 2pm EST", "Next Friday evening", "Whenever works"];
+  const demoPollCounts = [3, 1, 2, 0];
+
   const handleInviteNewCharacter = useCallback((userId: string) => {
     const char = mockCharacters.find((c) => c.userId === userId);
     showToast(`Invitation sent to ${char?.user?.displayName ?? "player"} — they can create a new character.`);
@@ -552,6 +558,12 @@ export default function DemoAdventurePage() {
         >
           + Character
         </button>
+        <button
+          onClick={() => setShowPollPreview(true)}
+          className="px-3 py-1 text-[10px] uppercase tracking-wider rounded-full border bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-all cursor-pointer"
+        >
+          Schedule
+        </button>
 
         {sessionStatus === "completed" && (
           <>
@@ -640,6 +652,97 @@ export default function DemoAdventurePage() {
                     className="px-5 text-[11px] text-white/40 hover:text-white cursor-pointer transition-colors"
                   >
                     Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Poll Preview Modal */}
+        <AnimatePresence>
+          {showPollPreview && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowPollPreview(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="bg-[#111] border border-violet/20 rounded-2xl p-6 max-w-md w-full mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-sm font-semibold text-white/90 font-serif italic">When should we play next?</h3>
+                  <span className="text-[10px] text-white/30">4 players</span>
+                </div>
+
+                <div className="space-y-2">
+                  {demoPollOptions.map((option, idx) => {
+                    const count = demoPollCounts[idx] + (demoPollVotes.includes(idx) ? 1 : 0);
+                    const maxCount = Math.max(...demoPollCounts.map((c, i) => c + (demoPollVotes.includes(i) ? 1 : 0)), 1);
+                    const isLeading = count > 0 && count >= maxCount;
+                    const isSelected = demoPollVotes.includes(idx);
+                    const barWidth = count > 0 ? (count / 5) * 100 : 0;
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setDemoPollVotes((prev) => prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx])}
+                        className={`w-full text-left relative overflow-hidden rounded-xl p-3 transition-all cursor-pointer border ${
+                          isSelected ? "border-amber/30 bg-amber/5" : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                        }`}
+                      >
+                        <div
+                          className={`absolute inset-y-0 left-0 transition-all duration-500 ${isLeading ? "bg-amber/[0.08]" : "bg-white/[0.03]"}`}
+                          style={{ width: `${barWidth}%` }}
+                        />
+                        <div className="relative flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors ${
+                              isSelected ? "bg-amber border-amber" : "border-white/20"
+                            }`}>
+                              {isSelected && (
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" className="text-black">
+                                  <path d="M2 5l2.5 2.5L8 3" />
+                                </svg>
+                              )}
+                            </div>
+                            <span className={`text-sm ${isLeading ? "text-white font-medium" : "text-white/60"}`}>{option}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs tabular-nums ${isLeading ? "text-amber font-semibold" : "text-white/30"}`}>{count}</span>
+                            {isGM && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowPollPreview(false);
+                                  showToast(`Confirmed: ${option}`);
+                                }}
+                                className="px-2 py-0.5 bg-sage/10 hover:bg-sage/20 border border-sage/20 text-sage text-[9px] uppercase tracking-wider font-semibold rounded-md transition-colors cursor-pointer"
+                              >
+                                Confirm
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+                  <span className="text-[10px] text-white/20">Click options that work for you</span>
+                  <button
+                    onClick={() => setShowPollPreview(false)}
+                    className="text-[10px] text-white/40 hover:text-white cursor-pointer transition-colors"
+                  >
+                    Close
                   </button>
                 </div>
               </motion.div>
