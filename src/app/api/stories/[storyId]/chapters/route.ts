@@ -70,7 +70,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select(selectFields as any)
       .from(chapters)
       .where(and(...conditions))
-      .orderBy(asc(chapters.sortOrder));
+      .orderBy(asc(chapters.sortOrder), asc(chapters.createdAt));
 
     return NextResponse.json({ data: results });
   } catch (error) {
