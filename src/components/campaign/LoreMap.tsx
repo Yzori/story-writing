@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence, useAnimation, useMotionValue } from "framer-motion";
 import { Compass, MapPin as MapPinIcon, X, Plus } from "lucide-react";
 
@@ -81,27 +81,29 @@ function NauticalGrid() {
 // ── Journey Path Drawer ──────────────────────────────────────
 
 function JourneyPaths({ pins, canvasWidth, canvasHeight }: { pins: MapPin[], canvasWidth: number, canvasHeight: number }) {
-  if (pins.length < 2 || canvasWidth === 0) return null;
+  // Memoize SVG path — only recompute when pins or canvas size change
+  const pathD = useMemo(() => {
+    if (pins.length < 2 || canvasWidth === 0) return null;
 
-  // Convert percentage coordinates to pixels for SVG drawing
-  const points = pins.map(p => ({
-    x: (p.x / 100) * canvasWidth,
-    y: (p.y / 100) * canvasHeight
-  }));
+    const points = pins.map(p => ({
+      x: (p.x / 100) * canvasWidth,
+      y: (p.y / 100) * canvasHeight
+    }));
 
-  // Create a smooth curved path through all points
-  let pathD = `M ${points[0].x} ${points[0].y}`;
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      const dx = next.x - curr.x;
+      const dy = next.y - curr.y;
+      const cx = (curr.x + next.x) / 2 - dy * 0.15;
+      const cy = (curr.y + next.y) / 2 + dx * 0.15;
+      d += ` Q ${cx} ${cy} ${next.x} ${next.y}`;
+    }
+    return d;
+  }, [pins, canvasWidth, canvasHeight]);
 
-  for (let i = 0; i < points.length - 1; i++) {
-    const curr = points[i];
-    const next = points[i + 1];
-    // Control point offset perpendicular to the line for a gentle curve
-    const dx = next.x - curr.x;
-    const dy = next.y - curr.y;
-    const cx = (curr.x + next.x) / 2 - dy * 0.15;
-    const cy = (curr.y + next.y) / 2 + dx * 0.15;
-    pathD += ` Q ${cx} ${cy} ${next.x} ${next.y}`;
-  }
+  if (!pathD) return null;
 
   return (
     <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))' }}>
@@ -179,9 +181,9 @@ function PinCreationForm({
     let left = pxX + 16;
     let top = pxY - 20;
 
-    // Constrain to typical viewport
-    if (left + formW > containerRect.width) left = pxX - formW - 16;
-    if (top + formH > containerRect.height) top = containerRect.height - formH - 8;
+    // Constrain to container bounds
+    if (left + formW > containerRect.width) left = Math.max(8, pxX - formW - 16);
+    if (top + formH > containerRect.height) top = Math.max(8, containerRect.height - formH - 8);
     if (top < 8) top = 8;
     if (left < 8) left = 8;
     formStyle.left = left;

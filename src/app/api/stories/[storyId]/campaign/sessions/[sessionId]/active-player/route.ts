@@ -57,22 +57,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const activePlayerId = body.activePlayerId ?? null; // null = free-form mode
 
-    // Validate that the target user is the GM or has a character in this campaign
-    if (activePlayerId !== null) {
-      if (activePlayerId !== story.userId) {
-        const char = await db.query.playerCharacters.findFirst({
-          where: and(
-            eq(playerCharacters.storyId, storyId),
-            eq(playerCharacters.userId, activePlayerId),
-            eq(playerCharacters.status, "active")
-          ),
-        });
-        if (!char) {
-          return NextResponse.json(
-            { error: { code: "BAD_REQUEST", message: "Target user is not an active player in this campaign" } },
-            { status: 400 }
-          );
-        }
+    // Validate that the target user is the GM or has an active character in this campaign
+    if (activePlayerId !== null && activePlayerId !== story.userId) {
+      const char = await db.query.playerCharacters.findFirst({
+        where: and(
+          eq(playerCharacters.storyId, storyId),
+          eq(playerCharacters.userId, activePlayerId),
+          eq(playerCharacters.status, "active")
+        ),
+      });
+      if (!char) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Target user is not an active player in this campaign" } },
+          { status: 400 }
+        );
       }
     }
 

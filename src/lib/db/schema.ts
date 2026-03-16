@@ -7,6 +7,7 @@ import {
   boolean,
   date,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -759,7 +760,7 @@ export const campaignSessions = pgTable("campaign_sessions", {
   opening: text("opening"),
   activePlayerId: uuid("active_player_id").references(() => users.id, { onDelete: "set null" }),
   sortOrder: integer("sort_order").notNull().default(0),
-  status: text("status").notNull().default("active"), // 'active' | 'completed' | 'archived'
+  status: text("status").notNull().default("active"), // 'draft' | 'active' | 'completed' | 'archived'
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -801,7 +802,9 @@ export const campaignTurns = pgTable("campaign_turns", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  index("idx_campaign_turns_session_sort").on(table.sessionId, table.sortOrder),
+]);
 
 export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
   session: one(campaignSessions, {

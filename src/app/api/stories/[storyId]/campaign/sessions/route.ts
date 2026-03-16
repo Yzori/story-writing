@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { campaignSessions } from "@/lib/db/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { campaignSessions, campaignTurns } from "@/lib/db/schema";
+import { eq, asc, sql, count } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createCampaignSessionSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
@@ -49,10 +49,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         status: campaignSessions.status,
         createdAt: campaignSessions.createdAt,
         updatedAt: campaignSessions.updatedAt,
-        turnCount: sql<number>`(SELECT count(*) FROM campaign_turns WHERE session_id = ${campaignSessions.id})`.as("turn_count"),
+        turnCount: count(campaignTurns.id).as("turn_count"),
       })
       .from(campaignSessions)
+      .leftJoin(campaignTurns, eq(campaignSessions.id, campaignTurns.sessionId))
       .where(eq(campaignSessions.storyId, storyId))
+      .groupBy(campaignSessions.id)
       .orderBy(asc(campaignSessions.sortOrder));
 
     return NextResponse.json({ data: sessions });

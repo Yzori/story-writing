@@ -45,13 +45,13 @@ export default function SessionPlayPage() {
 
   // ── Turn routing ──────────────────────────────────────────
   // Left pillar: only meta/mechanical stuff (chat, dice, roll requests)
-  const logTurns = turns.filter((t) =>
+  const logTurns = useMemo(() => turns.filter((t) =>
     ["ooc", "roll", "roll-request"].includes(t.type)
-  );
+  ), [turns]);
   // Center stage: all narrative content (no mechanical turns)
-  const storyTurns = turns.filter((t) =>
+  const storyTurns = useMemo(() => turns.filter((t) =>
     ["narration", "consequence", "action", "dialogue", "reaction", "description", "scene-break"].includes(t.type)
-  );
+  ), [turns]);
 
   // ── Pending roll request for the current player ───────────
   const pendingRollRequest = useMemo((): RollRequest | null => {
@@ -208,8 +208,8 @@ export default function SessionPlayPage() {
       try {
         const characterId = myCharacter?.id;
         const tier = total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
-        const isFatal = pendingRollRequest?.onFailure && (() => {
-          // Check if the roll-request that triggered this had fatal: true
+        const isFatal = pendingRollRequest?.fatal === true || (() => {
+          // Fallback: check the roll-request turn metadata for fatal flag
           const rr = turns.find((t) => t.id === pendingRollRequest?.turnId);
           if (!rr?.metadata) return false;
           try { return JSON.parse(rr.metadata).fatal === true; } catch { return false; }

@@ -181,6 +181,9 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
 
   const executeRoll = () => {
     if (rolling) return;
+    // Capture selections at roll time to prevent manipulation during animation
+    const lockedApproach = selectedApproach;
+    const lockedAspectInvoked = aspectInvoked;
     setRolling(true);
     setDie1(null);
     setDie2(null);
@@ -193,8 +196,8 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
       setRolling(false);
 
       setTimeout(() => {
-        const finalMod = (selectedApproach ? (approaches[selectedApproach as keyof typeof approaches] ?? 0) : 0) + (aspectInvoked && aspect ? 1 : 0);
-        onRollComplete(r1 + r2 + finalMod, finalMod, selectedApproach ?? "none");
+        const finalMod = (lockedApproach ? (approaches[lockedApproach as keyof typeof approaches] ?? 0) : 0) + (lockedAspectInvoked && aspect ? 1 : 0);
+        onRollComplete(r1 + r2 + finalMod, finalMod, lockedApproach ?? "none");
       }, 2000);
     }, 1200);
   };

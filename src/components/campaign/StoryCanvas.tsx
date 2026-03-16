@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Turn, PlayerCharacter, RollRequest } from "./types";
 import { getPlayerColor } from "./types";
@@ -57,32 +57,57 @@ interface Highlight {
 function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlight[] {
   const highlights: Highlight[] = [];
 
-  // 1. Scene breaks with titles (Story Moments / major beats)
+  // Single-pass through story turns: extract scene breaks, deaths, and count stats
+  let playerTurnCount = 0;
+  let gmTurnCount = 0;
+  let sceneCount = 0;
+
   for (const t of storyTurns) {
-    if (t.type !== "scene-break" || !t.metadata) continue;
-    try {
-      const meta = JSON.parse(t.metadata);
-      if (meta.cinematic && meta.title) {
-        highlights.push({
-          icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
-          label: "Story Moment",
-          text: meta.title,
-          color: meta.mood === "death" ? "text-rose" : "text-amber",
-        });
-      } else if (meta.title) {
-        highlights.push({
-          icon: "\uD83C\uDFAC",
-          label: "Scene",
-          text: meta.title,
-          color: "text-white/60",
-        });
-      }
-    } catch { /* ignore */ }
+    // Stats counting
+    if (t.type === "narration" || t.type === "consequence") {
+      gmTurnCount++;
+    } else if (t.type === "scene-break") {
+      sceneCount++;
+    } else {
+      playerTurnCount++;
+    }
+
+    // Scene break highlights (scenes, story moments, deaths)
+    if (t.type === "scene-break" && t.metadata) {
+      try {
+        const meta = JSON.parse(t.metadata);
+        if (meta.cinematic && meta.title) {
+          highlights.push({
+            icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
+            label: "Story Moment",
+            text: meta.title,
+            color: meta.mood === "death" ? "text-rose" : "text-amber",
+          });
+        } else if (meta.mood === "death" && !meta.cinematic) {
+          highlights.push({
+            icon: "\u2020",
+            label: "Fallen",
+            text: meta.title || "A hero has fallen",
+            color: "text-rose",
+          });
+        } else if (meta.title) {
+          highlights.push({
+            icon: "\uD83C\uDFAC",
+            label: "Scene",
+            text: meta.title,
+            color: "text-white/60",
+          });
+        }
+      } catch { /* ignore */ }
+    }
   }
 
-  // 2. Dramatic dice rolls (successes, failures, fatal rolls)
+  // Single-pass through log turns: dramatic rolls and roll count
+  let rollCount = 0;
   for (const t of logTurns) {
-    if (t.type !== "roll" || !t.metadata) continue;
+    if (t.type !== "roll") continue;
+    rollCount++;
+    if (!t.metadata) continue;
     try {
       const meta = JSON.parse(t.metadata);
       const total = meta.total ?? 0;
@@ -107,31 +132,11 @@ function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlight[] {
     } catch { /* ignore */ }
   }
 
-  // 3. Character deaths (consequence turns mentioning "fallen")
-  for (const t of storyTurns) {
-    if (t.type !== "scene-break" || !t.metadata) continue;
-    try {
-      const meta = JSON.parse(t.metadata);
-      if (meta.mood === "death" && !meta.cinematic) {
-        highlights.push({
-          icon: "\u2020",
-          label: "Fallen",
-          text: meta.title || "A hero has fallen",
-          color: "text-rose",
-        });
-      }
-    } catch { /* ignore */ }
-  }
-
-  // 4. Session stats summary
-  const playerTurns = storyTurns.filter((t) => !["narration", "consequence", "scene-break"].includes(t.type));
-  const gmTurns = storyTurns.filter((t) => ["narration", "consequence"].includes(t.type));
-  const rollCount = logTurns.filter((t) => t.type === "roll").length;
-  const sceneCount = storyTurns.filter((t) => t.type === "scene-break").length;
-
-  if (playerTurns.length + gmTurns.length > 0) {
+  // Session stats summary
+  const totalTurns = playerTurnCount + gmTurnCount;
+  if (totalTurns > 0) {
     const parts: string[] = [];
-    parts.push(`${playerTurns.length + gmTurns.length} turns written`);
+    parts.push(`${totalTurns} turns written`);
     if (sceneCount > 0) parts.push(`${sceneCount} scene${sceneCount > 1 ? "s" : ""}`);
     if (rollCount > 0) parts.push(`${rollCount} roll${rollCount > 1 ? "s" : ""}`);
 
@@ -148,7 +153,7 @@ function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlight[] {
 
 function SessionHighlights({ storyTurns, logTurns }: { storyTurns: Turn[]; logTurns: Turn[] }) {
   const [expanded, setExpanded] = useState(true);
-  const highlights = extractHighlights(storyTurns, logTurns);
+  const highlights = useMemo(() => extractHighlights(storyTurns, logTurns), [storyTurns, logTurns]);
 
   if (highlights.length === 0) return null;
 
@@ -767,7 +772,7 @@ export default function StoryCanvas({
     if (prev.type === "scene-break" || next.type === "scene-break") return false;
 
     const gmTypes = ["narration", "consequence"];
-    const playerProseTypes = ["action", "dialogue", "reaction", "description"];
+    const playerProseTypes = ["action", "dialogue", "reaction"];
 
     // GM narration + consequence merge
     if (gmTypes.includes(prev.type) && gmTypes.includes(next.type)) return true;
@@ -782,24 +787,27 @@ export default function StoryCanvas({
   };
 
   // Slice to only the visible turns (paginated from the end)
-  const visibleTurns = storyTurns.slice(visibleStartIndex);
+  const visibleTurns = useMemo(() => storyTurns.slice(visibleStartIndex), [storyTurns, visibleStartIndex]);
 
   // Group turns into paragraphs
-  const paragraphs: Turn[][] = [];
-  for (const turn of visibleTurns) {
-    const lastGroup = paragraphs[paragraphs.length - 1];
-    if (lastGroup && shouldMerge(lastGroup[lastGroup.length - 1], turn)) {
-      lastGroup.push(turn);
-    } else {
-      paragraphs.push([turn]);
+  const paragraphs = useMemo(() => {
+    const groups: Turn[][] = [];
+    for (const turn of visibleTurns) {
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && shouldMerge(lastGroup[lastGroup.length - 1], turn)) {
+        lastGroup.push(turn);
+      } else {
+        groups.push([turn]);
+      }
     }
-  }
+    return groups;
+  }, [visibleTurns]);
 
   // Stable player color map
-  const playerUserIds = characters.filter((c) => c.status === "active").map((c) => c.userId);
+  const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
 
   // ── Mood Tinting — derive from latest scene-break ──────────
-  const currentMood = (() => {
+  const currentMood = useMemo(() => {
     for (let i = storyTurns.length - 1; i >= 0; i--) {
       if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
         try {
@@ -808,7 +816,7 @@ export default function StoryCanvas({
       }
     }
     return null;
-  })();
+  }, [storyTurns]);
 
   const MOOD_TINT_COLORS: Record<string, string> = {
     tense: "rgba(244,63,94,0.04)",
@@ -1026,9 +1034,11 @@ export default function StoryCanvas({
                   </button>
                 </div>
               )}
-              {paragraphs.map((group, pi) => {
-                let globalIdx = visibleStartIndex;
-                for (let p = 0; p < pi; p++) globalIdx += paragraphs[p].length;
+              {(() => {
+                let runningIdx = visibleStartIndex;
+                return paragraphs.map((group, pi) => {
+                const globalIdx = runningIdx;
+                runningIdx += group.length;
 
                 // Scene-break turns render as ornamental dividers
                 if (group[0].type === "scene-break") {
@@ -1122,7 +1132,8 @@ export default function StoryCanvas({
                     </AnimatePresence>
                   </div>
                 );
-              })}
+              });
+              })()}
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import type { Turn, CampaignSession, PlayerCharacter, StoryData } from "./types";
 
@@ -20,7 +20,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
-  const myCharacter = characters.find((c) => c.userId === currentUserId) ?? null;
+  const myCharacter = useMemo(() => characters.find((c) => c.userId === currentUserId) ?? null, [characters, currentUserId]);
 
   // ── Toast helper ───────────────────────────────────────────
   const showToast = useCallback((msg: string) => {
@@ -97,7 +97,17 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           );
         }
         if (json.session) {
-          setCampaignSession(json.session);
+          setCampaignSession((prev) => {
+            if (!prev) return json.session;
+            // Skip re-render if session data hasn't changed
+            const next = json.session;
+            if (
+              prev.status === next.status &&
+              prev.activePlayerId === next.activePlayerId &&
+              prev.title === next.title
+            ) return prev;
+            return next;
+          });
         }
 
         // Refresh character list every 6th poll (~30s)
@@ -147,27 +157,15 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       const json = await res.json();
       const newTurn = json.data as Turn;
 
-      // Enrich with user info for optimistic update
-      const enrichedTurn: Turn = {
-        ...newTurn,
-        user: {
-          id: currentUserId ?? "",
-          displayName: authSession?.user?.name ?? null,
-          avatarUrl: authSession?.user?.image ?? null,
-        },
-        characterName: myCharacter?.name ?? null,
-        characterPortrait: myCharacter?.portrait ?? null,
-      };
-
       setTurns((prev) => {
-        const exists = prev.some((t) => t.id === enrichedTurn.id);
-        return exists ? prev : [...prev, enrichedTurn];
+        const exists = prev.some((t) => t.id === newTurn.id);
+        return exists ? prev : [...prev, newTurn];
       });
       maxSortRef.current = Math.max(maxSortRef.current, newTurn.sortOrder);
 
-      return enrichedTurn;
+      return newTurn;
     },
-    [storyId, sessionId, currentUserId, authSession, myCharacter]
+    [storyId, sessionId]
   );
 
   // ── Set active player ──────────────────────────────────────

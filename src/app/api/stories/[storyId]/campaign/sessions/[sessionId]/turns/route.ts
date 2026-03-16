@@ -51,6 +51,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const afterSort = request.nextUrl.searchParams.get("afterSort");
+    const afterSortNum = afterSort ? parseInt(afterSort, 10) : null;
+
+    if (afterSort !== null && (afterSortNum === null || isNaN(afterSortNum))) {
+      return NextResponse.json(
+        { error: { code: "BAD_REQUEST", message: "Invalid afterSort parameter" } },
+        { status: 400 }
+      );
+    }
 
     const turns = await db
       .select({
@@ -75,8 +83,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .leftJoin(users, eq(campaignTurns.userId, users.id))
       .leftJoin(playerCharacters, eq(campaignTurns.characterId, playerCharacters.id))
       .where(
-        afterSort
-          ? sql`${campaignTurns.sessionId} = ${sessionId} AND ${campaignTurns.sortOrder} > ${parseInt(afterSort, 10)}`
+        afterSortNum !== null
+          ? sql`${campaignTurns.sessionId} = ${sessionId} AND ${campaignTurns.sortOrder} > ${afterSortNum}`
           : eq(campaignTurns.sessionId, sessionId)
       )
       .orderBy(asc(campaignTurns.sortOrder));
@@ -199,7 +207,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    return NextResponse.json({ data: created }, { status: 201 });
+    // Re-fetch with user/character joins so the client gets a complete Turn object
+    const [enriched] = await db
+      .select({
+        id: campaignTurns.id,
+        sessionId: campaignTurns.sessionId,
+        userId: campaignTurns.userId,
+        characterId: campaignTurns.characterId,
+        type: campaignTurns.type,
+        content: campaignTurns.content,
+        metadata: campaignTurns.metadata,
+        sortOrder: campaignTurns.sortOrder,
+        createdAt: campaignTurns.createdAt,
+        user: {
+          id: users.id,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        },
+        characterName: playerCharacters.name,
+        characterPortrait: playerCharacters.portrait,
+      })
+      .from(campaignTurns)
+      .leftJoin(users, eq(campaignTurns.userId, users.id))
+      .leftJoin(playerCharacters, eq(campaignTurns.characterId, playerCharacters.id))
+      .where(eq(campaignTurns.id, created.id));
+
+    return NextResponse.json({ data: enriched ?? created }, { status: 201 });
   } catch (error) {
     console.error("POST /api/.../turns error:", error);
     return NextResponse.json(
