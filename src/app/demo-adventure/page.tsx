@@ -436,6 +436,43 @@ export default function DemoAdventurePage() {
     showToast(`Invitation sent to ${char?.user?.displayName ?? "player"} — they can create a new character.`);
   }, [mockCharacters, showToast]);
 
+  // Character creation demo
+  const [showCharCreate, setShowCharCreate] = useState(false);
+  const [newCharName, setNewCharName] = useState("");
+  const [newCharTraits, setNewCharTraits] = useState("");
+  const [newCharDesc, setNewCharDesc] = useState("");
+  const [newCharBackstory, setNewCharBackstory] = useState("");
+  const [newCharAspect, setNewCharAspect] = useState("");
+  const [newCharApproach, setNewCharApproach] = useState<"Bold" | "Keen" | "Subtle" | null>(null);
+
+  const handleCreateCharacter = useCallback(() => {
+    if (!newCharName.trim()) return;
+    const approachMap: Record<string, { Bold: number; Keen: number; Subtle: number }> = {
+      Bold:   { Bold: 2, Keen: 0, Subtle: -1 },
+      Keen:   { Bold: -1, Keen: 2, Subtle: 0 },
+      Subtle: { Bold: 0, Keen: -1, Subtle: 2 },
+    };
+    const approaches = newCharApproach ? approachMap[newCharApproach] : { Bold: 0, Keen: 0, Subtle: 0 };
+    const id = `char-new-${Date.now()}`;
+    const userId = `user-new-${Date.now()}`;
+    const newChar: PlayerCharacter = {
+      id,
+      userId,
+      name: newCharName.trim(),
+      portrait: null,
+      description: newCharDesc.trim() || null,
+      traits: newCharTraits.trim() || null,
+      stats: JSON.stringify({ approaches, aspect: newCharAspect.trim() }),
+      status: "active",
+      user: { id: userId, displayName: newCharName.trim().split(" ")[0], avatarUrl: null },
+    };
+    setMockCharacters((prev) => [...prev, newChar]);
+    setRoster((prev) => [...prev, { id: `roster-${id}`, sessionId: "demo-session", characterId: id, userId, status: "introduced" as const }]);
+    setShowCharCreate(false);
+    setNewCharName(""); setNewCharTraits(""); setNewCharDesc(""); setNewCharBackstory(""); setNewCharAspect(""); setNewCharApproach(null);
+    showToast(`${newChar.name} joins the story`);
+  }, [newCharName, newCharTraits, newCharDesc, newCharAspect, newCharApproach, showToast]);
+
   return (
     <div className="flex flex-col w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden">
       {/* Demo Controls Bar */}
@@ -487,6 +524,14 @@ export default function DemoAdventurePage() {
             <div className="w-px h-5 bg-violet-500/20" />
           </>
         )}
+        <div className="w-px h-5 bg-violet-500/20" />
+        <button
+          onClick={() => setShowCharCreate(true)}
+          className="px-3 py-1 text-[10px] uppercase tracking-wider rounded-full border bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-all cursor-pointer"
+        >
+          + Character
+        </button>
+
         {sessionStatus === "completed" && (
           <>
             <div className="w-px h-5 bg-violet-500/20" />
@@ -575,6 +620,130 @@ export default function DemoAdventurePage() {
                   >
                     Cancel
                   </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Character Creation Modal */}
+        <AnimatePresence>
+          {showCharCreate && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowCharCreate(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="bg-[#111] border border-amber/20 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.7)] max-h-[85vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+                style={{ scrollbarWidth: "none" }}
+              >
+                <h3 className="text-sm font-serif italic text-amber/90 mb-5">A new face emerges from the crowd...</h3>
+
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-white/40">Name</label>
+                    <input
+                      type="text"
+                      value={newCharName}
+                      onChange={(e) => setNewCharName(e.target.value)}
+                      placeholder="Character name"
+                      className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-xl text-white text-sm placeholder:text-white/15 outline-none focus:border-amber/30 transition-colors"
+                      onKeyDown={(e) => e.key === "Enter" && handleCreateCharacter()}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-white/40">Who are they? <span className="normal-case tracking-normal text-white/20">(a line others can write them by)</span></label>
+                    <textarea
+                      value={newCharTraits}
+                      onChange={(e) => setNewCharTraits(e.target.value)}
+                      placeholder="Trusts no one but her blade, speaks in half-truths..."
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-xl text-white text-sm placeholder:text-white/15 outline-none focus:border-amber/30 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-white/40">Appearance & motivation</label>
+                    <textarea
+                      value={newCharDesc}
+                      onChange={(e) => setNewCharDesc(e.target.value)}
+                      placeholder="What do they look like? What drives them into danger?"
+                      rows={3}
+                      className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-xl text-white text-sm placeholder:text-white/15 outline-none focus:border-amber/30 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-white/40">Backstory <span className="normal-case tracking-normal text-white/20">(optional)</span></label>
+                    <textarea
+                      value={newCharBackstory}
+                      onChange={(e) => setNewCharBackstory(e.target.value)}
+                      placeholder="What happened before this story? What shaped them?"
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-xl text-white text-sm placeholder:text-white/15 outline-none focus:border-amber/30 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-white/40">Defining belief <span className="normal-case tracking-normal text-white/20">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={newCharAspect}
+                      onChange={(e) => setNewCharAspect(e.target.value)}
+                      placeholder="e.g. Believes every problem has a chemical solution"
+                      className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-xl text-white text-sm placeholder:text-white/15 outline-none focus:border-violet/30 transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-white/40">When things get dangerous, they tend to be... <span className="normal-case tracking-normal text-white/20">(optional)</span></label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        ["Bold", "Direct, forceful, courageous"],
+                        ["Keen", "Clever, perceptive, strategic"],
+                        ["Subtle", "Graceful, quiet, precise"],
+                      ] as const).map(([approach, desc]) => (
+                        <button
+                          key={approach}
+                          type="button"
+                          onClick={() => setNewCharApproach(newCharApproach === approach ? null : approach)}
+                          className={`flex flex-col items-center gap-1 rounded-xl p-2.5 text-center transition-all cursor-pointer ${
+                            newCharApproach === approach
+                              ? "bg-amber/10 border-2 border-amber/40 shadow-[0_0_12px_rgba(200,150,60,0.1)]"
+                              : "bg-white/[0.02] border border-white/10 hover:border-white/20"
+                          }`}
+                        >
+                          <span className={`text-xs font-semibold ${newCharApproach === approach ? "text-amber" : "text-white/60"}`}>{approach}</span>
+                          <span className="text-[8px] text-white/30 leading-tight">{desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleCreateCharacter}
+                      disabled={!newCharName.trim()}
+                      className="flex-1 bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[11px] uppercase tracking-wider font-bold rounded-full py-2.5 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      Create Character
+                    </button>
+                    <button
+                      onClick={() => setShowCharCreate(false)}
+                      className="px-5 text-[11px] text-white/40 hover:text-white cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
