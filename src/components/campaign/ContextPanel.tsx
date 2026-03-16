@@ -895,11 +895,31 @@ export default function ContextPanel({
                         type="text"
                         value={illustrationUrl}
                         onChange={(e) => setIllustrationUrl(e.target.value)}
-                        placeholder="Paste an image URL..."
+                        placeholder="https://images.unsplash.com/..."
                         className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30"
                         autoFocus
                       />
+                      <p className="text-[9px] text-white/20 mt-1">
+                        Paste any image URL.{" "}
+                        <a href="https://unsplash.com/s/photos/fantasy-landscape" target="_blank" rel="noopener noreferrer" className="text-amber/40 hover:text-amber/60 underline underline-offset-2 transition-colors">
+                          Browse Unsplash for free images
+                        </a>
+                      </p>
                     </div>
+
+                    {/* Image preview */}
+                    {illustrationUrl.trim() && (
+                      <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={illustrationUrl.trim()}
+                          alt="Preview"
+                          className="w-full max-h-32 object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          onLoad={(e) => { (e.target as HTMLImageElement).style.display = "block"; }}
+                        />
+                      </div>
+                    )}
 
                     {/* Caption */}
                     <div>
@@ -928,7 +948,7 @@ export default function ContextPanel({
                       >
                         Place in Story
                       </button>
-                      <button onClick={() => setShowIllustrationForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+                      <button onClick={() => { setShowIllustrationForm(false); setIllustrationUrl(""); setIllustrationCaption(""); }} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
                         Cancel
                       </button>
                     </div>
