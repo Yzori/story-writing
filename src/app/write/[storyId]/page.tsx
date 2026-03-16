@@ -224,8 +224,8 @@ export default function WriteStoryPage() {
   useEffect(() => {
     async function loadStory() {
       try {
-        // Fetch story metadata
-        const storyRes = await fetch(`/api/stories/${storyId}`);
+        // Fetch story metadata (no-store to avoid stale cache on refresh)
+        const storyRes = await fetch(`/api/stories/${storyId}`, { cache: "no-store" });
         if (!storyRes.ok) {
           setError("Story not found");
           setLoading(false);
@@ -234,10 +234,10 @@ export default function WriteStoryPage() {
         const storyJson = await storyRes.json();
         const story = storyJson.data;
 
-        // Fetch chapters and bible entries in parallel
+        // Fetch chapters and bible entries in parallel (no-store to avoid stale cache)
         const [chaptersRes, bibleRes] = await Promise.all([
-          fetch(`/api/stories/${storyId}/chapters?withContent=true`),
-          fetch(`/api/stories/${storyId}/bible`),
+          fetch(`/api/stories/${storyId}/chapters?withContent=true`, { cache: "no-store" }),
+          fetch(`/api/stories/${storyId}/bible`, { cache: "no-store" }),
         ]);
         const chaptersJson = await chaptersRes.json();
         const apiChapters = chaptersRes.ok ? chaptersJson.data : [];
