@@ -207,6 +207,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
+    // Open floor: after a player posts a story turn, return control to GM
+    if (
+      !campaignSession.activePlayerId &&
+      playerStoryTypes.includes(parsed.data.type) &&
+      session.user.id !== check.story!.userId
+    ) {
+      await db
+        .update(campaignSessions)
+        .set({ activePlayerId: check.story!.userId })
+        .where(eq(campaignSessions.id, sessionId));
+    }
+
     // Re-fetch with user/character joins so the client gets a complete Turn object
     const [enriched] = await db
       .select({

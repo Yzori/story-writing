@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { campaignSessions, stories, playerCharacters } from "@/lib/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/lib/api-utils";
@@ -68,6 +68,41 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         },
         { status: 400 }
       );
+    }
+
+    // Enforce valid state transitions
+    if (parsed.data.status) {
+      const validTransitions: Record<string, string[]> = {
+        draft: ["active"],
+        active: ["completed"],
+        completed: ["archived"],
+        archived: [], // no transitions from archived
+      };
+      const currentStatus = campaignSession.status;
+      const newStatus = parsed.data.status;
+      if (currentStatus !== newStatus && !validTransitions[currentStatus]?.includes(newStatus)) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: `Invalid status transition from "${currentStatus}" to "${newStatus}"` } },
+          { status: 400 }
+        );
+      }
+
+      // Only one active session per story
+      if (newStatus === "active") {
+        const existingActive = await db.query.campaignSessions.findFirst({
+          where: and(
+            eq(campaignSessions.storyId, storyId),
+            eq(campaignSessions.status, "active"),
+            sql`${campaignSessions.id} != ${sessionId}`
+          ),
+        });
+        if (existingActive) {
+          return NextResponse.json(
+            { error: { code: "BAD_REQUEST", message: "Another session is already active" } },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     const [updated] = await db

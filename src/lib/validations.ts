@@ -288,6 +288,19 @@ export const closeSessionPollSchema = z.object({
   confirmedOption: z.string().max(200),
 });
 
+// ── Progress Clocks ────────────────────────────────────────
+
+export const createProgressClockSchema = z.object({
+  name: z.string().min(1).max(200),
+  segments: z.union([z.literal(4), z.literal(6), z.literal(8)]),
+  type: z.enum(["danger", "progress", "racing"]).default("danger"),
+});
+
+export const updateProgressClockSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  filled: z.number().int().min(0).optional(),
+});
+
 // ── Session Roster ──────────────────────────────────────────
 
 export const updateSessionRosterSchema = z.object({

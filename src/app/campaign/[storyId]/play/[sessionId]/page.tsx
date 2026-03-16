@@ -38,6 +38,8 @@ export default function SessionPlayPage() {
     setActivePlayer,
     updateSession,
     updateRoster,
+    clocks,
+    setClocks,
   } = useCampaignSession(storyId, sessionId);
 
   const [chatInput, setChatInput] = useState("");
@@ -50,9 +52,6 @@ export default function SessionPlayPage() {
     text: string;
     subtext?: string;
   } | null>(null);
-
-  // Tension clocks — local session-scoped state (no backend)
-  const [clocks, setClocks] = useState<ProgressClockData[]>([]);
 
   // Detect session ending via poll (for players) — play cinematic
   // Detect session transitions via poll — play cinematics for non-GM players
@@ -479,6 +478,78 @@ export default function SessionPlayPage() {
     [sendTurn, showToast]
   );
 
+  // ── Clock API sync ────────────────────────────────────────
+  const clocksRef = useRef(clocks);
+  clocksRef.current = clocks;
+
+  const handleClocksChange = useCallback(
+    async (newClocks: ProgressClockData[]) => {
+      const prevClocks = clocksRef.current;
+
+      // Optimistic update
+      setClocks(newClocks);
+
+      const prevMap = new Map(prevClocks.map((c) => [c.id, c]));
+      const newMap = new Map(newClocks.map((c) => [c.id, c]));
+
+      // Deleted clocks (in prev but not in new)
+      for (const prev of prevClocks) {
+        if (!newMap.has(prev.id)) {
+          try {
+            await fetch(
+              `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks/${prev.id}`,
+              { method: "DELETE" }
+            );
+          } catch { /* ignore */ }
+        }
+      }
+
+      // Added clocks (in new but not in prev — temp IDs start with "clock-")
+      for (const clock of newClocks) {
+        if (!prevMap.has(clock.id)) {
+          try {
+            const res = await fetch(
+              `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: clock.name, segments: clock.segments, type: clock.type }),
+              }
+            );
+            if (res.ok) {
+              const json = await res.json();
+              // Replace temp ID with real DB ID
+              setClocks((prev) =>
+                prev.map((c) => (c.id === clock.id ? { ...c, id: json.data.id } : c))
+              );
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      // Updated clocks (same ID but filled/name changed)
+      for (const clock of newClocks) {
+        const prev = prevMap.get(clock.id);
+        if (prev && (prev.filled !== clock.filled || prev.name !== clock.name)) {
+          const updates: Record<string, unknown> = {};
+          if (prev.filled !== clock.filled) updates.filled = clock.filled;
+          if (prev.name !== clock.name) updates.name = clock.name;
+          try {
+            await fetch(
+              `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks/${clock.id}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updates),
+              }
+            );
+          } catch { /* ignore */ }
+        }
+      }
+    },
+    [storyId, sessionId, setClocks]
+  );
+
   // ── Loading / Error ────────────────────────────────────────
 
   if (loading) {
@@ -726,7 +797,7 @@ export default function SessionPlayPage() {
         roster={roster}
         onInviteNewCharacter={handleInviteNewCharacter}
         clocks={clocks}
-        onClocksChange={setClocks}
+        onClocksChange={handleClocksChange}
       />
     </div>
   );

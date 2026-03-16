@@ -780,6 +780,7 @@ export const campaignSessionsRelations = relations(
     }),
     turns: many(campaignTurns),
     roster: many(sessionRoster),
+    clocks: many(progressClocks),
   })
 );
 
@@ -908,6 +909,32 @@ export const sessionPollVotesRelations = relations(
     }),
   })
 );
+
+// ── Progress Clocks ─────────────────────────────────────────
+
+export const progressClocks = pgTable("progress_clocks", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => campaignSessions.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  segments: integer("segments").notNull(), // 4, 6, or 8
+  filled: integer("filled").notNull().default(0),
+  type: text("type").notNull().default("danger"), // 'danger' | 'progress' | 'racing'
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const progressClocksRelations = relations(progressClocks, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [progressClocks.sessionId],
+    references: [campaignSessions.id],
+  }),
+}));
 
 // ── Campaign Turns ─────────────────────────────────────────
 

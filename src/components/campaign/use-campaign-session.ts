@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry } from "./types";
+import type { ProgressClockData } from "./ProgressClock";
 
 export function useCampaignSession(storyId: string, sessionId: string) {
   const { data: authSession } = useSession();
@@ -17,6 +18,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   const [previousEpilogue, setPreviousEpilogue] = useState<string | null>(null);
   const [previousMood, setPreviousMood] = useState<string | null>(null);
   const [roster, setRoster] = useState<SessionRosterEntry[]>([]);
+  const [clocks, setClocks] = useState<ProgressClockData[]>([]);
 
   const maxSortRef = useRef(-1);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -61,11 +63,12 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     const fetchInitial = async () => {
       try {
         setLoading(true);
-        const [storyRes, turnsRes, charsRes, rosterRes] = await Promise.all([
+        const [storyRes, turnsRes, charsRes, rosterRes, clocksRes] = await Promise.all([
           fetch(`/api/stories/${storyId}`),
           fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/turns`),
           fetch(`/api/stories/${storyId}/campaign/characters`),
           fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`),
+          fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`),
         ]);
 
         if (!storyRes.ok) throw new Error("Failed to load story");
@@ -94,6 +97,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             const rosterJson = await rosterRes.json();
             setRoster(rosterJson.data ?? []);
           } catch { /* roster API may not return expected shape yet */ }
+        }
+
+        // Progress clocks
+        if (clocksRes.ok) {
+          try {
+            const clocksJson = await clocksRes.json();
+            setClocks(clocksJson.data ?? []);
+          } catch { /* graceful fallback */ }
         }
 
         // Fetch previous session's epilogue for "Previously on..." in lobby
@@ -165,9 +176,10 @@ export function useCampaignSession(storyId: string, sessionId: string) {
         charPollCount++;
         if (charPollCount >= 6) {
           charPollCount = 0;
-          const [charsRes, rosterPollRes] = await Promise.all([
+          const [charsRes, rosterPollRes, clocksPollRes] = await Promise.all([
             fetch(`/api/stories/${storyId}/campaign/characters`),
             fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`),
+            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`),
           ]);
           if (charsRes.ok) {
             const charsJson = await charsRes.json();
@@ -177,6 +189,12 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             try {
               const rosterJson = await rosterPollRes.json();
               setRoster(rosterJson.data ?? []);
+            } catch { /* ignore */ }
+          }
+          if (clocksPollRes.ok) {
+            try {
+              const clocksJson = await clocksPollRes.json();
+              setClocks(clocksJson.data ?? []);
             } catch { /* ignore */ }
           }
         }
@@ -330,5 +348,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     setActivePlayer,
     updateSession,
     updateRoster,
+    clocks,
+    setClocks,
   };
 }
