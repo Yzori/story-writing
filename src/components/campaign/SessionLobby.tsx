@@ -8,13 +8,13 @@ import { getPlayerColor } from "./types";
 // ── Lobby Theme Data ────────────────────────────────────────────
 
 export const LOBBY_THEMES = [
-  { key: "campfire", label: "Campfire", image: "/lobby/campfire.png", particles: true },
-  { key: "tavern", label: "Tavern", image: "/lobby/tavern.png", particles: false },
-  { key: "ruins", label: "Ruins", image: "/lobby/ruins.png", particles: false },
-  { key: "spaceship", label: "Spaceship", image: "/lobby/spaceship.png", particles: false },
-  { key: "dungeon", label: "Dungeon", image: "/lobby/dungeon.png", particles: true },
-  { key: "ship", label: "Ship Deck", image: "/lobby/ship.png", particles: false },
-  { key: "last-launch", label: "Last Launch", image: "/lobby/last-launch.png", particles: true },
+  { key: "campfire", label: "Campfire", description: "A crackling fire under open stars", image: "/lobby/campfire.png", particles: true },
+  { key: "tavern", label: "Tavern", description: "A warm inn filled with murmured stories", image: "/lobby/tavern.png", particles: false },
+  { key: "ruins", label: "Ruins", description: "Crumbling stone and forgotten echoes", image: "/lobby/ruins.png", particles: false },
+  { key: "spaceship", label: "Spaceship", description: "The hum of engines in the void", image: "/lobby/spaceship.png", particles: false },
+  { key: "dungeon", label: "Dungeon", description: "Torchlit corridors deep underground", image: "/lobby/dungeon.png", particles: true },
+  { key: "ship", label: "Ship Deck", description: "Salt spray and creaking timber", image: "/lobby/ship.png", particles: false },
+  { key: "last-launch", label: "Last Launch", description: "The final journey into the unknown", image: "/lobby/last-launch.png", particles: true },
 ] as const;
 
 export type LobbyThemeKey = (typeof LOBBY_THEMES)[number]["key"];
