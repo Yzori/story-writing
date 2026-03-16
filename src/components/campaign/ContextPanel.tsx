@@ -1019,10 +1019,10 @@ export default function ContextPanel({
             {/* Aspect */}
             {stats.aspect && (
               <div className="mb-6">
-                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Aspect</h3>
+                <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2 mb-3">Defining Belief</h3>
                 <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl px-4 py-3">
                   <p className="text-sm text-violet-300 font-serif italic leading-relaxed">&ldquo;{stats.aspect}&rdquo;</p>
-                  <p className="text-[9px] text-violet-400/40 uppercase tracking-widest mt-2">Invoke for +1 when relevant</p>
+                  <p className="text-[9px] text-violet-400/40 uppercase tracking-widest mt-2">Your character&rsquo;s essence</p>
                 </div>
               </div>
             )}

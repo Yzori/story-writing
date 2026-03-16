@@ -108,16 +108,11 @@ export default function CampaignPage() {
   const [charName, setCharName] = useState("");
   const [charDesc, setCharDesc] = useState("");
   const [charTraits, setCharTraits] = useState("");
-  const [charSubmitting, setCharSubmitting] = useState(false);
-
-  // Character stats (approaches + aspect)
-  const [showStats, setShowStats] = useState(false);
-  const [statBold, setStatBold] = useState(0);
-  const [statKeen, setStatKeen] = useState(0);
-  const [statSubtle, setStatSubtle] = useState(0);
+  const [charBackstory, setCharBackstory] = useState("");
+  const [charPortrait, setCharPortrait] = useState("");
   const [charAspect, setCharAspect] = useState("");
-  const pointsUsed = statBold + statKeen + statSubtle + 3; // each starts at -1, so +3 offset
-  const pointsRemaining = 3 - (statBold + 1) - (statKeen + 1) - (statSubtle + 1);
+  const [charApproach, setCharApproach] = useState<"Bold" | "Keen" | "Subtle" | null>(null);
+  const [charSubmitting, setCharSubmitting] = useState(false);
 
   // New session form
   const [showNewSession, setShowNewSession] = useState(false);
@@ -181,17 +176,25 @@ export default function CampaignPage() {
     if (!charName.trim() || charSubmitting) return;
     setCharSubmitting(true);
     try {
+      // Compute approach stats from the single choice: chosen = +2, next = 0, last = -1
+      const approachMap: Record<string, { Bold: number; Keen: number; Subtle: number }> = {
+        Bold:   { Bold: 2, Keen: 0, Subtle: -1 },
+        Keen:   { Bold: -1, Keen: 2, Subtle: 0 },
+        Subtle: { Bold: 0, Keen: -1, Subtle: 2 },
+      };
+      const approaches = charApproach ? approachMap[charApproach] : { Bold: 0, Keen: 0, Subtle: 0 };
+
       const payload: Record<string, unknown> = {
         name: charName.trim(),
         description: charDesc.trim(),
         traits: charTraits.trim(),
-      };
-      if (showStats) {
-        payload.stats = JSON.stringify({
-          approaches: { Bold: statBold, Keen: statKeen, Subtle: statSubtle },
+        backstory: charBackstory.trim(),
+        portrait: charPortrait.trim() || undefined,
+        stats: JSON.stringify({
+          approaches,
           aspect: charAspect.trim(),
-        });
-      }
+        }),
+      };
       const res = await fetch(`/api/stories/${storyId}/campaign/characters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -204,9 +207,10 @@ export default function CampaignPage() {
       setCharName("");
       setCharDesc("");
       setCharTraits("");
-      setShowStats(false);
-      setStatBold(0); setStatKeen(0); setStatSubtle(0);
+      setCharBackstory("");
+      setCharPortrait("");
       setCharAspect("");
+      setCharApproach(null);
       setShowCreateChar(false);
       fetchData();
     } catch (err) {
@@ -530,17 +534,7 @@ export default function CampaignPage() {
                           onChange={(e) => setCharName(e.target.value)}
                           placeholder="Character name"
                           className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Description</label>
-                        <textarea
-                          value={charDesc}
-                          onChange={(e) => setCharDesc(e.target.value)}
-                          placeholder="What does your character look like? What drives them?"
-                          rows={3}
-                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors resize-none"
+                          onKeyDown={(e) => e.key === "Enter" && handleCreateCharacter()}
                         />
                       </div>
 
@@ -555,91 +549,75 @@ export default function CampaignPage() {
                         />
                       </div>
 
-                      {/* Collapsible Character Identity */}
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setShowStats(!showStats)}
-                          className="flex items-center gap-2 text-sm text-text-secondary hover:text-paper transition-colors cursor-pointer"
-                        >
-                          <motion.svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            animate={{ rotate: showStats ? 90 : 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <path d="M4 2l4 4-4 4" />
-                          </motion.svg>
-                          Define identity
-                        </button>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Appearance & motivation</label>
+                        <textarea
+                          value={charDesc}
+                          onChange={(e) => setCharDesc(e.target.value)}
+                          placeholder="What do they look like? What drives them into danger?"
+                          rows={3}
+                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors resize-none"
+                        />
+                      </div>
 
-                        <AnimatePresence>
-                          {showStats && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="overflow-hidden"
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Backstory <span className="normal-case tracking-normal text-text-ghost/60">(optional)</span></label>
+                        <textarea
+                          value={charBackstory}
+                          onChange={(e) => setCharBackstory(e.target.value)}
+                          placeholder="What happened before this story? What shaped them?"
+                          rows={3}
+                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors resize-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Portrait <span className="normal-case tracking-normal text-text-ghost/60">(optional — paste an image URL)</span></label>
+                        <input
+                          type="text"
+                          value={charPortrait}
+                          onChange={(e) => setCharPortrait(e.target.value)}
+                          placeholder="https://..."
+                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-amber/40 transition-colors"
+                        />
+                      </div>
+
+                      {/* Defining belief */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Defining belief <span className="normal-case tracking-normal text-text-ghost/60">(optional — one sentence that captures their essence)</span></label>
+                        <input
+                          type="text"
+                          value={charAspect}
+                          onChange={(e) => setCharAspect(e.target.value)}
+                          placeholder="e.g. Believes every problem has a chemical solution"
+                          className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-violet/40 transition-colors"
+                        />
+                      </div>
+
+                      {/* Approach — single choice, not point-buy */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">When things get dangerous, they tend to be... <span className="normal-case tracking-normal text-text-ghost/60">(optional)</span></label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {([
+                            ["Bold", "Direct, forceful, courageous — charges in head-first"],
+                            ["Keen", "Clever, perceptive, strategic — thinks before acting"],
+                            ["Subtle", "Graceful, quiet, precise — finds the hidden path"],
+                          ] as const).map(([approach, desc]) => (
+                            <button
+                              key={approach}
+                              type="button"
+                              onClick={() => setCharApproach(charApproach === approach ? null : approach)}
+                              className={`flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-all cursor-pointer ${
+                                charApproach === approach
+                                  ? "bg-amber/10 border-2 border-amber/40 shadow-[0_0_12px_rgba(200,150,60,0.1)]"
+                                  : "bg-ink/50 border border-border hover:border-white/20"
+                              }`}
                             >
-                              <div className="pt-3 space-y-4">
-                                {/* Aspect */}
-                                <div className="space-y-1">
-                                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Aspect</label>
-                                  <p className="text-[10px] text-text-ghost/50 mb-1">A defining phrase — who your character truly is. Invoke it during rolls for +1.</p>
-                                  <input
-                                    type="text"
-                                    value={charAspect}
-                                    onChange={(e) => setCharAspect(e.target.value)}
-                                    placeholder="e.g. Believes every problem has a chemical solution"
-                                    className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-violet/40 transition-colors"
-                                  />
-                                </div>
-
-                                {/* Approaches */}
-                                <div>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Approaches</label>
-                                    <span className={`text-[10px] ${pointsRemaining < 0 ? "text-rose" : pointsRemaining === 0 ? "text-sage" : "text-text-ghost"}`}>
-                                      {pointsRemaining} points left
-                                    </span>
-                                  </div>
-                                  <p className="text-[10px] text-text-ghost/50 mb-2">Distribute 3 points. Each starts at -1. How does your character solve problems?</p>
-                                  <div className="grid grid-cols-3 gap-3">
-                                    {([
-                                      ["Bold", "Force & courage", statBold, setStatBold],
-                                      ["Keen", "Wit & cunning", statKeen, setStatKeen],
-                                      ["Subtle", "Grace & finesse", statSubtle, setStatSubtle],
-                                    ] as [string, string, number, React.Dispatch<React.SetStateAction<number>>][]).map(([label, desc, value, setter]) => (
-                                      <div key={label} className="flex flex-col items-center gap-1.5 bg-ink/50 border border-border rounded-xl p-3">
-                                        <span className="text-[10px] uppercase tracking-[0.1em] text-text-ghost/70 font-medium">{label}</span>
-                                        <span className="text-[8px] text-text-ghost/40">{desc}</span>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <button
-                                            type="button"
-                                            onClick={() => setter(Math.max(-1, value - 1))}
-                                            className="w-6 h-6 rounded bg-surface border border-border text-text-ghost hover:text-paper text-sm flex items-center justify-center cursor-pointer"
-                                          >-</button>
-                                          <span className={`text-lg font-display w-8 text-center ${value > 0 ? "text-amber" : value < 0 ? "text-rose/60" : "text-paper"}`}>
-                                            {value >= 0 ? `+${value}` : value}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => setter(Math.min(2, value + 1))}
-                                            className="w-6 h-6 rounded bg-surface border border-border text-text-ghost hover:text-paper text-sm flex items-center justify-center cursor-pointer"
-                                          >+</button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                              <span className={`text-xs font-semibold ${charApproach === approach ? "text-amber" : "text-paper/70"}`}>{approach}</span>
+                              <span className="text-[9px] text-text-ghost/50 leading-tight">{desc}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-3 pt-1">
