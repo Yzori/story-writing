@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -8,7 +8,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -17,73 +17,69 @@ import SlashMenu from "./SlashMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
 
-// Custom scene break node view — renders a visible ornamental divider
-// Click to pick a style from an inline popover
-function SceneBreakView() {
-  const [showPicker, setShowPicker] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const styles = [
-    { key: "asterism", label: "Asterism", preview: "\u2042" },
-    { key: "fleuron", label: "Fleuron", preview: "\u2767" },
-    { key: "dots", label: "Dots", preview: "\u2022 \u2022 \u2022" },
-    { key: "line", label: "Line", preview: "\u2014\u2014\u2014" },
-    { key: "space", label: "Space", preview: "(blank)" },
-  ];
-
-  useEffect(() => {
-    if (!showPicker) return;
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setShowPicker(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPicker]);
-
-  const applyStyle = (key: string) => {
-    // Walk up to find the scene-break wrapper with the CSS class and swap it
-    const editorWrapper = ref.current?.closest("[class*='scene-break-']") ?? ref.current?.closest(".tiptap-editor")?.parentElement;
-    if (editorWrapper) {
-      // Remove old scene-break-* classes
-      editorWrapper.classList.forEach((cls: string) => {
-        if (cls.startsWith("scene-break-")) editorWrapper.classList.remove(cls);
-      });
-      editorWrapper.classList.add(`scene-break-${key}`);
-      // Persist to localStorage via a custom event the page listens for
-      window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: key }));
-    }
-    setShowPicker(false);
-  };
-
-  return (
-    <NodeViewWrapper className="scene-break-node" contentEditable={false} ref={ref}>
-      <div
-        className="scene-break-ornament cursor-pointer hover:opacity-70 transition-opacity"
-        onClick={() => setShowPicker(!showPicker)}
-        title="Click to change style"
-      />
-      {showPicker && (
-        <div className="absolute left-1/2 -translate-x-1/2 mt-2 z-50 bg-elevated/95 backdrop-blur-xl border border-border-active rounded-xl shadow-2xl shadow-black/50 py-1.5 px-1 flex gap-1">
-          {styles.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => applyStyle(s.key)}
-              className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg hover:bg-surface transition-colors cursor-pointer min-w-[56px]"
-              title={s.label}
-            >
-              <span className="text-base text-amber/80">{s.preview}</span>
-              <span className="text-[8px] uppercase tracking-wider text-text-ghost">{s.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </NodeViewWrapper>
-  );
-}
-
+// Custom scene break — uses addNodeView with raw DOM for reliable positioning
+// ReactNodeViewRenderer wraps in extra elements that fight ProseMirror layout.
+// Instead we use a plain DOM node view that always centers correctly.
 const CustomHorizontalRule = HorizontalRule.extend({
   addNodeView() {
-    return ReactNodeViewRenderer(SceneBreakView);
+    return () => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "scene-break-node";
+      wrapper.contentEditable = "false";
+
+      const ornament = document.createElement("div");
+      ornament.className = "scene-break-ornament";
+      wrapper.appendChild(ornament);
+
+      // Click to open style picker
+      ornament.addEventListener("click", () => {
+        // Remove any existing picker
+        const existing = wrapper.querySelector(".scene-break-picker");
+        if (existing) { existing.remove(); return; }
+
+        const picker = document.createElement("div");
+        picker.className = "scene-break-picker";
+
+        const styles = [
+          { key: "asterism", label: "Asterism", preview: "\u2042" },
+          { key: "fleuron", label: "Fleuron", preview: "\u2767" },
+          { key: "dots", label: "Dots", preview: "\u2022 \u2022 \u2022" },
+          { key: "line", label: "Line", preview: "\u2014\u2014\u2014" },
+          { key: "space", label: "Space", preview: "(blank)" },
+        ];
+
+        styles.forEach((s) => {
+          const btn = document.createElement("button");
+          btn.className = "scene-break-picker-btn";
+          btn.title = s.label;
+          btn.innerHTML = `<span class="scene-break-picker-preview">${s.preview}</span><span class="scene-break-picker-label">${s.label}</span>`;
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const editorWrapper = wrapper.closest("[class*='scene-break-']") ?? wrapper.closest(".tiptap-editor")?.parentElement;
+            if (editorWrapper) {
+              editorWrapper.className = editorWrapper.className.replace(/scene-break-\w+/g, "").trim();
+              editorWrapper.classList.add(`scene-break-${s.key}`);
+              window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
+            }
+            picker.remove();
+          });
+          picker.appendChild(btn);
+        });
+
+        wrapper.appendChild(picker);
+
+        // Close on outside click
+        const closeHandler = (e: MouseEvent) => {
+          if (!wrapper.contains(e.target as Node)) {
+            picker.remove();
+            document.removeEventListener("mousedown", closeHandler);
+          }
+        };
+        setTimeout(() => document.addEventListener("mousedown", closeHandler), 0);
+      });
+
+      return { dom: wrapper };
+    };
   },
 });
 
