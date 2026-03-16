@@ -166,6 +166,78 @@ const DUMMY_STORIES: Story[] = [
   },
 ];
 
+// ── Dummy campaigns for the "Open Adventures" section ──
+const DUMMY_CAMPAIGNS: Story[] = [
+  {
+    id: "campaign-1",
+    title: "The Obsidian Crown",
+    format: "novel",
+    synopsis: "A prophecy. A lost artifact. A darkness stirring beneath a ruined city. Three adventurers descend into the Shattered City to find the Crown before it finds them.",
+    coverImageUrl: "/adventure_mode.png",
+    genres: ["Dark Fantasy", "Adventure"],
+    status: "in-progress",
+    slug: "the-obsidian-crown",
+    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000).toISOString(),
+    authorName: "AlexTheGM",
+    chapterCount: 3,
+    totalWords: 12400,
+    sparkCount: 47,
+    contentRating: "PG13",
+  },
+  {
+    id: "campaign-2",
+    title: "The Drift",
+    format: "novel",
+    synopsis: "A generation ship has been flying for 400 years. Nobody remembers where it's going. The AI that runs it has started lying. Five crew members are about to find out why.",
+    coverImageUrl: "/coop_story_mode.png",
+    genres: ["Science Fiction", "Mystery"],
+    status: "in-progress",
+    slug: "the-drift",
+    createdAt: new Date(Date.now() - 86400000 * 8).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000).toISOString(),
+    authorName: "Nova Chen",
+    chapterCount: 1,
+    totalWords: 5800,
+    sparkCount: 23,
+    contentRating: "PG13",
+  },
+  {
+    id: "campaign-3",
+    title: "Bloodtide Bay",
+    format: "novel",
+    synopsis: "Pirates, sea monsters, and a cursed treasure map that changes every full moon. The crew of the Wailing Siren must decide: chase the gold or save each other.",
+    coverImageUrl: "/solo_story_mode.png",
+    genres: ["Fantasy", "Adventure"],
+    status: "in-progress",
+    slug: "bloodtide-bay",
+    createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    authorName: "Maren Holt",
+    chapterCount: 5,
+    totalWords: 18200,
+    sparkCount: 89,
+    contentRating: "PG13",
+  },
+  {
+    id: "campaign-4",
+    title: "The Last Lantern",
+    format: "novel",
+    synopsis: "In a world where darkness is literal and spreading, the last lightkeeper guards a lantern that can hold it back — but only if someone is willing to burn inside it.",
+    coverImageUrl: null,
+    genres: ["Dark Fantasy", "Horror"],
+    status: "in-progress",
+    slug: "the-last-lantern",
+    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
+    updatedAt: new Date(Date.now() - 7200000).toISOString(),
+    authorName: "Elowen Ashford",
+    chapterCount: 0,
+    totalWords: 0,
+    sparkCount: 12,
+    contentRating: "R",
+  },
+];
+
 interface Story {
   id: string;
   title: string;
@@ -348,7 +420,12 @@ function BrowsePage() {
         const res = await fetch("/api/stories?public=true&writingMode=campaign&limit=6");
         if (res.ok) {
           const json = await res.json();
-          setCampaignStories(json.data.stories || []);
+          const real = json.data.stories || [];
+          const realIds = new Set(real.map((s: Story) => s.id));
+          const dummies = DUMMY_CAMPAIGNS.filter((d) => !realIds.has(d.id));
+          setCampaignStories([...real, ...dummies]);
+        } else {
+          setCampaignStories(DUMMY_CAMPAIGNS);
         }
       } catch {
         // silently fail
