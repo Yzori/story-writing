@@ -1048,11 +1048,7 @@ export default function WriteStoryPage() {
             <div
               className={`w-full flex-1 min-h-0 ${
                 project.typography.dropCaps ? "drop-caps" : ""
-              } ${
-                project.typography.sceneBreakStyle !== "asterism"
-                  ? `scene-break-${project.typography.sceneBreakStyle}`
-                  : ""
-              }`}
+              } scene-break-${project.typography.sceneBreakStyle || "asterism"}`}
             >
               <ProseEditor
                 key={activeChapter.id}

@@ -360,9 +360,10 @@ body::after {
 }
 
 .scene-break-ornament::before {
-  content: "\2767";
+  content: "\2042";
   color: var(--t-gold-dark);
-  font-size: 1.3rem;
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
 }
 
 /* Hide the raw <hr> inside the node view */
@@ -382,9 +383,10 @@ body::after {
 }
 
 .prose-reader hr::before {
-  content: "\2767";
+  content: "\2042";
   color: var(--t-gold-dark);
-  font-size: 1.3rem;
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
   position: absolute;
   top: 50%;
   left: 50%;
