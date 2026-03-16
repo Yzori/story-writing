@@ -273,6 +273,12 @@ export const createVoteSchema = z.object({
   vote: z.boolean(),
 });
 
+// ── GM Transfer ─────────────────────────────────────────────
+
+export const transferGmSchema = z.object({
+  newGmUserId: z.string().uuid("Invalid user ID"),
+});
+
 // ── Session Polls ───────────────────────────────────────────
 
 export const createSessionPollSchema = z.object({

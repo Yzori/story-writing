@@ -601,15 +601,68 @@ export default function CampaignPage() {
               </div>
             )}
 
-            {/* GM invite hint */}
+            {/* GM invite hint + Transfer GM */}
             {isGM && (
-              <div className="bg-violet/5 border border-violet/10 rounded-2xl p-4 text-center">
-                <p className="text-text-secondary text-sm">
-                  Share this campaign link with players so they can create characters and join.
-                </p>
-                <p className="text-text-ghost text-xs mt-1 font-mono">
-                  /campaign/{storyId}
-                </p>
+              <div className="space-y-3">
+                <div className="bg-violet/5 border border-violet/10 rounded-2xl p-4 text-center">
+                  <p className="text-text-secondary text-sm">
+                    Share this campaign link with players so they can create characters and join.
+                  </p>
+                  <p className="text-text-ghost text-xs mt-1 font-mono">
+                    /campaign/{storyId}
+                  </p>
+                </div>
+
+                {/* Transfer GM — only show if there are players to transfer to */}
+                {characters.filter((c) => c.userId !== currentUserId).length > 0 && (
+                  <details className="group">
+                    <summary className="text-[10px] uppercase tracking-[0.12em] text-text-ghost/50 cursor-pointer hover:text-text-ghost transition-colors list-none flex items-center gap-1.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="transition-transform group-open:rotate-90">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                      Transfer GM Role
+                    </summary>
+                    <div className="mt-2 bg-rose/5 border border-rose/10 rounded-xl p-4 space-y-3">
+                      <p className="text-xs text-text-ghost">
+                        Hand the narrator role to another player. This cannot be undone — you will become a regular player.
+                      </p>
+                      <div className="space-y-1.5">
+                        {[...new Map(characters.filter((c) => c.userId !== currentUserId).map((c) => [c.userId, c])).values()].map((c) => (
+                          <button
+                            key={c.userId}
+                            onClick={async () => {
+                              if (!confirm(`Transfer GM role to ${c.user?.displayName ?? c.name}? This cannot be undone.`)) return;
+                              try {
+                                const res = await fetch(`/api/stories/${storyId}/campaign/transfer-gm`, {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ newGmUserId: c.userId }),
+                                });
+                                if (!res.ok) {
+                                  const err = await res.json();
+                                  throw new Error(err.error?.message ?? "Failed to transfer");
+                                }
+                                alert(`GM role transferred to ${c.user?.displayName ?? c.name}. Refreshing...`);
+                                window.location.reload();
+                              } catch (err) {
+                                alert(err instanceof Error ? err.message : "Failed to transfer GM role");
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-ink/30 border border-border/30 hover:border-rose/20 transition-colors cursor-pointer text-left"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-surface flex items-center justify-center text-xs font-bold text-paper/60">
+                              {c.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-sm text-paper/80 block truncate">{c.user?.displayName ?? c.name}</span>
+                              <span className="text-[10px] text-text-ghost">playing {c.name}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                )}
               </div>
             )}
 
