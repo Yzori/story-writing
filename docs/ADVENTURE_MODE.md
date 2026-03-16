@@ -136,11 +136,15 @@ When created, the system:
 
 The GM can create scheduling polls to coordinate play times:
 
-- Polls have a title (default: "When should we play next?") and 2-5 time slot options
-- Players vote by toggling options (multi-select)
-- The GM sees vote counts and total voters
-- The GM closes a poll by confirming the winning option
-- Only one poll can be open at a time
+- Polls have a title (default: "When should we play next?") and 2-5 free-text time slot options
+- Players vote by toggling options (multi-select). Votes can be changed at any time while the poll is open.
+- The GM can also vote
+- The GM sees vote counts per option and total voters
+- The GM closes a poll by confirming any option (does not have to be the most-voted — the GM decides)
+- The confirmed option must be one of the original poll options (no arbitrary text)
+- Only one poll can be open at a time; creating a new poll auto-closes the previous one
+- If nobody votes, the GM can still close the poll with a chosen option
+- Options are free text (no timezone parsing) — e.g., "Saturday 8pm EST", "Sunday afternoon"
 
 **API:** `POST /api/stories/[storyId]/campaign/polls` -- create poll
 **API:** `PATCH /api/stories/[storyId]/campaign/polls/[pollId]` -- vote or close poll
@@ -350,21 +354,22 @@ The Story Canvas assembles individual turns into flowing prose paragraphs. The a
 5. **Player can invoke their defining belief** ("Invoke Aspect") for an additional +1 modifier
 6. **Player clicks the dice** to roll -- animated dice faces cycle randomly for 1.2 seconds before landing
 7. **Result is posted** as a `roll` turn in the Session Log with metadata: `{ total, modifier, attribute, tier, die: "2d6", fatal }`
-8. **Consequence is auto-posted** as a `consequence` turn using the GM's pre-written success/failure text (or generic fallback text)
+8. **Consequence:** For **single-target** rolls, a `consequence` turn is **auto-posted** using the GM's pre-written success/failure text (or generic fallback). For **"everyone"** rolls, no auto-consequence fires — the GM writes a combined consequence manually.
 9. **Fatal failure:** If the roll was marked fatal and the result is a failure, the character is automatically killed, a death cinematic Story Moment plays, and a narration turn is posted
 
 **"Everyone" roll resolution:**
 - When a roll request targets "everyone," each player with a pending roll sees the DiceRoller
 - Each player rolls independently
 - Each roll generates its own outcome (success/partial/failure)
-- The GM writes a single consequence turn that addresses all outcomes
+- **No auto-consequence** — the GM writes a single consequence turn that addresses all outcomes
 - A roll request is "resolved" for a player once they've posted a roll turn with sortOrder > the request's sortOrder
 - Multiple active roll requests can coexist (e.g., different attributes for different players)
 
-**Fatal roll safety:**
-- Fatal stakes are narrative, not mechanical -- the GM describes the stakes in prose; there is no "fatal" checkbox on the roll request form
-- Character death requires GM action via "Their Story Ends" -- a failed roll alone does not auto-kill
-- Exception: if the GM set up the roll with death stakes in the narrative, the system plays the death cinematic automatically
+**Fatal rolls:**
+- The GM can mark a roll request as **fatal** when setting the narrative stakes ("If they fail..." includes death consequences)
+- The `fatal` flag is stored in roll-request metadata and checked on resolution
+- If a fatal roll results in failure, the system **automatically** kills the character: death cinematic plays, character status set to `dead`, roster updated to `spectating`
+- The GM can also end a character's story manually via "Their Story Ends" without a dice roll
 - Campaign-level safety settings (opt-in lethal play) are not yet implemented but planned
 
 **Approach modifiers:** Based on the character's stats. Chosen approach during character creation gives +2 to one approach, 0 to the next, -1 to the last.
@@ -475,8 +480,8 @@ Quick-access buttons for common GM moves. Listed in the Context Panel for refere
 Roster statuses:
 - `present` -- actively participating
 - `absent` -- not in this session
-- `introduced` -- first session for this character (shown with a "New" badge)
-- `spectating` -- watching but not participating (e.g., after character death)
+- `introduced` -- first session for this character (shown with a "New" badge). Treated as `present` for turn permissions. If the GM toggles an `introduced` character to absent and back, they become `present` (the "New" badge is a one-time first-appearance marker).
+- `spectating` -- watching but not participating (e.g., after character death mid-session)
 
 **Character death ("Their Story Ends"):**
 1. GM clicks the skull icon on a character card in the Context Panel
@@ -597,7 +602,7 @@ Polls help coordinate when the group plays next. Multi-select voting with optimi
 
 ### Character Creation for Replacement Characters
 
-When a player's character has died or retired, the campaign hub shows a "Create a New Character" button with the flavor text: "A new face emerges from the crowd..." The form is the same as initial character creation.
+When a player's character has died or retired, they cannot immediately create a replacement. The **GM must explicitly invite** the player to create a new character (via the "Invite New Character" button in the Context Panel, which sends a notification). Only after this invitation does the campaign hub show a "Create a New Character" button with the flavor text: "A new face emerges from the crowd..." The form is the same as initial character creation. This ensures death has narrative weight — the GM controls when and if a new character enters the story.
 
 ---
 

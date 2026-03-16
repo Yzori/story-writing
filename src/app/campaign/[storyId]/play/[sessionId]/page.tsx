@@ -300,7 +300,8 @@ export default function SessionPlayPage() {
         await sendTurn("roll", content, characterId, metadata);
 
         // Auto-post the stakes outcome as a consequence narration
-        {
+        // Skip for "everyone" rolls — GM writes the combined consequence manually
+        if (pendingRollRequest?.targetUserId !== "everyone") {
           const isFatalRoll = pendingRollRequest?.fatal === true;
           const genericOutcomes: Record<string, string> = {
             success: isFatalRoll ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
