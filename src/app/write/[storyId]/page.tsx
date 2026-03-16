@@ -992,7 +992,26 @@ export default function WriteStoryPage() {
         {/* Chapter title area — fades out in focus mode */}
         <div className={`w-full max-w-[680px] px-8 pt-24 transition-opacity duration-700 ${isFocusMode ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
           <p className="font-display text-[11px] tracking-[0.25em] text-amber/50 uppercase mb-4">{project.title}</p>
-          <h1 className="text-3xl md:text-4xl font-display text-paper/90 mb-2">{activeChapter?.title ?? "Untitled"}</h1>
+          <h1
+            className="text-3xl md:text-4xl font-display text-paper/90 mb-2 outline-none focus:text-amber/90 transition-colors cursor-text"
+            contentEditable
+            suppressContentEditableWarning
+            spellCheck={false}
+            onBlur={(e) => {
+              const newTitle = e.currentTarget.textContent?.trim();
+              if (newTitle && activeChapter && newTitle !== activeChapter.title) {
+                handleRenameChapter(activeChapter.id, newTitle);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+          >
+            {activeChapter?.title ?? "Untitled"}
+          </h1>
           <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mb-8" />
         </div>
 
