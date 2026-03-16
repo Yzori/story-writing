@@ -84,8 +84,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .where(eq(playerCharacters.id, characterId))
       .returning();
 
-    // If character became dead or retired, update roster in any active session to 'spectating'
-    if (parsed.data.status === "dead" || parsed.data.status === "retired") {
+    // Update roster in any active session based on character status change
+    if (parsed.data.status === "dead" || parsed.data.status === "retired" || parsed.data.status === "active") {
       const activeSessions = await db
         .select({ id: campaignSessions.id })
         .from(campaignSessions)
@@ -96,10 +96,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           )
         );
 
+      const rosterStatus = parsed.data.status === "active" ? "present" : "spectating";
       for (const activeSession of activeSessions) {
         await db
           .update(sessionRoster)
-          .set({ status: "spectating" })
+          .set({ status: rosterStatus })
           .where(
             and(
               eq(sessionRoster.sessionId, activeSession.id),

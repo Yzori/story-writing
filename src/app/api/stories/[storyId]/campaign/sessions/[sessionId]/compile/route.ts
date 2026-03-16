@@ -82,6 +82,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Prevent duplicate compilation
+    if (campaignSession.chapterId) {
+      return NextResponse.json(
+        {
+          data: {
+            chapterId: campaignSession.chapterId,
+            message: "Session already compiled",
+          },
+        },
+        { status: 200 }
+      );
+    }
+
     // Load all turns for the session with character names
     const turns = await db
       .select({
@@ -99,6 +112,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
       .where(eq(campaignTurns.sessionId, sessionId))
       .orderBy(asc(campaignTurns.sortOrder));
+
+    // Check if there are any story turns (not just OOC/rolls)
+    const storyTurnTypes = ["narration", "consequence", "action", "dialogue", "reaction", "description", "illustration", "scene-break"];
+    const hasStoryContent = turns.some((t) => storyTurnTypes.includes(t.type)) || campaignSession.opening;
+    if (!hasStoryContent) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message: "Session has no story content to compile — only OOC messages and dice rolls",
+          },
+        },
+        { status: 400 }
+      );
+    }
 
     // Compile turns to HTML
     const compiledHTML = compileSessionToHTML({

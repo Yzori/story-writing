@@ -87,6 +87,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
       }
 
+      // Validate confirmedOption is actually one of the poll's options
+      const pollOptions: string[] = JSON.parse(poll.options);
+      if (!pollOptions.includes(parsed.data.confirmedOption)) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Confirmed option must be one of the poll's original options" } },
+          { status: 400 }
+        );
+      }
+
       const [updated] = await db
         .update(sessionPolls)
         .set({
