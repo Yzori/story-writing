@@ -691,7 +691,7 @@ export default function DemoAdventurePage() {
                     const barWidth = count > 0 ? (count / 5) * 100 : 0;
 
                     return (
-                      <button
+                      <div
                         key={idx}
                         onClick={() => setDemoPollVotes((prev) => prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx])}
                         className={`w-full text-left relative overflow-hidden rounded-xl p-3 transition-all cursor-pointer border ${
@@ -731,7 +731,7 @@ export default function DemoAdventurePage() {
                             )}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
