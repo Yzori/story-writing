@@ -2,7 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
@@ -17,64 +16,8 @@ import SlashMenu from "./SlashMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
 
-// Custom HorizontalRule with ProseMirror-native NodeView (not React — avoids flushSync crash)
-const CustomHorizontalRule = HorizontalRule.extend({
-  addNodeView() {
-    return ({ HTMLAttributes }) => {
-      const dom = document.createElement("div");
-      dom.className = "scene-break-node";
-      dom.contentEditable = "false";
-      Object.entries(HTMLAttributes).forEach(([key, val]) => {
-        if (typeof val === "string") dom.setAttribute(key, val);
-      });
-
-      const ornament = document.createElement("div");
-      ornament.className = "scene-break-ornament";
-      dom.appendChild(ornament);
-
-      // Click ornament to open style picker
-      ornament.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const existing = dom.querySelector(".scene-break-picker");
-        if (existing) { existing.remove(); return; }
-
-        const picker = document.createElement("div");
-        picker.className = "scene-break-picker";
-
-        [
-          { key: "asterism", label: "Asterism", preview: "\u2042" },
-          { key: "fleuron", label: "Fleuron", preview: "\u2767" },
-          { key: "dots", label: "Dots", preview: "\u2022 \u2022 \u2022" },
-          { key: "line", label: "Line", preview: "\u2014\u2014\u2014" },
-          { key: "space", label: "Space", preview: "(blank)" },
-        ].forEach((s) => {
-          const btn = document.createElement("button");
-          btn.className = "scene-break-picker-btn";
-          btn.title = s.label;
-          btn.innerHTML = `<span class="scene-break-picker-preview">${s.preview}</span><span class="scene-break-picker-label">${s.label}</span>`;
-          btn.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            const outer = dom.closest("[class*='scene-break-']") ?? dom.closest(".tiptap-editor")?.parentElement;
-            if (outer) {
-              outer.className = outer.className.replace(/scene-break-\w+/g, "").trim() + ` scene-break-${s.key}`;
-              window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
-            }
-            picker.remove();
-          });
-          picker.appendChild(btn);
-        });
-
-        dom.appendChild(picker);
-        const close = (ev: MouseEvent) => {
-          if (!dom.contains(ev.target as Node)) { picker.remove(); document.removeEventListener("mousedown", close); }
-        };
-        setTimeout(() => document.addEventListener("mousedown", close), 0);
-      });
-
-      return { dom };
-    };
-  },
-});
+// Use default HorizontalRule — no custom NodeView.
+// Styling handled purely via CSS on the native <hr> element.
 
 const typewriterPluginKey = new PluginKey("typewriterScroll");
 
@@ -134,10 +77,9 @@ export default function ProseEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        horizontalRule: false, // replaced by CustomHorizontalRule below
+        horizontalRule: {},
         dropcursor: { color: "var(--t-gold)", width: 2 },
       }),
-      CustomHorizontalRule,
       Placeholder.configure({
         placeholder: "Begin your story... (type / for commands)",
         emptyEditorClass: "is-editor-empty",
