@@ -188,6 +188,65 @@ export default function ProseEditor({
     if (editor) onEditorReady(editor);
   }, [editor, onEditorReady]);
 
+  // Scene break click handler — shows style picker via delegated event
+  useEffect(() => {
+    if (!editor) return;
+    const editorDom = editor.view.dom;
+
+    const handleClick = (e: Event) => {
+      const target = (e.target as HTMLElement).closest(".scene-break");
+      if (!target) return;
+
+      // Remove any existing picker
+      const existing = document.querySelector(".scene-break-picker");
+      if (existing) { existing.remove(); return; }
+
+      const picker = document.createElement("div");
+      picker.className = "scene-break-picker";
+      const styles = [
+        { key: "asterism", label: "Asterism", ch: "\u2042" },
+        { key: "fleuron", label: "Fleuron", ch: "\u2767" },
+        { key: "dots", label: "Dots", ch: "\u2022 \u2022 \u2022" },
+        { key: "line", label: "Line", ch: "\u2014\u2014\u2014" },
+        { key: "space", label: "Space", ch: "(blank)" },
+      ];
+      styles.forEach((s) => {
+        const btn = document.createElement("button");
+        btn.className = "scene-break-picker-btn";
+        btn.title = s.label;
+        btn.innerHTML = `<span class="sbp-preview">${s.ch}</span><span class="sbp-label">${s.label}</span>`;
+        btn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
+          picker.remove();
+        });
+        picker.appendChild(btn);
+      });
+
+      // Position below the scene break
+      const rect = target.getBoundingClientRect();
+      const scrollParent = target.closest(".overflow-y-auto") ?? document.body;
+      const scrollRect = scrollParent.getBoundingClientRect();
+      picker.style.position = "fixed";
+      picker.style.left = `${rect.left + rect.width / 2}px`;
+      picker.style.top = `${rect.bottom + 8}px`;
+      picker.style.transform = "translateX(-50%)";
+      document.body.appendChild(picker);
+
+      // Close on outside click
+      const close = (ev: MouseEvent) => {
+        if (!picker.contains(ev.target as HTMLElement)) {
+          picker.remove();
+          document.removeEventListener("mousedown", close);
+        }
+      };
+      setTimeout(() => document.addEventListener("mousedown", close), 0);
+    };
+
+    editorDom.addEventListener("click", handleClick);
+    return () => editorDom.removeEventListener("click", handleClick);
+  }, [editor]);
+
   if (!editor) {
     return (
       <div className="flex-1 flex items-center justify-center">
