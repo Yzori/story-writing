@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
-import type { Turn, PlayerCharacter, RollRequest, StarterItem } from "@/components/campaign/types";
+import type { Turn, PlayerCharacter, RollRequest, StarterItem, SessionRosterEntry } from "@/components/campaign/types";
 import { rollStarterItems } from "@/components/campaign/types";
 import type { MapPin } from "@/components/campaign/LoreMap";
 import StoryMoment from "@/components/campaign/StoryMoment";
@@ -103,9 +103,33 @@ export default function DemoAdventurePage() {
     { id: "pin-3", x: 45, y: 25, label: "The Whispering Gallery", mood: "mysterious", description: "Elara hears the dead most clearly here." },
   ]);
 
+  // Roster — tracks who's present in this session
+  const [roster, setRoster] = useState<SessionRosterEntry[]>(() =>
+    INITIAL_CHARACTERS.map((c) => ({
+      id: `roster-${c.id}`,
+      sessionId: "demo-session",
+      characterId: c.id,
+      userId: c.userId,
+      status: "present" as const,
+    }))
+  );
+
+  const rosterCharacters = useMemo(() => {
+    const presentIds = new Set(
+      roster.filter((r) => r.status === "present" || r.status === "introduced").map((r) => r.characterId)
+    );
+    return mockCharacters.filter((c) => presentIds.has(c.id));
+  }, [mockCharacters, roster]);
+
   const currentUserId = viewAs === "gm" ? "gm" : viewAs === "lyra" ? "user-lyra" : "user-kaelen";
   const isGM = viewAs === "gm";
-  const myCharacter = mockCharacters.find((c) => c.userId === currentUserId) ?? null;
+  const myCharacter = useMemo(() => {
+    const myRosterEntry = roster.find(
+      (r) => r.userId === currentUserId && (r.status === "present" || r.status === "introduced")
+    );
+    if (myRosterEntry) return mockCharacters.find((c) => c.id === myRosterEntry.characterId) ?? null;
+    return mockCharacters.find((c) => c.userId === currentUserId && c.status === "active") ?? null;
+  }, [mockCharacters, currentUserId, roster]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -218,6 +242,18 @@ export default function DemoAdventurePage() {
     const char = mockCharacters.find((c) => c.id === characterId);
     const label = status === "dead" ? "has fallen" : status === "retired" ? "has retired" : "has been revived";
     showToast(`${char?.name ?? "Character"} ${label}`);
+    if (status === "dead" || status === "retired") {
+      // Update roster to spectating
+      setRoster((prev) => prev.map((r) =>
+        r.characterId === characterId ? { ...r, status: "spectating" as const } : r
+      ));
+    }
+    if (status === "active") {
+      // Revive: restore roster to present
+      setRoster((prev) => prev.map((r) =>
+        r.characterId === characterId ? { ...r, status: "present" as const } : r
+      ));
+    }
     if (status === "dead") {
       setActiveStoryMoment({
         mood: "death",
@@ -364,6 +400,21 @@ export default function DemoAdventurePage() {
     setMapPins((prev) => prev.filter((p) => p.id !== pinId));
     showToast("Pin removed");
   }, [showToast]);
+
+  const handleUpdateRoster = useCallback((characterIds: string[]) => {
+    setRoster((prev) =>
+      prev.map((entry) => ({
+        ...entry,
+        status: characterIds.includes(entry.characterId) ? "present" as const : "absent" as const,
+      }))
+    );
+    showToast("Roster updated");
+  }, [showToast]);
+
+  const handleInviteNewCharacter = useCallback((userId: string) => {
+    const char = mockCharacters.find((c) => c.userId === userId);
+    showToast(`Invitation sent to ${char?.user?.displayName ?? "player"} — they can create a new character.`);
+  }, [mockCharacters, showToast]);
 
   const handleUseItem = useCallback((characterId: string, item: StarterItem) => {
     const char = mockCharacters.find((c) => c.id === characterId);
@@ -568,6 +619,10 @@ export default function DemoAdventurePage() {
           storyId="demo-story"
           storyTurns={storyTurns}
           characters={mockCharacters}
+          rosterCharacters={rosterCharacters}
+          allCharacters={mockCharacters}
+          roster={roster}
+          onUpdateRoster={handleUpdateRoster}
           activePlayerId={activePlayerId}
           currentUserId={currentUserId}
           isGM={isGM}
@@ -612,6 +667,8 @@ export default function DemoAdventurePage() {
           onToggleCollapse={() => setRightCollapsed((v) => !v)}
           characterItems={characterItems}
           onUseItem={handleUseItem}
+          roster={roster}
+          onInviteNewCharacter={handleInviteNewCharacter}
         />
       </div>
     </div>
