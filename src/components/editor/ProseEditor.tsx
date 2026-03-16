@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -8,7 +8,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -17,68 +17,62 @@ import SlashMenu from "./SlashMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
 
-// Scene break styles for the inline picker
-const SCENE_BREAK_STYLES = [
-  { key: "asterism", label: "Asterism", preview: "\u2042" },
-  { key: "fleuron", label: "Fleuron", preview: "\u2767" },
-  { key: "dots", label: "Dots", preview: "\u2022 \u2022 \u2022" },
-  { key: "line", label: "Line", preview: "\u2014\u2014\u2014" },
-  { key: "space", label: "Space", preview: "(blank)" },
-];
-
-function SceneBreakView() {
-  const [showPicker, setShowPicker] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showPicker) return;
-    const close = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setShowPicker(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [showPicker]);
-
-  return (
-    <NodeViewWrapper as="div" className="scene-break-node" data-type="horizontalRule" ref={wrapperRef}>
-      <div
-        className="scene-break-ornament"
-        onClick={() => setShowPicker((v) => !v)}
-        role="button"
-        tabIndex={-1}
-      />
-      {showPicker && (
-        <div className="scene-break-picker">
-          {SCENE_BREAK_STYLES.map((s) => (
-            <button
-              key={s.key}
-              className="scene-break-picker-btn"
-              title={s.label}
-              onClick={(e) => {
-                e.stopPropagation();
-                const editorOuter = wrapperRef.current?.closest("[class*='scene-break-']")
-                  ?? wrapperRef.current?.closest(".tiptap-editor")?.parentElement;
-                if (editorOuter) {
-                  const classes = editorOuter.className.replace(/scene-break-\w+/g, "").trim();
-                  editorOuter.className = `${classes} scene-break-${s.key}`;
-                  window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
-                }
-                setShowPicker(false);
-              }}
-            >
-              <span className="scene-break-picker-preview">{s.preview}</span>
-              <span className="scene-break-picker-label">{s.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </NodeViewWrapper>
-  );
-}
-
+// Custom HorizontalRule with ProseMirror-native NodeView (not React — avoids flushSync crash)
 const CustomHorizontalRule = HorizontalRule.extend({
   addNodeView() {
-    return ReactNodeViewRenderer(SceneBreakView, { as: "div", className: "" });
+    return ({ HTMLAttributes }) => {
+      const dom = document.createElement("div");
+      dom.className = "scene-break-node";
+      dom.contentEditable = "false";
+      Object.entries(HTMLAttributes).forEach(([key, val]) => {
+        if (typeof val === "string") dom.setAttribute(key, val);
+      });
+
+      const ornament = document.createElement("div");
+      ornament.className = "scene-break-ornament";
+      dom.appendChild(ornament);
+
+      // Click ornament to open style picker
+      ornament.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const existing = dom.querySelector(".scene-break-picker");
+        if (existing) { existing.remove(); return; }
+
+        const picker = document.createElement("div");
+        picker.className = "scene-break-picker";
+
+        [
+          { key: "asterism", label: "Asterism", preview: "\u2042" },
+          { key: "fleuron", label: "Fleuron", preview: "\u2767" },
+          { key: "dots", label: "Dots", preview: "\u2022 \u2022 \u2022" },
+          { key: "line", label: "Line", preview: "\u2014\u2014\u2014" },
+          { key: "space", label: "Space", preview: "(blank)" },
+        ].forEach((s) => {
+          const btn = document.createElement("button");
+          btn.className = "scene-break-picker-btn";
+          btn.title = s.label;
+          btn.innerHTML = `<span class="scene-break-picker-preview">${s.preview}</span><span class="scene-break-picker-label">${s.label}</span>`;
+          btn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const outer = dom.closest("[class*='scene-break-']") ?? dom.closest(".tiptap-editor")?.parentElement;
+            if (outer) {
+              outer.className = outer.className.replace(/scene-break-\w+/g, "").trim() + ` scene-break-${s.key}`;
+              window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
+            }
+            picker.remove();
+          });
+          picker.appendChild(btn);
+        });
+
+        dom.appendChild(picker);
+        const close = (ev: MouseEvent) => {
+          if (!dom.contains(ev.target as Node)) { picker.remove(); document.removeEventListener("mousedown", close); }
+        };
+        setTimeout(() => document.addEventListener("mousedown", close), 0);
+      });
+
+      return { dom };
+    };
   },
 });
 
