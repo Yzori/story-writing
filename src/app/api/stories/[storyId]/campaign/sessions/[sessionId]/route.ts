@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { campaignSessions, stories } from "@/lib/db/schema";
+import { campaignSessions, stories, playerCharacters } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/lib/api-utils";
+import { createBulkNotifications } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
@@ -74,6 +75,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .set({ ...parsed.data, updatedAt: new Date() })
       .where(eq(campaignSessions.id, sessionId))
       .returning();
+
+    // Notify players when session ends or begins
+    if (parsed.data.status === "completed" || parsed.data.status === "active") {
+      const players = await db.query.playerCharacters.findMany({
+        where: eq(playerCharacters.storyId, storyId),
+      });
+      const playerUserIds = [...new Set(
+        players.map((p) => p.userId).filter((id) => id !== session.user.id)
+      )];
+      if (playerUserIds.length > 0) {
+        const action = parsed.data.status === "completed" ? "has ended" : "has begun";
+        await createBulkNotifications(
+          playerUserIds,
+          "collaboration",
+          `Session "${updated.title}" ${action} in ${story.title}`,
+          `/campaign/${storyId}/play/${sessionId}`
+        );
+      }
+    }
 
     return NextResponse.json({ data: updated });
   } catch (error) {

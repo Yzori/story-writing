@@ -23,6 +23,8 @@ export interface CampaignSession {
   title: string;
   summary: string;
   opening: string | null;
+  epilogue: string | null;
+  closingMood: string | null;
   activePlayerId: string | null;
   status: string;
 }

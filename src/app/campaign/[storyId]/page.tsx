@@ -52,6 +52,8 @@ interface CampaignSession {
   createdAt: string;
   updatedAt: string;
   turnCount: number;
+  epilogue?: string | null;
+  closingMood?: string | null;
 }
 
 interface CampaignApplication {
@@ -804,18 +806,18 @@ export default function CampaignPage() {
                   key={s.id}
                   layout
                   onClick={() => isClickable && router.push(`/campaign/${storyId}/play/${s.id}`)}
-                  className={`w-full text-left card-page p-4 transition-all group ${isClickable ? "cursor-pointer" : ""} ${isCompleted ? "opacity-60" : ""}`}
+                  className={`w-full text-left card-page p-4 transition-all group ${isClickable ? "cursor-pointer" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-ink flex items-center justify-center shrink-0">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className={isDraft ? "text-lavender" : "text-amber"}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? "bg-white/[0.03]" : "bg-ink"}`}>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className={isDraft ? "text-lavender" : isCompleted ? "text-white/30" : "text-amber"}>
                           <path d="M2 3l6 2.5L14 3v10l-6 2.5L2 13V3z" />
                           <path d="M8 5.5v10" />
                         </svg>
                       </div>
                       <div className="min-w-0">
-                        <span className={`font-semibold text-paper text-sm transition-colors truncate block ${isClickable ? "group-hover:text-amber" : ""}`}>
+                        <span className={`font-semibold text-sm transition-colors truncate block ${isCompleted ? "text-paper/60" : "text-paper"} ${isClickable ? "group-hover:text-amber" : ""}`}>
                           {s.title}
                         </span>
                         <span className="text-text-ghost text-xs">{s.turnCount} turn{s.turnCount !== 1 ? "s" : ""}</span>
@@ -848,6 +850,17 @@ export default function CampaignPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Epilogue recap for completed sessions */}
+                  {isCompleted && s.epilogue && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <p className="text-xs text-text-ghost/70 font-serif italic leading-relaxed">
+                        <span className="text-amber/30 mr-0.5">&ldquo;</span>
+                        {s.epilogue.length > 150 ? s.epilogue.slice(0, 150).trimEnd() + "..." : s.epilogue}
+                        <span className="text-amber/30 ml-0.5">&rdquo;</span>
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

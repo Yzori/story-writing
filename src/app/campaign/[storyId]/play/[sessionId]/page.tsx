@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,6 +29,8 @@ export default function SessionPlayPage() {
     currentUserId,
     isGM,
     myCharacter,
+    previousEpilogue,
+    previousMood,
     sendTurn,
     setActivePlayer,
     updateSession,
@@ -37,11 +39,30 @@ export default function SessionPlayPage() {
   const [chatInput, setChatInput] = useState("");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [epilogueText, setEpilogueText] = useState("");
   const [activeStoryMoment, setActiveStoryMoment] = useState<{
     mood: string;
     text: string;
     subtext?: string;
   } | null>(null);
+
+  // Detect session ending via poll (for players) — play cinematic
+  const prevSessionStatusRef = useRef(campaignSession?.status);
+  useEffect(() => {
+    if (
+      prevSessionStatusRef.current === "active" &&
+      campaignSession?.status === "completed" &&
+      !isGM
+    ) {
+      setActiveStoryMoment({
+        mood: campaignSession?.closingMood ?? "calm",
+        text: campaignSession?.epilogue || "The story pauses here...",
+        subtext: "Until next time.",
+      });
+    }
+    prevSessionStatusRef.current = campaignSession?.status;
+  }, [campaignSession?.status, campaignSession?.epilogue, campaignSession?.closingMood, isGM]);
 
   // ── Turn routing ──────────────────────────────────────────
   // Left pillar: only meta/mechanical stuff (chat, dice, roll requests)
@@ -145,14 +166,40 @@ export default function SessionPlayPage() {
     }
   }, [setActivePlayer, showToast]);
 
-  // GM ends the session
-  const handleEndSession = useCallback(async () => {
+  // GM ends the session — open confirmation modal
+  const handleEndSession = useCallback(() => {
+    setShowEndModal(true);
+  }, []);
+
+  // GM confirms ending — save epilogue, play cinematic, update status
+  const handleConfirmEndSession = useCallback(async () => {
     try {
-      await updateSession({ status: "completed" });
+      // Detect closing mood from last scene-break
+      let closingMood = "calm";
+      for (let i = storyTurns.length - 1; i >= 0; i--) {
+        if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
+          try { closingMood = JSON.parse(storyTurns[i].metadata!).mood ?? "calm"; } catch { /* ignore */ }
+          break;
+        }
+      }
+
+      const epilogue = epilogueText.trim() || undefined;
+      await updateSession({ status: "completed", epilogue, closingMood });
+
+      setShowEndModal(false);
+
+      // Play cinematic for the GM
+      setActiveStoryMoment({
+        mood: closingMood,
+        text: epilogue || "The story pauses here...",
+        subtext: "Until next time.",
+      });
+
+      setEpilogueText("");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to end session");
     }
-  }, [updateSession, showToast]);
+  }, [updateSession, showToast, epilogueText, storyTurns]);
 
   // Turn timer expired — return control to GM
   const handleTurnExpired = useCallback(async () => {
@@ -413,6 +460,64 @@ export default function SessionPlayPage() {
         )}
       </AnimatePresence>
 
+      {/* End Session Confirmation Modal */}
+      <AnimatePresence>
+        {showEndModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowEndModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-[#111] border border-amber/20 rounded-2xl p-6 max-w-md w-full mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span className="text-[11px] uppercase tracking-[0.2em] font-display text-amber">End Session</span>
+              </div>
+
+              <p className="text-sm text-white/60 mb-5">
+                This will close the session for all players. You can optionally leave a closing thought — a teaser, a reflection, or a &ldquo;to be continued...&rdquo;
+              </p>
+
+              <textarea
+                value={epilogueText}
+                onChange={(e) => setEpilogueText(e.target.value)}
+                placeholder="The road stretches on, and the shadows grow longer..."
+                className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
+                rows={3}
+                maxLength={5000}
+              />
+              <p className="text-[9px] text-white/20 mt-1 mb-5">Optional — shown to players as a closing moment</p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConfirmEndSession}
+                  className="flex-1 bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[11px] uppercase tracking-wider font-bold rounded-full py-2.5 cursor-pointer transition-colors"
+                >
+                  End Session
+                </button>
+                <button
+                  onClick={() => setShowEndModal(false)}
+                  className="px-5 text-[11px] text-white/40 hover:text-white cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Story Moment Overlay */}
       <AnimatePresence>
         {activeStoryMoment && (
@@ -495,6 +600,8 @@ export default function SessionPlayPage() {
         sessionStatus={campaignSession?.status ?? "draft"}
         sessionOpening={campaignSession?.opening ?? null}
         lobbyTheme="campfire"
+        previousEpilogue={previousEpilogue}
+        previousMood={previousMood}
         onBeginSession={async () => {
           try {
             await updateSession({ status: "active" });

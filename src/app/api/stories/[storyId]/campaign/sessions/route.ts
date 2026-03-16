@@ -47,6 +47,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         summary: campaignSessions.summary,
         sortOrder: campaignSessions.sortOrder,
         status: campaignSessions.status,
+        epilogue: campaignSessions.epilogue,
+        closingMood: campaignSessions.closingMood,
         createdAt: campaignSessions.createdAt,
         updatedAt: campaignSessions.updatedAt,
         turnCount: count(campaignTurns.id).as("turn_count"),

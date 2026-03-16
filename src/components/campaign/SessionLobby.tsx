@@ -25,6 +25,8 @@ interface SessionLobbyProps {
   lobbyTheme: string;
   sessionTitle: string;
   sessionOpening: string | null;
+  previousEpilogue?: string | null;
+  previousMood?: string | null;
   characters: PlayerCharacter[];
   isGM: boolean;
   onBeginSession: () => void;
@@ -183,6 +185,8 @@ export default function SessionLobby({
   lobbyTheme,
   sessionTitle,
   sessionOpening,
+  previousEpilogue,
+  previousMood,
   characters,
   isGM,
   onBeginSession,
@@ -216,11 +220,31 @@ export default function SessionLobby({
       <div className="absolute inset-0 z-20 flex items-center justify-center">
         <div className="max-w-2xl w-full px-6 flex flex-col items-center">
 
+          {/* "Previously on..." recap from last session */}
+          {previousEpilogue && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.2, delay: 0.1, ease: "easeOut" }}
+              className="mb-8 max-w-lg text-center"
+            >
+              <span className="text-[9px] uppercase tracking-[0.25em] text-white/20 font-display block mb-3">
+                Previously...
+              </span>
+              <p className="text-white/25 font-serif italic text-sm leading-relaxed">
+                {previousEpilogue.length > 250
+                  ? previousEpilogue.slice(0, 250).trimEnd() + "..."
+                  : previousEpilogue}
+              </p>
+              <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent mx-auto mt-4" />
+            </motion.div>
+          )}
+
           {/* Gathering label */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1.5, delay: 0.2 }}
+            transition={{ duration: 1.5, delay: previousEpilogue ? 0.6 : 0.2 }}
             className="mb-6"
           >
             <span className="text-[10px] uppercase tracking-[0.3em] text-amber/50 font-display">

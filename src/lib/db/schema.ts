@@ -758,6 +758,8 @@ export const campaignSessions = pgTable("campaign_sessions", {
   title: text("title").notNull(),
   summary: text("summary").default(""),
   opening: text("opening"),
+  epilogue: text("epilogue"),
+  closingMood: text("closing_mood"),
   activePlayerId: uuid("active_player_id").references(() => users.id, { onDelete: "set null" }),
   sortOrder: integer("sort_order").notNull().default(0),
   status: text("status").notNull().default("active"), // 'draft' | 'active' | 'completed' | 'archived'

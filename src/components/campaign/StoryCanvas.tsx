@@ -37,6 +37,8 @@ interface StoryCanvasProps {
   onReaction?: (reactionKey: string) => void;
   onEditTurn?: (turnId: string, newContent: string) => void;
   lobbyTheme?: string;
+  previousEpilogue?: string | null;
+  previousMood?: string | null;
   onBeginSession?: () => void;
   mapImage?: string | null;
   mapPins?: MapPin[];
@@ -371,6 +373,8 @@ export default function StoryCanvas({
   onReaction,
   onEditTurn,
   lobbyTheme,
+  previousEpilogue,
+  previousMood,
   onBeginSession,
   mapImage,
   mapPins,
@@ -992,6 +996,8 @@ export default function StoryCanvas({
             lobbyTheme={lobbyTheme ?? "campfire"}
             sessionTitle={sessionTitle}
             sessionOpening={sessionOpening}
+            previousEpilogue={previousEpilogue}
+            previousMood={previousMood}
             characters={characters}
             isGM={isGM}
             onBeginSession={onBeginSession ?? (() => {})}

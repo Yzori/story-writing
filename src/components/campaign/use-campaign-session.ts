@@ -14,6 +14,8 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [previousEpilogue, setPreviousEpilogue] = useState<string | null>(null);
+  const [previousMood, setPreviousMood] = useState<string | null>(null);
 
   const maxSortRef = useRef(-1);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -60,6 +62,21 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           const charsJson = await charsRes.json();
           setCharacters(charsJson.data ?? []);
         }
+
+        // Fetch previous session's epilogue for "Previously on..." in lobby
+        try {
+          const sessionsRes = await fetch(`/api/stories/${storyId}/campaign/sessions`);
+          if (sessionsRes.ok) {
+            const sessionsJson = await sessionsRes.json();
+            const allSessions = sessionsJson.data ?? [];
+            const currentIdx = allSessions.findIndex((s: { id: string }) => s.id === sessionId);
+            if (currentIdx > 0) {
+              const prev = allSessions[currentIdx - 1];
+              if (prev.epilogue) setPreviousEpilogue(prev.epilogue);
+              if (prev.closingMood) setPreviousMood(prev.closingMood);
+            }
+          }
+        } catch { /* non-critical */ }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {
@@ -104,7 +121,8 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             if (
               prev.status === next.status &&
               prev.activePlayerId === next.activePlayerId &&
-              prev.title === next.title
+              prev.title === next.title &&
+              prev.epilogue === next.epilogue
             ) return prev;
             return next;
           });
@@ -223,6 +241,8 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     currentUserId: currentUserId ?? null,
     isGM,
     myCharacter,
+    previousEpilogue,
+    previousMood,
     sendTurn,
     setActivePlayer,
     updateSession,

@@ -241,6 +241,8 @@ export const updateCampaignSessionSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   summary: z.string().max(5000).optional(),
   opening: z.string().max(20000).optional(),
+  epilogue: z.string().max(5000).optional(),
+  closingMood: z.string().max(50).optional(),
   status: z.enum(["draft", "active", "completed", "archived"]).optional(),
   activePlayerId: z.string().uuid().nullable().optional(),
 });
