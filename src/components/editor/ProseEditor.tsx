@@ -1,7 +1,8 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
@@ -15,6 +16,22 @@ import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
+
+// Custom scene break node view — renders a visible ornamental divider
+// (void <hr> elements can't have ::before/::after pseudo-elements)
+function SceneBreakView() {
+  return (
+    <NodeViewWrapper className="scene-break-node" contentEditable={false}>
+      <div className="scene-break-ornament" />
+    </NodeViewWrapper>
+  );
+}
+
+const CustomHorizontalRule = HorizontalRule.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(SceneBreakView);
+  },
+});
 
 const typewriterPluginKey = new PluginKey("typewriterScroll");
 
@@ -74,9 +91,10 @@ export default function ProseEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        horizontalRule: {},
+        horizontalRule: false, // replaced by CustomHorizontalRule below
         dropcursor: { color: "var(--t-gold)", width: 2 },
       }),
+      CustomHorizontalRule,
       Placeholder.configure({
         placeholder: "Begin your story... (type / for commands)",
         emptyEditorClass: "is-editor-empty",
