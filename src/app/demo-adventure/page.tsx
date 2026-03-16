@@ -501,14 +501,14 @@ export default function DemoAdventurePage() {
         {sessionStatus === "draft" && (
           <>
             <span className="text-[10px] text-white/40">Lobby:</span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {LOBBY_THEMES.map((t) => (
                 <div key={t.key} className="relative group">
                   <button
                     onClick={() => setLobbyTheme(t.key)}
-                    className={`w-7 h-5 rounded-sm overflow-hidden border transition-all cursor-pointer ${
+                    className={`w-9 h-6 rounded overflow-hidden border transition-all cursor-pointer ${
                       lobbyTheme === t.key
-                        ? "border-violet-400 ring-1 ring-violet-400/50"
+                        ? "border-violet-400 ring-1 ring-violet-400/50 scale-110"
                         : "border-white/10 hover:border-white/30 opacity-60 hover:opacity-100"
                     }`}
                   >
@@ -518,12 +518,12 @@ export default function DemoAdventurePage() {
                       className="w-full h-full object-cover"
                     />
                   </button>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <div className="bg-black/90 border border-white/10 rounded-lg px-3 py-2 whitespace-nowrap backdrop-blur-sm">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[70]">
+                    <div className="bg-black/95 border border-white/10 rounded-lg px-3 py-2 whitespace-nowrap backdrop-blur-md shadow-lg">
                       <p className="text-[10px] text-white/90 font-semibold">{t.label}</p>
                       <p className="text-[9px] text-white/40 font-serif italic">{t.description}</p>
                     </div>
-                    <div className="w-2 h-2 bg-black/90 border-r border-b border-white/10 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1" />
+                    <div className="w-2 h-2 bg-black/95 border-r border-b border-white/10 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1" />
                   </div>
                 </div>
               ))}
