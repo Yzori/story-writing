@@ -829,6 +829,86 @@ export const sessionRosterRelations = relations(sessionRoster, ({ one }) => ({
   }),
 }));
 
+// ── Session Polls ───────────────────────────────────────────
+
+export const sessionPolls = pgTable("session_polls", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").default("When should we play next?"),
+  options: text("options").notNull(), // JSON array of strings
+  status: text("status").notNull().default("open"), // 'open' | 'closed'
+  confirmedOption: text("confirmed_option"), // the GM's final pick
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const sessionPollsRelations = relations(
+  sessionPolls,
+  ({ one, many }) => ({
+    story: one(stories, {
+      fields: [sessionPolls.storyId],
+      references: [stories.id],
+    }),
+    createdByUser: one(users, {
+      fields: [sessionPolls.createdBy],
+      references: [users.id],
+    }),
+    votes: many(sessionPollVotes),
+  })
+);
+
+// ── Session Poll Votes ──────────────────────────────────────
+
+export const sessionPollVotes = pgTable(
+  "session_poll_votes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    pollId: uuid("poll_id")
+      .notNull()
+      .references(() => sessionPolls.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    selectedOptions: text("selected_options").notNull(), // JSON array of indices
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("session_poll_votes_poll_user_unique").on(
+      table.pollId,
+      table.userId
+    ),
+  ]
+);
+
+export const sessionPollVotesRelations = relations(
+  sessionPollVotes,
+  ({ one }) => ({
+    poll: one(sessionPolls, {
+      fields: [sessionPollVotes.pollId],
+      references: [sessionPolls.id],
+    }),
+    user: one(users, {
+      fields: [sessionPollVotes.userId],
+      references: [users.id],
+    }),
+  })
+);
+
 // ── Campaign Turns ─────────────────────────────────────────
 
 export const campaignTurns = pgTable("campaign_turns", {

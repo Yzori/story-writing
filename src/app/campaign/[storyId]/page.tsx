@@ -56,6 +56,19 @@ interface CampaignSession {
   closingMood?: string | null;
 }
 
+interface SessionPoll {
+  id: string;
+  storyId: string;
+  title: string;
+  options: string[];
+  status: string;
+  confirmedOption: string | null;
+  voteCounts: number[];
+  totalVoters: number;
+  myVotes: number[];
+  createdAt: string;
+}
+
 interface CampaignApplication {
   id: string;
   storyId: string;
@@ -98,10 +111,19 @@ export default function CampaignPage() {
   const [characters, setCharacters] = useState<PlayerCharacter[]>([]);
   const [sessions, setSessions] = useState<CampaignSession[]>([]);
   const [applications, setApplications] = useState<CampaignApplication[]>([]);
+  const [polls, setPolls] = useState<SessionPoll[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedPitch, setExpandedPitch] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Poll creation form
+  const [showCreatePoll, setShowCreatePoll] = useState(false);
+  const [pollTitle, setPollTitle] = useState("When should we play next?");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollSubmitting, setPollSubmitting] = useState(false);
+  const [pollVoteLoading, setPollVoteLoading] = useState(false);
+  const [pollCloseLoading, setPollCloseLoading] = useState(false);
 
   // Character creation form
   const [showCreateChar, setShowCreateChar] = useState(false);
@@ -133,11 +155,12 @@ export default function CampaignPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [storyRes, charsRes, sessionsRes, appsRes] = await Promise.all([
+      const [storyRes, charsRes, sessionsRes, appsRes, pollsRes] = await Promise.all([
         fetch(`/api/stories/${storyId}`),
         fetch(`/api/stories/${storyId}/campaign/characters`),
         fetch(`/api/stories/${storyId}/campaign/sessions`),
         fetch(`/api/stories/${storyId}/campaign/applications`),
+        fetch(`/api/stories/${storyId}/campaign/polls`),
       ]);
 
       if (!storyRes.ok) throw new Error("Failed to load story");
@@ -158,6 +181,11 @@ export default function CampaignPage() {
       if (appsRes.ok) {
         const appsJson = await appsRes.json();
         setApplications(appsJson.data ?? []);
+      }
+
+      if (pollsRes.ok) {
+        const pollsJson = await pollsRes.json();
+        setPolls(pollsJson.data ?? []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -310,6 +338,132 @@ export default function CampaignPage() {
       alert(err instanceof Error ? err.message : "Error");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  // ── Poll actions ──────────────────────────────────────────
+
+  const activePoll = polls.find((p) => p.status === "open");
+  const closedPolls = polls.filter((p) => p.status === "closed");
+  const latestClosedPoll = closedPolls.length > 0 ? closedPolls[0] : null;
+
+  const handleCreatePoll = async () => {
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (validOptions.length < 2 || pollSubmitting) return;
+    setPollSubmitting(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/campaign/polls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: pollTitle.trim() || undefined,
+          options: validOptions.map((o) => o.trim()),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? "Failed to create poll");
+      }
+      const created = await res.json();
+      setPolls((prev) => [created.data, ...prev.map((p) => p.status === "open" ? { ...p, status: "closed" } : p)]);
+      setShowCreatePoll(false);
+      setPollTitle("When should we play next?");
+      setPollOptions(["", ""]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error creating poll");
+    } finally {
+      setPollSubmitting(false);
+    }
+  };
+
+  const handlePollVote = async (pollId: string, optionIndex: number) => {
+    if (pollVoteLoading) return;
+    setPollVoteLoading(true);
+
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll) return;
+
+    // Toggle the option
+    const currentVotes = [...poll.myVotes];
+    const idx = currentVotes.indexOf(optionIndex);
+    if (idx >= 0) {
+      currentVotes.splice(idx, 1);
+    } else {
+      currentVotes.push(optionIndex);
+    }
+
+    // Optimistic update
+    setPolls((prev) =>
+      prev.map((p) => {
+        if (p.id !== pollId) return p;
+        const newCounts = [...p.voteCounts];
+        if (idx >= 0) {
+          // Removing vote
+          newCounts[optionIndex] = Math.max(0, newCounts[optionIndex] - 1);
+        } else {
+          // Adding vote
+          newCounts[optionIndex]++;
+        }
+        const hadVotesBefore = p.myVotes.length > 0;
+        const hasVotesNow = currentVotes.length > 0;
+        let newTotalVoters = p.totalVoters;
+        if (!hadVotesBefore && hasVotesNow) newTotalVoters++;
+        if (hadVotesBefore && !hasVotesNow) newTotalVoters--;
+        return { ...p, myVotes: currentVotes, voteCounts: newCounts, totalVoters: newTotalVoters };
+      })
+    );
+
+    try {
+      const res = await fetch(
+        `/api/stories/${storyId}/campaign/polls/${pollId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selectedOptions: currentVotes }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? "Failed to vote");
+      }
+      const updated = await res.json();
+      setPolls((prev) =>
+        prev.map((p) => (p.id === pollId ? updated.data : p))
+      );
+    } catch (err) {
+      // Revert optimistic update
+      setPolls((prev) =>
+        prev.map((p) => (p.id === pollId && poll ? poll : p))
+      );
+    } finally {
+      setPollVoteLoading(false);
+    }
+  };
+
+  const handleClosePoll = async (pollId: string, confirmedOption: string) => {
+    if (pollCloseLoading) return;
+    setPollCloseLoading(true);
+    try {
+      const res = await fetch(
+        `/api/stories/${storyId}/campaign/polls/${pollId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirmedOption }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? "Failed to close poll");
+      }
+      const updated = await res.json();
+      setPolls((prev) =>
+        prev.map((p) => (p.id === pollId ? updated.data : p))
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error closing poll");
+    } finally {
+      setPollCloseLoading(false);
     }
   };
 
@@ -641,6 +795,240 @@ export default function CampaignPage() {
               </div>
             )}
           </div>
+        </motion.section>
+
+        {/* ── Next Session Poll ───────────────────────── */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.06 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold">
+              Next Session
+            </h2>
+          </div>
+
+          {/* Closed poll — confirmed time */}
+          {!activePoll && latestClosedPoll?.confirmedOption && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="card-page p-4 flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-xl bg-sage/10 flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage">
+                  <path d="M3 8.5l3 3 7-7" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-paper text-sm font-semibold">{latestClosedPoll.confirmedOption}</p>
+                <p className="text-text-ghost text-[10px] mt-0.5">{latestClosedPoll.title}</p>
+              </div>
+              {isGM && (
+                <button
+                  onClick={() => setShowCreatePoll(true)}
+                  className="px-3 py-1.5 bg-surface border border-border rounded-lg text-text-secondary hover:text-paper text-[11px] transition-colors cursor-pointer"
+                >
+                  New Poll
+                </button>
+              )}
+            </motion.div>
+          )}
+
+          {/* Active poll */}
+          {activePoll && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="card-page p-5 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-paper font-serif italic">
+                  {activePoll.title}
+                </h3>
+                <span className="text-[10px] text-text-ghost">
+                  {activePoll.totalVoters} voted
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {activePoll.options.map((option, idx) => {
+                  const count = activePoll.voteCounts[idx] ?? 0;
+                  const maxCount = Math.max(...activePoll.voteCounts, 1);
+                  const isLeading = count > 0 && count === Math.max(...activePoll.voteCounts);
+                  const isSelected = activePoll.myVotes.includes(idx);
+                  const barWidth = activePoll.totalVoters > 0 ? (count / activePoll.totalVoters) * 100 : 0;
+
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handlePollVote(activePoll.id, idx)}
+                      disabled={pollVoteLoading}
+                      className={`w-full text-left relative overflow-hidden rounded-xl p-3 transition-all cursor-pointer border ${
+                        isSelected
+                          ? "border-amber/30 bg-amber/5"
+                          : "border-border/50 bg-ink/30 hover:border-border"
+                      } ${pollVoteLoading ? "opacity-60" : ""}`}
+                    >
+                      {/* Background bar */}
+                      <div
+                        className={`absolute inset-y-0 left-0 transition-all duration-500 ${
+                          isLeading ? "bg-amber/8" : "bg-surface/50"
+                        }`}
+                        style={{ width: `${barWidth}%` }}
+                      />
+
+                      <div className="relative flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Checkbox */}
+                          <div className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors ${
+                            isSelected
+                              ? "bg-amber border-amber"
+                              : "border-text-ghost/30"
+                          }`}>
+                            {isSelected && (
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" className="text-void">
+                                <path d="M2 5l2.5 2.5L8 3" />
+                              </svg>
+                            )}
+                          </div>
+                          <span className={`text-sm truncate ${isLeading ? "text-paper font-medium" : "text-text-secondary"}`}>
+                            {option}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-xs tabular-nums ${isLeading ? "text-amber font-semibold" : "text-text-ghost"}`}>
+                            {count}
+                          </span>
+                          {isGM && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleClosePoll(activePoll.id, option);
+                              }}
+                              disabled={pollCloseLoading}
+                              className="px-2 py-0.5 bg-sage/10 hover:bg-sage/20 border border-sage/20 text-sage text-[9px] uppercase tracking-wider font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {pollCloseLoading ? "..." : "Confirm"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* No poll — GM can create one */}
+          {!activePoll && !latestClosedPoll?.confirmedOption && !showCreatePoll && isGM && (
+            <button
+              onClick={() => setShowCreatePoll(true)}
+              className="w-full py-3 bg-violet/10 hover:bg-violet/15 border border-violet/20 rounded-2xl text-violet text-sm font-medium transition-colors cursor-pointer"
+            >
+              Schedule Next Session
+            </button>
+          )}
+
+          {/* No poll — player sees nothing special */}
+          {!activePoll && !latestClosedPoll?.confirmedOption && !isGM && (
+            <div className="bg-surface/50 border border-border/50 border-dashed rounded-2xl p-6 text-center">
+              <p className="text-text-ghost text-sm">No session scheduled yet. The GM will post a poll soon.</p>
+            </div>
+          )}
+
+          {/* Create poll form (GM only) */}
+          {showCreatePoll && isGM && (
+            <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="card-page p-5 space-y-4 overflow-hidden mt-3"
+              >
+                <h3 className="text-sm font-semibold text-paper">Schedule a Session</h3>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Question</label>
+                  <input
+                    type="text"
+                    value={pollTitle}
+                    onChange={(e) => setPollTitle(e.target.value)}
+                    placeholder="When should we play next?"
+                    className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-violet/40 transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">Time Options</label>
+                  {pollOptions.map((opt, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => {
+                          const next = [...pollOptions];
+                          next[idx] = e.target.value;
+                          setPollOptions(next);
+                        }}
+                        placeholder={
+                          idx === 0
+                            ? "e.g. Saturday 8pm"
+                            : idx === 1
+                            ? "e.g. Sunday afternoon"
+                            : `Option ${idx + 1}`
+                        }
+                        className="flex-1 px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-violet/40 transition-colors"
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          onClick={() => {
+                            const next = pollOptions.filter((_, i) => i !== idx);
+                            setPollOptions(next);
+                          }}
+                          className="p-1.5 text-text-ghost hover:text-rose transition-colors cursor-pointer"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M3 3l8 8M11 3l-8 8" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {pollOptions.length < 5 && (
+                    <button
+                      onClick={() => setPollOptions([...pollOptions, ""])}
+                      className="text-violet text-[11px] hover:text-violet/80 transition-colors cursor-pointer"
+                    >
+                      + Add option
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={handleCreatePoll}
+                    disabled={pollOptions.filter((o) => o.trim()).length < 2 || pollSubmitting}
+                    className="px-5 py-2 bg-violet text-white font-semibold rounded-xl text-sm disabled:opacity-40 hover:bg-violet/90 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {pollSubmitting ? "Creating..." : "Create Poll"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreatePoll(false);
+                      setPollTitle("When should we play next?");
+                      setPollOptions(["", ""]);
+                    }}
+                    className="px-4 py-2 text-text-ghost hover:text-text-secondary text-sm transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
         </motion.section>
 
         {/* ── Applicants (GM only) ─────────────────────── */}

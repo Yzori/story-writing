@@ -273,6 +273,21 @@ export const createVoteSchema = z.object({
   vote: z.boolean(),
 });
 
+// ── Session Polls ───────────────────────────────────────────
+
+export const createSessionPollSchema = z.object({
+  title: z.string().max(500).optional(),
+  options: z.array(z.string().min(1).max(200)).min(2).max(5),
+});
+
+export const voteSessionPollSchema = z.object({
+  selectedOptions: z.array(z.number().int().min(0)),
+});
+
+export const closeSessionPollSchema = z.object({
+  confirmedOption: z.string().max(200),
+});
+
 // ── Session Roster ──────────────────────────────────────────
 
 export const updateSessionRosterSchema = z.object({
