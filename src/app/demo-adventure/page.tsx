@@ -476,7 +476,7 @@ export default function DemoAdventurePage() {
   return (
     <div className="flex flex-col w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden">
       {/* Demo Controls Bar */}
-      <div className="h-12 bg-violet-500/10 border-b border-violet-500/20 flex items-center justify-center gap-4 px-6 shrink-0 z-[60]">
+      <div className="h-12 bg-violet-500/10 border-b border-violet-500/20 flex items-center justify-center gap-4 px-6 shrink-0 z-[60] overflow-visible">
         <span className="text-[10px] uppercase tracking-widest text-violet-400 font-bold">Demo Mode</span>
         <div className="w-px h-5 bg-violet-500/20" />
         <span className="text-[10px] text-white/40">View as:</span>
@@ -518,12 +518,12 @@ export default function DemoAdventurePage() {
                       className="w-full h-full object-cover"
                     />
                   </button>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[70]">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[70]">
+                    <div className="w-2 h-2 bg-black/95 border-l border-t border-white/10 rotate-45 absolute left-1/2 -translate-x-1/2 -top-1" />
                     <div className="bg-black/95 border border-white/10 rounded-lg px-3 py-2 whitespace-nowrap backdrop-blur-md shadow-lg">
                       <p className="text-[10px] text-white/90 font-semibold">{t.label}</p>
                       <p className="text-[9px] text-white/40 font-serif italic">{t.description}</p>
                     </div>
-                    <div className="w-2 h-2 bg-black/95 border-r border-b border-white/10 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1" />
                   </div>
                 </div>
               ))}
