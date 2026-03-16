@@ -159,13 +159,8 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
 
   const executeItem = useCallback(
     (item: SlashMenuItem) => {
-      // Delete the slash and any query text
+      // Delete the slash and any query text first
       const { from } = editor.state.selection;
-      const textBefore = editor.state.doc.textBetween(
-        Math.max(0, from - query.length - 1),
-        from,
-        ""
-      );
       const slashPos = from - query.length - 1;
 
       editor
@@ -174,7 +169,10 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
         .deleteRange({ from: Math.max(0, slashPos), to: from })
         .run();
 
-      item.action(editor);
+      // Run the action after a microtask so the editor state settles
+      requestAnimationFrame(() => {
+        item.action(editor);
+      });
       closeMenu();
     },
     [editor, query, closeMenu]
