@@ -90,7 +90,7 @@ export default function SessionPlayPage() {
   ), [turns]);
   // Center stage: all narrative content (no mechanical turns)
   const storyTurns = useMemo(() => turns.filter((t) =>
-    ["narration", "consequence", "action", "dialogue", "reaction", "description", "scene-break"].includes(t.type)
+    ["narration", "consequence", "action", "dialogue", "reaction", "description", "scene-break", "illustration"].includes(t.type)
   ), [turns]);
 
   // ── Pending roll request for the current player ───────────
@@ -465,6 +465,20 @@ export default function SessionPlayPage() {
     [sendTurn, showToast]
   );
 
+  // GM drops an illustration into the story canvas
+  const handleAddIllustration = useCallback(
+    async (imageUrl: string, caption?: string) => {
+      try {
+        const metadata = JSON.stringify({ imageUrl, caption: caption || undefined });
+        await sendTurn("illustration", caption || "", undefined, metadata);
+        showToast("Illustration placed");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to add illustration");
+      }
+    },
+    [sendTurn, showToast]
+  );
+
   // ── Loading / Error ────────────────────────────────────────
 
   if (loading) {
@@ -708,6 +722,7 @@ export default function SessionPlayPage() {
         onSceneBreak={handleSceneBreak}
         onChangeCharacterStatus={handleChangeCharacterStatus}
         onStoryMoment={handleStoryMoment}
+        onAddIllustration={handleAddIllustration}
         roster={roster}
         onInviteNewCharacter={handleInviteNewCharacter}
         clocks={clocks}

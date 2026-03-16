@@ -168,7 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Only GM (story owner) can post narration and consequence
     const isStoryOwner = check.story?.userId === session.user.id;
-    const gmOnlyTypes = ["narration", "consequence", "roll-request"];
+    const gmOnlyTypes = ["narration", "consequence", "roll-request", "illustration"];
     if (gmOnlyTypes.includes(parsed.data.type) && !isStoryOwner) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can narrate" } },

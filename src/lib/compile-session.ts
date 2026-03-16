@@ -30,6 +30,7 @@ const DIALOGUE_VERBS = ["said", "replied", "called out", "murmured", "whispered"
 
 function shouldMerge(prev: CompileTurn, next: CompileTurn): boolean {
   if (prev.type === "scene-break" || next.type === "scene-break") return false;
+  if (prev.type === "illustration" || next.type === "illustration") return false;
 
   const gmTypes = ["narration", "consequence"];
   const playerProseTypes = ["action", "dialogue", "reaction", "description"];
@@ -174,6 +175,30 @@ export function compileSessionToHTML(options: CompileOptions): string {
         );
       } else {
         parts.push("<hr>");
+      }
+      globalIdx += group.length;
+      continue;
+    }
+
+    // Illustration turns render as figures
+    if (group[0].type === "illustration") {
+      let imageUrl = "";
+      let caption = "";
+      try {
+        const meta = group[0].metadata ? JSON.parse(group[0].metadata) : {};
+        imageUrl = meta.imageUrl ?? "";
+        caption = meta.caption ?? "";
+      } catch {
+        /* ignore */
+      }
+
+      if (imageUrl) {
+        const figcaption = caption
+          ? `<figcaption><em>${esc(caption)}</em></figcaption>`
+          : "";
+        parts.push(
+          `<figure><img src="${esc(imageUrl)}" alt="${esc(caption || "Illustration")}" style="max-width:100%;border-radius:12px" />${figcaption}</figure>`
+        );
       }
       globalIdx += group.length;
       continue;

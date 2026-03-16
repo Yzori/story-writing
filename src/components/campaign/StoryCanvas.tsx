@@ -782,8 +782,9 @@ export default function StoryCanvas({
 
   // Should two consecutive turns merge into the same paragraph?
   const shouldMerge = (prev: Turn, next: Turn): boolean => {
-    // Scene breaks never merge
+    // Scene breaks and illustrations never merge
     if (prev.type === "scene-break" || next.type === "scene-break") return false;
+    if (prev.type === "illustration" || next.type === "illustration") return false;
 
     const gmTypes = ["narration", "consequence"];
     const playerProseTypes = ["action", "dialogue", "reaction"];
@@ -878,6 +879,10 @@ export default function StoryCanvas({
     switch (turn.type) {
       case "scene-break":
         // Scene breaks are rendered at the paragraph level, not inline
+        return null;
+
+      case "illustration":
+        // Illustrations are rendered at the paragraph level, not inline
         return null;
 
       case "narration":
@@ -1128,6 +1133,43 @@ export default function StoryCanvas({
                       ) : null}
                       <div className={`flex-1 h-px bg-gradient-to-r from-transparent ${classes.line} to-transparent`} />
                     </div>
+                  );
+                }
+
+                // Illustration turns render as visual breaks in the prose
+                if (group[0].type === "illustration") {
+                  let imageUrl = "";
+                  let caption = "";
+                  try {
+                    const meta = group[0].metadata ? JSON.parse(group[0].metadata) : {};
+                    imageUrl = meta.imageUrl ?? "";
+                    caption = meta.caption ?? "";
+                  } catch { /* ignore */ }
+
+                  if (!imageUrl) return null;
+
+                  return (
+                    <motion.figure
+                      key={group[0].id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      className="my-10 flex flex-col items-center"
+                    >
+                      <div className="max-w-full rounded-xl overflow-hidden border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+                        <img
+                          src={imageUrl}
+                          alt={caption || "Illustration"}
+                          loading="lazy"
+                          className="max-w-full block"
+                        />
+                      </div>
+                      {caption && (
+                        <figcaption className="mt-3 text-sm text-paper/50 font-serif italic text-center max-w-md">
+                          {caption}
+                        </figcaption>
+                      )}
+                    </motion.figure>
                   );
                 }
 

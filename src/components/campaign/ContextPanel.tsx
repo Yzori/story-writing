@@ -16,6 +16,7 @@ interface ContextPanelProps {
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
   onSceneBreak?: (title: string, mood: string, aspects?: string[]) => void;
   onStoryMoment?: (text: string, mood: string, subtext?: string) => void;
+  onAddIllustration?: (imageUrl: string, caption?: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   roster?: SessionRosterEntry[];
@@ -35,6 +36,7 @@ export default function ContextPanel({
   onChangeCharacterStatus,
   onSceneBreak,
   onStoryMoment,
+  onAddIllustration,
   isCollapsed = false,
   onToggleCollapse,
   roster = [],
@@ -65,6 +67,11 @@ export default function ContextPanel({
   const [storyMomentText, setStoryMomentText] = useState("");
   const [storyMomentSubtext, setStoryMomentSubtext] = useState("");
   const [storyMomentMood, setStoryMomentMood] = useState("ominous");
+
+  // Illustration form state
+  const [showIllustrationForm, setShowIllustrationForm] = useState(false);
+  const [illustrationUrl, setIllustrationUrl] = useState("");
+  const [illustrationCaption, setIllustrationCaption] = useState("");
 
   // Roll request form state
   const [showRollForm, setShowRollForm] = useState(false);
@@ -866,6 +873,79 @@ export default function ContextPanel({
                     </svg>
                   </span>
                   <span className="relative text-[10px] text-white/40 mt-1">Play a cinematic overlay moment.</span>
+                </button>
+              )}
+
+              {/* Illustration */}
+              {showIllustrationForm ? (
+                <div className="relative bg-black/60 border border-amber/30 rounded-lg p-3 space-y-3 shadow-[0_0_20px_rgba(200,150,60,0.08),inset_0_1px_0_rgba(200,150,60,0.1)]">
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-amber/5 to-transparent pointer-events-none" />
+                  <div className="relative space-y-3">
+                    <p className="text-[10px] uppercase tracking-widest text-amber font-bold flex items-center gap-2">
+                      Set the Scene
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/60">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                      </svg>
+                    </p>
+
+                    {/* Image URL */}
+                    <div>
+                      <label className="text-[9px] uppercase text-white/30 tracking-wider">Image URL</label>
+                      <input
+                        type="text"
+                        value={illustrationUrl}
+                        onChange={(e) => setIllustrationUrl(e.target.value)}
+                        placeholder="Paste an image URL..."
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Caption */}
+                    <div>
+                      <label className="text-[9px] uppercase text-white/30 tracking-wider">Caption (optional)</label>
+                      <textarea
+                        value={illustrationCaption}
+                        onChange={(e) => setIllustrationCaption(e.target.value)}
+                        placeholder="What does the party see?"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-amber/30 resize-none"
+                        rows={2}
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          if (illustrationUrl.trim()) {
+                            onAddIllustration?.(illustrationUrl.trim(), illustrationCaption.trim() || undefined);
+                            setIllustrationUrl("");
+                            setIllustrationCaption("");
+                            setShowIllustrationForm(false);
+                          }
+                        }}
+                        disabled={!illustrationUrl.trim()}
+                        className="flex-1 bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[10px] uppercase tracking-wider font-bold rounded py-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Place in Story
+                      </button>
+                      <button onClick={() => setShowIllustrationForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowIllustrationForm(true)}
+                  className="bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
+                >
+                  <span className="text-sm text-amber/90 font-medium flex items-center gap-2">
+                    Set the Scene...
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  </span>
+                  <span className="text-[10px] text-white/40 mt-1">Drop an illustration into the story.</span>
                 </button>
               )}
 

@@ -251,7 +251,7 @@ export const updateCampaignSessionSchema = z.object({
 
 export const createCampaignTurnSchema = z.object({
   characterId: z.string().uuid().optional(),
-  type: z.enum(["narration", "consequence", "action", "dialogue", "reaction", "description", "roll", "roll-request", "ooc"]),
+  type: z.enum(["narration", "consequence", "action", "dialogue", "reaction", "description", "roll", "roll-request", "ooc", "illustration"]),
   content: z.string().min(1, "Content is required").max(10000),
   metadata: z.string().max(5000).optional(),
 });

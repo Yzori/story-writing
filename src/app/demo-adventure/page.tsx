@@ -375,6 +375,20 @@ export default function DemoAdventurePage() {
     }]);
   }, []);
 
+  const handleAddIllustration = useCallback((imageUrl: string, caption?: string) => {
+    const id = `illus-${Date.now()}`;
+    setStoryTurns((prev) => [...prev, {
+      id, sessionId: "s1", userId: "gm", characterId: null,
+      type: "illustration", content: caption || "",
+      metadata: JSON.stringify({ imageUrl, caption: caption || undefined }),
+      sortOrder: ++turnCounterRef.current,
+      createdAt: new Date().toISOString(),
+      user: { id: "gm", displayName: "AlexTheGM", avatarUrl: null },
+      characterName: null, characterPortrait: null,
+    }]);
+    showToast("Illustration placed");
+  }, [showToast]);
+
   const handlePushEvent = useCallback((content: string) => {
     handleCommitDraft(content, "narration");
   }, [handleCommitDraft]);
@@ -834,6 +848,7 @@ export default function DemoAdventurePage() {
           onChangeCharacterStatus={handleChangeCharacterStatus}
           onSceneBreak={handleSceneBreak}
           onStoryMoment={handleStoryMoment}
+          onAddIllustration={handleAddIllustration}
           isCollapsed={rightCollapsed}
           onToggleCollapse={() => setRightCollapsed((v) => !v)}
           roster={roster}
