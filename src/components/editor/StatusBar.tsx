@@ -61,6 +61,7 @@ export default function StatusBar({
                 : "hover:bg-paper/10 text-paper/50 hover:text-paper"
             }`}
             title="Ambient Soundscape"
+            aria-label={isAudioPlaying ? "Stop ambient soundscape" : "Play ambient soundscape"}
           >
             {isAudioPlaying ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></svg>
@@ -78,6 +79,7 @@ export default function StatusBar({
                 : "hover:bg-paper/10 text-paper/50 hover:text-paper"
             }`}
             title="Focus Mode"
+            aria-label={isFocusMode ? "Disable focus mode" : "Enable focus mode"}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />
@@ -94,6 +96,7 @@ export default function StatusBar({
                 : "hover:bg-paper/10 text-paper/50 hover:text-paper"
             }`}
             title="Chapter Outline"
+            aria-label={showOutline ? "Hide chapter outline" : "Show chapter outline"}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
@@ -106,6 +109,7 @@ export default function StatusBar({
             onClick={onToggleComments}
             className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block"
             title="Comments"
+            aria-label="Toggle comments panel"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -117,6 +121,7 @@ export default function StatusBar({
             onClick={onToggleSearch}
             className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block"
             title="Search (Ctrl+Shift+H)"
+            aria-label="Search and replace"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -146,23 +151,33 @@ export default function StatusBar({
           </div>
 
           {/* Save state indicator */}
-          {saveState !== "idle" && (
-            <>
-              <div className="w-[1px] h-6 bg-paper/10 shrink-0" />
-              <span className={`text-[11px] shrink-0 ${
-                saveState === "error" ? "text-rose" : "text-paper/40"
-              }`}>
-                {saveState === "saving" && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block w-2 h-2 rounded-full border border-paper/40 border-t-transparent animate-spin" />
-                    Saving
-                  </span>
-                )}
-                {saveState === "saved" && "Saved"}
-                {saveState === "error" && "Save failed"}
+          <div className="w-[1px] h-6 bg-paper/10 shrink-0" />
+          <span
+            aria-live="polite"
+            className={`text-[11px] shrink-0 ${
+              saveState === "error" ? "text-rose" : "text-paper/40"
+            }`}
+          >
+            {saveState === "idle" && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+                <span className="text-paper/20">Saved</span>
               </span>
-            </>
-          )}
+            )}
+            {saveState === "saving" && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full border border-paper/40 border-t-transparent animate-spin" />
+                Saving
+              </span>
+            )}
+            {saveState === "saved" && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
+                Saved
+              </span>
+            )}
+            {saveState === "error" && "Save failed"}
+          </span>
         </div>
 
         <div className="w-[1px] h-6 bg-paper/10 shrink-0" />
@@ -171,6 +186,7 @@ export default function StatusBar({
         <button
           onClick={onOpenGrimoire}
           className="flex items-center gap-2 group hover:text-amber transition-colors shrink-0"
+          aria-label="Open grimoire"
         >
           <div className="w-6 h-6 rounded-full bg-amber/10 flex items-center justify-center border border-amber/20 group-hover:bg-amber group-hover:text-void transition-all shadow-[0_0_10px_rgba(200,150,60,0.2)] group-hover:shadow-[0_0_20px_rgba(200,150,60,0.6)]">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

@@ -172,9 +172,7 @@ export default function WriteStoryPage() {
   const [project, setProject] = useState<StoryProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [navCollapsed, setNavCollapsed] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
-  const [isZenMode, setIsZenMode] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
 
@@ -207,7 +205,6 @@ export default function WriteStoryPage() {
 
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [showChapterOutline, setShowChapterOutline] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -218,6 +215,7 @@ export default function WriteStoryPage() {
 
   // Track which chapters have unsaved content changes
   const pendingSaves = useRef<Map<string, string>>(new Map());
+  const failedSaves = useRef<Map<string, string>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   // ── Load story from API ──────────────────────────────────
@@ -312,37 +310,52 @@ export default function WriteStoryPage() {
       typography: project.typography,
     });
 
-    // Flush pending chapter saves
+    // Flush pending chapter saves with retry
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    saveTimer.current = setTimeout(async () => {
       const entries = Array.from(pendingSaves.current.entries());
       if (entries.length === 0) return;
 
       setSaveState("saving");
       if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+      pendingSaves.current.clear();
 
-      const saves = entries.map(([chapterId, content]) =>
-        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        })
-      );
+      const maxRetries = 3;
+      let lastError = false;
 
-      Promise.all(saves)
-        .then((responses) => {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+
+        try {
+          const saves = entries.map(([chapterId, content]) =>
+            fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content }),
+            })
+          );
+          const responses = await Promise.all(saves);
           if (responses.every((r) => r.ok)) {
+            failedSaves.current.clear();
             setSaveState("saved");
             savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-          } else {
-            setSaveState("error");
+            return;
           }
-        })
-        .catch(() => {
-          setSaveState("error");
-        });
+        } catch {
+          // will retry
+        }
+        lastError = true;
+      }
 
-      pendingSaves.current.clear();
+      if (lastError) {
+        // Store failed entries for manual retry
+        for (const [chapterId, content] of entries) {
+          failedSaves.current.set(chapterId, content);
+        }
+        setSaveState("error");
+      }
     }, 1000);
 
     return () => {
@@ -350,6 +363,87 @@ export default function WriteStoryPage() {
       if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
     };
   }, [project, storyId]);
+
+  // ── Flush pending saves immediately (reusable) ──────────
+  const flushPendingSaves = useCallback(async (): Promise<boolean> => {
+    // Clear the debounce timer so it doesn't fire after we flush
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+
+    const entries = Array.from(pendingSaves.current.entries());
+    if (entries.length === 0) return true;
+
+    setSaveState("saving");
+    if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+    pendingSaves.current.clear();
+
+    try {
+      const saves = entries.map(([chapterId, content]) =>
+        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        })
+      );
+      const responses = await Promise.all(saves);
+      if (responses.every((r) => r.ok)) {
+        failedSaves.current.clear();
+        setSaveState("saved");
+        savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+        return true;
+      }
+    } catch {
+      // fall through to error handling
+    }
+
+    // On failure, store for manual retry
+    for (const [chapterId, content] of entries) {
+      failedSaves.current.set(chapterId, content);
+    }
+    setSaveState("error");
+    return false;
+  }, [storyId]);
+
+  // ── Warn user about unsaved changes on navigation ──────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (pendingSaves.current.size > 0) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // ── Retry failed saves manually ─────────────────────────
+  const retryFailedSaves = useCallback(async () => {
+    const entries = Array.from(failedSaves.current.entries());
+    if (entries.length === 0) return;
+
+    setSaveState("saving");
+    try {
+      const saves = entries.map(([chapterId, content]) =>
+        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        })
+      );
+      const responses = await Promise.all(saves);
+      if (responses.every((r) => r.ok)) {
+        failedSaves.current.clear();
+        setSaveState("saved");
+        if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+        savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+      } else {
+        setSaveState("error");
+      }
+    } catch {
+      setSaveState("error");
+    }
+  }, [storyId]);
 
   // ── Keyboard shortcuts + typing detection ────────────────
   useEffect(() => {
@@ -370,10 +464,6 @@ export default function WriteStoryPage() {
       if (isMod && e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setIsFocusMode((v) => !v);
-      }
-      if (isMod && e.shiftKey && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        setIsZenMode((v) => !v);
       }
       if (isMod && e.shiftKey && e.key.toLowerCase() === "h") {
         e.preventDefault();
@@ -401,9 +491,6 @@ export default function WriteStoryPage() {
           return prev;
         });
       }
-      if (e.key === "Escape" && isZenMode) {
-        setIsZenMode(false);
-      }
       if (e.key === "Escape" && commandOpen) {
         setCommandOpen(false);
       }
@@ -420,7 +507,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [isZenMode, commandOpen]);
+  }, [commandOpen]);
 
   const activeChapter = project?.chapters.find(
     (c) => c.id === project.activeChapterId
@@ -441,10 +528,11 @@ export default function WriteStoryPage() {
   // ── Chapter handlers ──────────────────────────────────────
 
   const handleSelectChapter = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      await flushPendingSaves();
       updateProject((prev) => ({ ...prev, activeChapterId: id }));
     },
-    [updateProject]
+    [updateProject, flushPendingSaves]
   );
 
   // ── Scene break style change (from inline picker in editor) ──
@@ -525,7 +613,8 @@ export default function WriteStoryPage() {
   );
 
   const handleDeleteChapter = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      await flushPendingSaves();
       updateProject((prev) => {
         const filtered = prev.chapters.filter((c) => c.id !== id);
         return {
@@ -542,7 +631,7 @@ export default function WriteStoryPage() {
         method: "DELETE",
       }).catch(() => {});
     },
-    [updateProject, storyId]
+    [updateProject, storyId, flushPendingSaves]
   );
 
   const handleUpdateContent = useCallback(
@@ -962,6 +1051,33 @@ export default function WriteStoryPage() {
         onMouseEnter={() => setIsSidebarHovered(true)}
         onMouseLeave={() => setIsSidebarHovered(false)}
       >
+        {/* Sidebar affordance — visible tab when sidebar is hidden */}
+        <AnimatePresence>
+          {!isSidebarHovered && !isTyping && !commandOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, delay: 0.6 }}
+              className="absolute top-1/2 -translate-y-1/2 left-0 flex flex-col items-center gap-1 cursor-pointer"
+            >
+              {/* Pull tab with chapter count */}
+              <div className="flex flex-col items-center gap-2 px-2 py-3.5 rounded-r-xl bg-amber/[0.06] border border-l-0 border-amber/[0.12] backdrop-blur-md shadow-[0_0_20px_rgba(200,150,60,0.06)]">
+                <svg className="w-4 h-4 text-amber/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+                <span className="text-[9px] font-mono text-amber/50 tracking-tight font-medium">
+                  {project.chapters.length}
+                </span>
+                <svg className="w-2.5 h-2.5 text-amber/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Expanded sidebar panel */}
         <AnimatePresence>
           {isSidebarHovered && !commandOpen && !isTyping && (
             <motion.div
@@ -1004,32 +1120,6 @@ export default function WriteStoryPage() {
       {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
       <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-opacity duration-500 ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
 
-        {/* Chapter title area — fades out in focus mode */}
-        <div className={`w-full max-w-[680px] px-8 pt-24 transition-opacity duration-700 ${isFocusMode ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
-          <p className="font-display text-[11px] tracking-[0.25em] text-amber/50 uppercase mb-4">{project.title}</p>
-          <h1
-            className="text-3xl md:text-4xl font-display text-paper/90 mb-2 outline-none focus:text-amber/90 transition-colors cursor-text"
-            contentEditable
-            suppressContentEditableWarning
-            spellCheck={false}
-            onBlur={(e) => {
-              const newTitle = e.currentTarget.textContent?.trim();
-              if (newTitle && activeChapter && newTitle !== activeChapter.title) {
-                handleRenameChapter(activeChapter.id, newTitle);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                e.currentTarget.blur();
-              }
-            }}
-          >
-            {activeChapter?.title ?? "Untitled"}
-          </h1>
-          <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mb-8" />
-        </div>
-
         {/* Search bar */}
         <AnimatePresence>
           {showSearch && (
@@ -1059,22 +1149,64 @@ export default function WriteStoryPage() {
             />
           </div>
         ) : (
-          activeChapter && (
-            <div
-              className={`w-full flex-1 min-h-0 ${
-                project.typography.dropCaps ? "drop-caps" : ""
-              } scene-break-${project.typography.sceneBreakStyle || "asterism"}`}
-            >
-              <ProseEditor
+          <AnimatePresence mode="wait">
+            {activeChapter && (
+              <motion.div
                 key={activeChapter.id}
-                content={activeChapter.content}
-                onUpdate={handleUpdateContent}
-                onEditorReady={handleEditorReady}
-                onComment={handleAddComment}
-                isFocusMode={isFocusMode}
-              />
-            </div>
-          )
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="w-full flex-1 min-h-0 flex flex-col items-center"
+              >
+                {/* Chapter title area — fades out in focus mode */}
+                <div className={`w-full max-w-[680px] px-8 pt-24 transition-opacity duration-700 ${isFocusMode ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+                  <p className="font-display text-[11px] tracking-[0.25em] text-amber/50 uppercase mb-4">{project.title}</p>
+                  <h1
+                    className="text-3xl md:text-4xl font-display text-paper/90 mb-2 outline-none focus:text-amber/90 transition-colors cursor-text"
+                    contentEditable
+                    suppressContentEditableWarning
+                    spellCheck={false}
+                    onBlur={(e) => {
+                      const newTitle = e.currentTarget.textContent?.trim();
+                      if (newTitle && activeChapter && newTitle !== activeChapter.title) {
+                        handleRenameChapter(activeChapter.id, newTitle);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                  >
+                    {activeChapter.title ?? "Untitled"}
+                  </h1>
+                  <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mb-8" />
+                </div>
+
+                <div
+                  className={`w-full flex-1 min-h-0 ${
+                    project.typography.dropCaps ? "drop-caps" : ""
+                  } scene-break-${project.typography.sceneBreakStyle || "asterism"}`}
+                >
+                  <ProseEditor
+                    key={activeChapter.id}
+                    content={activeChapter.content}
+                    onUpdate={handleUpdateContent}
+                    onEditorReady={handleEditorReady}
+                    onComment={handleAddComment}
+                    isFocusMode={isFocusMode}
+                    characters={(project?.bible?.characters ?? []).map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                      color: c.color,
+                    }))}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
       </div>
 
@@ -1083,19 +1215,35 @@ export default function WriteStoryPage() {
         {showUI && (
           <StatusBar
             isFocusMode={isFocusMode}
-            isAudioPlaying={isAudioPlaying}
+            isAudioPlaying={false}
             showOutline={showChapterOutline}
             chapterWordCount={activeChapter?.wordCount ?? 0}
             totalWords={totalWords}
             goals={project.goals}
             saveState={saveState}
             onToggleFocus={() => setIsFocusMode((v) => !v)}
-            onToggleAudio={() => setIsAudioPlaying((v) => !v)}
+            onToggleAudio={() => {}}
             onToggleOutline={() => setShowChapterOutline((v) => !v)}
             onOpenGrimoire={() => setCommandOpen(true)}
             onToggleComments={() => togglePanel("comments")}
             onToggleSearch={() => setShowSearch((v) => !v)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Save Error Toast ──────────────────────────────── */}
+      <AnimatePresence>
+        {saveState === "error" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-xl text-rose-300 text-sm"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Changes couldn&apos;t be saved</span>
+            <button onClick={retryFailedSaves} className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 transition-colors font-medium">Retry</button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1210,9 +1358,9 @@ export default function WriteStoryPage() {
         onClose={() => setCommandOpen(false)}
         editor={editorInstance}
         onToggleFocus={() => setIsFocusMode((v) => !v)}
-        onToggleZen={() => setIsZenMode((v) => !v)}
+        onToggleZen={() => {}}
         isFocusMode={isFocusMode}
-        isZenMode={isZenMode}
+        isZenMode={false}
         onOpenSearch={() => setShowSearch(true)}
         onOpenMetadata={() => togglePanel("metadata")}
         onOpenBible={() => togglePanel("bible")}

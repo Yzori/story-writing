@@ -55,6 +55,10 @@ export default function CommandPalette({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+  const modKey = isMac ? '\u2318' : 'Ctrl+';
 
   const commands: Command[] = [
     // Insert
@@ -102,14 +106,14 @@ export default function CommandPalette({
     {
       id: "bold",
       label: "Bold",
-      shortcut: "⌘B",
+      shortcut: `${modKey}B`,
       category: "Format",
       action: () => editor?.chain().focus().toggleBold().run(),
     },
     {
       id: "italic",
       label: "Italic",
-      shortcut: "⌘I",
+      shortcut: `${modKey}I`,
       category: "Format",
       action: () => editor?.chain().focus().toggleItalic().run(),
     },
@@ -136,7 +140,7 @@ export default function CommandPalette({
       id: "focus-mode",
       label: isFocusMode ? "Exit Focus Mode" : "Focus Mode",
       description: "Dim everything except current paragraph",
-      shortcut: "⌘⇧F",
+      shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}F`,
       category: "View",
       action: onToggleFocus,
     },
@@ -144,7 +148,7 @@ export default function CommandPalette({
       id: "zen-mode",
       label: isZenMode ? "Exit Zen Mode" : "Zen Mode",
       description: "Full immersion — just you and the page",
-      shortcut: "⌘⇧Z",
+      shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}Z`,
       category: "View",
       action: onToggleZen,
     },
@@ -155,7 +159,7 @@ export default function CommandPalette({
             id: "search",
             label: "Search & Replace",
             description: "Find and replace across chapters",
-            shortcut: "⌘⇧H",
+            shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}H`,
             category: "Tools",
             action: onOpenSearch,
           },
@@ -329,6 +333,35 @@ export default function CommandPalette({
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, [open, filtered, selectedIndex, onClose]);
 
+  // Focus trap: cycle Tab/Shift+Tab within the palette
+  useEffect(() => {
+    if (!open) return;
+    const handleTrap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const palette = paletteRef.current;
+      if (!palette) return;
+      const focusable = palette.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleTrap);
+    return () => window.removeEventListener("keydown", handleTrap);
+  }, [open]);
+
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
@@ -356,6 +389,10 @@ export default function CommandPalette({
 
           {/* Palette */}
           <motion.div
+            ref={paletteRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
             initial={{ opacity: 0, scale: 0.96, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -10 }}
@@ -382,7 +419,7 @@ export default function CommandPalette({
             </div>
 
             {/* Results */}
-            <div className="overflow-y-auto py-2 px-2">
+            <div role="listbox" aria-label="Commands" className="overflow-y-auto py-2 px-2">
               {Object.entries(grouped).map(([category, cmds]) => (
                 <div key={category}>
                   <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost px-2 py-1.5 mt-1 first:mt-0">
@@ -393,6 +430,8 @@ export default function CommandPalette({
                     return (
                       <button
                         key={cmd.id}
+                        role="option"
+                        aria-selected={globalIndex === selectedIndex}
                         onClick={() => {
                           cmd.action();
                           onClose();

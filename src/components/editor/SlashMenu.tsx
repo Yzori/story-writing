@@ -268,13 +268,21 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
           className="fixed z-50"
           style={{ left: position.x, top: position.y }}
         >
-          <div className="w-[260px] py-1.5 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 overflow-hidden">
+          <div
+            role="listbox"
+            aria-label="Insert commands"
+            aria-activedescendant={filtered[selectedIndex] ? `slash-menu-item-${selectedIndex}` : undefined}
+            className="w-[260px] py-1.5 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 overflow-hidden"
+          >
             <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost px-3 py-1.5">
               Insert block
             </p>
             {filtered.map((item, index) => (
               <button
                 key={item.id}
+                id={`slash-menu-item-${index}`}
+                role="option"
+                aria-selected={index === selectedIndex}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   executeItem(item);

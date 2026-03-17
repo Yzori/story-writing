@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Chapter } from "@/lib/store";
 import { formatNumber } from "@/lib/store";
@@ -79,6 +80,7 @@ export default function ChapterNav({
                 onChange={(e) => onUpdateStoryTitle(e.target.value)}
                 className="w-full bg-transparent text-sm font-display font-semibold text-paper outline-none placeholder:text-text-ghost truncate"
                 placeholder="Untitled Story"
+                aria-label="Story title"
               />
               <p className="text-[10px] text-text-ghost mt-1.5 uppercase tracking-[0.15em]">
                 {chapters.length} {chapters.length === 1 ? "chapter" : "chapters"} · {formatNumber(totalWords)} words
@@ -98,6 +100,19 @@ export default function ChapterNav({
                     key={chapter.id}
                     value={chapter}
                     className="list-none"
+                    onKeyDown={(e: KeyboardEvent) => {
+                      if (e.altKey && e.key === "ArrowUp" && index > 0) {
+                        e.preventDefault();
+                        const reordered = [...chapters];
+                        [reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]];
+                        onReorderChapters(reordered);
+                      } else if (e.altKey && e.key === "ArrowDown" && index < chapters.length - 1) {
+                        e.preventDefault();
+                        const reordered = [...chapters];
+                        [reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]];
+                        onReorderChapters(reordered);
+                      }
+                    }}
                   >
                     <ChapterItem
                       chapter={chapter}
@@ -117,6 +132,7 @@ export default function ChapterNav({
               <button
                 onClick={onAddChapter}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-subtle/30 transition-colors text-sm"
+                aria-label="Add new chapter"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <line x1="7" y1="3" x2="7" y2="11" />
@@ -127,6 +143,7 @@ export default function ChapterNav({
               <button
                 onClick={onOpenToolkit}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-amber/70 hover:text-amber hover:bg-amber/[0.06] transition-colors text-sm"
+                aria-label="Open toolkit"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M8.5 1.5L2 8l3.5 3.5L12 5" />
@@ -211,6 +228,7 @@ function ChapterItem({
             isActive ? "text-paper" : "text-text-secondary"
           } placeholder:text-text-ghost`}
           placeholder="Untitled"
+          aria-label="Chapter title"
         />
         <p className="text-[10px] text-text-ghost mt-0.5">
           {formatNumber(chapter.wordCount)} words
@@ -224,8 +242,9 @@ function ChapterItem({
             e.stopPropagation();
             onDelete();
           }}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded text-text-ghost hover:text-rose transition-all"
+          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1 rounded text-text-ghost hover:text-rose transition-all"
           title="Delete chapter"
+          aria-label="Delete chapter"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <line x1="3" y1="3" x2="9" y2="9" />

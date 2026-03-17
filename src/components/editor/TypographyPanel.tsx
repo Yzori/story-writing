@@ -21,6 +21,71 @@ const SCENE_BREAKS: {
   { value: "space", label: "Blank Space", preview: "(extra space)" },
 ];
 
+const LINE_SPACING_OPTIONS: {
+  value: TypographySettings["lineSpacing"];
+  label: string;
+  multiplier: string;
+}[] = [
+  { value: "compact", label: "Compact", multiplier: "1.6" },
+  { value: "comfortable", label: "Comfortable", multiplier: "1.8" },
+  { value: "relaxed", label: "Relaxed", multiplier: "2.0" },
+];
+
+const PARAGRAPH_SPACING_OPTIONS: {
+  value: TypographySettings["paragraphSpacing"];
+  label: string;
+  size: string;
+}[] = [
+  { value: "tight", label: "Tight", size: "0.5em" },
+  { value: "normal", label: "Normal", size: "1em" },
+  { value: "loose", label: "Loose", size: "1.5em" },
+];
+
+const ALIGNMENT_OPTIONS: {
+  value: TypographySettings["textAlignment"];
+  label: string;
+}[] = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "justified", label: "Justified" },
+];
+
+function AlignLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="1" y1="3" x2="15" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="7" x2="11" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AlignCenterIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="1" y1="3" x2="15" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="3" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="2" y1="11" x2="14" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AlignJustifyIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="1" y1="3" x2="15" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="1" y1="11" x2="15" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const ALIGNMENT_ICONS: Record<TypographySettings["textAlignment"], React.FC<{ className?: string }>> = {
+  left: AlignLeftIcon,
+  center: AlignCenterIcon,
+  justified: AlignJustifyIcon,
+};
+
 export default function TypographyPanel({
   settings,
   onUpdate,
@@ -93,6 +158,177 @@ export default function TypographyPanel({
               )}
             </div>
           </section>
+
+          <div className="border-t border-border-active/50" />
+
+          {/* Paragraph Indent */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">
+                First-Line Indent
+              </label>
+              <button
+                onClick={() => update({ paragraphIndent: !settings.paragraphIndent })}
+                className={`relative w-8 h-[18px] rounded-full transition-colors ${
+                  settings.paragraphIndent ? "bg-amber" : "bg-subtle"
+                }`}
+              >
+                <div
+                  className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-void transition-transform ${
+                    settings.paragraphIndent ? "left-[16px]" : "left-[2px]"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-[11px] text-text-ghost mb-3">
+              Indent the first line of each paragraph.
+            </p>
+
+            {/* Preview */}
+            <div className="bg-elevated border border-border rounded-lg p-4 space-y-2">
+              <p
+                className="text-[12px] text-text-secondary leading-relaxed"
+                style={settings.paragraphIndent ? { textIndent: "1.5em" } : undefined}
+              >
+                The morning light crept through the curtains, casting amber streaks across the worn floorboards.
+              </p>
+              <p
+                className="text-[12px] text-text-secondary leading-relaxed"
+                style={settings.paragraphIndent ? { textIndent: "1.5em" } : undefined}
+              >
+                She set down her pen and listened to the silence that filled the room like water.
+              </p>
+            </div>
+          </section>
+
+          <div className="border-t border-border-active/50" />
+
+          {/* Line Spacing */}
+          <section>
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
+              Line Spacing
+            </label>
+
+            <div className="flex gap-2">
+              {LINE_SPACING_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => update({ lineSpacing: option.value })}
+                  className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border transition-all ${
+                    settings.lineSpacing === option.value
+                      ? "border-amber/30 bg-amber/[0.04]"
+                      : "border-border hover:bg-subtle/30"
+                  }`}
+                >
+                  <span
+                    className={`text-[12px] ${
+                      settings.lineSpacing === option.value
+                        ? "text-paper"
+                        : "text-text-secondary"
+                    }`}
+                  >
+                    {option.label}
+                  </span>
+                  <span
+                    className={`text-[10px] ${
+                      settings.lineSpacing === option.value
+                        ? "text-amber"
+                        : "text-text-ghost"
+                    }`}
+                  >
+                    {option.multiplier}&times;
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="border-t border-border-active/50" />
+
+          {/* Text Alignment */}
+          <section>
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
+              Text Alignment
+            </label>
+
+            <div className="flex gap-2">
+              {ALIGNMENT_OPTIONS.map((option) => {
+                const Icon = ALIGNMENT_ICONS[option.value];
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => update({ textAlignment: option.value })}
+                    className={`flex-1 flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border transition-all ${
+                      settings.textAlignment === option.value
+                        ? "border-amber/30 bg-amber/[0.04]"
+                        : "border-border hover:bg-subtle/30"
+                    }`}
+                  >
+                    <Icon
+                      className={
+                        settings.textAlignment === option.value
+                          ? "text-amber"
+                          : "text-text-ghost"
+                      }
+                    />
+                    <span
+                      className={`text-[11px] ${
+                        settings.textAlignment === option.value
+                          ? "text-paper"
+                          : "text-text-secondary"
+                      }`}
+                    >
+                      {option.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="border-t border-border-active/50" />
+
+          {/* Paragraph Spacing */}
+          <section>
+            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
+              Paragraph Spacing
+            </label>
+
+            <div className="flex gap-2">
+              {PARAGRAPH_SPACING_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => update({ paragraphSpacing: option.value })}
+                  className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border transition-all ${
+                    settings.paragraphSpacing === option.value
+                      ? "border-amber/30 bg-amber/[0.04]"
+                      : "border-border hover:bg-subtle/30"
+                  }`}
+                >
+                  <span
+                    className={`text-[12px] ${
+                      settings.paragraphSpacing === option.value
+                        ? "text-paper"
+                        : "text-text-secondary"
+                    }`}
+                  >
+                    {option.label}
+                  </span>
+                  <span
+                    className={`text-[10px] ${
+                      settings.paragraphSpacing === option.value
+                        ? "text-amber"
+                        : "text-text-ghost"
+                    }`}
+                  >
+                    {option.size}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="border-t border-border-active/50" />
 
           {/* Scene Break Style */}
           <section>

@@ -14,11 +14,13 @@ function ToolbarButton({
   onClick,
   children,
   title,
+  ariaLabel,
 }: {
   active?: boolean;
   onClick: () => void;
   children: React.ReactNode;
   title: string;
+  ariaLabel?: string;
 }) {
   return (
     <button
@@ -28,6 +30,7 @@ function ToolbarButton({
         onClick();
       }}
       title={title}
+      aria-label={ariaLabel || title}
       className={`
         p-1.5 rounded-md transition-all duration-150 cursor-pointer
         ${active
@@ -112,12 +115,13 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
           style={{ left: position.x, top: position.y }}
           onMouseDown={(e) => e.preventDefault()}
         >
-          <div className="flex items-center gap-0.5 px-2 py-1.5 rounded-full bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 relative">
+          <div role="toolbar" aria-orientation="horizontal" aria-label="Text formatting" className="flex items-center gap-0.5 px-2 py-1.5 rounded-full bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 relative">
             {/* Bold */}
             <ToolbarButton
               active={editor.isActive("bold")}
               onClick={() => editor.chain().focus().toggleBold().run()}
               title="Bold (Ctrl+B)"
+              ariaLabel="Bold (Ctrl+B)"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M4 3h5.5a2.5 2.5 0 0 1 0 5H4V3z" />
@@ -130,6 +134,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
               active={editor.isActive("italic")}
               onClick={() => editor.chain().focus().toggleItalic().run()}
               title="Italic (Ctrl+I)"
+              ariaLabel="Italic (Ctrl+I)"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="10" y1="3" x2="6" y2="13" />
@@ -143,6 +148,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
               active={editor.isActive("strike")}
               onClick={() => editor.chain().focus().toggleStrike().run()}
               title="Strikethrough"
+              ariaLabel="Strikethrough"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M5 3.5C5 3.5 6 3 8 3c2.5 0 3.5 1.5 3.5 2.5 0 1-0.5 1.5-1 2" />
@@ -156,6 +162,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
               active={editor.isActive("highlight")}
               onClick={() => editor.chain().focus().toggleHighlight().run()}
               title="Highlight"
+              ariaLabel="Highlight"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 2l5 5-6.5 6.5L2 8z" />
@@ -169,7 +176,8 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
             <ToolbarButton
               active={editor.isActive("heading", { level: 1 })}
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              title="Heading 1"
+              title="Heading 1 (Ctrl+Alt+1)"
+              ariaLabel="Heading 1 (Ctrl+Alt+1)"
             >
               <span className="text-xs font-bold leading-none">H1</span>
             </ToolbarButton>
@@ -178,7 +186,8 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
             <ToolbarButton
               active={editor.isActive("heading", { level: 2 })}
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              title="Heading 2"
+              title="Heading 2 (Ctrl+Alt+2)"
+              ariaLabel="Heading 2 (Ctrl+Alt+2)"
             >
               <span className="text-xs font-bold leading-none">H2</span>
             </ToolbarButton>
@@ -190,6 +199,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
               active={editor.isActive("blockquote")}
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
               title="Quote"
+              ariaLabel="Quote"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M3 5h3L4.5 11H3" />
@@ -201,6 +211,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
             <ToolbarButton
               onClick={() => editor.chain().focus().setHorizontalRule().run()}
               title="Scene Break"
+              ariaLabel="Scene Break"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="4" cy="8" r="1" fill="currentColor" />
@@ -216,6 +227,7 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
                 <ToolbarButton
                   onClick={onComment}
                   title="Add Comment"
+                  ariaLabel="Add Comment"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-3 2.5V11H3a1 1 0 0 1-1-1V4z" />

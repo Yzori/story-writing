@@ -8,14 +8,16 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
+import MentionDropdown from "./MentionDropdown";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
+import { CharacterMention, MentionCharacter } from "./extensions/CharacterMention";
 
 // Scene break as a normal block node (not void <hr>).
 // Renders as <div class="scene-break">⁂</div> — a real element CSS can style.
@@ -110,12 +112,21 @@ function createTypewriterExtension(enabledRef: React.RefObject<boolean>) {
   });
 }
 
+const sceneBreakStyles = [
+  { key: "asterism", label: "Asterism", ch: "\u2042" },
+  { key: "fleuron", label: "Fleuron", ch: "\u2767" },
+  { key: "dots", label: "Dots", ch: "\u2022 \u2022 \u2022" },
+  { key: "line", label: "Line", ch: "\u2014\u2014\u2014" },
+  { key: "space", label: "Space", ch: "(blank)" },
+];
+
 interface ProseEditorProps {
   content: string;
   onUpdate: (content: string, wordCount: number) => void;
   onEditorReady: (editor: Editor) => void;
   onComment?: () => void;
   isFocusMode: boolean;
+  characters?: MentionCharacter[];
 }
 
 export default function ProseEditor({
@@ -124,11 +135,16 @@ export default function ProseEditor({
   onEditorReady,
   onComment,
   isFocusMode,
+  characters = [],
 }: ProseEditorProps) {
   const focusModeRef = useRef(isFocusMode);
   useEffect(() => {
     focusModeRef.current = isFocusMode;
   }, [isFocusMode]);
+
+  const [sceneBreakPicker, setSceneBreakPicker] = useState<{ pos: DOMRect; currentStyle: string } | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const pickerButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   const editor = useEditor({
     extensions: [
@@ -148,6 +164,7 @@ export default function ProseEditor({
       Underline,
       IllustrationBlock,
       CommentMark,
+      CharacterMention.configure({ characters }),
       createTypewriterExtension(focusModeRef),
     ],
     content,
@@ -188,7 +205,7 @@ export default function ProseEditor({
     if (editor) onEditorReady(editor);
   }, [editor, onEditorReady]);
 
-  // Scene break click handler — shows style picker via delegated event
+  // Scene break click handler — opens React-rendered style picker
   useEffect(() => {
     if (!editor) return;
     const editorDom = editor.view.dom;
@@ -197,55 +214,70 @@ export default function ProseEditor({
       const target = (e.target as HTMLElement).closest(".scene-break");
       if (!target) return;
 
-      // Remove any existing picker
-      const existing = document.querySelector(".scene-break-picker");
-      if (existing) { existing.remove(); return; }
+      // Toggle picker off if already open
+      if (sceneBreakPicker) {
+        setSceneBreakPicker(null);
+        return;
+      }
 
-      const picker = document.createElement("div");
-      picker.className = "scene-break-picker";
-      const styles = [
-        { key: "asterism", label: "Asterism", ch: "\u2042" },
-        { key: "fleuron", label: "Fleuron", ch: "\u2767" },
-        { key: "dots", label: "Dots", ch: "\u2022 \u2022 \u2022" },
-        { key: "line", label: "Line", ch: "\u2014\u2014\u2014" },
-        { key: "space", label: "Space", ch: "(blank)" },
-      ];
-      styles.forEach((s) => {
-        const btn = document.createElement("button");
-        btn.className = "scene-break-picker-btn";
-        btn.title = s.label;
-        btn.innerHTML = `<span class="sbp-preview">${s.ch}</span><span class="sbp-label">${s.label}</span>`;
-        btn.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
-          picker.remove();
-        });
-        picker.appendChild(btn);
-      });
-
-      // Position below the scene break
       const rect = target.getBoundingClientRect();
-      const scrollParent = target.closest(".overflow-y-auto") ?? document.body;
-      const scrollRect = scrollParent.getBoundingClientRect();
-      picker.style.position = "fixed";
-      picker.style.left = `${rect.left + rect.width / 2}px`;
-      picker.style.top = `${rect.bottom + 8}px`;
-      picker.style.transform = "translateX(-50%)";
-      document.body.appendChild(picker);
-
-      // Close on outside click
-      const close = (ev: MouseEvent) => {
-        if (!picker.contains(ev.target as HTMLElement)) {
-          picker.remove();
-          document.removeEventListener("mousedown", close);
-        }
-      };
-      setTimeout(() => document.addEventListener("mousedown", close), 0);
+      const currentText = target.textContent?.trim() ?? "\u2042";
+      const matched = sceneBreakStyles.find((s) => s.ch === currentText);
+      setSceneBreakPicker({ pos: rect, currentStyle: matched?.key ?? "asterism" });
     };
 
     editorDom.addEventListener("click", handleClick);
     return () => editorDom.removeEventListener("click", handleClick);
-  }, [editor]);
+  }, [editor, sceneBreakPicker]);
+
+  // Close picker on outside click or Escape
+  useEffect(() => {
+    if (!sceneBreakPicker) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as HTMLElement)) {
+        setSceneBreakPicker(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSceneBreakPicker(null);
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        const buttons = pickerButtonsRef.current.filter(Boolean) as HTMLButtonElement[];
+        const focused = document.activeElement as HTMLElement;
+        const idx = buttons.indexOf(focused as HTMLButtonElement);
+        if (idx === -1) return;
+        const next = e.key === "ArrowRight"
+          ? buttons[(idx + 1) % buttons.length]
+          : buttons[(idx - 1 + buttons.length) % buttons.length];
+        next?.focus();
+      }
+    };
+
+    // Defer so the click that opened the picker doesn't immediately close it
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handleMouseDown);
+    }, 0);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sceneBreakPicker]);
+
+  // Focus first picker button when it opens
+  useEffect(() => {
+    if (sceneBreakPicker) {
+      requestAnimationFrame(() => {
+        pickerButtonsRef.current[0]?.focus();
+      });
+    }
+  }, [sceneBreakPicker]);
 
   if (!editor) {
     return (
@@ -260,11 +292,59 @@ export default function ProseEditor({
       <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full">
         <FloatingToolbar editor={editor} onComment={onComment} />
         <SlashMenu editor={editor} />
+        <MentionDropdown editor={editor} characters={characters} />
         <EditorContent
           editor={editor}
           className="prose-editor-content"
         />
       </div>
+
+      {sceneBreakPicker && (
+        <div
+          ref={pickerRef}
+          role="listbox"
+          aria-label="Scene break style"
+          className="scene-break-picker"
+          style={{
+            position: "fixed",
+            left: `${sceneBreakPicker.pos.left + sceneBreakPicker.pos.width / 2}px`,
+            top: `${sceneBreakPicker.pos.bottom + 8}px`,
+            transform: "translateX(-50%)",
+          }}
+        >
+          {sceneBreakStyles.map((s, i) => {
+            const isSelected = s.key === sceneBreakPicker.currentStyle;
+            return (
+              <button
+                key={s.key}
+                ref={(el) => { pickerButtonsRef.current[i] = el; }}
+                role="option"
+                aria-selected={isSelected}
+                aria-label={`${s.label} scene break style`}
+                className={`scene-break-picker-btn${isSelected ? " active" : ""}`}
+                title={s.label}
+                tabIndex={i === 0 ? 0 : -1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
+                  setSceneBreakPicker(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.dispatchEvent(new CustomEvent("scene-break-style-change", { detail: s.key }));
+                    setSceneBreakPicker(null);
+                  }
+                }}
+              >
+                <span className="sbp-preview">{s.ch}</span>
+                <span className="sbp-label">{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

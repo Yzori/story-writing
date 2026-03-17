@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   StoryBible,
@@ -53,7 +53,71 @@ export default function StoryBiblePanel({
   const [tab, setTab] = useState<BibleTab>("characters");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteFilter, setNoteFilter] = useState<NoteCategory>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const patchTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const query = searchQuery.toLowerCase().trim();
+
+  // Collect unique tags per tab
+  const allTagsForTab = useMemo(() => {
+    if (tab === "characters") return [...new Set(bible.characters.flatMap((c) => c.tags))];
+    if (tab === "places") return [...new Set(bible.places.flatMap((p) => p.tags))];
+    return [...new Set(bible.notes.flatMap((n) => n.tags))];
+  }, [tab, bible.characters, bible.places, bible.notes]);
+
+  // Filter helpers
+  const matchesSearch = useCallback(
+    (name: string, desc?: string) => {
+      if (!query) return true;
+      return (
+        name.toLowerCase().includes(query) ||
+        (desc?.toLowerCase().includes(query) ?? false)
+      );
+    },
+    [query]
+  );
+
+  const matchesTags = useCallback(
+    (tags: string[]) => {
+      if (activeTags.size === 0) return true;
+      return tags.some((t) => activeTags.has(t));
+    },
+    [activeTags]
+  );
+
+  // Filtered lists
+  const filteredCharacters = useMemo(
+    () =>
+      bible.characters.filter(
+        (c) => matchesSearch(c.name, c.description) && matchesTags(c.tags)
+      ),
+    [bible.characters, matchesSearch, matchesTags]
+  );
+
+  const filteredPlaces = useMemo(
+    () =>
+      bible.places.filter(
+        (p) => matchesSearch(p.name, p.description) && matchesTags(p.tags)
+      ),
+    [bible.places, matchesSearch, matchesTags]
+  );
+
+  const hasActiveFilters = query.length > 0 || activeTags.size > 0;
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setActiveTags(new Set());
+  };
+
+  const toggleTag = (tag: string) => {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
 
   const tabs: { key: BibleTab; label: string; count: number }[] = [
     { key: "characters", label: "Characters", count: bible.characters.length },
@@ -239,10 +303,15 @@ export default function StoryBiblePanel({
     fetch(`/api/stories/${storyId}/bible/${id}`, { method: "DELETE" }).catch(() => {});
   };
 
-  const filteredNotes =
-    noteFilter === "all"
+  const filteredNotes = useMemo(() => {
+    let notes = noteFilter === "all"
       ? bible.notes
       : bible.notes.filter((n) => n.category === noteFilter);
+    notes = notes.filter(
+      (n) => matchesSearch(n.title, n.content) && matchesTags(n.tags)
+    );
+    return notes;
+  }, [bible.notes, noteFilter, matchesSearch, matchesTags]);
 
   return (
     <motion.aside
@@ -296,6 +365,79 @@ export default function StoryBiblePanel({
           ))}
         </div>
 
+        {/* Search & Tag Filters */}
+        <div className="px-3 pt-2 pb-1 space-y-1.5 border-b border-border">
+          {/* Search input */}
+          <div className="relative">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-text-ghost"
+            >
+              <circle cx="5" cy="5" r="3.5" />
+              <path d="M8 8l2.5 2.5" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search ${tab}...`}
+              className="w-full h-8 bg-surface border border-border-active rounded-md pl-7 pr-7 text-[12px] text-paper placeholder:text-text-ghost outline-none focus:border-amber/30 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-ghost hover:text-text-secondary transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <line x1="2" y1="2" x2="8" y2="8" />
+                  <line x1="8" y1="2" x2="2" y2="8" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Tag pills */}
+          {allTagsForTab.length > 0 && (
+            <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+              {allTagsForTab.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`text-[10px] py-0.5 px-2 rounded-full border transition-all ${
+                    activeTags.has(tag)
+                      ? "bg-amber/15 text-amber border-amber/30"
+                      : "bg-surface/50 text-text-ghost border-border hover:text-text-secondary hover:border-text-ghost"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Result count & clear filters */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-text-ghost">
+                {tab === "characters" && `${filteredCharacters.length} of ${bible.characters.length} characters`}
+                {tab === "places" && `${filteredPlaces.length} of ${bible.places.length} places`}
+                {tab === "notes" && `${filteredNotes.length} of ${bible.notes.length} notes`}
+              </span>
+              <button
+                onClick={clearAllFilters}
+                className="text-[10px] text-amber hover:text-amber/80 transition-colors"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto py-2">
           {/* Characters tab */}
@@ -313,18 +455,30 @@ export default function StoryBiblePanel({
                   hint="Track your characters, their traits, and relationships"
                 />
               )}
-              {bible.characters.map((char) => (
-                <CharacterCard
-                  key={char.id}
-                  character={char}
-                  isEditing={editingId === char.id}
-                  onToggleEdit={() =>
-                    setEditingId(editingId === char.id ? null : char.id)
-                  }
-                  onUpdate={(updates) => handleUpdateCharacter(char.id, updates)}
-                  onDelete={() => handleDeleteCharacter(char.id)}
-                />
-              ))}
+              {bible.characters.length > 0 && filteredCharacters.length === 0 && hasActiveFilters && (
+                <NoMatchesState onClear={clearAllFilters} />
+              )}
+              <AnimatePresence initial={false}>
+                {filteredCharacters.map((char) => (
+                  <motion.div
+                    key={char.id}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <CharacterCard
+                      character={char}
+                      isEditing={editingId === char.id}
+                      onToggleEdit={() =>
+                        setEditingId(editingId === char.id ? null : char.id)
+                      }
+                      onUpdate={(updates) => handleUpdateCharacter(char.id, updates)}
+                      onDelete={() => handleDeleteCharacter(char.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               <AddButton label="Add Character" onClick={handleAddCharacter} />
             </>
           )}
@@ -343,18 +497,30 @@ export default function StoryBiblePanel({
                   hint="Map out the locations in your story"
                 />
               )}
-              {bible.places.map((place) => (
-                <PlaceCard
-                  key={place.id}
-                  place={place}
-                  isEditing={editingId === place.id}
-                  onToggleEdit={() =>
-                    setEditingId(editingId === place.id ? null : place.id)
-                  }
-                  onUpdate={(updates) => handleUpdatePlace(place.id, updates)}
-                  onDelete={() => handleDeletePlace(place.id)}
-                />
-              ))}
+              {bible.places.length > 0 && filteredPlaces.length === 0 && hasActiveFilters && (
+                <NoMatchesState onClear={clearAllFilters} />
+              )}
+              <AnimatePresence initial={false}>
+                {filteredPlaces.map((place) => (
+                  <motion.div
+                    key={place.id}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <PlaceCard
+                      place={place}
+                      isEditing={editingId === place.id}
+                      onToggleEdit={() =>
+                        setEditingId(editingId === place.id ? null : place.id)
+                      }
+                      onUpdate={(updates) => handleUpdatePlace(place.id, updates)}
+                      onDelete={() => handleDeletePlace(place.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               <AddButton label="Add Place" onClick={handleAddPlace} />
             </>
           )}
@@ -392,18 +558,30 @@ export default function StoryBiblePanel({
                   hint="Keep lore, timelines, and research at your fingertips"
                 />
               )}
-              {filteredNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  isEditing={editingId === note.id}
-                  onToggleEdit={() =>
-                    setEditingId(editingId === note.id ? null : note.id)
-                  }
-                  onUpdate={(updates) => handleUpdateNote(note.id, updates)}
-                  onDelete={() => handleDeleteNote(note.id)}
-                />
-              ))}
+              {bible.notes.length > 0 && filteredNotes.length === 0 && hasActiveFilters && (
+                <NoMatchesState onClear={clearAllFilters} />
+              )}
+              <AnimatePresence initial={false}>
+                {filteredNotes.map((note) => (
+                  <motion.div
+                    key={note.id}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <NoteCard
+                      note={note}
+                      isEditing={editingId === note.id}
+                      onToggleEdit={() =>
+                        setEditingId(editingId === note.id ? null : note.id)
+                      }
+                      onUpdate={(updates) => handleUpdateNote(note.id, updates)}
+                      onDelete={() => handleDeleteNote(note.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               <AddButton label="Add Note" onClick={handleAddNote} />
             </>
           )}
@@ -431,6 +609,20 @@ function EmptyState({
       </div>
       <p className="text-sm text-text-tertiary">{label}</p>
       <p className="text-[11px] text-text-ghost mt-1">{hint}</p>
+    </div>
+  );
+}
+
+function NoMatchesState({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+      <p className="text-sm text-text-tertiary">No matches found</p>
+      <button
+        onClick={onClear}
+        className="mt-2 text-[11px] text-amber hover:text-amber/80 transition-colors"
+      >
+        Clear filters
+      </button>
     </div>
   );
 }

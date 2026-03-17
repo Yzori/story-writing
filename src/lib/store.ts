@@ -111,6 +111,10 @@ export interface WritingGoals {
 export interface TypographySettings {
   dropCaps: boolean;
   sceneBreakStyle: "asterism" | "fleuron" | "dots" | "line" | "space";
+  paragraphIndent: boolean;
+  lineSpacing: "compact" | "comfortable" | "relaxed";
+  textAlignment: "left" | "center" | "justified";
+  paragraphSpacing: "tight" | "normal" | "loose";
 }
 
 // ── Project ─────────────────────────────────────────────────
@@ -199,6 +203,10 @@ function createTypography(): TypographySettings {
   return {
     dropCaps: false,
     sceneBreakStyle: "asterism",
+    paragraphIndent: false,
+    lineSpacing: "comfortable",
+    textAlignment: "left",
+    paragraphSpacing: "normal",
   };
 }
 
