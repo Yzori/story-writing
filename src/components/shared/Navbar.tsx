@@ -117,7 +117,7 @@ export default function Navbar() {
             className={`w-full flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all duration-300 border ${
               searchFocused
                 ? "border-gold/20 bg-void/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4),0_0_8px_rgba(200,150,60,0.06)]"
-                : "border-gold/8 bg-void/50 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
+                : "border-border bg-void/50 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
             }`}
           >
             <svg
@@ -149,23 +149,23 @@ export default function Navbar() {
           {/* Nav links — lantern-lit hover */}
           <Link
             href="/browse"
-            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/[0.05] hover:shadow-[0_0_12px_rgba(200,150,60,0.04)]"
+            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
           >
             Browse
           </Link>
           {isLoading ? (
-            <div className="w-8 h-8 rounded-full bg-elevated/40 border border-gold/10 animate-pulse" />
+            <div className="w-8 h-8 rounded-full bg-elevated/40 border border-border animate-pulse" />
           ) : session ? (
             <>
               <Link
                 href="/create"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/[0.05] hover:shadow-[0_0_12px_rgba(200,150,60,0.04)]"
+                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
               >
                 Create
               </Link>
               <Link
                 href="/dashboard"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/[0.05] hover:shadow-[0_0_12px_rgba(200,150,60,0.04)]"
+                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
               >
                 My Desk
               </Link>
@@ -177,7 +177,7 @@ export default function Navbar() {
                   setTheme(next);
                   setCurrentTheme(next);
                 }}
-                className="relative p-2 rounded-lg text-text-ghost hover:text-gold/80 hover:bg-gold/[0.05] transition-all duration-300 cursor-pointer"
+                className="relative p-2 rounded-lg text-text-ghost hover:text-gold/80 hover:bg-gold/10 transition-all duration-300 cursor-pointer"
                 aria-label={currentTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
                 {currentTheme === "dark" ? (
@@ -195,7 +195,7 @@ export default function Navbar() {
               {/* Notifications — ember badge */}
               <Link
                 href="/notifications"
-                className="relative p-2 rounded-lg text-text-ghost hover:text-gold/80 hover:bg-gold/[0.05] transition-all duration-300"
+                className="relative p-2 rounded-lg text-text-ghost hover:text-gold/80 hover:bg-gold/10 transition-all duration-300"
                 aria-label="Notifications"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -223,16 +223,16 @@ export default function Navbar() {
                       exit={{ opacity: 0, y: 8, scaleY: 0.92 }}
                       transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
                       style={{ transformOrigin: "top center" }}
-                      className="absolute right-0 top-11 w-52 overflow-hidden z-50 rounded-lg border border-gold/10 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_1px_rgba(200,150,60,0.1)]"
+                      className="absolute right-0 top-11 w-52 overflow-hidden z-50 rounded-lg border border-border-active shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_1px_rgba(200,150,60,0.15)]"
                     >
                       <div className="bg-elevated">
 
                         {/* User identity header */}
-                        <div className="px-4 py-3.5 border-b border-gold/8 bg-gradient-to-r from-gold/[0.04] to-transparent">
+                        <div className="px-4 py-3.5 border-b border-border bg-gradient-to-r from-gold/[0.06] to-transparent">
                           <p className="text-paper text-[13px] font-display font-medium truncate">
                             {session?.user?.name || "Writer"}
                           </p>
-                          <p className="text-text-ghost text-[11px] truncate mt-0.5">
+                          <p className="text-text-tertiary text-[11px] truncate mt-0.5">
                             {session?.user?.email}
                           </p>
                         </div>
@@ -241,7 +241,7 @@ export default function Navbar() {
                           <Link
                             href={profileHref}
                             onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/[0.05] transition-all duration-200"
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
                           >
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
                               <circle cx="8" cy="5" r="3" />
@@ -252,7 +252,7 @@ export default function Navbar() {
                           <Link
                             href={`/profile/${session?.user?.id}/edit`}
                             onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/[0.05] transition-all duration-200"
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
                           >
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
                               <circle cx="8" cy="8" r="6" />
@@ -263,7 +263,7 @@ export default function Navbar() {
                           <Link
                             href="/settings"
                             onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/[0.05] transition-all duration-200"
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
                           >
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
                               <circle cx="8" cy="8" r="2.5" />
@@ -273,14 +273,14 @@ export default function Navbar() {
                           </Link>
                         </div>
                         {/* Ornamental divider */}
-                        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-gold/12 to-transparent" />
+                        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-border-active to-transparent" />
                         <div className="py-1.5">
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
                               signOut({ callbackUrl: "/" });
                             }}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-ruby/70 hover:text-ruby hover:bg-ruby/[0.04] transition-all duration-200 w-full"
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-ruby/70 hover:text-ruby hover:bg-ruby/10 transition-all duration-200 w-full"
                           >
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
                               <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M11 11l3-3-3-3M6 8h8" />
@@ -298,7 +298,7 @@ export default function Navbar() {
             <>
               <Link
                 href="/login"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/[0.05]"
+                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10"
               >
                 Log in
               </Link>
@@ -351,7 +351,7 @@ export default function Navbar() {
               {/* Mobile search — inset brass frame */}
               <form
                 onSubmit={handleSearch}
-                className="flex items-center gap-2 rounded-lg px-3.5 py-2.5 mb-4 border border-gold/10 bg-void/60 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
+                className="flex items-center gap-2 rounded-lg px-3.5 py-2.5 mb-4 border border-border bg-void/60 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold/40">
                   <circle cx="7" cy="7" r="4.5" />
@@ -402,7 +402,7 @@ export default function Navbar() {
                     )}
                   </Link>
                   {/* Ornamental divider */}
-                  <div className="my-1.5 h-px bg-gradient-to-r from-gold/10 via-gold/8 to-transparent" />
+                  <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   <Link
                     href={profileHref}
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
@@ -417,7 +417,7 @@ export default function Navbar() {
                   >
                     Settings
                   </Link>
-                  <div className="my-1.5 h-px bg-gradient-to-r from-gold/10 via-gold/8 to-transparent" />
+                  <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   <button
                     onClick={() => { setMobileOpen(false); signOut({ callbackUrl: "/" }); }}
                     className="text-ruby/60 hover:text-ruby transition-all duration-300 text-[14px] py-2.5 text-left hover:pl-1"
@@ -434,7 +434,7 @@ export default function Navbar() {
                   >
                     Log in
                   </Link>
-                  <div className="my-1.5 h-px bg-gradient-to-r from-gold/10 via-gold/8 to-transparent" />
+                  <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   <Link
                     href="/register"
                     className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-md py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300"

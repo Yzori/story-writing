@@ -69,7 +69,7 @@ html, html.theme-dark {
   --t-text: #D4C4A8;
   --t-text-secondary: #A89878;
   --t-text-tertiary: #7A6C54;
-  --t-text-ghost: #4A3E2E;
+  --t-text-ghost: #5E5040;
 
   /* Firelight gold — warm, alive, not corporate */
   --t-gold: #C8963C;
@@ -92,10 +92,10 @@ html, html.theme-dark {
   --t-cream: #F8F0DC;
   --t-parchment: #D4C4A0;
 
-  /* Borders — warm bronze tinted, not cold white alpha */
-  --t-border: #C8963C12;
-  --t-border-subtle: #C8963C0A;
-  --t-border-active: #C8963C22;
+  /* Borders — warm bronze tinted, visible enough to define edges */
+  --t-border: #C8963C1C;
+  --t-border-subtle: #C8963C12;
+  --t-border-active: #C8963C30;
   --t-backdrop-opacity: 0.20;
 
   color-scheme: dark;
@@ -116,7 +116,7 @@ html.theme-light {
   --t-text: #3A3228;
   --t-text-secondary: #5C5040;
   --t-text-tertiary: #887A64;
-  --t-text-ghost: #AEA28A;
+  --t-text-ghost: #8A7E68;
 
   /* Warm brass — deeper than dark theme gold, grounded */
   --t-gold: #7C5A22;
@@ -138,9 +138,9 @@ html.theme-light {
   --t-cream: #2A2218;
   --t-parchment: #4A4030;
 
-  --t-border: #8A7A5C20;
-  --t-border-subtle: #8A7A5C14;
-  --t-border-active: #8A7A5C30;
+  --t-border: #8A7A5C30;
+  --t-border-subtle: #8A7A5C1C;
+  --t-border-active: #8A7A5C40;
   --t-backdrop-opacity: 0.55;
 
   color-scheme: light;
@@ -708,4 +708,10 @@ body::after {
 
 .transform-style-3d {
   transform-style: preserve-3d;
+}
+
+/* Vertical text for book spines */
+.spine-title {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
