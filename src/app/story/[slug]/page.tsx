@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +8,7 @@ import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
 import StoryCard from "@/components/shared/StoryCard";
 import ReportModal from "@/components/shared/ReportModal";
+import { compressImage } from "@/lib/images";
 
 interface Chapter {
   id: string;
@@ -179,6 +180,49 @@ export default function StoryPage() {
     totalWords: number; sparkCount: number; contentRating: string;
   }>>([]);
   const [moreInGenre, setMoreInGenre] = useState<typeof moreByAuthor>([]);
+
+  // Cover image upload
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+
+  const handleCoverUpload = useCallback(async (file: File) => {
+    if (!story || !file.type.startsWith("image/")) return;
+    setCoverUploading(true);
+    try {
+      const dataUrl = await compressImage(file, 900, 0.8);
+      const res = await fetch(`/api/stories/${story.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImageUrl: dataUrl }),
+      });
+      if (res.ok) {
+        setStory((prev) => prev ? { ...prev, coverImageUrl: dataUrl } : prev);
+      }
+    } catch (err) {
+      console.error("Cover upload failed:", err);
+    } finally {
+      setCoverUploading(false);
+    }
+  }, [story]);
+
+  const handleRemoveCover = useCallback(async () => {
+    if (!story) return;
+    setCoverUploading(true);
+    try {
+      const res = await fetch(`/api/stories/${story.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImageUrl: null }),
+      });
+      if (res.ok) {
+        setStory((prev) => prev ? { ...prev, coverImageUrl: null } : prev);
+      }
+    } catch (err) {
+      console.error("Cover remove failed:", err);
+    } finally {
+      setCoverUploading(false);
+    }
+  }, [story]);
 
   useEffect(() => {
     async function fetchStory() {
@@ -446,13 +490,54 @@ export default function StoryPage() {
   return (
     <div>
       {/* Hero / Cover */}
-      <div className={`h-64 sm:h-80 bg-gradient-to-br ${getGradient(story.genres)} relative overflow-hidden`}>
+      <div className={`h-64 sm:h-80 bg-gradient-to-br ${getGradient(story.genres)} relative overflow-hidden group/cover`}>
         {story.coverImageUrl && (
           <img src={story.coverImageUrl} alt={story.title} className="w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-void/20" />
         {/* Subtle vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,var(--t-void)_100%)] opacity-60" />
+
+        {/* Owner cover edit controls */}
+        {isOwner && (
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2 opacity-0 group-hover/cover:opacity-100 transition-opacity duration-200">
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleCoverUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => coverInputRef.current?.click()}
+              disabled={coverUploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-void/70 backdrop-blur-sm text-paper border border-border hover:bg-void/90 transition-all cursor-pointer"
+            >
+              {coverUploading ? (
+                <div className="w-3 h-3 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 11l4-4 3 3 2.5-2.5L15 11" />
+                  <rect x="1" y="1" width="14" height="14" rx="2" />
+                </svg>
+              )}
+              {story.coverImageUrl ? "Change cover" : "Add cover"}
+            </button>
+            {story.coverImageUrl && (
+              <button
+                onClick={handleRemoveCover}
+                disabled={coverUploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-void/70 backdrop-blur-sm text-ruby/80 border border-border hover:text-ruby hover:bg-void/90 transition-all cursor-pointer"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="max-w-4xl mx-auto px-6 -mt-28 relative">
