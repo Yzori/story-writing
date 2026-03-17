@@ -1170,6 +1170,11 @@ export default function WriteStoryPage() {
     }
   }, [project]);
 
+  const totalWords = useMemo(() =>
+    project?.chapters.reduce((s, c) => s + c.wordCount, 0) ?? 0,
+    [project?.chapters]
+  );
+
   // ── Loading / Error states ────────────────────────────────
 
   if (loading) {
@@ -1211,10 +1216,6 @@ export default function WriteStoryPage() {
     );
   }
 
-  const totalWords = useMemo(() =>
-    project.chapters.reduce((s, c) => s + c.wordCount, 0),
-    [project.chapters]
-  );
   const showUI = !isTyping && !commandOpen;
 
   return (

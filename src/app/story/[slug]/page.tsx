@@ -184,10 +184,16 @@ export default function StoryPage() {
   // Cover image upload
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   const handleCoverUpload = useCallback(async (file: File) => {
-    if (!story || !file.type.startsWith("image/")) return;
+    if (!story) return;
+    if (!file.type.startsWith("image/")) {
+      setCoverError("Please select an image file.");
+      return;
+    }
     setCoverUploading(true);
+    setCoverError(null);
     try {
       const dataUrl = await compressImage(file, 900, 0.8);
       const res = await fetch(`/api/stories/${story.id}`, {
@@ -197,9 +203,12 @@ export default function StoryPage() {
       });
       if (res.ok) {
         setStory((prev) => prev ? { ...prev, coverImageUrl: dataUrl } : prev);
+      } else {
+        setCoverError("Failed to save cover image. Please try again.");
       }
     } catch (err) {
-      console.error("Cover upload failed:", err);
+      const msg = err instanceof Error ? err.message : "Failed to upload cover image.";
+      setCoverError(msg);
     } finally {
       setCoverUploading(false);
     }
@@ -208,6 +217,7 @@ export default function StoryPage() {
   const handleRemoveCover = useCallback(async () => {
     if (!story) return;
     setCoverUploading(true);
+    setCoverError(null);
     try {
       const res = await fetch(`/api/stories/${story.id}`, {
         method: "PATCH",
@@ -216,9 +226,11 @@ export default function StoryPage() {
       });
       if (res.ok) {
         setStory((prev) => prev ? { ...prev, coverImageUrl: null } : prev);
+      } else {
+        setCoverError("Failed to remove cover. Please try again.");
       }
-    } catch (err) {
-      console.error("Cover remove failed:", err);
+    } catch {
+      setCoverError("Failed to remove cover. Please try again.");
     } finally {
       setCoverUploading(false);
     }
@@ -490,7 +502,7 @@ export default function StoryPage() {
   return (
     <div>
       {/* Hero / Cover */}
-      <div className={`h-64 sm:h-80 bg-gradient-to-br ${getGradient(story.genres)} relative overflow-hidden group/cover`}>
+      <div className={`h-64 sm:h-80 bg-gradient-to-br ${getGradient(story.genres)} relative overflow-hidden`}>
         {story.coverImageUrl && (
           <img src={story.coverImageUrl} alt={story.title} className="w-full h-full object-cover" />
         )}
@@ -498,50 +510,54 @@ export default function StoryPage() {
         {/* Subtle vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,var(--t-void)_100%)] opacity-60" />
 
-        {/* Owner cover edit controls */}
-        {isOwner && (
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2 opacity-0 group-hover/cover:opacity-100 transition-opacity duration-200">
-            <input
-              ref={coverInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleCoverUpload(file);
-                e.target.value = "";
-              }}
-            />
-            <button
-              onClick={() => coverInputRef.current?.click()}
-              disabled={coverUploading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-void/70 backdrop-blur-sm text-paper border border-border hover:bg-void/90 transition-all cursor-pointer"
-            >
-              {coverUploading ? (
-                <div className="w-3 h-3 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2 11l4-4 3 3 2.5-2.5L15 11" />
-                  <rect x="1" y="1" width="14" height="14" rx="2" />
-                </svg>
-              )}
-              {story.coverImageUrl ? "Change cover" : "Add cover"}
-            </button>
-            {story.coverImageUrl && (
-              <button
-                onClick={handleRemoveCover}
-                disabled={coverUploading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-void/70 backdrop-blur-sm text-ruby/80 border border-border hover:text-ruby hover:bg-void/90 transition-all cursor-pointer"
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="max-w-4xl mx-auto px-6 -mt-28 relative">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          {/* Owner cover edit */}
+          {isOwner && (
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleCoverUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => coverInputRef.current?.click()}
+                disabled={coverUploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-void/60 backdrop-blur-sm text-paper/80 border border-border hover:text-paper hover:bg-void/80 transition-all cursor-pointer"
+              >
+                {coverUploading ? (
+                  <div className="w-3 h-3 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M2 11l4-4 3 3 2.5-2.5L15 11" />
+                    <rect x="1" y="1" width="14" height="14" rx="2" />
+                  </svg>
+                )}
+                {story.coverImageUrl ? "Change cover" : "Add cover"}
+              </button>
+              {story.coverImageUrl && (
+                <button
+                  onClick={handleRemoveCover}
+                  disabled={coverUploading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-void/60 backdrop-blur-sm text-ruby/80 border border-border hover:text-ruby hover:bg-void/80 transition-all cursor-pointer"
+                >
+                  Remove
+                </button>
+              )}
+              {coverError && (
+                <p className="text-ruby text-[12px]">{coverError}</p>
+              )}
+            </div>
+          )}
+
           {/* Badges */}
           <div className="flex items-center gap-2.5 mb-4">
             {story.writingMode === "campaign" && (

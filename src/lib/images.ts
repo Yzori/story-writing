@@ -1,7 +1,9 @@
 /**
  * Client-side image compression using Canvas API.
- * Keeps images small enough for localStorage storage.
+ * Progressively reduces quality until the result fits the size limit.
  */
+
+const MAX_DATA_URL_LENGTH = 500_000; // ~375KB decoded
 
 export function compressImage(
   file: File,
@@ -36,9 +38,17 @@ export function compressImage(
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        if (dataUrl.length > 200_000) {
-          reject(new Error("Image too large even after compression (~200KB limit)"));
+
+        // Try progressively lower quality until it fits
+        let q = quality;
+        let dataUrl = canvas.toDataURL("image/jpeg", q);
+        while (dataUrl.length > MAX_DATA_URL_LENGTH && q > 0.3) {
+          q -= 0.1;
+          dataUrl = canvas.toDataURL("image/jpeg", q);
+        }
+
+        if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+          reject(new Error("Image too large even after compression"));
           return;
         }
         resolve(dataUrl);
