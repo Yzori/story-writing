@@ -17,9 +17,7 @@ interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   editor: Editor | null;
-  onToggleFocus: () => void;
   onToggleZen: () => void;
-  isFocusMode: boolean;
   isZenMode: boolean;
   onOpenSearch?: () => void;
   onOpenMetadata?: () => void;
@@ -37,9 +35,7 @@ export default function CommandPalette({
   open,
   onClose,
   editor,
-  onToggleFocus,
   onToggleZen,
-  isFocusMode,
   isZenMode,
   onOpenSearch,
   onOpenMetadata,
@@ -136,14 +132,6 @@ export default function CommandPalette({
       action: () => editor?.chain().focus().clearNodes().unsetAllMarks().run(),
     },
     // View
-    {
-      id: "focus-mode",
-      label: isFocusMode ? "Exit Focus Mode" : "Focus Mode",
-      description: "Dim everything except current paragraph",
-      shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}F`,
-      category: "View",
-      action: onToggleFocus,
-    },
     {
       id: "zen-mode",
       label: isZenMode ? "Exit Zen Mode" : "Zen Mode",

@@ -125,7 +125,6 @@ interface ProseEditorProps {
   onUpdate: (content: string, wordCount: number) => void;
   onEditorReady: (editor: Editor) => void;
   onComment?: () => void;
-  isFocusMode: boolean;
   characters?: MentionCharacter[];
 }
 
@@ -134,13 +133,9 @@ export default function ProseEditor({
   onUpdate,
   onEditorReady,
   onComment,
-  isFocusMode,
   characters = [],
 }: ProseEditorProps) {
-  const focusModeRef = useRef(isFocusMode);
-  useEffect(() => {
-    focusModeRef.current = isFocusMode;
-  }, [isFocusMode]);
+  const focusModeRef = useRef(false);
 
   const [sceneBreakPicker, setSceneBreakPicker] = useState<{ pos: DOMRect; currentStyle: string } | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -288,7 +283,7 @@ export default function ProseEditor({
   }
 
   return (
-    <div className={`flex-1 overflow-y-auto ${isFocusMode ? "focus-mode" : ""}`}>
+    <div className="flex-1 overflow-y-auto">
       <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full">
         <FloatingToolbar editor={editor} onComment={onComment} />
         <SlashMenu editor={editor} />

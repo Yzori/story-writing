@@ -7,14 +7,12 @@ import { getTodaySession } from "@/lib/goals";
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 interface StatusBarProps {
-  isFocusMode: boolean;
   isAudioPlaying: boolean;
   showOutline: boolean;
   chapterWordCount: number;
   totalWords: number;
   goals: WritingGoals;
   saveState?: SaveState;
-  onToggleFocus: () => void;
   onToggleAudio: () => void;
   onToggleOutline: () => void;
   onOpenGrimoire: () => void;
@@ -26,14 +24,12 @@ interface StatusBarProps {
 }
 
 export default function StatusBar({
-  isFocusMode,
   isAudioPlaying,
   showOutline,
   chapterWordCount,
   totalWords,
   goals,
   saveState = "idle",
-  onToggleFocus,
   onToggleAudio,
   onToggleOutline,
   onOpenGrimoire,
@@ -74,23 +70,6 @@ export default function StatusBar({
             ) : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
             )}
-          </button>
-
-          {/* Focus Mode */}
-          <button
-            onClick={onToggleFocus}
-            className={`p-2 rounded-full transition-all ${
-              isFocusMode
-                ? "bg-paper/20 text-paper"
-                : "hover:bg-paper/10 text-paper/50 hover:text-paper"
-            }`}
-            title="Focus Mode"
-            aria-label={isFocusMode ? "Disable focus mode" : "Enable focus mode"}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            </svg>
           </button>
 
           {/* Chapter Outline */}
