@@ -1203,10 +1203,28 @@ export default function WriteStoryPage() {
                     onUpdate={handleUpdateContent}
                     onEditorReady={handleEditorReady}
                     onComment={handleAddComment}
+                    onMentionClick={(characterId) => {
+                      setRightPanel("bible");
+                      // Small delay so the panel opens first, then scroll to the character
+                      setTimeout(() => {
+                        const el = document.querySelector(`[data-bible-entry="${characterId}"]`);
+                        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        // Flash highlight
+                        el?.classList.add("ring-2", "ring-amber/50");
+                        setTimeout(() => el?.classList.remove("ring-2", "ring-amber/50"), 1500);
+                      }, 300);
+                    }}
                     characters={(project?.bible?.characters ?? []).map((c) => ({
                       id: c.id,
                       name: c.name,
                       color: c.color,
+                    }))}
+                    characterDetails={(project?.bible?.characters ?? []).map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                      color: c.color,
+                      description: c.description,
+                      aliases: c.aliases,
                     }))}
                   />
                 </div>
@@ -1280,6 +1298,7 @@ export default function WriteStoryPage() {
             <StoryBiblePanel
               bible={project.bible}
               storyId={storyId}
+              chapters={(project?.chapters ?? []).map(c => ({ id: c.id, title: c.title, content: c.content }))}
               onUpdate={handleUpdateBible}
               onClose={() => setRightPanel("none")}
             />

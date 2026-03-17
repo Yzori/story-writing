@@ -120,12 +120,22 @@ const sceneBreakStyles = [
   { key: "space", label: "Space", ch: "(blank)" },
 ];
 
+interface CharacterDetail {
+  id: string;
+  name: string;
+  color: string;
+  description: string;
+  aliases: string[];
+}
+
 interface ProseEditorProps {
   content: string;
   onUpdate: (content: string, wordCount: number) => void;
   onEditorReady: (editor: Editor) => void;
   onComment?: () => void;
+  onMentionClick?: (characterId: string) => void;
   characters?: MentionCharacter[];
+  characterDetails?: CharacterDetail[];
 }
 
 export default function ProseEditor({
@@ -133,11 +143,17 @@ export default function ProseEditor({
   onUpdate,
   onEditorReady,
   onComment,
+  onMentionClick,
   characters = [],
+  characterDetails = [],
 }: ProseEditorProps) {
   const focusModeRef = useRef(false);
 
   const [sceneBreakPicker, setSceneBreakPicker] = useState<{ pos: DOMRect; currentStyle: string } | null>(null);
+  const [mentionPreview, setMentionPreview] = useState<{
+    character: CharacterDetail | null;
+    rect: DOMRect;
+  } | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -274,6 +290,34 @@ export default function ProseEditor({
     }
   }, [sceneBreakPicker]);
 
+  // Handle clicks on @mention spans
+  const handleEditorClick = useCallback((e: React.MouseEvent) => {
+    const mention = (e.target as HTMLElement).closest("[data-mention]");
+    if (mention && onMentionClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      onMentionClick(mention.getAttribute("data-mention")!);
+    }
+  }, [onMentionClick]);
+
+  // Mention hover preview via event delegation
+  const handleMentionMouseOver = useCallback((e: React.MouseEvent) => {
+    const mention = (e.target as HTMLElement).closest("[data-mention]") as HTMLElement | null;
+    if (!mention) return;
+    const characterId = mention.getAttribute("data-mention");
+    if (!characterId) return;
+    const character = characterDetails.find((c) => c.id === characterId) ?? null;
+    const rect = mention.getBoundingClientRect();
+    setMentionPreview({ character, rect });
+  }, [characterDetails]);
+
+  const handleMentionMouseOut = useCallback((e: React.MouseEvent) => {
+    const mention = (e.target as HTMLElement).closest("[data-mention]");
+    if (mention) {
+      setMentionPreview(null);
+    }
+  }, []);
+
   if (!editor) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -284,7 +328,7 @@ export default function ProseEditor({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full">
+      <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full" onClick={handleEditorClick} onMouseOver={handleMentionMouseOver} onMouseOut={handleMentionMouseOut}>
         <FloatingToolbar editor={editor} onComment={onComment} />
         <SlashMenu editor={editor} />
         <MentionDropdown editor={editor} characters={characters} />
@@ -293,6 +337,38 @@ export default function ProseEditor({
           className="prose-editor-content"
         />
       </div>
+
+      {mentionPreview && mentionPreview.character && (
+        <div
+          className="fixed z-50 w-64 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl p-3 pointer-events-none"
+          style={{
+            left: `${mentionPreview.rect.left + mentionPreview.rect.width / 2}px`,
+            top: `${mentionPreview.rect.top - 8}px`,
+            transform: "translateX(-50%) translateY(-100%)",
+          }}
+        >
+          <div className="flex items-center gap-2.5 mb-2">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={{ backgroundColor: `${mentionPreview.character.color}20`, color: mentionPreview.character.color }}
+            >
+              {mentionPreview.character.name.charAt(0)}
+            </div>
+            <div>
+              <div className="text-sm font-medium text-paper">{mentionPreview.character.name}</div>
+              {mentionPreview.character.aliases && mentionPreview.character.aliases.length > 0 && (
+                <div className="text-[10px] text-text-ghost">aka {mentionPreview.character.aliases.join(", ")}</div>
+              )}
+            </div>
+          </div>
+          {mentionPreview.character.description && (
+            <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-3">
+              {mentionPreview.character.description}
+            </p>
+          )}
+          <div className="mt-2 text-[9px] text-text-ghost">Click to open in Story Bible</div>
+        </div>
+      )}
 
       {sceneBreakPicker && (
         <div

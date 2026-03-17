@@ -16,6 +16,7 @@ type NoteCategory = "all" | "lore" | "timeline" | "research" | "custom";
 interface StoryBiblePanelProps {
   bible: StoryBible;
   storyId: string;
+  chapters: Array<{ id: string; title: string; content: string }>;
   onUpdate: (bible: StoryBible) => void;
   onClose: () => void;
 }
@@ -47,6 +48,7 @@ function encodeNoteDetails(note: Partial<StoryNote>) {
 export default function StoryBiblePanel({
   bible,
   storyId,
+  chapters,
   onUpdate,
   onClose,
 }: StoryBiblePanelProps) {
@@ -102,6 +104,23 @@ export default function StoryBiblePanel({
       ),
     [bible.places, matchesSearch, matchesTags]
   );
+
+  const characterAppearances = useMemo(() => {
+    const appearances = new Map<string, string[]>();
+    for (const char of bible.characters) {
+      const chapterIds: string[] = [];
+      for (const ch of chapters) {
+        if (!ch.content) continue;
+        const mentionMatch = ch.content.includes(`data-mention="${char.id}"`);
+        const nameMatch = ch.content.toLowerCase().includes(char.name.toLowerCase());
+        if (mentionMatch || nameMatch) {
+          chapterIds.push(ch.id);
+        }
+      }
+      appearances.set(char.id, chapterIds);
+    }
+    return appearances;
+  }, [bible.characters, chapters]);
 
   const hasActiveFilters = query.length > 0 || activeTags.size > 0;
 
@@ -470,6 +489,12 @@ export default function StoryBiblePanel({
                     <CharacterCard
                       character={char}
                       isEditing={editingId === char.id}
+                      appearances={
+                        (characterAppearances.get(char.id) || [])
+                          .map(chId => chapters.find(c => c.id === chId))
+                          .filter(Boolean)
+                          .map(c => ({ id: c!.id, title: c!.title }))
+                      }
                       onToggleEdit={() =>
                         setEditingId(editingId === char.id ? null : char.id)
                       }
@@ -643,12 +668,14 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
 function CharacterCard({
   character,
   isEditing,
+  appearances,
   onToggleEdit,
   onUpdate,
   onDelete,
 }: {
   character: StoryCharacter;
   isEditing: boolean;
+  appearances?: Array<{ id: string; title: string }>;
   onToggleEdit: () => void;
   onUpdate: (updates: Partial<StoryCharacter>) => void;
   onDelete: () => void;
@@ -664,7 +691,7 @@ function CharacterCard({
   };
 
   return (
-    <div className="mx-2 mb-1 rounded-lg border border-transparent hover:bg-subtle/20 transition-all">
+    <div data-bible-entry={character.id} className="mx-2 mb-1 rounded-lg border border-transparent hover:bg-subtle/20 transition-all">
       {/* Summary row */}
       <button
         onClick={onToggleEdit}
@@ -695,6 +722,16 @@ function CharacterCard({
             <p className="text-[11px] text-text-ghost truncate">
               {character.description}
             </p>
+          )}
+          {appearances && appearances.length > 0 && (
+            <div className="text-[10px] text-text-ghost mt-0.5 truncate">
+              Appears in {appearances.map((a, i) => (
+                <span key={a.id}>
+                  {i > 0 && ", "}
+                  <span className="text-amber/60">{a.title}</span>
+                </span>
+              ))}
+            </div>
           )}
         </div>
         <svg
