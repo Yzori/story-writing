@@ -88,7 +88,7 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
         setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
       } else if (key === "ArrowUp") {
         setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (key === "Enter") {
+      } else if (key === "Enter" || key === "Tab") {
         if (filtered[selectedIndex]) {
           insertMention(filtered[selectedIndex]);
         }

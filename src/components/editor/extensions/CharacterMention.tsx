@@ -126,6 +126,7 @@ export const CharacterMention = Node.create({
               event.key === "ArrowDown" ||
               event.key === "ArrowUp" ||
               event.key === "Enter" ||
+              event.key === "Tab" ||
               event.key === "Escape"
             ) {
               // Dispatch a custom event for the dropdown to handle
