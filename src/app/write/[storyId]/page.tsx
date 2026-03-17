@@ -216,6 +216,8 @@ export default function WriteStoryPage() {
   const pendingSaves = useRef<Map<string, string>>(new Map());
   const failedSaves = useRef<Map<string, string>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const isRetrying = useRef(false);
+  const isSwitching = useRef(false);
 
   // ── Load story from API ──────────────────────────────────
   useEffect(() => {
@@ -315,7 +317,6 @@ export default function WriteStoryPage() {
 
       setSaveState("saving");
       if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-      pendingSaves.current.clear();
 
       const maxRetries = 3;
       let lastError = false;
@@ -335,6 +336,7 @@ export default function WriteStoryPage() {
           );
           const responses = await Promise.all(saves);
           if (responses.every((r) => r.ok)) {
+            pendingSaves.current.clear();
             failedSaves.current.clear();
             setSaveState("saved");
             savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
@@ -358,6 +360,17 @@ export default function WriteStoryPage() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+      // Fire-and-forget flush on unmount
+      const entries = Array.from(pendingSaves.current.entries());
+      for (const [chapterId, chapterContent] of entries) {
+        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: chapterContent }),
+          keepalive: true,
+        }).catch(() => {});
+      }
+      pendingSaves.current.clear();
     };
   }, [project, storyId]);
 
@@ -374,7 +387,6 @@ export default function WriteStoryPage() {
 
     setSaveState("saving");
     if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-    pendingSaves.current.clear();
 
     try {
       const saves = entries.map(([chapterId, content]) =>
@@ -386,6 +398,7 @@ export default function WriteStoryPage() {
       );
       const responses = await Promise.all(saves);
       if (responses.every((r) => r.ok)) {
+        pendingSaves.current.clear();
         failedSaves.current.clear();
         setSaveState("saved");
         savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
@@ -416,11 +429,13 @@ export default function WriteStoryPage() {
 
   // ── Retry failed saves manually ─────────────────────────
   const retryFailedSaves = useCallback(async () => {
-    const entries = Array.from(failedSaves.current.entries());
-    if (entries.length === 0) return;
-
-    setSaveState("saving");
+    if (isRetrying.current) return; // Prevent concurrent retries
+    isRetrying.current = true;
     try {
+      const entries = Array.from(failedSaves.current.entries());
+      if (entries.length === 0) return;
+
+      setSaveState("saving");
       const saves = entries.map(([chapterId, content]) =>
         fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
           method: "PATCH",
@@ -439,6 +454,8 @@ export default function WriteStoryPage() {
       }
     } catch {
       setSaveState("error");
+    } finally {
+      isRetrying.current = false;
     }
   }, [storyId]);
 
@@ -545,8 +562,14 @@ export default function WriteStoryPage() {
 
   const handleSelectChapter = useCallback(
     async (id: string) => {
-      await flushPendingSaves();
-      updateProject((prev) => ({ ...prev, activeChapterId: id }));
+      if (isSwitching.current) return; // Prevent concurrent switches
+      isSwitching.current = true;
+      try {
+        await flushPendingSaves();
+        updateProject((prev) => (prev ? { ...prev, activeChapterId: id } : prev));
+      } finally {
+        isSwitching.current = false;
+      }
     },
     [updateProject, flushPendingSaves]
   );
@@ -611,19 +634,31 @@ export default function WriteStoryPage() {
   );
 
   const handleRenameChapter = useCallback(
-    (id: string, title: string) => {
-      updateProject((prev) => ({
-        ...prev,
-        chapters: prev.chapters.map((c) =>
-          c.id === id ? { ...c, title, updatedAt: Date.now() } : c
-        ),
-      }));
-      // Save to API
+    (id: string, newTitle: string) => {
+      let oldTitle = newTitle;
+      updateProject((prev) => {
+        const chapter = prev.chapters.find((c) => c.id === id);
+        oldTitle = chapter?.title ?? newTitle;
+        return {
+          ...prev,
+          chapters: prev.chapters.map((c) =>
+            c.id === id ? { ...c, title: newTitle, updatedAt: Date.now() } : c
+          ),
+        };
+      });
       fetch(`/api/stories/${storyId}/chapters/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      }).catch(() => {});
+        body: JSON.stringify({ title: newTitle }),
+      }).catch(() => {
+        // Revert on failure
+        updateProject((prev) => ({
+          ...prev,
+          chapters: prev.chapters.map((c) =>
+            c.id === id ? { ...c, title: oldTitle, updatedAt: Date.now() } : c
+          ),
+        }));
+      });
     },
     [updateProject, storyId]
   );
@@ -631,7 +666,11 @@ export default function WriteStoryPage() {
   const handleDeleteChapter = useCallback(
     async (id: string) => {
       await flushPendingSaves();
-      updateProject((prev) => {
+      // Capture state for rollback
+      let snapshot: StoryProject | null = null;
+      setProject((prev) => {
+        snapshot = prev;
+        if (!prev) return prev;
         const filtered = prev.chapters.filter((c) => c.id !== id);
         return {
           ...prev,
@@ -642,12 +681,17 @@ export default function WriteStoryPage() {
               : prev.activeChapterId,
         };
       });
-      // Delete from API
-      fetch(`/api/stories/${storyId}/chapters/${id}`, {
-        method: "DELETE",
-      }).catch(() => {});
+      try {
+        const res = await fetch(`/api/stories/${storyId}/chapters/${id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error();
+      } catch {
+        // Rollback on failure
+        if (snapshot) setProject(snapshot);
+      }
     },
-    [updateProject, storyId, flushPendingSaves]
+    [storyId, flushPendingSaves]
   );
 
   const handleUpdateContent = useCallback(

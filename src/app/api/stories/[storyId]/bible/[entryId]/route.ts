@@ -83,7 +83,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...parsed.data,
         updatedAt: new Date(),
       })
-      .where(eq(bibleEntries.id, entryId))
+      .where(and(eq(bibleEntries.id, entryId), eq(bibleEntries.storyId, storyId)))
       .returning();
 
     return NextResponse.json({ data: updated });
@@ -147,7 +147,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await db
       .delete(bibleEntries)
-      .where(eq(bibleEntries.id, entryId));
+      .where(and(eq(bibleEntries.id, entryId), eq(bibleEntries.storyId, storyId)));
 
     return NextResponse.json({ data: { id: entryId, deleted: true } });
   } catch (error) {

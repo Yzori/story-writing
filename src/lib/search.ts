@@ -78,6 +78,8 @@ export function replaceInHtml(
   const pattern = options.wholeWord ? `\\b${escaped}\\b` : escaped;
   const regex = new RegExp(pattern, replaceAll ? flags : flags.replace("g", ""));
 
+  // Escape $ in replacement to prevent backreference interpretation ($&, $1, etc.)
+  const safeReplacement = replacement.replace(/\$/g, '$$$$');
   let replaced = false;
 
   function walkTextNodes(node: Node) {
@@ -86,7 +88,7 @@ export function replaceInHtml(
     if (node.nodeType === Node.TEXT_NODE && node.textContent) {
       const original = node.textContent;
       if (replaceAll) {
-        node.textContent = original.replace(regex, replacement);
+        node.textContent = original.replace(regex, safeReplacement);
       } else if (!replaced) {
         const match = regex.exec(original);
         if (match) {

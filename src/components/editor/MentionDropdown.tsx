@@ -24,6 +24,10 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
     [characters, query]
   );
 
+  useEffect(() => {
+    setSelectedIndex((i) => Math.min(i, Math.max(filtered.length - 1, 0)));
+  }, [filtered.length]);
+
   const insertMention = useCallback(
     (character: MentionCharacter) => {
       const pluginState = mentionPluginKey.getState(editor.state);
@@ -88,7 +92,7 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
       const key = (e as CustomEvent).detail;
 
       if (key === "ArrowDown") {
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+        setSelectedIndex((i) => filtered.length > 0 ? Math.min(i + 1, filtered.length - 1) : 0);
       } else if (key === "ArrowUp") {
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (key === "Enter" || key === "Tab") {

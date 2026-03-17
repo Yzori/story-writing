@@ -4,6 +4,7 @@ import { chapters, stories } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { reorderChaptersSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -20,6 +21,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId } = await params;
     const body = await request.json();
@@ -56,20 +60,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const updates = parsed.data.chapters.map((ch) =>
-      db
-        .update(chapters)
-        .set({ sortOrder: ch.sortOrder, updatedAt: new Date() })
-        .where(
-          and(
-            eq(chapters.id, ch.id),
-            eq(chapters.storyId, storyId),
-            isNull(chapters.deletedAt)
-          )
-        )
-    );
-
-    await Promise.all(updates);
+    await db.transaction(async (tx) => {
+      for (const ch of parsed.data.chapters) {
+        await tx
+          .update(chapters)
+          .set({ sortOrder: ch.sortOrder, updatedAt: new Date() })
+          .where(
+            and(
+              eq(chapters.id, ch.id),
+              eq(chapters.storyId, storyId),
+              isNull(chapters.deletedAt)
+            )
+          );
+      }
+    });
 
     return NextResponse.json({
       data: { success: true, updated: parsed.data.chapters.length },

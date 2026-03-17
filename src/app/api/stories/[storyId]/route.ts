@@ -4,6 +4,7 @@ import { stories, chapters, bibleEntries, users } from "@/lib/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { updateStorySchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -103,6 +104,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
     const { storyId } = await params;
     const body = await request.json();
     const parsed = updateStorySchema.safeParse(body);
@@ -176,6 +180,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId } = await params;
 

@@ -100,7 +100,7 @@ export const CharacterMention = Node.create({
             );
 
             // Find the last @ that starts a mention query
-            const match = textBefore.match(/@([\w\s]*)$/);
+            const match = textBefore.match(/@([\w\s'\-\u00C0-\u024F]*)$/);
             if (match) {
               const query = match[1];
               const from = $pos.start() + $pos.parentOffset - match[0].length;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   StoryBible,
@@ -177,6 +177,16 @@ export default function StoryBiblePanel({
     },
     [storyId]
   );
+
+  useEffect(() => {
+    return () => {
+      // Cancel all pending debounced patches on unmount
+      for (const timer of patchTimers.current.values()) {
+        clearTimeout(timer);
+      }
+      patchTimers.current.clear();
+    };
+  }, []);
 
   // ── Character handlers ────────────────────────────────────
   const handleAddCharacter = async () => {
