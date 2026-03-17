@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Editor } from "@tiptap/react";
 
@@ -56,7 +56,7 @@ export default function CommandPalette({
   const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
   const modKey = isMac ? '\u2318' : 'Ctrl+';
 
-  const commands: Command[] = [
+  const commands = useMemo<Command[]>(() => [
     // Insert
     {
       id: "scene-break",
@@ -253,16 +253,19 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ];
+  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
-  const filtered = query
-    ? commands.filter(
-        (c) =>
-          c.label.toLowerCase().includes(query.toLowerCase()) ||
-          c.category.toLowerCase().includes(query.toLowerCase()) ||
-          (c.description?.toLowerCase().includes(query.toLowerCase()))
-      )
-    : commands;
+  const filtered = useMemo(() =>
+    query
+      ? commands.filter(
+          (c) =>
+            c.label.toLowerCase().includes(query.toLowerCase()) ||
+            c.category.toLowerCase().includes(query.toLowerCase()) ||
+            (c.description?.toLowerCase().includes(query.toLowerCase()))
+        )
+      : commands,
+    [query, commands]
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -355,11 +358,14 @@ export default function CommandPalette({
   }, [query]);
 
   // Group by category
-  const grouped = filtered.reduce<Record<string, Command[]>>((acc, cmd) => {
-    if (!acc[cmd.category]) acc[cmd.category] = [];
-    acc[cmd.category].push(cmd);
-    return acc;
-  }, {});
+  const grouped = useMemo(() =>
+    filtered.reduce<Record<string, Command[]>>((acc, cmd) => {
+      if (!acc[cmd.category]) acc[cmd.category] = [];
+      acc[cmd.category].push(cmd);
+      return acc;
+    }, {}),
+    [filtered]
+  );
 
   return (
     <AnimatePresence>

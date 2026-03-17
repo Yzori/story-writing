@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Editor } from "@tiptap/react";
@@ -19,8 +19,7 @@ import {
 } from "@/lib/store";
 import { CommentThread, createCommentThread, addReply } from "@/lib/comments";
 import { getOrCreateSession } from "@/lib/goals";
-import { exportPdf, exportEpub } from "@/lib/export";
-import { exportDocx } from "@/lib/export-docx";
+// export functions are dynamically imported in handlers below
 import ChapterNav from "@/components/editor/ChapterNav";
 import ProseEditor from "@/components/editor/ProseEditor";
 import FormatStub from "@/components/editor/FormatStub";
@@ -222,8 +221,12 @@ export default function WriteStoryPage() {
   useEffect(() => {
     async function loadStory() {
       try {
-        // Fetch story metadata (no-store to avoid stale cache on refresh)
-        const storyRes = await fetch(`/api/stories/${storyId}`, { cache: "no-store" });
+        // Fetch story, chapters, and bible entries all in parallel
+        const [storyRes, chaptersRes, bibleRes] = await Promise.all([
+          fetch(`/api/stories/${storyId}`, { cache: "no-store" }),
+          fetch(`/api/stories/${storyId}/chapters?withContent=true`, { cache: "no-store" }),
+          fetch(`/api/stories/${storyId}/bible`, { cache: "no-store" }),
+        ]);
         if (!storyRes.ok) {
           setError("Story not found");
           setLoading(false);
@@ -231,12 +234,6 @@ export default function WriteStoryPage() {
         }
         const storyJson = await storyRes.json();
         const story = storyJson.data;
-
-        // Fetch chapters and bible entries in parallel (no-store to avoid stale cache)
-        const [chaptersRes, bibleRes] = await Promise.all([
-          fetch(`/api/stories/${storyId}/chapters?withContent=true`, { cache: "no-store" }),
-          fetch(`/api/stories/${storyId}/bible`, { cache: "no-store" }),
-        ]);
         const chaptersJson = await chaptersRes.json();
         const apiChapters = chaptersRes.ok ? chaptersJson.data : [];
         const bibleJson = bibleRes.ok ? await bibleRes.json() : { data: [] };
@@ -525,11 +522,14 @@ export default function WriteStoryPage() {
     };
   }, [commandOpen, togglePanel]);
 
-  const activeChapter = project?.chapters.find(
-    (c) => c.id === project.activeChapterId
+  const activeChapter = useMemo(() =>
+    project?.chapters.find((c) => c.id === project.activeChapterId),
+    [project?.chapters, project?.activeChapterId]
   );
-  const activeChapterIndex =
-    project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? 0;
+  const activeChapterIndex = useMemo(() =>
+    project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? 0,
+    [project?.chapters, project?.activeChapterId]
+  );
 
   const updateProject = useCallback(
     (updater: (prev: StoryProject) => StoryProject) => {
@@ -997,6 +997,70 @@ export default function WriteStoryPage() {
     [editorInstance, activeThreadId]
   );
 
+  // ── Memoized computed values ─────────────────────────────
+  const mentionCharacters = useMemo(() =>
+    (project?.bible?.characters ?? []).map((c) => ({ id: c.id, name: c.name, color: c.color })),
+    [project?.bible?.characters]
+  );
+  const mentionCharacterDetails = useMemo(() =>
+    (project?.bible?.characters ?? []).map((c) => ({ id: c.id, name: c.name, color: c.color, description: c.description, aliases: c.aliases })),
+    [project?.bible?.characters]
+  );
+  const bibleChapters = useMemo(() =>
+    (project?.chapters ?? []).map(c => ({ id: c.id, title: c.title, content: c.content })),
+    [project?.chapters]
+  );
+
+  // ── Stable callbacks for JSX ──────────────────────────────
+  const handleToggleOutline = useCallback(() => setShowChapterOutline((v) => !v), []);
+  const handleToggleSearch = useCallback(() => setShowSearch((v) => !v), []);
+  const handleToggleGoals = useCallback(() => setShowGoals((v) => !v), []);
+  const handleOpenGrimoire = useCallback(() => setCommandOpen(true), []);
+  const handleCloseGrimoire = useCallback(() => setCommandOpen(false), []);
+  const handleCloseGoals = useCallback(() => setShowGoals(false), []);
+  const handleClosePanel = useCallback(() => setRightPanel("none"), []);
+  const handleToggleComments = useCallback(() => togglePanel("comments"), [togglePanel]);
+  const handleToggleBible = useCallback(() => togglePanel("bible"), [togglePanel]);
+  const handleToggleSettings = useCallback(() => togglePanel("chapter"), [togglePanel]);
+  const handleOpenMetadata = useCallback(() => togglePanel("metadata"), [togglePanel]);
+  const handleOpenFrontMatter = useCallback(() => togglePanel("frontmatter"), [togglePanel]);
+  const handleOpenTypography = useCallback(() => togglePanel("typography"), [togglePanel]);
+  const handleToggleOutlineView = useCallback(() => setShowOutline((v) => !v), []);
+  const handleMentionClick = useCallback((characterId: string) => {
+    setRightPanel("bible");
+    setTimeout(() => {
+      const el = document.querySelector(`[data-bible-entry="${characterId}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.classList.add("ring-2", "ring-amber/50");
+      setTimeout(() => el?.classList.remove("ring-2", "ring-amber/50"), 1500);
+    }, 300);
+  }, []);
+  const noopCallback = useCallback(() => {}, []);
+  const handleCloseSearch = useCallback(() => setShowSearch(false), []);
+  const handleCloseToolkit = useCallback(() => setShowToolkit(false), []);
+  const handleToggleToolkit = useCallback(() => setShowToolkit((v) => !v), []);
+  const handleCloseSidebar = useCallback(() => setIsSidebarHovered(false), []);
+  const handleCloseChapterOutline = useCallback(() => setShowChapterOutline(false), []);
+  const handleCancelComment = useCallback(() => setCommentPopover(null), []);
+  const handleOpenSearch = useCallback(() => setShowSearch(true), []);
+
+  // ── Dynamic export handlers ────────────────────────────────
+  const handleExportPdf = useCallback(async () => {
+    if (!project) return;
+    const { exportPdf } = await import("@/lib/export");
+    exportPdf(project);
+  }, [project]);
+  const handleExportEpub = useCallback(async () => {
+    if (!project) return;
+    const { exportEpub } = await import("@/lib/export");
+    exportEpub(project);
+  }, [project]);
+  const handleExportDocx = useCallback(async () => {
+    if (!project) return;
+    const { exportDocx } = await import("@/lib/export-docx");
+    exportDocx(project);
+  }, [project]);
+
   // ── Loading / Error states ────────────────────────────────
 
   if (loading) {
@@ -1038,7 +1102,10 @@ export default function WriteStoryPage() {
     );
   }
 
-  const totalWords = project.chapters.reduce((s, c) => s + c.wordCount, 0);
+  const totalWords = useMemo(() =>
+    project.chapters.reduce((s, c) => s + c.wordCount, 0),
+    [project.chapters]
+  );
   const showUI = !isTyping && !commandOpen;
 
   return (
@@ -1104,9 +1171,9 @@ export default function WriteStoryPage() {
                 onReorderChapters={handleReorderChapters}
                 onRenameChapter={handleRenameChapter}
                 onDeleteChapter={handleDeleteChapter}
-                onToggleCollapse={() => setIsSidebarHovered(false)}
+                onToggleCollapse={handleCloseSidebar}
                 onUpdateStoryTitle={handleUpdateStoryTitle}
-                onOpenToolkit={() => setShowToolkit((v) => !v)}
+                onOpenToolkit={handleToggleToolkit}
               />
             </motion.div>
           )}
@@ -1119,7 +1186,7 @@ export default function WriteStoryPage() {
           <ChapterOutlinePanel
             chapter={activeChapter}
             onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
-            onClose={() => setShowChapterOutline(false)}
+            onClose={handleCloseChapterOutline}
           />
         )}
       </AnimatePresence>
@@ -1136,7 +1203,7 @@ export default function WriteStoryPage() {
                 activeChapterId={project.activeChapterId}
                 onNavigateToChapter={handleSelectChapter}
                 onUpdateChapterContent={handleUpdateChapterContent}
-                onClose={() => setShowSearch(false)}
+                onClose={handleCloseSearch}
               />
             </div>
           )}
@@ -1203,29 +1270,9 @@ export default function WriteStoryPage() {
                     onUpdate={handleUpdateContent}
                     onEditorReady={handleEditorReady}
                     onComment={handleAddComment}
-                    onMentionClick={(characterId) => {
-                      setRightPanel("bible");
-                      // Small delay so the panel opens first, then scroll to the character
-                      setTimeout(() => {
-                        const el = document.querySelector(`[data-bible-entry="${characterId}"]`);
-                        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        // Flash highlight
-                        el?.classList.add("ring-2", "ring-amber/50");
-                        setTimeout(() => el?.classList.remove("ring-2", "ring-amber/50"), 1500);
-                      }, 300);
-                    }}
-                    characters={(project?.bible?.characters ?? []).map((c) => ({
-                      id: c.id,
-                      name: c.name,
-                      color: c.color,
-                    }))}
-                    characterDetails={(project?.bible?.characters ?? []).map((c) => ({
-                      id: c.id,
-                      name: c.name,
-                      color: c.color,
-                      description: c.description,
-                      aliases: c.aliases,
-                    }))}
+                    onMentionClick={handleMentionClick}
+                    characters={mentionCharacters}
+                    characterDetails={mentionCharacterDetails}
                   />
                 </div>
               </motion.div>
@@ -1244,14 +1291,14 @@ export default function WriteStoryPage() {
             totalWords={totalWords}
             goals={project.goals}
             saveState={saveState}
-            onToggleAudio={() => {}}
-            onToggleOutline={() => setShowChapterOutline((v) => !v)}
-            onOpenGrimoire={() => setCommandOpen(true)}
-            onToggleComments={() => togglePanel("comments")}
-            onToggleSearch={() => setShowSearch((v) => !v)}
-            onToggleGoals={() => setShowGoals((v) => !v)}
-            onToggleBible={() => togglePanel("bible")}
-            onToggleSettings={() => togglePanel("chapter")}
+            onToggleAudio={noopCallback}
+            onToggleOutline={handleToggleOutline}
+            onOpenGrimoire={handleOpenGrimoire}
+            onToggleComments={handleToggleComments}
+            onToggleSearch={handleToggleSearch}
+            onToggleGoals={handleToggleGoals}
+            onToggleBible={handleToggleBible}
+            onToggleSettings={handleToggleSettings}
           />
         )}
       </AnimatePresence>
@@ -1283,7 +1330,7 @@ export default function WriteStoryPage() {
               onReply={handleReplyToThread}
               onResolve={handleResolveThread}
               onDelete={handleDeleteThread}
-              onClose={() => setRightPanel("none")}
+              onClose={handleClosePanel}
             />
           )}
           {rightPanel === "metadata" && (
@@ -1291,16 +1338,16 @@ export default function WriteStoryPage() {
               metadata={project.metadata}
               storyTitle={project.title}
               onUpdate={handleUpdateMetadata}
-              onClose={() => setRightPanel("none")}
+              onClose={handleClosePanel}
             />
           )}
           {rightPanel === "bible" && (
             <StoryBiblePanel
               bible={project.bible}
               storyId={storyId}
-              chapters={(project?.chapters ?? []).map(c => ({ id: c.id, title: c.title, content: c.content }))}
+              chapters={bibleChapters}
               onUpdate={handleUpdateBible}
-              onClose={() => setRightPanel("none")}
+              onClose={handleClosePanel}
             />
           )}
           {rightPanel === "frontmatter" && (
@@ -1309,7 +1356,7 @@ export default function WriteStoryPage() {
               metadata={project.metadata}
               chapters={project.chapters}
               onUpdate={handleUpdateFrontMatter}
-              onClose={() => setRightPanel("none")}
+              onClose={handleClosePanel}
             />
           )}
           {rightPanel === "chapter" && activeChapter && (
@@ -1318,14 +1365,14 @@ export default function WriteStoryPage() {
               storyId={storyId}
               onUpdate={handleUpdateChapterFields}
               onRestoreSnapshot={handleRestoreSnapshot}
-              onClose={() => setRightPanel("none")}
+              onClose={handleClosePanel}
             />
           )}
           {rightPanel === "typography" && (
             <TypographyPanel
               settings={project.typography}
               onUpdate={handleUpdateTypography}
-              onClose={() => setRightPanel("none")}
+              onClose={handleClosePanel}
             />
           )}
         </AnimatePresence>
@@ -1338,7 +1385,7 @@ export default function WriteStoryPage() {
             position={commentPopover.position}
             selectedText={commentPopover.selectedText}
             onSubmit={handleSubmitComment}
-            onCancel={() => setCommentPopover(null)}
+            onCancel={handleCancelComment}
           />
         )}
       </AnimatePresence>
@@ -1347,19 +1394,19 @@ export default function WriteStoryPage() {
       <AnimatePresence>
         {showToolkit && (
           <ToolkitPanel
-            onClose={() => setShowToolkit(false)}
+            onClose={handleCloseToolkit}
             isPublic={isPublic}
             onTogglePublish={handleTogglePublish}
             onDeleteStory={handleDeleteStory}
-            onOpenMetadata={() => togglePanel("metadata")}
-            onOpenBible={() => togglePanel("bible")}
-            onOpenFrontMatter={() => togglePanel("frontmatter")}
-            onOpenChapterSettings={() => togglePanel("chapter")}
-            onOpenTypography={() => togglePanel("typography")}
-            onOpenOutline={() => setShowOutline((v) => !v)}
-            onExportPdf={() => exportPdf(project)}
-            onExportEpub={() => exportEpub(project)}
-            onExportDocx={() => exportDocx(project)}
+            onOpenMetadata={handleOpenMetadata}
+            onOpenBible={handleToggleBible}
+            onOpenFrontMatter={handleOpenFrontMatter}
+            onOpenChapterSettings={handleToggleSettings}
+            onOpenTypography={handleOpenTypography}
+            onOpenOutline={handleToggleOutlineView}
+            onExportPdf={handleExportPdf}
+            onExportEpub={handleExportEpub}
+            onExportDocx={handleExportDocx}
             hasCover={!!project.metadata.coverImageDataUrl}
             genreCount={project.metadata.genres.length}
             bibleEntryCount={
@@ -1381,20 +1428,20 @@ export default function WriteStoryPage() {
       {/* ── 9. Command Palette / The Grimoire ───────────────── */}
       <CommandPalette
         open={commandOpen}
-        onClose={() => setCommandOpen(false)}
+        onClose={handleCloseGrimoire}
         editor={editorInstance}
-        onToggleZen={() => {}}
+        onToggleZen={noopCallback}
         isZenMode={false}
-        onOpenSearch={() => setShowSearch(true)}
-        onOpenMetadata={() => togglePanel("metadata")}
-        onOpenBible={() => togglePanel("bible")}
-        onOpenFrontMatter={() => togglePanel("frontmatter")}
-        onOpenChapterSettings={() => togglePanel("chapter")}
-        onOpenOutline={() => setShowOutline((v) => !v)}
-        onOpenTypography={() => togglePanel("typography")}
-        onExportPdf={() => project && exportPdf(project)}
-        onExportEpub={() => project && exportEpub(project)}
-        onExportDocx={() => project && exportDocx(project)}
+        onOpenSearch={handleOpenSearch}
+        onOpenMetadata={handleOpenMetadata}
+        onOpenBible={handleToggleBible}
+        onOpenFrontMatter={handleOpenFrontMatter}
+        onOpenChapterSettings={handleToggleSettings}
+        onOpenOutline={handleToggleOutlineView}
+        onOpenTypography={handleOpenTypography}
+        onExportPdf={handleExportPdf}
+        onExportEpub={handleExportEpub}
+        onExportDocx={handleExportDocx}
       />
 
       {/* Goals popover */}
@@ -1403,7 +1450,7 @@ export default function WriteStoryPage() {
           <GoalsPanel
             goals={project.goals}
             onUpdate={handleUpdateGoals}
-            onClose={() => setShowGoals(false)}
+            onClose={handleCloseGoals}
           />
         )}
       </AnimatePresence>

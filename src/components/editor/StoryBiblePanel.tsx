@@ -105,6 +105,8 @@ export default function StoryBiblePanel({
     [bible.places, matchesSearch, matchesTags]
   );
 
+  const chaptersMap = useMemo(() => new Map(chapters.map(c => [c.id, c])), [chapters]);
+
   const characterAppearances = useMemo(() => {
     const appearances = new Map<string, string[]>();
     for (const char of bible.characters) {
@@ -121,6 +123,18 @@ export default function StoryBiblePanel({
     }
     return appearances;
   }, [bible.characters, chapters]);
+
+  const resolvedAppearances = useMemo(() => {
+    const result = new Map<string, Array<{ id: string; title: string }>>();
+    for (const [charId, chapterIds] of characterAppearances) {
+      result.set(charId, chapterIds
+        .map(chId => chaptersMap.get(chId))
+        .filter(Boolean)
+        .map(c => ({ id: c!.id, title: c!.title }))
+      );
+    }
+    return result;
+  }, [characterAppearances, chaptersMap]);
 
   const hasActiveFilters = query.length > 0 || activeTags.size > 0;
 
@@ -489,12 +503,7 @@ export default function StoryBiblePanel({
                     <CharacterCard
                       character={char}
                       isEditing={editingId === char.id}
-                      appearances={
-                        (characterAppearances.get(char.id) || [])
-                          .map(chId => chapters.find(c => c.id === chId))
-                          .filter(Boolean)
-                          .map(c => ({ id: c!.id, title: c!.title }))
-                      }
+                      appearances={resolvedAppearances.get(char.id)}
                       onToggleEdit={() =>
                         setEditingId(editingId === char.id ? null : char.id)
                       }

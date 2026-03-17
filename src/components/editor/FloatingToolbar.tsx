@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Editor } from "@tiptap/react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,7 +48,7 @@ function Divider() {
   return <div className="w-px h-5 bg-border mx-0.5" />;
 }
 
-export default function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
+function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>(null);
@@ -245,3 +245,5 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
     </AnimatePresence>
   );
 }
+
+export default React.memo(FloatingToolbar);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Editor } from "@tiptap/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { mentionPluginKey, MentionCharacter } from "./extensions/CharacterMention";
@@ -17,8 +17,11 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const filtered = characters.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
+  const filtered = useMemo(() =>
+    characters.filter((c) =>
+      c.name.toLowerCase().includes(query.toLowerCase())
+    ),
+    [characters, query]
   );
 
   const insertMention = useCallback(

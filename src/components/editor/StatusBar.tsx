@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { motion } from "framer-motion";
 import { formatNumber, WritingGoals } from "@/lib/store";
 import { getTodaySession } from "@/lib/goals";
@@ -23,7 +24,7 @@ interface StatusBarProps {
   onToggleSettings: () => void;
 }
 
-export default function StatusBar({
+function StatusBar({
   isAudioPlaying,
   showOutline,
   chapterWordCount,
@@ -230,3 +231,5 @@ export default function StatusBar({
     </motion.div>
   );
 }
+
+export default React.memo(StatusBar);

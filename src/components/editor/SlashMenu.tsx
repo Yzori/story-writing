@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Editor } from "@tiptap/react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -143,13 +143,16 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const filtered = query
-    ? SLASH_ITEMS.filter(
-        (item) =>
-          item.label.toLowerCase().includes(query.toLowerCase()) ||
-          item.description.toLowerCase().includes(query.toLowerCase())
-      )
-    : SLASH_ITEMS;
+  const filtered = useMemo(() =>
+    query
+      ? SLASH_ITEMS.filter(
+          (item) =>
+            item.label.toLowerCase().includes(query.toLowerCase()) ||
+            item.description.toLowerCase().includes(query.toLowerCase())
+        )
+      : SLASH_ITEMS,
+    [query]
+  );
 
   const closeMenu = useCallback(() => {
     setOpen(false);
