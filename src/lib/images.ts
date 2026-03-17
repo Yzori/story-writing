@@ -36,7 +36,12 @@ export function compressImage(
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        if (dataUrl.length > 200_000) {
+          reject(new Error("Image too large even after compression (~200KB limit)"));
+          return;
+        }
+        resolve(dataUrl);
       };
       img.onerror = () => reject(new Error("Failed to load image"));
       img.src = reader.result as string;

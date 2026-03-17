@@ -29,6 +29,7 @@ interface CommandPaletteProps {
   onExportPdf?: () => void;
   onExportEpub?: () => void;
   onExportDocx?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 export default function CommandPalette({
@@ -47,6 +48,7 @@ export default function CommandPalette({
   onExportPdf,
   onExportEpub,
   onExportDocx,
+  onOpenShortcuts,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -219,6 +221,17 @@ export default function CommandPalette({
           },
         ]
       : []),
+    ...(onOpenShortcuts
+      ? [
+          {
+            id: "keyboard-shortcuts",
+            label: "Keyboard Shortcuts",
+            description: "View all available shortcuts",
+            category: "Tools",
+            action: onOpenShortcuts,
+          },
+        ]
+      : []),
     // Export
     ...(onExportPdf
       ? [
@@ -253,7 +266,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenShortcuts, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query

@@ -8,13 +8,11 @@ import { getTodaySession } from "@/lib/goals";
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 interface StatusBarProps {
-  isAudioPlaying: boolean;
   showOutline: boolean;
   chapterWordCount: number;
   totalWords: number;
   goals: WritingGoals;
   saveState?: SaveState;
-  onToggleAudio: () => void;
   onToggleOutline: () => void;
   onOpenGrimoire: () => void;
   onToggleComments: () => void;
@@ -25,13 +23,11 @@ interface StatusBarProps {
 }
 
 function StatusBar({
-  isAudioPlaying,
   showOutline,
   chapterWordCount,
   totalWords,
   goals,
   saveState = "idle",
-  onToggleAudio,
   onToggleOutline,
   onOpenGrimoire,
   onToggleComments,
@@ -55,24 +51,6 @@ function StatusBar({
 
         {/* Left: Tool toggles */}
         <div className="flex items-center gap-2">
-          {/* Ambient Soundscape */}
-          <button
-            onClick={onToggleAudio}
-            className={`p-2 rounded-full transition-all ${
-              isAudioPlaying
-                ? "bg-amber/20 text-amber shadow-[0_0_15px_rgba(200,150,60,0.3)]"
-                : "hover:bg-paper/10 text-paper/50 hover:text-paper"
-            }`}
-            title="Ambient Soundscape"
-            aria-label={isAudioPlaying ? "Stop ambient soundscape" : "Play ambient soundscape"}
-          >
-            {isAudioPlaying ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
-            )}
-          </button>
-
           {/* Chapter Outline */}
           <button
             onClick={onToggleOutline}
@@ -224,10 +202,6 @@ function StatusBar({
         </button>
       </div>
 
-      {/* Audio Playing Indicator Glow */}
-      {isAudioPlaying && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-12 bg-amber/20 blur-2xl rounded-full -z-10 mix-blend-screen animate-pulse" />
-      )}
     </motion.div>
   );
 }

@@ -4,6 +4,7 @@ import { chapters, stories, follows } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { auth } from "@/lib/auth";
 import { createBulkNotifications } from "@/lib/notifications";
 
@@ -127,6 +128,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       ...parsed.data,
       updatedAt: new Date(),
     };
+
+    if (updateData.content) {
+      updateData.content = sanitizeHtml(updateData.content as string);
+    }
 
     if (parsed.data.content !== undefined) {
       updateData.wordCount = countWords(parsed.data.content);

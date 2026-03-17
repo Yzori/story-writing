@@ -22,6 +22,7 @@ import { getOrCreateSession } from "@/lib/goals";
 // export functions are dynamically imported in handlers below
 import ChapterNav from "@/components/editor/ChapterNav";
 import ProseEditor from "@/components/editor/ProseEditor";
+import EditorErrorBoundary from "@/components/editor/EditorErrorBoundary";
 import FormatStub from "@/components/editor/FormatStub";
 import CommandPalette from "@/components/editor/CommandPalette";
 import CommentsSidebar from "@/components/editor/CommentsSidebar";
@@ -38,6 +39,7 @@ import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
+import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography";
 
@@ -174,6 +176,12 @@ export default function WriteStoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [undoAction, setUndoAction] = useState<{
+    message: string;
+    undo: () => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
 
   // Right panel
   const [rightPanel, setRightPanel] = useState<RightPanel>("none");
@@ -205,6 +213,7 @@ export default function WriteStoryPage() {
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
   const [showChapterOutline, setShowChapterOutline] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -335,6 +344,11 @@ export default function WriteStoryPage() {
             })
           );
           const responses = await Promise.all(saves);
+          // Check for auth expiry
+          if (responses.some((r) => r.status === 401)) {
+            window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+            return;
+          }
           if (responses.every((r) => r.ok)) {
             pendingSaves.current.clear();
             failedSaves.current.clear();
@@ -397,6 +411,11 @@ export default function WriteStoryPage() {
         })
       );
       const responses = await Promise.all(saves);
+      // Check for auth expiry
+      if (responses.some((r) => r.status === 401)) {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        return false;
+      }
       if (responses.every((r) => r.ok)) {
         pendingSaves.current.clear();
         failedSaves.current.clear();
@@ -444,6 +463,11 @@ export default function WriteStoryPage() {
         })
       );
       const responses = await Promise.all(saves);
+      // Check for auth expiry
+      if (responses.some((r) => r.status === 401)) {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        return;
+      }
       if (responses.every((r) => r.ok)) {
         failedSaves.current.clear();
         setSaveState("saved");
@@ -666,6 +690,16 @@ export default function WriteStoryPage() {
   const handleDeleteChapter = useCallback(
     async (id: string) => {
       await flushPendingSaves();
+      // Auto-snapshot before delete
+      const chapterToDelete = project?.chapters.find((c) => c.id === id);
+      if (chapterToDelete && chapterToDelete.content) {
+        fetch(`/api/stories/${storyId}/chapters/${id}/snapshots`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: "Auto-save before delete" }),
+          keepalive: true,
+        }).catch(() => {});
+      }
       // Capture state for rollback
       let snapshot: StoryProject | null = null;
       setProject((prev) => {
@@ -686,12 +720,25 @@ export default function WriteStoryPage() {
           method: "DELETE",
         });
         if (!res.ok) throw new Error();
+        // Show undo toast on successful delete
+        const timer = setTimeout(() => setUndoAction(null), 3000);
+        setUndoAction({
+          message: `"${chapterToDelete?.title ?? 'Chapter'}" deleted`,
+          undo: () => {
+            clearTimeout(timer);
+            setUndoAction(null);
+            // Rollback from snapshot
+            if (snapshot) setProject(snapshot);
+            window.location.reload();
+          },
+          timer,
+        });
       } catch {
         // Rollback on failure
         if (snapshot) setProject(snapshot);
       }
     },
-    [storyId, flushPendingSaves]
+    [storyId, project, flushPendingSaves]
   );
 
   const handleUpdateContent = useCallback(
@@ -1083,7 +1130,7 @@ export default function WriteStoryPage() {
   const handleCloseSearch = useCallback(() => setShowSearch(false), []);
   const handleCloseToolkit = useCallback(() => setShowToolkit(false), []);
   const handleToggleToolkit = useCallback(() => setShowToolkit((v) => !v), []);
-  const handleCloseSidebar = useCallback(() => setIsSidebarHovered(false), []);
+  const handleCloseSidebar = useCallback(() => { setIsSidebarHovered(false); setSidebarPinned(false); }, []);
   const handleCloseChapterOutline = useCallback(() => setShowChapterOutline(false), []);
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
@@ -1091,18 +1138,36 @@ export default function WriteStoryPage() {
   // ── Dynamic export handlers ────────────────────────────────
   const handleExportPdf = useCallback(async () => {
     if (!project) return;
-    const { exportPdf } = await import("@/lib/export");
-    exportPdf(project);
+    try {
+      const { exportPdf } = await import("@/lib/export");
+      exportPdf(project);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 3000);
+    }
   }, [project]);
   const handleExportEpub = useCallback(async () => {
     if (!project) return;
-    const { exportEpub } = await import("@/lib/export");
-    exportEpub(project);
+    try {
+      const { exportEpub } = await import("@/lib/export");
+      exportEpub(project);
+    } catch (err) {
+      console.error("EPUB export failed:", err);
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 3000);
+    }
   }, [project]);
   const handleExportDocx = useCallback(async () => {
     if (!project) return;
-    const { exportDocx } = await import("@/lib/export-docx");
-    exportDocx(project);
+    try {
+      const { exportDocx } = await import("@/lib/export-docx");
+      exportDocx(project);
+    } catch (err) {
+      console.error("DOCX export failed:", err);
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 3000);
+    }
   }, [project]);
 
   // ── Loading / Error states ────────────────────────────────
@@ -1171,7 +1236,7 @@ export default function WriteStoryPage() {
       >
         {/* Sidebar affordance — visible tab when sidebar is hidden */}
         <AnimatePresence>
-          {!isSidebarHovered && !isTyping && !commandOpen && (
+          {!isSidebarHovered && !sidebarPinned && !isTyping && !commandOpen && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1180,7 +1245,10 @@ export default function WriteStoryPage() {
               className="absolute top-1/2 -translate-y-1/2 left-0 flex flex-col items-center gap-1 cursor-pointer"
             >
               {/* Pull tab with chapter count */}
-              <div className="flex flex-col items-center gap-2 px-2 py-3.5 rounded-r-xl bg-amber/[0.06] border border-l-0 border-amber/[0.12] backdrop-blur-md shadow-[0_0_20px_rgba(200,150,60,0.06)]">
+              <div
+                onClick={() => setSidebarPinned(true)}
+                className="flex flex-col items-center gap-2 px-2 py-3.5 rounded-r-xl bg-amber/[0.06] border border-l-0 border-amber/[0.12] backdrop-blur-md shadow-[0_0_20px_rgba(200,150,60,0.06)]"
+              >
                 <svg className="w-4 h-4 text-amber/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                 </svg>
@@ -1195,9 +1263,17 @@ export default function WriteStoryPage() {
           )}
         </AnimatePresence>
 
+        {/* Backdrop for pinned sidebar (mobile tap-to-close) */}
+        {sidebarPinned && (
+          <div
+            className="fixed inset-0 z-30 bg-black/20"
+            onClick={() => setSidebarPinned(false)}
+          />
+        )}
+
         {/* Expanded sidebar panel */}
         <AnimatePresence>
-          {isSidebarHovered && !commandOpen && !isTyping && (
+          {(isSidebarHovered || sidebarPinned) && !commandOpen && !isTyping && (
             <motion.div
               initial={{ x: "-100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -1308,16 +1384,18 @@ export default function WriteStoryPage() {
                     project.typography.dropCaps ? "drop-caps" : ""
                   } scene-break-${project.typography.sceneBreakStyle || "asterism"}`}
                 >
-                  <ProseEditor
-                    key={activeChapter.id}
-                    content={activeChapter.content}
-                    onUpdate={handleUpdateContent}
-                    onEditorReady={handleEditorReady}
-                    onComment={handleAddComment}
-                    onMentionClick={handleMentionClick}
-                    characters={mentionCharacters}
-                    characterDetails={mentionCharacterDetails}
-                  />
+                  <EditorErrorBoundary>
+                    <ProseEditor
+                      key={activeChapter.id}
+                      content={activeChapter.content}
+                      onUpdate={handleUpdateContent}
+                      onEditorReady={handleEditorReady}
+                      onComment={handleAddComment}
+                      onMentionClick={handleMentionClick}
+                      characters={mentionCharacters}
+                      characterDetails={mentionCharacterDetails}
+                    />
+                  </EditorErrorBoundary>
                 </div>
               </motion.div>
             )}
@@ -1329,13 +1407,11 @@ export default function WriteStoryPage() {
       <AnimatePresence>
         {showUI && (
           <StatusBar
-            isAudioPlaying={false}
             showOutline={showChapterOutline}
             chapterWordCount={activeChapter?.wordCount ?? 0}
             totalWords={totalWords}
             goals={project.goals}
             saveState={saveState}
-            onToggleAudio={noopCallback}
             onToggleOutline={handleToggleOutline}
             onOpenGrimoire={handleOpenGrimoire}
             onToggleComments={handleToggleComments}
@@ -1359,6 +1435,26 @@ export default function WriteStoryPage() {
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <span>Changes couldn&apos;t be saved</span>
             <button onClick={retryFailedSaves} className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 transition-colors font-medium">Retry</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Undo Toast ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {undoAction && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface/95 border border-border-active backdrop-blur-xl text-sm text-text-secondary shadow-2xl"
+          >
+            <span>{undoAction.message}</span>
+            <button
+              onClick={undoAction.undo}
+              className="px-2.5 py-1 rounded-lg bg-amber/10 border border-amber/20 text-amber text-xs font-medium hover:bg-amber/20 transition-colors"
+            >
+              Undo
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1486,7 +1582,11 @@ export default function WriteStoryPage() {
         onExportPdf={handleExportPdf}
         onExportEpub={handleExportEpub}
         onExportDocx={handleExportDocx}
+        onOpenShortcuts={() => { setCommandOpen(false); setShowShortcuts(true); }}
       />
+
+      {/* Keyboard Shortcuts Panel */}
+      {showShortcuts && <ShortcutsPanel onClose={() => setShowShortcuts(false)} />}
 
       {/* Goals popover */}
       <AnimatePresence>

@@ -53,7 +53,7 @@ export const updateStorySchema = z.object({
 
 export const createChapterSchema = z.object({
   title: z.string().min(1, "Title is required").max(500),
-  content: z.string().optional(),
+  content: z.string().max(500000).optional(), // ~500KB max per chapter, roughly 80K words
   status: z.enum(["draft", "published"]).optional(),
   authorNoteBefore: z.string().max(5000).optional(),
   authorNoteAfter: z.string().max(5000).optional(),
@@ -62,7 +62,7 @@ export const createChapterSchema = z.object({
 
 export const updateChapterSchema = z.object({
   title: z.string().min(1).max(500).optional(),
-  content: z.string().optional(),
+  content: z.string().max(500000).optional(), // ~500KB max per chapter, roughly 80K words
   status: z.enum(["draft", "published"]).optional(),
   authorNoteBefore: z.string().max(5000).optional(),
   authorNoteAfter: z.string().max(5000).optional(),

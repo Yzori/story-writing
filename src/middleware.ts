@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { validateCsrf } from "@/lib/csrf";
 
 const protectedPaths = ["/write", "/dashboard", "/create"];
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];
@@ -8,6 +9,12 @@ const authPages = ["/login", "/register"];
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
+
+  // CSRF protection for API routes with mutating methods
+  if (pathname.startsWith("/api/")) {
+    const csrfResult = validateCsrf(req);
+    if (csrfResult) return csrfResult;
+  }
 
   // Check if the path requires authentication
   const isProtected = protectedPaths.some((path) => pathname.startsWith(path))
@@ -38,6 +45,6 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
