@@ -38,6 +38,7 @@ import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
+import OnboardingHints from "@/components/editor/OnboardingHints";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography";
 
@@ -445,6 +446,14 @@ export default function WriteStoryPage() {
     }
   }, [storyId]);
 
+  // ── Right panel toggle ────────────────────────────────────
+  const togglePanel = useCallback(
+    (panel: RightPanel) => {
+      setRightPanel((prev) => (prev === panel ? "none" : panel));
+    },
+    []
+  );
+
   // ── Keyboard shortcuts + typing detection ────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -491,6 +500,18 @@ export default function WriteStoryPage() {
           return prev;
         });
       }
+      if (isMod && e.shiftKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        setShowGoals((v) => !v);
+      }
+      if (isMod && e.shiftKey && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        togglePanel("bible");
+      }
+      if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
+        e.preventDefault();
+        setCommandOpen(true);
+      }
       if (e.key === "Escape" && commandOpen) {
         setCommandOpen(false);
       }
@@ -507,7 +528,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen]);
+  }, [commandOpen, togglePanel]);
 
   const activeChapter = project?.chapters.find(
     (c) => c.id === project.activeChapterId
@@ -981,15 +1002,6 @@ export default function WriteStoryPage() {
     [editorInstance, activeThreadId]
   );
 
-  // ── Right panel toggle ────────────────────────────────────
-
-  const togglePanel = useCallback(
-    (panel: RightPanel) => {
-      setRightPanel((prev) => (prev === panel ? "none" : panel));
-    },
-    []
-  );
-
   // ── Loading / Error states ────────────────────────────────
 
   if (loading) {
@@ -1227,6 +1239,9 @@ export default function WriteStoryPage() {
             onOpenGrimoire={() => setCommandOpen(true)}
             onToggleComments={() => togglePanel("comments")}
             onToggleSearch={() => setShowSearch((v) => !v)}
+            onToggleGoals={() => setShowGoals((v) => !v)}
+            onToggleBible={() => togglePanel("bible")}
+            onToggleSettings={() => togglePanel("chapter")}
           />
         )}
       </AnimatePresence>
@@ -1383,6 +1398,8 @@ export default function WriteStoryPage() {
           />
         )}
       </AnimatePresence>
+
+      <OnboardingHints />
     </div>
   );
 }

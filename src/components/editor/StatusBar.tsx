@@ -20,6 +20,9 @@ interface StatusBarProps {
   onOpenGrimoire: () => void;
   onToggleComments: () => void;
   onToggleSearch: () => void;
+  onToggleGoals: () => void;
+  onToggleBible: () => void;
+  onToggleSettings: () => void;
 }
 
 export default function StatusBar({
@@ -36,6 +39,9 @@ export default function StatusBar({
   onOpenGrimoire,
   onToggleComments,
   onToggleSearch,
+  onToggleGoals,
+  onToggleBible,
+  onToggleSettings,
 }: StatusBarProps) {
   const todaySession = getTodaySession(goals);
   const todayWords = todaySession?.wordsWritten ?? 0;
@@ -127,6 +133,46 @@ export default function StatusBar({
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
+
+          <div className="w-[1px] h-6 bg-paper/10 shrink-0 hidden sm:block" />
+
+          {/* Writing Goals */}
+          <button
+            onClick={onToggleGoals}
+            className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block"
+            title="Writing Goals"
+            aria-label="Writing goals"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.001A3.75 3.75 0 0012 18z" />
+            </svg>
+          </button>
+
+          {/* Story Bible */}
+          <button
+            onClick={onToggleBible}
+            className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block"
+            title="Story Bible"
+            aria-label="Open story bible"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+            </svg>
+          </button>
+
+          {/* Chapter Settings */}
+          <button
+            onClick={onToggleSettings}
+            className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block"
+            title="Chapter Settings"
+            aria-label="Open chapter settings"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
         </div>
 
         <div className="w-[1px] h-6 bg-paper/10 shrink-0" />
@@ -182,18 +228,18 @@ export default function StatusBar({
 
         <div className="w-[1px] h-6 bg-paper/10 shrink-0" />
 
-        {/* Right: Grimoire button */}
+        {/* Right: Commands button */}
         <button
           onClick={onOpenGrimoire}
           className="flex items-center gap-2 group hover:text-amber transition-colors shrink-0"
-          aria-label="Open grimoire"
+          aria-label="Open command palette"
         >
           <div className="w-6 h-6 rounded-full bg-amber/10 flex items-center justify-center border border-amber/20 group-hover:bg-amber group-hover:text-void transition-all shadow-[0_0_10px_rgba(200,150,60,0.2)] group-hover:shadow-[0_0_20px_rgba(200,150,60,0.6)]">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
             </svg>
           </div>
-          <span className="text-xs font-medium text-paper/50 group-hover:text-amber hidden sm:inline">Grimoire</span>
+          <span className="text-xs font-medium text-paper/50 group-hover:text-amber hidden sm:inline">Commands</span>
           <span className="px-1.5 py-0.5 rounded text-[9px] bg-paper/10 text-paper/40 ml-1 font-mono tracking-wider hidden sm:inline">/</span>
         </button>
       </div>

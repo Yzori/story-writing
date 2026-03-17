@@ -410,7 +410,7 @@ export default function CommandPalette({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a command..."
+                placeholder="Search commands..."
                 className="flex-1 bg-transparent text-sm text-paper outline-none placeholder:text-text-ghost"
               />
               <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-surface text-text-ghost border border-border font-mono">
@@ -466,6 +466,15 @@ export default function CommandPalette({
                   No commands found
                 </p>
               )}
+            </div>
+
+            {/* Help hint */}
+            <div className="px-4 py-2 text-[10px] text-text-ghost border-t border-border/30 flex items-center gap-2">
+              <kbd className="px-1 py-0.5 rounded bg-surface/50 border border-border/50 text-[9px]">/</kbd>
+              <span>in editor for quick insert</span>
+              <span className="mx-1 text-border">&middot;</span>
+              <kbd className="px-1 py-0.5 rounded bg-surface/50 border border-border/50 text-[9px]">{modKey}K</kbd>
+              <span>anywhere for commands</span>
             </div>
           </motion.div>
         </>

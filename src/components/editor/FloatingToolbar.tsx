@@ -210,13 +210,12 @@ export default function FloatingToolbar({ editor, onComment }: FloatingToolbarPr
             {/* Scene Break */}
             <ToolbarButton
               onClick={() => editor.chain().focus().setHorizontalRule().run()}
-              title="Scene Break"
-              ariaLabel="Scene Break"
+              title="Scene Break — insert a divider between scenes"
+              ariaLabel="Scene Break — insert a divider between scenes"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="4" cy="8" r="1" fill="currentColor" />
-                <circle cx="8" cy="8" r="1" fill="currentColor" />
-                <circle cx="12" cy="8" r="1" fill="currentColor" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
+                <circle cx="12" cy="12" r="1" fill="currentColor" />
               </svg>
             </ToolbarButton>
 
