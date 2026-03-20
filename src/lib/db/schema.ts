@@ -38,12 +38,13 @@ export const users = pgTable("users", {
     .defaultNow(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   stories: many(stories),
   writingSessions: many(writingSessions),
   sparks: many(sparks),
   follows: many(follows),
   collaborators: many(collaborators),
+  guildProfile: one(guildProfiles),
 }));
 
 // ── Stories ──────────────────────────────────────────────────
@@ -459,14 +460,11 @@ export const agreements = pgTable("agreements", {
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
   template: text("template").notNull().default("equal-partners"), // 'equal-partners' | 'lead-contributor' | 'work-for-hire' | 'custom'
-  ownershipSplit: text("ownership_split"), // JSON string
+  splits: text("splits"), // JSON: [{userId, percent}]
   creditFormat: text("credit_format"),
   terms: text("terms"),
-  confirmedBy: text("confirmed_by")
-    .array()
-    .notNull()
-    .default(sql`'{}'::text[]`),
-  status: text("status").notNull().default("draft"), // 'draft' | 'active' | 'amended'
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("draft"), // 'draft' | 'active' | 'superseded'
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -475,12 +473,53 @@ export const agreements = pgTable("agreements", {
     .defaultNow(),
 });
 
-export const agreementsRelations = relations(agreements, ({ one }) => ({
+export const agreementsRelations = relations(agreements, ({ one, many }) => ({
   story: one(stories, {
     fields: [agreements.storyId],
     references: [stories.id],
   }),
+  confirmations: many(agreementConfirmations),
 }));
+
+// ── Agreement Confirmations ─────────────────────────────────
+
+export const agreementConfirmations = pgTable(
+  "agreement_confirmations",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    agreementId: uuid("agreement_id")
+      .notNull()
+      .references(() => agreements.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("agreement_confirmations_agreement_user_unique").on(
+      table.agreementId,
+      table.userId
+    ),
+  ]
+);
+
+export const agreementConfirmationsRelations = relations(
+  agreementConfirmations,
+  ({ one }) => ({
+    agreement: one(agreements, {
+      fields: [agreementConfirmations.agreementId],
+      references: [agreements.id],
+    }),
+    user: one(users, {
+      fields: [agreementConfirmations.userId],
+      references: [users.id],
+    }),
+  })
+);
 
 // ── Suggestions ─────────────────────────────────────────────
 
@@ -1109,3 +1148,51 @@ export const readingProgressRelations = relations(
     }),
   })
 );
+
+// ── Guild Profiles ──────────────────────────────────────────
+
+export const guildProfiles = pgTable(
+  "guild_profiles",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    tagline: text("tagline"),
+    roles: text("roles")
+      .array()
+      .notNull()
+      .default(sql`'{writer}'::text[]`), // writer | illustrator | editor | worldbuilder
+    genres: text("genres")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    availability: text("availability").notNull().default("open"), // 'open' | 'selective' | 'busy' | 'unavailable'
+    portfolioLinks: text("portfolio_links"), // JSON: [{label, url}]
+    showcaseStoryIds: text("showcase_story_ids")
+      .array()
+      .default(sql`'{}'::text[]`),
+    yearsWriting: integer("years_writing"),
+    lookingFor: text("looking_for"),
+    listedAt: timestamp("listed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_guild_profiles_availability").on(table.availability),
+    index("idx_guild_profiles_listed").on(table.listedAt),
+  ]
+);
+
+export const guildProfilesRelations = relations(guildProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [guildProfiles.userId],
+    references: [users.id],
+  }),
+}));

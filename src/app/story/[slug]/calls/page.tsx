@@ -671,9 +671,21 @@ export default function OpenCallsPage() {
                                   animate={{ opacity: 1, y: 0 }}
                                   className="bg-sage/10 border border-sage/20 rounded-xl p-4 text-center"
                                 >
-                                  <p className="text-sage text-[13px] font-medium">
+                                  <p className="text-sage text-[13px] font-medium mb-2">
                                     Pitch submitted successfully!
                                   </p>
+                                  <p className="text-text-secondary text-[11px] mb-2">
+                                    Looking for more projects?
+                                  </p>
+                                  <a
+                                    href="/roster/setup"
+                                    className="inline-flex items-center gap-1.5 text-amber text-[11px] hover:text-amber-light transition-colors"
+                                  >
+                                    Post your card on the Roster so creators can find you
+                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M6 3l5 5-5 5" />
+                                    </svg>
+                                  </a>
                                 </motion.div>
                               ) : (
                                 <div>
@@ -756,9 +768,21 @@ export default function OpenCallsPage() {
           <h3 className="font-display text-lg text-paper mb-2">No open calls</h3>
           <p className="text-text-secondary text-[13px] max-w-sm mx-auto">
             {isOwner
-              ? "Post a call to find collaborators for your story."
+              ? "Post a call to find collaborators, or browse the Roster to discover creatives looking for projects."
               : "There are no collaboration opportunities for this story right now. Check back later!"}
           </p>
+          {isOwner && (
+            <a
+              href="/roster"
+              className="inline-flex items-center gap-1.5 text-amber text-[12px] hover:text-amber-light transition-colors mt-4"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="6.5" cy="6.5" r="5" />
+                <path d="M10.5 10.5L14 14" />
+              </svg>
+              Browse the Roster
+            </a>
+          )}
         </motion.div>
       )}
     </div>

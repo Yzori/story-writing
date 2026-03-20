@@ -90,6 +90,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [followedStories, setFollowedStories] = useState<FollowedStory[]>([]);
   const [followedLoaded, setFollowedLoaded] = useState(false);
+  const [hasRosterProfile, setHasRosterProfile] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -109,6 +110,15 @@ export default function ProfilePage() {
     }
     fetchProfile();
   }, [userId]);
+
+  // Check if own profile has a roster card
+  useEffect(() => {
+    if (!isOwnProfile) return;
+    fetch("/api/roster/me")
+      .then((res) => res.json())
+      .then((json) => setHasRosterProfile(!!json.data))
+      .catch(() => {});
+  }, [isOwnProfile]);
 
   // Fetch reading list for owner
   useEffect(() => {
@@ -232,6 +242,26 @@ export default function ProfilePage() {
           emptyLink={{ text: "Browse stories", href: "/browse" }}
           variant="nightstand"
         />
+      )}
+
+      {/* Roster nudge for own profile */}
+      {isOwnProfile && hasRosterProfile === false && publishedCount > 0 && (
+        <div className="mb-8 mx-auto max-w-md">
+          <div className="relative rounded-xl border border-amber/15 bg-amber/[0.03] p-5 text-center">
+            <p className="text-text-secondary text-[13px] mb-1">
+              You have {publishedCount} published {publishedCount === 1 ? "story" : "stories"}{totalSparks > 0 ? ` and ${totalSparks} sparks` : ""}.
+            </p>
+            <p className="text-text-ghost text-[12px] mb-3">
+              Let collaborators discover your work.
+            </p>
+            <a
+              href="/roster/setup"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber text-void font-semibold text-[12px] rounded-full hover:bg-amber-light transition-all"
+            >
+              Post Your Card on the Roster
+            </a>
+          </div>
+        </div>
       )}
 
       {/* 7. Colophon */}

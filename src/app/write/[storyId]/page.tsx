@@ -206,6 +206,11 @@ export default function WriteStoryPage() {
   const [showToolkit, setShowToolkit] = useState(false);
   // Publish state
   const [isPublic, setIsPublic] = useState(false);
+  const [writingMode, setWritingMode] = useState("solo");
+  const [storySlug, setStorySlug] = useState("");
+  const [needsTeamSetup, setNeedsTeamSetup] = useState(false);
+  const [showRosterNudge, setShowRosterNudge] = useState(false);
+  const [rosterNudgeDismissed, setRosterNudgeDismissed] = useState(false);
   // Format-aware editor
   const [storyFormat, setStoryFormat] = useState("novel");
   const [useProseAnyway, setUseProseAnyway] = useState(false);
@@ -299,6 +304,26 @@ export default function WriteStoryPage() {
         setProject(proj);
         setIsPublic(!!story.isPublic);
         setStoryFormat(story.format || "novel");
+        setWritingMode(story.writingMode || "solo");
+        setStorySlug(story.slug || storyId);
+
+        // Co-op gate: check if any collaborators have accepted
+        if (story.writingMode === "co-op") {
+          try {
+            const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
+            if (collabRes.ok) {
+              const collabJson = await collabRes.json();
+              const accepted = (collabJson.data || []).filter(
+                (c: { status: string }) => c.status === "accepted"
+              );
+              if (accepted.length === 0) {
+                setNeedsTeamSetup(true);
+              }
+            }
+          } catch {
+            // Non-blocking — let them write if check fails
+          }
+        }
       } catch {
         setError("Failed to load story");
       } finally {
@@ -916,6 +941,11 @@ export default function WriteStoryPage() {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(apiUpdates),
+            }).then(() => {
+              // Show roster nudge on first publish
+              if (updates.status === "published" && !rosterNudgeDismissed) {
+                setShowRosterNudge(true);
+              }
             }).catch(() => {});
           }
         }
@@ -929,7 +959,7 @@ export default function WriteStoryPage() {
         };
       });
     },
-    [updateProject, storyId]
+    [updateProject, storyId, rosterNudgeDismissed]
   );
 
   const handleRestoreSnapshot = useCallback(
@@ -1204,6 +1234,62 @@ export default function WriteStoryPage() {
     );
   }
 
+  // Co-op gate: require at least one accepted collaborator before writing
+  if (needsTeamSetup && writingMode === "co-op") {
+    return (
+      <div className="h-[calc(100vh-64px)] w-screen flex items-center justify-center bg-void">
+        <div className="relative max-w-md w-full mx-4">
+          {/* Ambient glow */}
+          <div className="absolute -inset-20 rounded-full bg-teal/5 blur-[100px] pointer-events-none" />
+
+          <div className="relative bg-surface/80 backdrop-blur-xl border border-border rounded-2xl p-8 text-center">
+            {/* Icon */}
+            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal/15 to-teal/5 border border-teal/15 flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal/60">
+                <circle cx="9" cy="7" r="4" />
+                <path d="M2 21v-2a4 4 0 014-4h6a4 4 0 014 4v2" />
+                <path d="M19 8v6M16 11h6" />
+              </svg>
+            </div>
+
+            <h2 className="font-display text-2xl text-paper font-bold mb-2">
+              Assemble your team first
+            </h2>
+            <p className="text-text-secondary text-[13px] leading-relaxed mb-6">
+              Co-op stories need at least one collaborator before you can start writing.
+              Head to the Workshop to invite your team, or browse the Roster to find creatives.
+            </p>
+
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={() => router.push(`/story/${storySlug}/workshop?setup=true`)}
+                className="px-6 py-2.5 bg-teal text-void font-semibold text-[13px] rounded-full hover:bg-teal/90 transition-all duration-200"
+              >
+                Go to Workshop
+              </button>
+              <button
+                onClick={() => router.push("/roster")}
+                className="flex items-center gap-1.5 text-amber text-[12px] hover:text-amber-light transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="6.5" cy="6.5" r="5" />
+                  <path d="M10.5 10.5L14 14" />
+                </svg>
+                Browse the Roster
+              </button>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="text-text-ghost text-[12px] hover:text-text-secondary transition-colors"
+              >
+                Back to dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show format stub for non-novel formats (unless user opted into novel mode)
   if (storyFormat !== "novel" && !useProseAnyway) {
     return (
@@ -1456,6 +1542,49 @@ export default function WriteStoryPage() {
             >
               Undo
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Roster Nudge (after first publish) ─────────────── */}
+      <AnimatePresence>
+        {showRosterNudge && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 z-50 max-w-xs bg-surface/95 border border-amber/20 backdrop-blur-xl rounded-xl p-4 shadow-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber/10 border border-amber/15 flex items-center justify-center shrink-0 mt-0.5">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
+                  <path d="M8 1l2 4 4.4.6-3.2 3.1.8 4.3L8 11l-4 2 .8-4.3L1.6 5.6 6 5z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-paper text-[13px] font-medium mb-1">Chapter published!</p>
+                <p className="text-text-secondary text-[11px] leading-relaxed mb-3">
+                  Let other creators discover your work — post your card on the Roster.
+                </p>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/roster/setup"
+                    className="px-3 py-1 bg-amber text-void font-semibold text-[11px] rounded-full hover:bg-amber-light transition-all"
+                  >
+                    Post Your Card
+                  </a>
+                  <button
+                    onClick={() => {
+                      setShowRosterNudge(false);
+                      setRosterNudgeDismissed(true);
+                    }}
+                    className="text-text-ghost text-[10px] hover:text-text-secondary transition-colors"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

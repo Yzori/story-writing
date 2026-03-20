@@ -97,6 +97,10 @@ export default function CreatePage() {
 
       if (writingMode === "campaign") {
         router.push(`/campaign/${json.data.id}`);
+      } else if (writingMode === "co-op") {
+        // Co-op stories need team setup first — redirect to story page
+        const slug = json.data.slug || json.data.id;
+        router.push(`/story/${slug}/workshop?setup=true`);
       } else {
         router.push(`/write/${json.data.id}`);
       }

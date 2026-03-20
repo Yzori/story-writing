@@ -159,12 +159,20 @@ export const updateCollaboratorSchema = z.object({
 
 // ── Agreements ──────────────────────────────────────────────
 
+const splitEntrySchema = z.object({
+  userId: z.string().uuid(),
+  percent: z.number().min(0).max(100),
+});
+
 export const createAgreementSchema = z.object({
   template: z.enum(["equal-partners", "lead-contributor", "work-for-hire", "custom"]),
-  ownershipSplit: z.string().max(2000).optional(),
+  splits: z.array(splitEntrySchema).min(1).max(20),
   creditFormat: z.string().max(2000).optional(),
-  terms: z.string().max(10000).optional(),
-});
+  terms: z.string().max(5000).optional(),
+}).refine(
+  (data) => Math.abs(data.splits.reduce((s, e) => s + e.percent, 0) - 100) < 0.01,
+  { message: "Splits must total 100%" }
+);
 
 // ── Suggestions ─────────────────────────────────────────────
 
@@ -324,4 +332,20 @@ export const upsertReadingProgressSchema = z.object({
   chapterId: z.string().uuid("Invalid chapter ID"),
   scrollPercent: z.number().int().min(0).max(100).optional(),
   pageNumber: z.number().int().min(1).optional(),
+});
+
+// ── Guild Profiles ──────────────────────────────────────────
+
+export const guildProfileSchema = z.object({
+  tagline: z.string().max(200).optional(),
+  roles: z.array(z.enum(["writer", "illustrator", "editor", "worldbuilder"])).min(1).max(4),
+  genres: z.array(z.string()).max(10).optional(),
+  availability: z.enum(["open", "selective", "busy", "unavailable"]),
+  portfolioLinks: z.array(z.object({
+    label: z.string().max(50),
+    url: z.string().url().max(500),
+  })).max(5).optional(),
+  showcaseStoryIds: z.array(z.string().uuid()).max(5).optional(),
+  yearsWriting: z.number().int().min(0).max(100).optional(),
+  lookingFor: z.string().max(500).optional(),
 });
