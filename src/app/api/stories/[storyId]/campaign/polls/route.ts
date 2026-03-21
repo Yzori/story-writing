@@ -6,7 +6,8 @@ import {
   stories,
   playerCharacters,
 } from "@/lib/db/schema";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, inArray } from "drizzle-orm";
+import { safeParseJson } from "@/lib/safe-json";
 import { auth } from "@/lib/auth";
 import { createSessionPollSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/lib/api-utils";
@@ -50,33 +51,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Fetch all votes for these polls
     const pollIds = polls.map((p) => p.id);
-    let allVotes: (typeof sessionPollVotes.$inferSelect)[] = [];
-    if (pollIds.length > 0) {
-      allVotes = await db.query.sessionPollVotes.findMany({
-        where: eq(sessionPollVotes.pollId, pollIds[0]),
-      });
-      // For multiple polls, fetch all
-      if (pollIds.length > 1) {
-        const additionalVotes = await Promise.all(
-          pollIds.slice(1).map((pid) =>
-            db.query.sessionPollVotes.findMany({
-              where: eq(sessionPollVotes.pollId, pid),
-            })
-          )
-        );
-        allVotes = allVotes.concat(additionalVotes.flat());
-      }
-    }
+    const allVotes = pollIds.length > 0
+      ? await db.query.sessionPollVotes.findMany({
+          where: inArray(sessionPollVotes.pollId, pollIds),
+        })
+      : [];
 
     // Build response with vote counts
     const data = polls.map((poll) => {
-      const options: string[] = JSON.parse(poll.options);
+      const options: string[] = safeParseJson(poll.options, []);
       const pollVotes = allVotes.filter((v) => v.pollId === poll.id);
       const voteCounts = new Array(options.length).fill(0);
       const voterSet = new Set<string>();
 
       for (const vote of pollVotes) {
-        const selected: number[] = JSON.parse(vote.selectedOptions);
+        const selected: number[] = safeParseJson(vote.selectedOptions, []);
         voterSet.add(vote.userId);
         for (const idx of selected) {
           if (idx >= 0 && idx < options.length) {
@@ -90,7 +79,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         (v) => v.userId === session.user!.id
       );
       const myVotes: number[] = myVoteRecord
-        ? JSON.parse(myVoteRecord.selectedOptions)
+        ? safeParseJson(myVoteRecord.selectedOptions, [])
         : [];
 
       return {

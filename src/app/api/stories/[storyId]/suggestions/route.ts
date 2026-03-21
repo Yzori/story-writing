@@ -61,7 +61,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(suggestions)
       .leftJoin(users, eq(suggestions.userId, users.id))
       .where(eq(suggestions.storyId, storyId))
-      .orderBy(desc(suggestions.createdAt));
+      .orderBy(desc(suggestions.createdAt))
+      .limit(100);
 
     return NextResponse.json({ data: result });
   } catch (error) {

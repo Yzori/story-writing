@@ -27,26 +27,28 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "30", 10) || 30));
     const offset = (page - 1) * limit;
 
-    const result = await db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, session.user.id))
-      .orderBy(desc(notifications.createdAt))
-      .limit(limit + 1)
-      .offset(offset);
+    // Run both queries in parallel instead of sequentially
+    const [result, [{ value: unreadCount }]] = await Promise.all([
+      db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, session.user.id))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit + 1)
+        .offset(offset),
+      db
+        .select({ value: count() })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.userId, session.user.id),
+            eq(notifications.read, false)
+          )
+        ),
+    ]);
 
     const hasMore = result.length > limit;
     const data = hasMore ? result.slice(0, limit) : result;
-
-    const [{ value: unreadCount }] = await db
-      .select({ value: count() })
-      .from(notifications)
-      .where(
-        and(
-          eq(notifications.userId, session.user.id),
-          eq(notifications.read, false)
-        )
-      );
 
     return NextResponse.json({
       data: { notifications: data, unreadCount, hasMore },

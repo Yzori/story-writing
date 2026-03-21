@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { createAgreementSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
 import { createBulkNotifications, createNotification } from "@/lib/notifications";
+import { safeParseJson } from "@/lib/safe-json";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
           return {
             ...agreement,
-            splits: agreement.splits ? JSON.parse(agreement.splits) : [],
+            splits: safeParseJson(agreement.splits, []),
             confirmations: confs,
           };
         })
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       data: {
         ...agreement,
-        splits: agreement.splits ? JSON.parse(agreement.splits) : [],
+        splits: safeParseJson(agreement.splits, []),
         confirmations,
       },
     });
@@ -399,7 +400,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: {
         ...agreement,
         status: updatedStatus,
-        splits: agreement.splits ? JSON.parse(agreement.splits) : [],
+        splits: safeParseJson(agreement.splits, []),
         confirmations: allConfirmations,
       },
     });

@@ -189,7 +189,11 @@ export const bibleEntries = pgTable("bible_entries", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_bible_entries_story_id").on(table.storyId),
+  ]
+);
 
 export const bibleEntriesRelations = relations(bibleEntries, ({ one }) => ({
   story: one(stories, {
@@ -308,7 +312,11 @@ export const comments = pgTable("comments", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_comments_chapter_story").on(table.chapterId, table.storyId),
+  ]
+);
 
 export const commentsRelations = relations(comments, ({ one }) => ({
   user: one(users, { fields: [comments.userId], references: [users.id] }),
@@ -338,7 +346,11 @@ export const creatorUpdates = pgTable("creator_updates", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_creator_updates_story_id").on(table.storyId),
+  ]
+);
 
 export const creatorUpdatesRelations = relations(
   creatorUpdates,
@@ -375,7 +387,11 @@ export const flags = pgTable("flags", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_flags_story_id").on(table.storyId),
+  ]
+);
 
 export const flagsRelations = relations(flags, ({ one }) => ({
   user: one(users, { fields: [flags.userId], references: [users.id] }),
@@ -388,21 +404,28 @@ export const flagsRelations = relations(flags, ({ one }) => ({
 
 // ── Notifications ──────────────────────────────────────────
 
-export const notifications = pgTable("notifications", {
-  id: uuid("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(), // 'chapter' | 'spark' | 'follow' | 'comment' | 'update'
-  message: text("message").notNull(),
-  href: text("href").notNull(),
-  read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // 'chapter' | 'spark' | 'follow' | 'comment' | 'update'
+    message: text("message").notNull(),
+    href: text("href").notNull(),
+    read: boolean("read").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_notifications_user_id").on(table.userId),
+    index("idx_notifications_user_read").on(table.userId, table.read),
+  ]
+);
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   user: one(users, {
@@ -550,7 +573,11 @@ export const suggestions = pgTable("suggestions", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_suggestions_story_id").on(table.storyId),
+  ]
+);
 
 export const suggestionsRelations = relations(suggestions, ({ one }) => ({
   story: one(stories, {
@@ -707,7 +734,11 @@ export const loreEntries = pgTable("lore_entries", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_lore_entries_story_id").on(table.storyId),
+  ]
+);
 
 export const loreEntriesRelations = relations(loreEntries, ({ one }) => ({
   story: one(stories, {
@@ -770,7 +801,11 @@ export const playerCharacters = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-  }
+  },
+  (table) => [
+    index("idx_player_characters_story_id").on(table.storyId),
+    index("idx_player_characters_user_id").on(table.userId),
+  ]
 );
 
 export const playerCharactersRelations = relations(
@@ -811,7 +846,11 @@ export const campaignSessions = pgTable("campaign_sessions", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_campaign_sessions_story_id").on(table.storyId),
+  ]
+);
 
 export const campaignSessionsRelations = relations(
   campaignSessions,

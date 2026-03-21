@@ -62,7 +62,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(openCallResponses)
       .leftJoin(users, eq(openCallResponses.userId, users.id))
       .where(eq(openCallResponses.callId, callId))
-      .orderBy(desc(openCallResponses.createdAt));
+      .orderBy(desc(openCallResponses.createdAt))
+      .limit(100);
 
     return NextResponse.json({ data: result });
   } catch (error) {
