@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { chapters, stories, follows } from "@/lib/db/schema";
+import { chapters, chapterSnapshots, stories, follows } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
@@ -173,6 +173,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         },
         { status: 409 }
       );
+    }
+
+    // Auto-snapshot on version milestones (every 10 saves) or on content change > 20%
+    if (updateFields.content !== undefined && updated.version > 1) {
+      const shouldSnapshot = updated.version % 10 === 0;
+      // Also snapshot if this is a significant content change (word count diff > 20%)
+      const oldWords = existing.wordCount || 0;
+      const newWords = updated.wordCount || 0;
+      const significantChange = oldWords > 50 && Math.abs(newWords - oldWords) / oldWords > 0.2;
+
+      if (shouldSnapshot || significantChange) {
+        // Save the PREVIOUS content as a snapshot (what it was before this edit)
+        db.insert(chapterSnapshots)
+          .values({
+            chapterId,
+            content: existing.content || "",
+            wordCount: existing.wordCount || 0,
+            label: significantChange && !shouldSnapshot
+              ? `Auto-save (${oldWords > newWords ? "major cut" : "major addition"})`
+              : `Auto-save v${existing.version}`,
+            userId: session.user.id,
+            version: existing.version,
+          })
+          .catch(() => {}); // Non-blocking — don't fail the save
+      }
     }
 
     // Notify followers when a chapter is newly published

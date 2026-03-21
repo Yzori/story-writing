@@ -152,6 +152,8 @@ export const chapterSnapshots = pgTable("chapter_snapshots", {
   content: text("content").notNull(),
   wordCount: integer("word_count").notNull().default(0),
   label: text("label").default(""),
+  userId: uuid("user_id").references(() => users.id),
+  version: integer("version"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

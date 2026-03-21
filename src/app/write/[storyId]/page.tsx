@@ -31,6 +31,7 @@ import MetadataPanel from "@/components/editor/MetadataPanel";
 import StoryBiblePanel from "@/components/editor/StoryBiblePanel";
 import FrontMatterPanel from "@/components/editor/FrontMatterPanel";
 import ChapterSettingsPanel from "@/components/editor/ChapterSettingsPanel";
+import HistoryPanel from "@/components/editor/HistoryPanel";
 import OutlineView from "@/components/editor/OutlineView";
 import TypographyPanel from "@/components/editor/TypographyPanel";
 import ToolkitPanel from "@/components/editor/ToolkitPanel";
@@ -42,7 +43,7 @@ import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 
-type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography";
+type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history";
 
 // Local storage key for editor-only settings (typography, goals, etc.)
 function editorSettingsKey(storyId: string) {
@@ -1594,6 +1595,8 @@ export default function WriteStoryPage() {
             onToggleGoals={handleToggleGoals}
             onToggleBible={handleToggleBible}
             onToggleSettings={handleToggleSettings}
+            onToggleHistory={() => setRightPanel((p) => (p === "history" ? "none" : "history"))}
+            snapshotCount={activeChapter?.snapshots.length ?? 0}
           />
         )}
       </AnimatePresence>
@@ -1777,6 +1780,15 @@ export default function WriteStoryPage() {
               storyId={storyId}
               onUpdate={handleUpdateChapterFields}
               onRestoreSnapshot={handleRestoreSnapshot}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "history" && activeChapter && (
+            <HistoryPanel
+              chapter={activeChapter}
+              storyId={storyId}
+              onRestore={handleRestoreSnapshot}
+              onUpdate={handleUpdateChapterFields}
               onClose={handleClosePanel}
             />
           )}

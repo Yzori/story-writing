@@ -31,6 +31,9 @@ export interface ChapterSnapshot {
   wordCount: number;
   createdAt: number;
   label: string;
+  userId?: string;
+  userName?: string;
+  version?: number;
 }
 
 // ── Front Matter ────────────────────────────────────────────

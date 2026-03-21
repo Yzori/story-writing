@@ -100,6 +100,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         content: check.chapter!.content || "",
         wordCount: check.chapter!.wordCount || 0,
         label,
+        userId: session.user.id,
+        version: (check.chapter as { version?: number }).version ?? null,
       })
       .returning();
 

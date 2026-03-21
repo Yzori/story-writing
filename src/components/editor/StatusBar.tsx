@@ -20,6 +20,8 @@ interface StatusBarProps {
   onToggleGoals: () => void;
   onToggleBible: () => void;
   onToggleSettings: () => void;
+  onToggleHistory: () => void;
+  snapshotCount?: number;
 }
 
 function StatusBar({
@@ -35,6 +37,8 @@ function StatusBar({
   onToggleGoals,
   onToggleBible,
   onToggleSettings,
+  onToggleHistory,
+  snapshotCount = 0,
 }: StatusBarProps) {
   const todaySession = getTodaySession(goals);
   const todayWords = todaySession?.wordsWritten ?? 0;
@@ -117,6 +121,24 @@ function StatusBar({
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
             </svg>
+          </button>
+
+          {/* Version History */}
+          <button
+            onClick={onToggleHistory}
+            className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block relative"
+            title="Version History"
+            aria-label="Open version history"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <circle cx="12" cy="12" r="9" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 3" />
+            </svg>
+            {snapshotCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber/80 text-void text-[8px] font-bold flex items-center justify-center">
+                {snapshotCount > 9 ? "9+" : snapshotCount}
+              </span>
+            )}
           </button>
 
           {/* Chapter Settings */}
