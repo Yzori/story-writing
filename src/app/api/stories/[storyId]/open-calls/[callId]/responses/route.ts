@@ -5,6 +5,7 @@ import { eq, and, isNull, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createOpenCallResponseSchema } from "@/lib/validations";
 import { createNotification } from "@/lib/notifications";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; callId: string }>;
@@ -91,6 +92,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, callId } = await params;
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { GENRES } from "@/lib/genres";
@@ -894,7 +895,7 @@ function BrowsePage() {
                     {/* Cover */}
                     <div className="w-14 h-[72px] rounded-lg flex-shrink-0 overflow-hidden border border-border-subtle bg-gradient-to-br from-amber/10 to-amber/[0.02]">
                       {story.coverImageUrl ? (
-                        <img src={story.coverImageUrl} alt={story.title} className="w-full h-full object-cover" />
+                        <Image src={story.coverImageUrl} alt={story.title} fill sizes="300px" className="object-cover" unoptimized />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-amber/30">

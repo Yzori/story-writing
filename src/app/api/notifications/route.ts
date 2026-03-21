@@ -76,6 +76,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
     await db
       .update(notifications)
       .set({ read: true })

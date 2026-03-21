@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { GENRES, CONTENT_RATINGS } from "@/lib/genres";
+import Image from "next/image";
 import { compressImage } from "@/lib/images";
 
 // ── Format options (shared by solo + co-op) ─────────────────
@@ -245,7 +246,7 @@ export default function CreatePage() {
                     >
                       {coverPreview ? (
                         <>
-                          <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                          <Image src={coverPreview} alt="Cover" fill sizes="200px" className="object-cover" unoptimized />
                           <div className="absolute inset-0 bg-void/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-paper">
                               <rect x="3" y="3" width="18" height="18" rx="2" />

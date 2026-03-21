@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyPassword } from "@/lib/password";
+import { env } from "@/lib/env";
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
   adapter: DrizzleAdapter(db),
@@ -15,10 +16,15 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     newUser: "/register",
   },
   providers: [
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    }),
+    // Only register GitHub provider if credentials are configured
+    ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+      ? [
+          GitHub({
+            clientId: env.GITHUB_CLIENT_ID,
+            clientSecret: env.GITHUB_CLIENT_SECRET,
+          }),
+        ]
+      : []),
     Credentials({
       name: "credentials",
       credentials: {

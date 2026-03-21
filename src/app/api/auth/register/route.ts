@@ -1,11 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
+import { applyRateLimit } from "@/lib/api-utils";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Strict rate limit: 5 registrations per hour per IP
+    const limited = applyRateLimit(request, null, "write", {
+      max: 5,
+      windowSeconds: 3600,
+    });
+    if (limited) return limited;
+
     const { displayName, email, password } = await request.json();
 
     if (!email || typeof email !== "string" || !password || typeof password !== "string") {

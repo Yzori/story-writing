@@ -67,54 +67,40 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { storyId } = await params;
     const userId = session.user.id;
 
-    // Check if the user has already sparked this story
-    const existing = await db
-      .select({ id: sparks.id })
-      .from(sparks)
-      .where(and(eq(sparks.storyId, storyId), eq(sparks.userId, userId)))
-      .limit(1);
+    // Atomic toggle using transaction to prevent race conditions
+    const sparked = await db.transaction(async (tx) => {
+      const existing = await tx
+        .select({ id: sparks.id })
+        .from(sparks)
+        .where(and(eq(sparks.storyId, storyId), eq(sparks.userId, userId)))
+        .limit(1);
 
-    let sparked: boolean;
-
-    if (existing.length > 0) {
-      // Remove the spark
-      await db
-        .delete(sparks)
-        .where(and(eq(sparks.storyId, storyId), eq(sparks.userId, userId)));
-      sparked = false;
-    } else {
-      // Create the spark — handle race condition where concurrent request already inserted
-      try {
-        await db.insert(sparks).values({ userId, storyId });
-        sparked = true;
-      } catch (err: unknown) {
-        if ((err as { code?: string }).code === "23505") {
-          // Unique constraint hit — treat as toggle off (concurrent request already sparked)
-          await db
-            .delete(sparks)
-            .where(and(eq(sparks.storyId, storyId), eq(sparks.userId, userId)));
-          sparked = false;
-        } else {
-          throw err;
-        }
+      if (existing.length > 0) {
+        await tx
+          .delete(sparks)
+          .where(and(eq(sparks.storyId, storyId), eq(sparks.userId, userId)));
+        return false;
+      } else {
+        await tx.insert(sparks).values({ userId, storyId });
+        return true;
       }
+    });
 
-      // Notify story owner (only on new spark)
-      if (sparked) {
-        const [story] = await db
-          .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
-          .from(stories)
-          .where(eq(stories.id, storyId))
-          .limit(1);
-        if (story && story.userId !== userId) {
-          const name = session.user.name || "Someone";
-          createNotification(
-            story.userId,
-            "spark",
-            `${name} sparked your story "${story.title}"`,
-            `/story/${story.slug || storyId}`
-          );
-        }
+    // Notify story owner (only on new spark, outside transaction)
+    if (sparked) {
+      const [story] = await db
+        .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
+        .from(stories)
+        .where(eq(stories.id, storyId))
+        .limit(1);
+      if (story && story.userId !== userId) {
+        const name = session.user.name || "Someone";
+        createNotification(
+          story.userId,
+          "spark",
+          `${name} sparked your story "${story.title}"`,
+          `/story/${story.slug || storyId}`
+        );
       }
     }
 

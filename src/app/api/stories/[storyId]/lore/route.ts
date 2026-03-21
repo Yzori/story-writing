@@ -5,6 +5,7 @@ import { eq, asc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createLoreEntrySchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/lib/collaboration";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -83,6 +84,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId } = await params;
 

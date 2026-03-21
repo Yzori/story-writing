@@ -128,59 +128,53 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const [created] = await db
-      .insert(comments)
-      .values({
-        userId,
-        chapterId,
-        storyId,
-        parentId: parentId ?? null,
-        content,
-      })
-      .returning();
+    // Insert comment and fetch with user info in a single transaction
+    const result = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(comments)
+        .values({
+          userId,
+          chapterId,
+          storyId,
+          parentId: parentId ?? null,
+          content,
+        })
+        .returning();
 
-    // Fetch the created comment with user info
-    const [result] = await db
-      .select({
-        id: comments.id,
-        userId: comments.userId,
-        chapterId: comments.chapterId,
-        storyId: comments.storyId,
-        parentId: comments.parentId,
-        content: comments.content,
-        deletedAt: comments.deletedAt,
-        createdAt: comments.createdAt,
-        updatedAt: comments.updatedAt,
-        user: {
-          id: users.id,
-          displayName: users.displayName,
-          avatarUrl: users.avatarUrl,
-        },
-      })
-      .from(comments)
-      .leftJoin(users, eq(comments.userId, users.id))
-      .where(eq(comments.id, created.id))
-      .limit(1);
-
-    // Notify story owner about the comment
-    const [story] = await db
-      .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
-      .from(stories)
-      .where(eq(stories.id, storyId))
-      .limit(1);
-    if (story && story.userId !== userId) {
-      const name = session.user.name || "Someone";
-      const [chapter] = await db
-        .select({ title: chapters.title })
-        .from(chapters)
-        .where(eq(chapters.id, chapterId))
+      const [withUser] = await tx
+        .select({
+          id: comments.id,
+          userId: comments.userId,
+          chapterId: comments.chapterId,
+          storyId: comments.storyId,
+          parentId: comments.parentId,
+          content: comments.content,
+          deletedAt: comments.deletedAt,
+          createdAt: comments.createdAt,
+          updatedAt: comments.updatedAt,
+          user: {
+            id: users.id,
+            displayName: users.displayName,
+            avatarUrl: users.avatarUrl,
+          },
+        })
+        .from(comments)
+        .leftJoin(users, eq(comments.userId, users.id))
+        .where(eq(comments.id, created.id))
         .limit(1);
-      const chapterLabel = chapter?.title || "a chapter";
+
+      return withUser;
+    });
+
+    // Notify story owner (fire-and-forget, outside transaction)
+    if (storyRecord.userId !== userId) {
+      const name = session.user.name || "Someone";
+      const chapterLabel = chapterRecord.title || "a chapter";
       createNotification(
-        story.userId,
+        storyRecord.userId,
         "comment",
-        `${name} commented on "${chapterLabel}" in "${story.title}"`,
-        `/story/${story.slug || storyId}/read/${chapterId}`
+        `${name} commented on "${chapterLabel}" in "${storyRecord.title}"`,
+        `/story/${storyRecord.slug || storyId}/read/${chapterId}`
       );
     }
 

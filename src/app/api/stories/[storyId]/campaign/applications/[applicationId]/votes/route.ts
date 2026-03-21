@@ -133,36 +133,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Upsert: update if exists, insert if new
-    const existingVote = await db.query.campaignVotes.findFirst({
-      where: and(
-        eq(campaignVotes.applicationId, applicationId),
-        eq(campaignVotes.voterId, session.user.id)
-      ),
-    });
+    // Atomic upsert — avoids race condition between concurrent votes
+    const [result] = await db
+      .insert(campaignVotes)
+      .values({
+        applicationId,
+        voterId: session.user.id,
+        vote: parsed.data.vote,
+      })
+      .onConflictDoUpdate({
+        target: [campaignVotes.applicationId, campaignVotes.voterId],
+        set: { vote: parsed.data.vote },
+      })
+      .returning();
 
-    let result;
-    if (existingVote) {
-      [result] = await db
-        .update(campaignVotes)
-        .set({ vote: parsed.data.vote })
-        .where(eq(campaignVotes.id, existingVote.id))
-        .returning();
-    } else {
-      [result] = await db
-        .insert(campaignVotes)
-        .values({
-          applicationId,
-          voterId: session.user.id,
-          vote: parsed.data.vote,
-        })
-        .returning();
-    }
-
-    return NextResponse.json(
-      { data: result },
-      { status: existingVote ? 200 : 201 }
-    );
+    return NextResponse.json({ data: result });
   } catch (error) {
     console.error(
       "POST /api/stories/[storyId]/campaign/applications/[applicationId]/votes error:",

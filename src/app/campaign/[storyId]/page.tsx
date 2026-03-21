@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 
 // ── Types ───────────────────────────────────────────────────
@@ -591,7 +592,7 @@ export default function CampaignPage() {
                 {/* Portrait */}
                 <div className="w-12 h-12 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
                   {char.portrait ? (
-                    <img src={char.portrait} alt={char.name} className="w-full h-full object-cover" />
+                    <Image src={char.portrait} alt={char.name} fill sizes="48px" className="object-cover" unoptimized />
                   ) : (
                     <span className="text-lg font-display text-text-ghost">
                       {char.name.charAt(0).toUpperCase()}
@@ -1194,7 +1195,7 @@ export default function CampaignPage() {
                         {/* Avatar */}
                         <div className="w-10 h-10 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
                           {app.user.avatarUrl ? (
-                            <img src={app.user.avatarUrl} alt={app.user.displayName || ""} className="w-full h-full object-cover" />
+                            <Image src={app.user.avatarUrl} alt={app.user.displayName || ""} fill sizes="40px" className="object-cover" unoptimized />
                           ) : (
                             <span className="text-sm font-display text-text-ghost">
                               {(app.user.displayName || "?").charAt(0).toUpperCase()}

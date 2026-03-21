@@ -5,6 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { updateSuggestionSchema } from "@/lib/validations";
 import { createNotification } from "@/lib/notifications";
+import { applyRateLimit } from "@/lib/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; suggestionId: string }>;
@@ -23,6 +24,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, suggestionId } = await params;
 

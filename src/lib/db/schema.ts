@@ -126,7 +126,10 @@ export const chapters = pgTable("chapters", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  index("idx_chapters_story_id").on(table.storyId),
+  index("idx_chapters_story_status_sort").on(table.storyId, table.status, table.sortOrder),
+]);
 
 export const chaptersRelations = relations(chapters, ({ one, many }) => ({
   story: one(stories, {
@@ -254,7 +257,10 @@ export const sparks = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [unique("sparks_user_story_unique").on(table.userId, table.storyId)]
+  (table) => [
+    unique("sparks_user_story_unique").on(table.userId, table.storyId),
+    index("idx_sparks_story_id").on(table.storyId),
+  ]
 );
 
 export const sparksRelations = relations(sparks, ({ one }) => ({
@@ -280,7 +286,10 @@ export const follows = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [unique("follows_user_story_unique").on(table.userId, table.storyId)]
+  (table) => [
+    unique("follows_user_story_unique").on(table.userId, table.storyId),
+    index("idx_follows_story_id").on(table.storyId),
+  ]
 );
 
 export const followsRelations = relations(follows, ({ one }) => ({
@@ -424,6 +433,7 @@ export const notifications = pgTable(
   (table) => [
     index("idx_notifications_user_id").on(table.userId),
     index("idx_notifications_user_read").on(table.userId, table.read),
+    index("idx_notifications_user_created").on(table.userId, table.createdAt),
   ]
 );
 

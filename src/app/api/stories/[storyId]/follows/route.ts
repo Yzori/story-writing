@@ -76,50 +76,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Check existing follow
-    const existing = await db.query.follows.findFirst({
-      where: and(
-        eq(follows.userId, session.user.id),
-        eq(follows.storyId, storyId)
-      ),
-    });
+    // Atomic toggle using transaction to prevent race conditions
+    const followed = await db.transaction(async (tx) => {
+      const existing = await tx.query.follows.findFirst({
+        where: and(
+          eq(follows.userId, session.user.id),
+          eq(follows.storyId, storyId)
+        ),
+      });
 
-    let followed: boolean;
-
-    if (existing) {
-      // Unfollow
-      await db.delete(follows).where(eq(follows.id, existing.id));
-      followed = false;
-    } else {
-      // Follow — handle race condition where concurrent request already inserted
-      try {
-        await db.insert(follows).values({
+      if (existing) {
+        await tx
+          .delete(follows)
+          .where(and(eq(follows.userId, session.user.id), eq(follows.storyId, storyId)));
+        return false;
+      } else {
+        await tx.insert(follows).values({
           userId: session.user.id,
           storyId,
         });
-        followed = true;
-      } catch (err: unknown) {
-        if ((err as { code?: string }).code === "23505") {
-          // Unique constraint hit — treat as toggle off
-          await db.delete(follows).where(
-            and(eq(follows.userId, session.user.id), eq(follows.storyId, storyId))
-          );
-          followed = false;
-        } else {
-          throw err;
-        }
+        return true;
       }
+    });
 
-      // Notify story owner (only on new follow)
-      if (followed && story.userId !== session.user.id) {
-        const name = session.user.name || "Someone";
-        createNotification(
-          story.userId,
-          "follow",
-          `${name} is now following "${story.title}"`,
-          `/story/${story.slug || storyId}`
-        );
-      }
+    // Notify story owner (only on new follow, outside transaction)
+    if (followed && story.userId !== session.user.id) {
+      const name = session.user.name || "Someone";
+      createNotification(
+        story.userId,
+        "follow",
+        `${name} is now following "${story.title}"`,
+        `/story/${story.slug || storyId}`
+      );
     }
 
     const [{ value: followCount }] = await db

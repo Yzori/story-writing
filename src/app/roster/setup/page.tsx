@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 import { GENRES } from "@/lib/genres";
 
@@ -541,7 +542,7 @@ export default function RosterSetupPage() {
                               }`}>
                               <div className="w-full aspect-[3/2] bg-ink overflow-hidden">
                                 {story.coverImageUrl ? (
-                                  <img src={story.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                                  <Image src={story.coverImageUrl} alt="" fill sizes="200px" className="object-cover" unoptimized />
                                 ) : (
                                   <div className="w-full h-full bg-gradient-to-br from-amber/10 to-amber/5 flex items-center justify-center">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" className="text-text-ghost/30">

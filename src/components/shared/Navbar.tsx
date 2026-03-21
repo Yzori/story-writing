@@ -36,19 +36,21 @@ export default function Navbar() {
   // Fetch unread notification count
   useEffect(() => {
     if (!session?.user?.id) return;
-    let cancelled = false;
+    const controller = new AbortController();
     async function fetchUnread() {
       try {
-        const res = await fetch("/api/notifications");
-        if (res.ok && !cancelled) {
+        const res = await fetch("/api/notifications", { signal: controller.signal });
+        if (res.ok) {
           const json = await res.json();
           setUnreadCount(json.data.unreadCount);
         }
-      } catch {}
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
     }
     fetchUnread();
     const interval = setInterval(fetchUnread, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
+    return () => { controller.abort(); clearInterval(interval); };
   }, [session?.user?.id]);
 
   const handleSearch = (e: React.FormEvent) => {

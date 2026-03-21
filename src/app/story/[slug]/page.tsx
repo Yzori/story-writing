@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
 import StoryCard from "@/components/shared/StoryCard";
@@ -536,7 +537,7 @@ export default function StoryPage() {
       {/* Hero / Cover */}
       <div className={`h-64 sm:h-80 bg-gradient-to-br ${getGradient(story.genres)} relative overflow-hidden`}>
         {story.coverImageUrl && (
-          <img src={story.coverImageUrl} alt={story.title} className="w-full h-full object-cover" />
+          <Image src={story.coverImageUrl} alt={story.title} fill sizes="100vw" className="object-cover" unoptimized />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-void/20" />
         {/* Subtle vignette */}
@@ -622,7 +623,7 @@ export default function StoryPage() {
             <Link href={`/profile/${story.author.id}`} className="flex items-center gap-3 mb-6 group">
               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
                 {story.author.avatarUrl ? (
-                  <img src={story.author.avatarUrl} alt={story.author.displayName || ""} className="w-full h-full rounded-full object-cover" />
+                  <Image src={story.author.avatarUrl} alt={story.author.displayName || ""} fill sizes="44px" className="rounded-full object-cover" unoptimized />
                 ) : (
                   (story.author.displayName || "?").charAt(0)
                 )}
@@ -823,7 +824,7 @@ export default function StoryPage() {
                 >
                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[9px] font-display font-semibold flex-shrink-0 overflow-hidden">
                     {collab.user?.avatarUrl ? (
-                      <img src={collab.user.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                      <Image src={collab.user.avatarUrl} alt="" fill sizes="32px" className="rounded-full object-cover" unoptimized />
                     ) : (
                       (collab.user?.displayName || "?").charAt(0)
                     )}
@@ -1050,7 +1051,7 @@ export default function StoryPage() {
                     <Link href={`/profile/${story.author.id}`} className="flex items-start gap-4 group">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
                         {story.author.avatarUrl ? (
-                          <img src={story.author.avatarUrl} alt={story.author.displayName || ""} className="w-full h-full rounded-full object-cover" />
+                          <Image src={story.author.avatarUrl} alt={story.author.displayName || ""} fill sizes="44px" className="rounded-full object-cover" unoptimized />
                         ) : (
                           (story.author.displayName || "?").charAt(0)
                         )}
@@ -1133,7 +1134,7 @@ export default function StoryPage() {
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[11px] font-display font-semibold flex-shrink-0 overflow-hidden">
                           {update.author.avatarUrl ? (
-                            <img src={update.author.avatarUrl} alt={update.author.displayName || ""} className="w-full h-full rounded-full object-cover" />
+                            <Image src={update.author.avatarUrl} alt={update.author.displayName || ""} fill sizes="28px" className="rounded-full object-cover" unoptimized />
                           ) : (
                             (update.author.displayName || "?").charAt(0)
                           )}

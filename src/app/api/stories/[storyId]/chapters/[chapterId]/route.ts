@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Draft chapters require ownership
     if (chapter.status !== "published") {
       const story = await db.query.stories.findFirst({
-        where: eq(stories.id, storyId),
+        where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
       });
       if (!story || story.userId !== session?.user?.id) {
         return NextResponse.json(
@@ -305,7 +305,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const [deleted] = await db
       .update(chapters)
       .set({ deletedAt: new Date() })
-      .where(eq(chapters.id, chapterId))
+      .where(and(eq(chapters.id, chapterId), eq(chapters.storyId, storyId)))
       .returning();
 
     return NextResponse.json({

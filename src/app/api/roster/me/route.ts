@@ -4,6 +4,7 @@ import { guildProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { guildProfileSchema } from "@/lib/validations";
+import { applyRateLimit } from "@/lib/api-utils";
 
 /**
  * GET /api/roster/me
@@ -55,6 +56,9 @@ export async function PUT(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const body = await request.json();
     const parsed = guildProfileSchema.safeParse(body);

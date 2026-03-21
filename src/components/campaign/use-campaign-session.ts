@@ -136,11 +136,13 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     if (!storyId || !sessionId || loading) return;
 
     let charPollCount = 0;
+    const controller = new AbortController();
 
     pollIntervalRef.current = setInterval(async () => {
       try {
         const res = await fetch(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns?afterSort=${maxSortRef.current}`
+          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns?afterSort=${maxSortRef.current}`,
+          { signal: controller.signal }
         );
         if (!res.ok) return;
         const json = await res.json();
@@ -177,9 +179,9 @@ export function useCampaignSession(storyId: string, sessionId: string) {
         if (charPollCount >= 6) {
           charPollCount = 0;
           const [charsRes, rosterPollRes, clocksPollRes] = await Promise.all([
-            fetch(`/api/stories/${storyId}/campaign/characters`),
-            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`),
-            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`),
+            fetch(`/api/stories/${storyId}/campaign/characters`, { signal: controller.signal }),
+            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`, { signal: controller.signal }),
+            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`, { signal: controller.signal }),
           ]);
           if (charsRes.ok) {
             const charsJson = await charsRes.json();
@@ -198,12 +200,13 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             } catch { /* ignore */ }
           }
         }
-      } catch {
-        // Silently ignore poll errors
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
       }
     }, 5000);
 
     return () => {
+      controller.abort();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, [storyId, sessionId, loading]);

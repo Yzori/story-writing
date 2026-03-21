@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────────────
@@ -629,7 +630,7 @@ export default function OpenCallsPage() {
                                       <div className="flex items-center gap-3 mb-2">
                                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[10px] font-display font-semibold flex-shrink-0 overflow-hidden">
                                           {resp.user.avatarUrl ? (
-                                            <img src={resp.user.avatarUrl} alt={resp.user.displayName || ""} className="w-full h-full rounded-full object-cover" />
+                                            <Image src={resp.user.avatarUrl} alt={resp.user.displayName || ""} fill sizes="28px" className="rounded-full object-cover" unoptimized />
                                           ) : (
                                             (resp.user.displayName || "?").charAt(0)
                                           )}

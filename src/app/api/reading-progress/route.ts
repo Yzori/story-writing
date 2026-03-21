@@ -132,47 +132,28 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check if progress already exists for this user+story
-    const [existing] = await db
-      .select({ id: readingProgress.id })
-      .from(readingProgress)
-      .where(
-        and(
-          eq(readingProgress.userId, userId),
-          eq(readingProgress.storyId, storyId)
-        )
-      )
-      .limit(1);
-
-    if (existing) {
-      // Update existing progress
-      const [updated] = await db
-        .update(readingProgress)
-        .set({
+    // Atomic upsert — avoids race condition between concurrent reads
+    const [result] = await db
+      .insert(readingProgress)
+      .values({
+        userId,
+        storyId,
+        chapterId,
+        scrollPercent: scrollPercent ?? 0,
+        pageNumber: pageNumber ?? 1,
+      })
+      .onConflictDoUpdate({
+        target: [readingProgress.userId, readingProgress.storyId],
+        set: {
           chapterId,
           scrollPercent: scrollPercent ?? 0,
           pageNumber: pageNumber ?? 1,
           updatedAt: new Date(),
-        })
-        .where(eq(readingProgress.id, existing.id))
-        .returning();
+        },
+      })
+      .returning();
 
-      return NextResponse.json({ data: updated });
-    } else {
-      // Insert new progress
-      const [created] = await db
-        .insert(readingProgress)
-        .values({
-          userId,
-          storyId,
-          chapterId,
-          scrollPercent: scrollPercent ?? 0,
-          pageNumber: pageNumber ?? 1,
-        })
-        .returning();
-
-      return NextResponse.json({ data: created }, { status: 201 });
-    }
+    return NextResponse.json({ data: result });
   } catch (error) {
     console.error("PUT /api/reading-progress error:", error);
     return NextResponse.json(

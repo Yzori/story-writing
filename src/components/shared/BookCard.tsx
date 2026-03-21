@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 
 // ── Genre accent mapping ──
@@ -121,7 +122,7 @@ export default function BookCard({
           <div className="absolute inset-0 bg-void rounded-r-2xl rounded-l-sm overflow-hidden [backface-visibility:hidden] border-y border-r border-[#3a3a3a] border-l-[3px] border-l-white/10 shadow-[2px_0_15px_rgba(0,0,0,0.6)]">
             {/* Cover Art — image or gradient */}
             {coverUrl ? (
-              <img src={coverUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+              <Image src={coverUrl} alt={title} fill sizes="200px" className="object-cover" unoptimized />
             ) : (
               <div className={`absolute inset-0 bg-gradient-to-br ${accent.gradient}`} />
             )}

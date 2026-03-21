@@ -166,64 +166,44 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchStories() {
-      try {
-        const res = await fetch("/api/stories?mine=true");
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json.error?.message || "Failed to load stories");
-          return;
-        }
-        setStories(json.data.stories);
-      } catch {
-        setError("Failed to load stories");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStories();
-  }, []);
+    const userId = session?.user?.id;
 
-  useEffect(() => {
-    if (!session?.user?.id) {
-      setFollowedLoading(false);
-      return;
-    }
-    async function fetchFollowing() {
-      try {
-        const res = await fetch(`/api/users/${session!.user!.id}/following`);
-        const json = await res.json();
-        if (res.ok) {
-          setFollowedStories(json.data.stories);
-        }
-      } catch {
-        // Silently fail — reading list is non-critical
-      } finally {
+    async function fetchAll() {
+      // Stories fetch is always needed
+      const storiesPromise = fetch("/api/stories?mine=true")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.data?.stories) setStories(json.data.stories);
+          else setError(json.error?.message || "Failed to load stories");
+        })
+        .catch(() => setError("Failed to load stories"))
+        .finally(() => setLoading(false));
+
+      // Following + reading progress need auth
+      if (userId) {
+        const followingPromise = fetch(`/api/users/${userId}/following`)
+          .then((r) => r.json())
+          .then((json) => {
+            if (json.data?.stories) setFollowedStories(json.data.stories);
+          })
+          .catch(() => {})
+          .finally(() => setFollowedLoading(false));
+
+        const progressPromise = fetch("/api/reading-progress")
+          .then((r) => r.json())
+          .then((json) => setContinueReading(json.data || []))
+          .catch(() => {})
+          .finally(() => setContinueLoading(false));
+
+        await Promise.all([storiesPromise, followingPromise, progressPromise]);
+      } else {
         setFollowedLoading(false);
-      }
-    }
-    fetchFollowing();
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    if (!session?.user?.id) {
-      setContinueLoading(false);
-      return;
-    }
-    async function fetchProgress() {
-      try {
-        const res = await fetch("/api/reading-progress");
-        const json = await res.json();
-        if (res.ok) {
-          setContinueReading(json.data || []);
-        }
-      } catch {
-        // Silently fail
-      } finally {
         setContinueLoading(false);
+        await storiesPromise;
       }
     }
-    fetchProgress();
+
+    fetchAll();
   }, [session?.user?.id]);
 
   const totalWords = stories.reduce((sum, s) => sum + (s.totalWords || 0), 0);
