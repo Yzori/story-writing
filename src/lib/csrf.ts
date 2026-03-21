@@ -21,7 +21,11 @@ export function validateCsrf(request: NextRequest): NextResponse | null {
     const originHost = new URL(origin).host;
     if (originHost === host) return null;
   } catch {
-    // Invalid origin URL
+    // Invalid origin URL — reject the request
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "Invalid request origin" } },
+      { status: 403 }
+    );
   }
 
   return NextResponse.json(

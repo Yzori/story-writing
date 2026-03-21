@@ -242,7 +242,7 @@ export const sparks = pgTable(
       .references(() => users.id),
     storyId: uuid("story_id")
       .notNull()
-      .references(() => stories.id),
+      .references(() => stories.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -296,7 +296,7 @@ export const comments = pgTable("comments", {
   storyId: uuid("story_id")
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
-  parentId: uuid("parent_id"),
+  parentId: uuid("parent_id").references((): any => comments.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

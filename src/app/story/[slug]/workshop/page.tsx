@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -130,7 +130,7 @@ function relativeTime(dateStr: string): string {
 
 // ── Component ───────────────────────────────────────────────
 
-export default function WorkshopPage() {
+function WorkshopContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1435,5 +1435,13 @@ export default function WorkshopPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function WorkshopPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-void" />}>
+      <WorkshopContent />
+    </Suspense>
   );
 }

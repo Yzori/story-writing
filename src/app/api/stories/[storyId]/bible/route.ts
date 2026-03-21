@@ -13,6 +13,14 @@ type RouteParams = { params: Promise<{ storyId: string }> };
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
     const { storyId } = await params;
 
     // Verify story exists

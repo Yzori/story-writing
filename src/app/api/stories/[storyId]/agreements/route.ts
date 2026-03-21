@@ -5,7 +5,7 @@ import { eq, and, ne, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createAgreementSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
-import { createBulkNotifications } from "@/lib/notifications";
+import { createBulkNotifications, createNotification } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -380,7 +380,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (session.user.id !== storyRecord.userId) {
       const signerName = session.user.name || "A collaborator";
       const storySlug = storyRecord.slug || storyId;
-      const { createNotification } = await import("@/lib/notifications");
       await createNotification(
         storyRecord.userId,
         "collaboration",
