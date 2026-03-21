@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { chapters, chapterSnapshots, stories, follows } from "@/lib/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, asc, count, ne, sql as dsql } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -195,6 +195,32 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
               : `Auto-save v${existing.version}`,
             userId: session.user.id,
             version: existing.version,
+          })
+          .then(() => {
+            // Prune old auto-snapshots: keep last 50, named versions are permanent
+            const MAX_AUTO_SNAPSHOTS = 50;
+            db.select({ total: count() })
+              .from(chapterSnapshots)
+              .where(and(
+                eq(chapterSnapshots.chapterId, chapterId),
+                dsql`(${chapterSnapshots.label} LIKE 'Auto-save%')`,
+              ))
+              .then(([{ total }]) => {
+                if (total > MAX_AUTO_SNAPSHOTS) {
+                  // Delete oldest auto-snapshots beyond the limit
+                  db.execute(dsql`
+                    DELETE FROM chapter_snapshots
+                    WHERE id IN (
+                      SELECT id FROM chapter_snapshots
+                      WHERE chapter_id = ${chapterId}
+                        AND label LIKE 'Auto-save%'
+                      ORDER BY created_at ASC
+                      LIMIT ${total - MAX_AUTO_SNAPSHOTS}
+                    )
+                  `).catch(() => {});
+                }
+              })
+              .catch(() => {});
           })
           .catch(() => {}); // Non-blocking — don't fail the save
       }
