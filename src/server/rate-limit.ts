@@ -1,111 +1,138 @@
 import "server-only";
+
 /**
- * In-memory sliding window rate limiter.
- * Good enough for single-instance MVP deployments.
- * For multi-instance production, swap to Redis-backed solution.
+ * Rate limiter with pluggable storage backend.
+ * Ships with an in-memory store (good for single-instance).
+ * Swap to RedisRateLimitStore for horizontal scaling.
  */
 
-interface RateLimitEntry {
-  timestamps: number[];
-}
-
-interface RateLimitOptions {
-  /** Maximum number of requests allowed in the window */
+export interface RateLimitOptions {
   max: number;
-  /** Window size in seconds */
   windowSeconds: number;
 }
 
-interface RateLimitResult {
-  /** Whether the request is allowed */
+export interface RateLimitResult {
   success: boolean;
-  /** Number of remaining requests in the current window */
   remaining: number;
-  /** Unix timestamp (seconds) when the window resets */
   reset: number;
 }
 
-const store = new Map<string, RateLimitEntry>();
+/** Storage backend interface — implement this for Redis, DynamoDB, etc. */
+export interface RateLimitStore {
+  /** Check and consume a token. Return count of requests in current window. */
+  increment(key: string, windowMs: number): Promise<number> | number;
+}
 
-// Clean up expired entries every 60 seconds to prevent unbounded growth
-const CLEANUP_INTERVAL_MS = 60_000;
+// ── In-Memory Store (default) ───────────────────────────────
 
-let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+class MemoryRateLimitStore implements RateLimitStore {
+  private store = new Map<string, number[]>();
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-function ensureCleanup(windowSeconds: number) {
-  if (cleanupTimer) return;
-  cleanupTimer = setInterval(() => {
-    const now = Date.now();
-    // Use a generous cutoff — any entry whose newest timestamp is older
-    // than 2x the longest typical window (2 min) is safe to remove.
-    const cutoff = now - windowSeconds * 2 * 1000;
-    for (const [key, entry] of store) {
-      if (
-        entry.timestamps.length === 0 ||
-        entry.timestamps[entry.timestamps.length - 1] < cutoff
-      ) {
-        store.delete(key);
-      }
-    }
-  }, CLEANUP_INTERVAL_MS);
-
-  // Allow the Node process to exit even if the timer is running
-  if (cleanupTimer && typeof cleanupTimer === "object" && "unref" in cleanupTimer) {
-    cleanupTimer.unref();
+  constructor() {
+    this.startCleanup();
   }
+
+  increment(key: string, windowMs: number): number {
+    const now = Date.now();
+    const windowStart = now - windowMs;
+
+    let timestamps = this.store.get(key);
+    if (!timestamps) {
+      timestamps = [];
+      this.store.set(key, timestamps);
+    }
+
+    // Remove expired timestamps
+    const filtered = timestamps.filter((t) => t > windowStart);
+    filtered.push(now);
+    this.store.set(key, filtered);
+
+    return filtered.length;
+  }
+
+  private startCleanup() {
+    this.cleanupTimer = setInterval(() => {
+      const cutoff = Date.now() - 120_000; // 2 min
+      for (const [key, timestamps] of this.store) {
+        if (timestamps.length === 0 || timestamps[timestamps.length - 1] < cutoff) {
+          this.store.delete(key);
+        }
+      }
+    }, 60_000);
+
+    if (this.cleanupTimer && typeof this.cleanupTimer === "object" && "unref" in this.cleanupTimer) {
+      this.cleanupTimer.unref();
+    }
+  }
+}
+
+// ── Redis Store (plug in when ready) ────────────────────────
+//
+// To use Redis, install `ioredis` and create:
+//
+//   import Redis from "ioredis";
+//
+//   export class RedisRateLimitStore implements RateLimitStore {
+//     constructor(private redis: Redis) {}
+//
+//     async increment(key: string, windowMs: number): Promise<number> {
+//       const now = Date.now();
+//       const windowStart = now - windowMs;
+//       const redisKey = `rate:${key}`;
+//
+//       const pipeline = this.redis.pipeline();
+//       pipeline.zremrangebyscore(redisKey, 0, windowStart);
+//       pipeline.zadd(redisKey, now, `${now}-${Math.random()}`);
+//       pipeline.zcard(redisKey);
+//       pipeline.pexpire(redisKey, windowMs);
+//
+//       const results = await pipeline.exec();
+//       return (results?.[2]?.[1] as number) ?? 0;
+//     }
+//   }
+//
+// Then: setRateLimitStore(new RedisRateLimitStore(redis));
+
+// ── Singleton store ─────────────────────────────────────────
+
+let activeStore: RateLimitStore = new MemoryRateLimitStore();
+
+/** Swap the rate limit backend (e.g., to Redis in production). */
+export function setRateLimitStore(store: RateLimitStore) {
+  activeStore = store;
 }
 
 /**
  * Check and consume a rate limit token for the given key.
- *
- * @param key   Unique identifier (e.g. `write:userId` or `read:ip`)
- * @param opts  Rate limit configuration
- * @returns     Result with success flag, remaining count, and reset time
  */
 export function rateLimit(
   key: string,
   opts: RateLimitOptions = { max: 30, windowSeconds: 60 }
 ): RateLimitResult {
   const { max, windowSeconds } = opts;
-  const now = Date.now();
   const windowMs = windowSeconds * 1000;
-  const windowStart = now - windowMs;
-
-  ensureCleanup(windowSeconds);
-
-  let entry = store.get(key);
-  if (!entry) {
-    entry = { timestamps: [] };
-    store.set(key, entry);
-  }
-
-  // Remove timestamps outside the sliding window
-  entry.timestamps = entry.timestamps.filter((t) => t > windowStart);
-
+  const now = Date.now();
   const reset = Math.ceil((now + windowMs) / 1000);
 
-  if (entry.timestamps.length >= max) {
-    return {
-      success: false,
-      remaining: 0,
-      reset,
-    };
+  const count = activeStore.increment(key, windowMs);
+
+  // Handle async stores (Redis) — for sync stores this is a no-op
+  if (count instanceof Promise) {
+    // Fallback: allow the request if store is async and we can't block
+    // In production, use the async-aware applyRateLimit in api-utils.ts
+    return { success: true, remaining: max - 1, reset };
   }
 
-  // Record this request
-  entry.timestamps.push(now);
+  if (count > max) {
+    return { success: false, remaining: 0, reset };
+  }
 
-  return {
-    success: true,
-    remaining: max - entry.timestamps.length,
-    reset,
-  };
+  return { success: true, remaining: max - count, reset };
 }
 
 /** Default limits */
 export const RATE_LIMITS = {
-  /** POST / PATCH / DELETE operations */
   write: { max: 30, windowSeconds: 60 } satisfies RateLimitOptions,
-  /** GET operations */
   read: { max: 100, windowSeconds: 60 } satisfies RateLimitOptions,
 } as const;

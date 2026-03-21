@@ -3,12 +3,21 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
-import { getPlayerColor } from "@/types/campaign";
+// getPlayerColor is used by TurnRenderer
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
 import SessionLobby from "./SessionLobby";
 import LoreMap from "./LoreMap";
 import type { MapPin } from "./LoreMap";
+import SessionHighlights from "./StoryHighlights";
+import TurnRenderer from "./TurnRenderer";
+import {
+  groupIntoParagraphs,
+  SCENE_BREAK_MOOD_CLASSES,
+  DEFAULT_SCENE_BREAK_CLASSES,
+  MOOD_TINT_COLORS,
+  MOOD_VIGNETTE_COLORS,
+} from "./ProseAssembler";
 
 export type { MapPin };
 
@@ -52,157 +61,7 @@ interface StoryCanvasProps {
   onUpdateRoster?: (characterIds: string[]) => void;
 }
 
-// ── Session Highlights ───────────────────────────────────────
-
-interface Highlight {
-  icon: string;
-  label: string;
-  text: string;
-  color: string; // tailwind text color
-}
-
-function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlight[] {
-  const highlights: Highlight[] = [];
-
-  // Single-pass through story turns: extract scene breaks, deaths, and count stats
-  let playerTurnCount = 0;
-  let gmTurnCount = 0;
-  let sceneCount = 0;
-
-  for (const t of storyTurns) {
-    // Stats counting
-    if (t.type === "narration" || t.type === "consequence") {
-      gmTurnCount++;
-    } else if (t.type === "scene-break") {
-      sceneCount++;
-    } else {
-      playerTurnCount++;
-    }
-
-    // Scene break highlights (scenes, story moments, deaths)
-    if (t.type === "scene-break" && t.metadata) {
-      try {
-        const meta = JSON.parse(t.metadata);
-        if (meta.cinematic && meta.title) {
-          highlights.push({
-            icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
-            label: "Story Moment",
-            text: meta.title,
-            color: meta.mood === "death" ? "text-rose" : "text-amber",
-          });
-        } else if (meta.mood === "death" && !meta.cinematic) {
-          highlights.push({
-            icon: "\u2020",
-            label: "Fallen",
-            text: meta.title || "A hero has fallen",
-            color: "text-rose",
-          });
-        } else if (meta.title) {
-          highlights.push({
-            icon: "\uD83C\uDFAC",
-            label: "Scene",
-            text: meta.title,
-            color: "text-white/60",
-          });
-        }
-      } catch { /* ignore */ }
-    }
-  }
-
-  // Single-pass through log turns: dramatic rolls and roll count
-  let rollCount = 0;
-  for (const t of logTurns) {
-    if (t.type !== "roll") continue;
-    rollCount++;
-    if (!t.metadata) continue;
-    try {
-      const meta = JSON.parse(t.metadata);
-      const total = meta.total ?? 0;
-      const tier = meta.tier ?? "";
-      const charName = t.characterName ?? t.user?.displayName ?? "Someone";
-
-      if (tier === "success" && total >= 11) {
-        highlights.push({
-          icon: "\uD83C\uDFB2",
-          label: "Critical Roll",
-          text: `${charName} rolled ${total} \u2014 a triumphant success`,
-          color: "text-amber",
-        });
-      } else if (tier === "failure" && total <= 4) {
-        highlights.push({
-          icon: "\uD83C\uDFB2",
-          label: "Dramatic Failure",
-          text: `${charName} rolled ${total} \u2014 a devastating miss`,
-          color: "text-red-400",
-        });
-      }
-    } catch { /* ignore */ }
-  }
-
-  // Session stats summary
-  const totalTurns = playerTurnCount + gmTurnCount;
-  if (totalTurns > 0) {
-    const parts: string[] = [];
-    parts.push(`${totalTurns} turns written`);
-    if (sceneCount > 0) parts.push(`${sceneCount} scene${sceneCount > 1 ? "s" : ""}`);
-    if (rollCount > 0) parts.push(`${rollCount} roll${rollCount > 1 ? "s" : ""}`);
-
-    highlights.push({
-      icon: "\uD83D\uDCDC",
-      label: "Session Stats",
-      text: parts.join(" \u00B7 "),
-      color: "text-white/50",
-    });
-  }
-
-  return highlights;
-}
-
-function SessionHighlights({ storyTurns, logTurns }: { storyTurns: Turn[]; logTurns: Turn[] }) {
-  const [expanded, setExpanded] = useState(true);
-  const highlights = useMemo(() => extractHighlights(storyTurns, logTurns), [storyTurns, logTurns]);
-
-  if (highlights.length === 0) return null;
-
-  return (
-    <div className="w-full max-w-[650px] mt-6">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2 mb-3 cursor-pointer group"
-      >
-        <svg
-          width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          className={`text-white/30 transition-transform ${expanded ? "rotate-90" : ""}`}
-        >
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-        <span className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 group-hover:text-white/50 transition-colors">
-          Session Highlights
-        </span>
-        <span className="text-[9px] text-white/20">{highlights.length}</span>
-      </button>
-
-      {expanded && (
-        <div className="space-y-2">
-          {highlights.map((h, i) => (
-            <div
-              key={i}
-              className="flex items-start gap-3 px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl"
-            >
-              <span className="text-base leading-none mt-0.5 shrink-0">{h.icon}</span>
-              <div className="min-w-0">
-                <span className={`text-[9px] uppercase tracking-widest font-bold ${h.color}`}>
-                  {h.label}
-                </span>
-                <p className="text-sm text-white/60 font-serif mt-0.5 leading-relaxed">{h.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// SessionHighlights and extractHighlights are now in StoryHighlights.tsx
 
 // ── Session Ended Block (compile to chapter) ────────────────
 
@@ -761,62 +620,13 @@ export default function StoryCanvas({
 
   const isPlayerTurnType = (type: string) => ["action", "dialogue", "reaction"].includes(type);
 
-  // ── Prose Assembly Engine ──────────────────────────────────
-  // Groups turns into paragraphs and handles name/pronoun tracking
-
-  // Dialogue verb templates — cycle through for variety
-  const DIALOGUE_VERBS = ["said", "replied", "called out", "murmured", "whispered"];
-
-  // Mood-to-class lookup for scene breaks (Tailwind needs full class strings)
-  const SCENE_BREAK_MOOD_CLASSES: Record<string, { line: string; text: string; textFaded: string }> = {
-    tense: { line: "via-rose/30", text: "text-rose/60", textFaded: "text-rose/40" },
-    calm: { line: "via-sage/30", text: "text-sage/60", textFaded: "text-sage/40" },
-    ominous: { line: "via-violet/30", text: "text-violet/60", textFaded: "text-violet/40" },
-    triumphant: { line: "via-amber/30", text: "text-amber/60", textFaded: "text-amber/40" },
-    melancholy: { line: "via-indigo-400/30", text: "text-indigo-400/60", textFaded: "text-indigo-400/40" },
-    chaotic: { line: "via-orange-400/30", text: "text-orange-400/60", textFaded: "text-orange-400/40" },
-    mysterious: { line: "via-cyan-400/30", text: "text-cyan-400/60", textFaded: "text-cyan-400/40" },
-    romantic: { line: "via-pink-400/30", text: "text-pink-400/60", textFaded: "text-pink-400/40" },
-  };
-  const DEFAULT_SCENE_BREAK_CLASSES = { line: "via-white/30", text: "text-white/60", textFaded: "text-white/40" };
-
-  // Should two consecutive turns merge into the same paragraph?
-  const shouldMerge = (prev: Turn, next: Turn): boolean => {
-    // Scene breaks and illustrations never merge
-    if (prev.type === "scene-break" || next.type === "scene-break") return false;
-    if (prev.type === "illustration" || next.type === "illustration") return false;
-
-    const gmTypes = ["narration", "consequence"];
-    const playerProseTypes = ["action", "dialogue", "reaction"];
-
-    // GM narration + consequence merge
-    if (gmTypes.includes(prev.type) && gmTypes.includes(next.type)) return true;
-    // Same character's consecutive turns merge
-    if (prev.userId === next.userId && playerProseTypes.includes(prev.type) && playerProseTypes.includes(next.type)) return true;
-    // Description merges into preceding narration
-    if (gmTypes.includes(prev.type) && next.type === "description") return true;
-    // Reaction merges only with same character's preceding turn
-    if (next.type === "reaction" && prev.userId === next.userId && playerProseTypes.includes(prev.type)) return true;
-
-    return false;
-  };
+  // ── Prose Assembly (imported from ProseAssembler.tsx) ──────
 
   // Slice to only the visible turns (paginated from the end)
   const visibleTurns = useMemo(() => storyTurns.slice(visibleStartIndex), [storyTurns, visibleStartIndex]);
 
   // Group turns into paragraphs
-  const paragraphs = useMemo(() => {
-    const groups: Turn[][] = [];
-    for (const turn of visibleTurns) {
-      const lastGroup = groups[groups.length - 1];
-      if (lastGroup && shouldMerge(lastGroup[lastGroup.length - 1], turn)) {
-        lastGroup.push(turn);
-      } else {
-        groups.push([turn]);
-      }
-    }
-    return groups;
-  }, [visibleTurns]);
+  const paragraphs = useMemo(() => groupIntoParagraphs(visibleTurns), [visibleTurns]);
 
   // Stable player color map
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
@@ -837,106 +647,8 @@ export default function StoryCanvas({
     return { currentMood: null, currentSceneAspects: [] };
   }, [storyTurns]);
 
-  const MOOD_TINT_COLORS: Record<string, string> = {
-    tense: "rgba(244,63,94,0.04)",
-    calm: "rgba(120,180,130,0.04)",
-    ominous: "rgba(139,92,246,0.06)",
-    triumphant: "rgba(200,150,60,0.05)",
-    melancholy: "rgba(99,102,241,0.05)",
-    chaotic: "rgba(251,146,60,0.04)",
-    mysterious: "rgba(34,211,238,0.04)",
-    romantic: "rgba(236,72,153,0.04)",
-  };
-
-  const MOOD_VIGNETTE_COLORS: Record<string, string> = {
-    tense: "rgba(180,30,50,0.12)",
-    ominous: "rgba(80,40,160,0.12)",
-    death: "rgba(120,10,10,0.18)",
-    melancholy: "rgba(50,50,140,0.10)",
-    chaotic: "rgba(180,80,20,0.10)",
-  };
-
   const moodTint = currentMood ? MOOD_TINT_COLORS[currentMood] ?? null : null;
   const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
-
-
-  // Render a single turn within a paragraph, with context awareness
-  const renderTurnInContext = (turn: Turn, idx: number, group: Turn[], globalIdx: number) => {
-    const charName = turn.characterName ?? turn.user?.displayName ?? "Someone";
-    const nameColor = getPlayerColor(turn.userId, playerUserIds);
-
-    // Check if this character was already named recently in this paragraph
-    const prevInGroup = group.slice(0, idx);
-    const lastNamedSameChar = prevInGroup.findLastIndex((t) =>
-      (t.characterName ?? t.user?.displayName) === charName &&
-      ["action", "dialogue", "reaction"].includes(t.type)
-    );
-    const useFullName = lastNamedSameChar === -1 || idx - lastNamedSameChar > 2;
-
-    // Pick dialogue verb based on position for variety
-    const dialogueVerb = DIALOGUE_VERBS[globalIdx % DIALOGUE_VERBS.length];
-
-    switch (turn.type) {
-      case "scene-break":
-        // Scene breaks are rendered at the paragraph level, not inline
-        return null;
-
-      case "illustration":
-        // Illustrations are rendered at the paragraph level, not inline
-        return null;
-
-      case "narration":
-      case "consequence":
-        return <span key={turn.id} className="text-paper/80">{turn.content} </span>;
-
-      case "dialogue":
-        // Vary dialogue format
-        if (globalIdx % 3 === 0 && useFullName) {
-          return (
-            <span key={turn.id}>
-              <span className="text-paper/80">&ldquo;{turn.content},&rdquo; </span>
-              <span className={nameColor}>{charName}</span>
-              <span className="text-paper/80"> {dialogueVerb}. </span>
-            </span>
-          );
-        }
-        if (!useFullName) {
-          return <span key={turn.id} className="text-paper/80">&ldquo;{turn.content}&rdquo; </span>;
-        }
-        return (
-          <span key={turn.id}>
-            <span className={nameColor}>{charName}</span>
-            <span className="text-paper/80"> {dialogueVerb}, &ldquo;{turn.content}&rdquo; </span>
-          </span>
-        );
-
-      case "reaction":
-        if (!useFullName) {
-          return <span key={turn.id} className="text-paper/70 italic">{turn.content} </span>;
-        }
-        return (
-          <span key={turn.id}>
-            <span className={nameColor}>{charName}</span>
-            <span className="text-paper/70 italic"> {turn.content} </span>
-          </span>
-        );
-
-      case "description":
-        return <span key={turn.id} className="text-paper/60 italic">{turn.content} </span>;
-
-      case "action":
-      default:
-        if (!useFullName) {
-          return <span key={turn.id} className="text-paper/80">{turn.content} </span>;
-        }
-        return (
-          <span key={turn.id}>
-            <span className={nameColor}>{charName}</span>
-            <span className="text-paper/80"> {turn.content} </span>
-          </span>
-        );
-    }
-  };
 
   return (
     <div className="flex-1 h-full flex flex-col relative bg-[#0a0a0a]">
@@ -1178,7 +890,9 @@ export default function StoryCanvas({
                 return (
                   <div key={group[0].id}>
                     <p className="relative group/para">
-                      {group.map((turn, ti) => renderTurnInContext(turn, ti, group, globalIdx + ti))}
+                      {group.map((turn, ti) => (
+                        <TurnRenderer key={turn.id} turn={turn} idx={ti} group={group} globalIdx={globalIdx + ti} playerUserIds={playerUserIds} />
+                      ))}
                       {pi === paragraphs.length - 1 && !groupHasEditable && (
                         <span className="inline-block w-1.5 h-5 bg-amber/40 ml-1 animate-pulse align-middle" />
                       )}

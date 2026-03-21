@@ -1,0 +1,336 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+import { createMockRequest, createMockStory, getResponseData } from "../helpers";
+
+describe("GET /api/stories", () => {
+  let GET: (request: NextRequest) => Promise<any>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+
+    vi.doMock("@/server/db", () => {
+      const mockStories = [
+        createMockStory({ id: "s1", title: "Story One", isPublic: true }),
+        createMockStory({ id: "s2", title: "Story Two", isPublic: true }),
+      ];
+
+      // The route uses a complex chained query: db.select().from().leftJoin().leftJoin().leftJoin().where().orderBy().limit()
+      const limitMock = vi.fn().mockResolvedValue(mockStories);
+      const orderByMock = vi.fn().mockReturnValue({ limit: limitMock });
+      const whereMock = vi.fn().mockReturnValue({ orderBy: orderByMock });
+      const leftJoinMock = vi.fn().mockReturnValue({ leftJoin: vi.fn().mockReturnValue({ leftJoin: vi.fn().mockReturnValue({ where: whereMock }) }) });
+      const fromMock = vi.fn().mockReturnValue({ leftJoin: leftJoinMock });
+      const selectMock = vi.fn().mockReturnValue({ from: fromMock });
+
+      // For cursor-based pagination: db.query.stories.findFirst
+      const findFirstMock = vi.fn().mockResolvedValue(null);
+
+      // For subqueries: db.select().from().where().groupBy().as()
+      const asMock = vi.fn().mockReturnValue({});
+      const groupByMock = vi.fn().mockReturnValue({ as: asMock });
+      const subWhereM = vi.fn().mockReturnValue({ groupBy: groupByMock });
+      const subFromM = vi.fn().mockReturnValue({ where: subWhereM, groupBy: groupByMock });
+
+      // Override select to handle both main query and subqueries
+      const smartSelect = vi.fn().mockImplementation(() => ({
+        from: vi.fn().mockImplementation(() => ({
+          where: vi.fn().mockReturnValue({ groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }) }),
+          groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              leftJoin: vi.fn().mockReturnValue({
+                where: vi.fn().mockReturnValue({
+                  orderBy: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue(mockStories),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        })),
+      }));
+
+      return {
+        db: {
+          select: smartSelect,
+          query: {
+            stories: { findFirst: findFirstMock },
+          },
+        },
+      };
+    });
+
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue(null),
+    }));
+
+    const mod = await import("@/app/api/stories/route");
+    GET = mod.GET;
+  });
+
+  it("returns a list of stories", async () => {
+    const req = createMockRequest("/api/stories");
+    const res = await GET(req);
+    const { body, status } = await getResponseData(res);
+
+    expect(status).toBe(200);
+    expect((body as any).data.stories).toHaveLength(2);
+  });
+
+  it("returns stories with hasMore and nextCursor fields", async () => {
+    const req = createMockRequest("/api/stories");
+    const res = await GET(req);
+    const { body } = await getResponseData(res);
+
+    expect((body as any).data).toHaveProperty("hasMore");
+    expect((body as any).data).toHaveProperty("nextCursor");
+  });
+
+  it("requires auth for mine=true", async () => {
+    // Auth is already mocked as null in beforeEach
+    const req = createMockRequest("/api/stories?mine=true");
+    const res = await GET(req);
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(401);
+    expect((body as any).error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("allows mine=true when authenticated", async () => {
+    vi.resetModules();
+
+    const mockStories = [createMockStory({ id: "s1" })];
+    vi.doMock("@/server/db", () => ({
+      db: {
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
+            where: vi.fn().mockReturnValue({ groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }) }),
+            groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }),
+            leftJoin: vi.fn().mockReturnValue({
+              leftJoin: vi.fn().mockReturnValue({
+                leftJoin: vi.fn().mockReturnValue({
+                  where: vi.fn().mockReturnValue({
+                    orderBy: vi.fn().mockReturnValue({
+                      limit: vi.fn().mockResolvedValue(mockStories),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          })),
+        })),
+        query: { stories: { findFirst: vi.fn().mockResolvedValue(null) } },
+      },
+    }));
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue({
+        user: { id: "user-1", name: "Test User" },
+      }),
+    }));
+
+    const mod = await import("@/app/api/stories/route");
+    const req = createMockRequest("/api/stories?mine=true");
+    const res = await mod.GET(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(200);
+  });
+
+  it("supports public filter", async () => {
+    const req = createMockRequest("/api/stories?public=true");
+    const res = await GET(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(200);
+  });
+
+  it("supports search parameter", async () => {
+    const req = createMockRequest("/api/stories?search=fantasy");
+    const res = await GET(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(200);
+  });
+
+  it("handles errors gracefully", async () => {
+    vi.resetModules();
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        select: vi.fn().mockImplementation(() => {
+          throw new Error("DB down");
+        }),
+        query: { stories: { findFirst: vi.fn() } },
+      },
+    }));
+
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue(null),
+    }));
+
+    const mod = await import("@/app/api/stories/route");
+    const req = createMockRequest("/api/stories");
+    const res = await mod.GET(req);
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(500);
+    expect((body as any).error.code).toBe("INTERNAL_ERROR");
+  });
+});
+
+describe("POST /api/stories", () => {
+  let POST: (request: NextRequest) => Promise<any>;
+  const mockStory = createMockStory();
+
+  beforeEach(async () => {
+    vi.resetModules();
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([mockStory]),
+          }),
+        }),
+      },
+    }));
+
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue({
+        user: { id: "user-1", name: "Test User", email: "test@example.com" },
+        expires: new Date(Date.now() + 86400000).toISOString(),
+      }),
+    }));
+
+    const mod = await import("@/app/api/stories/route");
+    POST = mod.POST;
+  });
+
+  it("requires authentication", async () => {
+    vi.resetModules();
+
+    vi.doMock("@/server/db", () => ({
+      db: { insert: vi.fn() },
+    }));
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue(null),
+    }));
+
+    const mod = await import("@/app/api/stories/route");
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { title: "My Story" },
+    });
+    const res = await mod.POST(req);
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(401);
+    expect((body as any).error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("creates a story with valid input", async () => {
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { title: "My New Story", format: "novel" },
+    });
+    const res = await POST(req);
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(201);
+    expect((body as any).data).toBeDefined();
+    expect((body as any).data.id).toBe("story-1");
+  });
+
+  it("rejects missing title", async () => {
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { format: "novel" },
+    });
+    const res = await POST(req);
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(400);
+    expect((body as any).error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("rejects empty title", async () => {
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { title: "" },
+    });
+    const res = await POST(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(400);
+  });
+
+  it("rejects invalid format enum", async () => {
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { title: "Test", format: "invalid_format" },
+    });
+    const res = await POST(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(400);
+  });
+
+  it("rejects title exceeding max length", async () => {
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { title: "x".repeat(501) },
+    });
+    const res = await POST(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(400);
+  });
+
+  it("accepts optional fields", async () => {
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: {
+        title: "Full Story",
+        format: "novel",
+        writingMode: "solo",
+        synopsis: "A great story",
+        genres: ["Fantasy", "Romance"],
+        contentRating: "teen",
+      },
+    });
+    const res = await POST(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(201);
+  });
+
+  it("handles DB errors gracefully", async () => {
+    vi.resetModules();
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockRejectedValue(new Error("DB error")),
+          }),
+        }),
+      },
+    }));
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue({
+        user: { id: "user-1", name: "Test User", email: "test@example.com" },
+        expires: new Date(Date.now() + 86400000).toISOString(),
+      }),
+    }));
+
+    const mod = await import("@/app/api/stories/route");
+    const req = createMockRequest("/api/stories", {
+      method: "POST",
+      body: { title: "My Story" },
+    });
+    const res = await mod.POST(req);
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(500);
+  });
+});

@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import type { PlayerCharacter, SessionRosterEntry } from "@/types/campaign";
-import { parseStats, APPROACHES } from "@/types/campaign";
+import { parseStats } from "@/types/campaign";
 import ProgressClock from "./ProgressClock";
 import type { ProgressClockData } from "./ProgressClock";
+import StakesTracker from "./StakesTracker";
+import CharacterSheetSection from "./CharacterSheetSection";
+import RollRequestForm from "./RollRequestForm";
 
 interface ContextPanelProps {
   isGM: boolean;
@@ -47,14 +50,6 @@ export default function ContextPanel({
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
 
-  // Confirmation modal state for destructive actions (Retire/Kill)
-  const [confirmAction, setConfirmAction] = useState<{
-    characterId: string;
-    characterName: string;
-    status: "retired" | "dead";
-  } | null>(null);
-
-
   // Scene break form state
   const [showSceneBreakForm, setShowSceneBreakForm] = useState(false);
   const [sceneBreakTitle, setSceneBreakTitle] = useState("");
@@ -73,48 +68,7 @@ export default function ContextPanel({
   const [illustrationUrl, setIllustrationUrl] = useState("");
   const [illustrationCaption, setIllustrationCaption] = useState("");
 
-  // Roll request form state
-  const [showRollForm, setShowRollForm] = useState(false);
-  const [rollTarget, setRollTarget] = useState<string>("everyone");
-  const [rollReason, setRollReason] = useState("");
-  const [rollOnSuccess, setRollOnSuccess] = useState("");
-  const [rollOnFailure, setRollOnFailure] = useState("");
-
-  // Character stats disclosure state (which cards are expanded)
-  const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set());
-
-  // Add clock form state
-  const [showAddClockForm, setShowAddClockForm] = useState(false);
-  const [newClockName, setNewClockName] = useState("");
-  const [newClockSegments, setNewClockSegments] = useState<4 | 6 | 8>(4);
-  const [newClockType, setNewClockType] = useState<"danger" | "progress" | "racing">("danger");
-
   const activeChars = characters.filter((c) => c.status === "active");
-
-  // Build roster status map: characterId → roster status
-  const rosterStatusMap = new Map<string, SessionRosterEntry["status"]>();
-  roster.forEach((r) => rosterStatusMap.set(r.characterId, r.status));
-
-  // Group characters by roster status for GM view
-  const hasRoster = roster.length > 0;
-  const presentChars = hasRoster
-    ? characters.filter((c) => {
-        const rs = rosterStatusMap.get(c.id);
-        return rs === "present" || rs === "introduced" || (!rs && c.status === "active");
-      })
-    : characters;
-  const spectatingChars = hasRoster
-    ? characters.filter((c) => rosterStatusMap.get(c.id) === "spectating")
-    : [];
-
-  // Check if a dead character's player has no other active character
-  const deadCharsNeedingInvite = characters.filter((c) => {
-    if (c.status !== "dead") return false;
-    const hasActiveChar = characters.some(
-      (other) => other.userId === c.userId && other.id !== c.id && other.status === "active"
-    );
-    return !hasActiveChar;
-  });
 
   // Helper: add aspect tag
   const addAspect = () => {
@@ -123,41 +77,6 @@ export default function ContextPanel({
       setSceneBreakAspects((prev) => [...prev, tag]);
     }
     setSceneBreakAspectInput("");
-  };
-
-  // Helper: toggle clock segment
-  const handleToggleClockSegment = (clockId: string, segmentIndex: number) => {
-    if (!onClocksChange) return;
-    const updated = clocks.map((c) => {
-      if (c.id !== clockId) return c;
-      // If clicking a filled segment, unfill from that point. If clicking unfilled, fill up to that point.
-      const newFilled = segmentIndex < c.filled ? segmentIndex : segmentIndex + 1;
-      return { ...c, filled: Math.min(newFilled, c.segments) };
-    });
-    onClocksChange(updated);
-  };
-
-  // Helper: add new clock
-  const handleAddClock = () => {
-    if (!newClockName.trim() || !onClocksChange) return;
-    const newClock: ProgressClockData = {
-      id: `clock-${Date.now()}`,
-      name: newClockName.trim(),
-      segments: newClockSegments,
-      filled: 0,
-      type: newClockType,
-    };
-    onClocksChange([...clocks, newClock]);
-    setNewClockName("");
-    setNewClockSegments(4);
-    setNewClockType("danger");
-    setShowAddClockForm(false);
-  };
-
-  // Helper: delete clock
-  const handleDeleteClock = (clockId: string) => {
-    if (!onClocksChange) return;
-    onClocksChange(clocks.filter((c) => c.id !== clockId));
   };
 
   // Collapsed sidebar (shared between GM and player views)
@@ -222,324 +141,17 @@ export default function ContextPanel({
         <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: "none" }}>
           {/* Tension Clocks */}
           {(clocks.length > 0 || onClocksChange) && (
-            <div className="space-y-4 mb-8">
-              <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-rose/60 border-b border-rose/10 pb-2 flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  Tension Clocks
-                </span>
-                {onClocksChange && (
-                  <button
-                    onClick={() => setShowAddClockForm(!showAddClockForm)}
-                    className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
-                    title="Add clock"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </button>
-                )}
-              </h3>
-
-              {/* Add Clock Form */}
-              {showAddClockForm && (
-                <div className="bg-white/[0.02] border border-white/10 rounded-lg p-3 space-y-2">
-                  <input
-                    type="text"
-                    value={newClockName}
-                    onChange={(e) => setNewClockName(e.target.value)}
-                    placeholder="Clock name..."
-                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none placeholder:text-white/20 focus:border-white/30"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddClock();
-                      if (e.key === "Escape") setShowAddClockForm(false);
-                    }}
-                  />
-                  <div className="flex gap-1.5">
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider self-center mr-1">Segments</label>
-                    {([4, 6, 8] as const).map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setNewClockSegments(n)}
-                        className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer ${
-                          newClockSegments === n
-                            ? "bg-white/10 border-white/30 text-white"
-                            : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-1.5">
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider self-center mr-1">Type</label>
-                    {(["danger", "progress", "racing"] as const).map((t) => {
-                      const typeColors: Record<string, string> = {
-                        danger: "bg-rose/20 border-rose/40 text-rose",
-                        progress: "bg-amber/20 border-amber/40 text-amber",
-                        racing: "bg-indigo-400/20 border-indigo-400/40 text-indigo-400",
-                      };
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => setNewClockType(t)}
-                          className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer capitalize ${
-                            newClockType === t
-                              ? typeColors[t]
-                              : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={handleAddClock}
-                      disabled={!newClockName.trim()}
-                      className="flex-1 bg-white/10 hover:bg-white/15 text-white/80 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      Add Clock
-                    </button>
-                    <button onClick={() => setShowAddClockForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Clock display */}
-              {clocks.length > 0 && (
-                <div className="flex flex-wrap gap-4 justify-center">
-                  {clocks.map((clock) => (
-                    <ProgressClock
-                      key={clock.id}
-                      clock={clock}
-                      size={60}
-                      interactive
-                      onToggleSegment={(idx) => handleToggleClockSegment(clock.id, idx)}
-                      onDelete={() => handleDeleteClock(clock.id)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {clocks.length === 0 && !showAddClockForm && (
-                <p className="text-[10px] text-white/20 italic font-serif text-center">No tension clocks yet.</p>
-              )}
-            </div>
+            <StakesTracker clocks={clocks} onClocksChange={onClocksChange} />
           )}
 
           {/* Party Status */}
-          <div className="space-y-4 mb-8">
-            <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Party Status</h3>
-            {characters.length === 0 && (
-              <p className="text-[11px] text-white/20 italic font-serif">No players have joined yet.</p>
-            )}
-            {presentChars.map((c) => {
-              const stats = parseStats(c.stats);
-              const isDead = c.status === "dead";
-              const isRetired = c.status === "retired";
-              const isInactive = isDead || isRetired;
-              const isActivePlayer = c.userId === activePlayerId;
-              const isExpanded = expandedStats.has(c.id);
-
-              return (
-                <div key={c.id} className={`bg-white/[0.02] p-3 rounded-lg border transition-all relative overflow-hidden ${
-                  isInactive
-                    ? "opacity-40 border-white/5"
-                    : isActivePlayer
-                      ? "border-amber/30 shadow-[0_0_15px_rgba(200,150,60,0.15),inset_0_1px_0_rgba(200,150,60,0.1)]"
-                      : "border-white/5 hover:border-white/10"
-                }`}>
-                  {/* Active player glow accent */}
-                  {isActivePlayer && !isInactive && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-amber/5 to-transparent pointer-events-none animate-pulse" style={{ animationDuration: "3s" }} />
-                  )}
-
-                  {/* Character name + traits + aspect (narrative-first) */}
-                  <div className="relative">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full transition-all ${
-                        isDead ? "bg-rose shadow-[0_0_8px_rgba(244,63,94,0.4)]"
-                        : isRetired ? "bg-lavender/50"
-                        : isActivePlayer ? "bg-amber shadow-[0_0_10px_rgba(200,150,60,0.6)] animate-pulse"
-                        : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                      }`} />
-                      <span className={`text-xs ${isInactive ? "text-white/40 line-through" : isActivePlayer ? "text-amber/90 font-medium" : "text-white/80"}`}>{c.name}</span>
-                      {isDead && <span className="text-[9px] text-rose/60 uppercase tracking-wider">Fallen</span>}
-                      {isRetired && <span className="text-[9px] text-lavender/60 uppercase tracking-wider">Departed</span>}
-                      {isActivePlayer && !isInactive && <span className="text-[9px] text-amber/50 uppercase tracking-wider">Writing</span>}
-                    </div>
-
-                    {/* Traits line */}
-                    {c.traits && !isInactive && (
-                      <p className="text-[10px] text-white/30 ml-4 mt-0.5">{c.traits}</p>
-                    )}
-
-                    {/* Aspect — italic serif, shown prominently */}
-                    {stats?.aspect && !isInactive && (
-                      <p className="text-[10px] text-violet-300/60 font-serif italic ml-4 mt-1 leading-relaxed">&ldquo;{stats.aspect}&rdquo;</p>
-                    )}
-
-                    {/* Stats disclosure toggle */}
-                    {stats && !isInactive && (
-                      <button
-                        onClick={() => {
-                          const next = new Set(expandedStats);
-                          if (isExpanded) next.delete(c.id);
-                          else next.add(c.id);
-                          setExpandedStats(next);
-                        }}
-                        className="flex items-center gap-1 mt-1.5 ml-3 text-[9px] text-white/20 hover:text-white/40 transition-colors cursor-pointer"
-                      >
-                        <svg
-                          width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                          className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                        >
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                        <span className="uppercase tracking-wider">Approaches</span>
-                      </button>
-                    )}
-
-                    {/* Expandable stats */}
-                    {isExpanded && stats && !isInactive && (
-                      <div className="mt-2 ml-4 flex gap-3">
-                        {Object.entries(stats.approaches).map(([key, val]) => (
-                          <span key={key} className="text-[10px] text-white/40">
-                            <span className="text-white/20 uppercase">{key}</span>{" "}
-                            <span className={val > 0 ? "text-amber/60" : val < 0 ? "text-red-400/50" : "text-white/30"}>
-                              {val >= 0 ? `+${val}` : val}
-                            </span>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* GM character actions — with confirmation, narrative language */}
-                  {!isInactive && (
-                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5 relative">
-                      <button
-                        onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "retired" })}
-                        className="text-[9px] text-lavender/50 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
-                      >
-                        They Depart
-                      </button>
-                      <button
-                        onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "dead" })}
-                        className="text-[9px] text-rose/50 hover:text-rose uppercase tracking-wider cursor-pointer transition-colors"
-                      >
-                        Their Story Ends
-                      </button>
-                    </div>
-                  )}
-                  {isInactive && (
-                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
-                      <button
-                        onClick={() => onChangeCharacterStatus(c.id, "active")}
-                        className="text-[9px] text-sage/50 hover:text-sage uppercase tracking-wider cursor-pointer transition-colors"
-                      >
-                        Revive
-                      </button>
-                    </div>
-                  )}
-
-                </div>
-              );
-            })}
-
-            {/* Spectating characters */}
-            {spectatingChars.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <p className="text-[9px] uppercase tracking-widest text-white/20 mb-2">Spectating</p>
-                {spectatingChars.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 opacity-40">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400/30" />
-                    <span className="text-[11px] text-white/50">{c.name}</span>
-                    <span className="text-[8px] text-cyan-400/40 uppercase tracking-wider ml-auto">Spectating</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Invite New Character — for dead characters whose players have no active character */}
-            {deadCharsNeedingInvite.length > 0 && onInviteNewCharacter && (
-              <div className="mt-3 pt-3 border-t border-white/5">
-                {deadCharsNeedingInvite.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-2 px-2 py-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2 h-2 rounded-full bg-rose/40" />
-                      <span className="text-[11px] text-white/40 line-through truncate">{c.name}</span>
-                      <span className="text-[8px] text-rose/40 uppercase tracking-wider">Fallen</span>
-                    </div>
-                    <button
-                      onClick={() => onInviteNewCharacter(c.userId)}
-                      className="shrink-0 text-[9px] uppercase tracking-wider font-bold text-amber bg-amber/10 hover:bg-amber/20 border border-amber/20 rounded-full px-2.5 py-1 cursor-pointer transition-colors"
-                    >
-                      Invite New Character
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Confirmation Modal for Retire/Kill — narrative language */}
-          {confirmAction && (
-            <div className="mb-6 bg-black/60 border rounded-xl p-4 space-y-3 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
-              style={{
-                borderColor: confirmAction.status === "dead" ? "rgba(244,63,94,0.3)" : "rgba(167,139,250,0.3)",
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  className={confirmAction.status === "dead" ? "text-rose" : "text-lavender"}
-                >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <span className={`text-[10px] uppercase tracking-widest font-bold ${
-                  confirmAction.status === "dead" ? "text-rose" : "text-lavender"
-                }`}>
-                  {confirmAction.status === "dead" ? "Their Story Ends" : "They Depart"}
-                </span>
-              </div>
-              <p className="text-xs text-white/60">
-                Are you sure you want to {confirmAction.status === "dead" ? "end the story of" : "write the departure of"}{" "}
-                <span className="text-white/90 font-medium">{confirmAction.characterName}</span>?
-                {confirmAction.status === "dead" && (
-                  <span className="text-rose/60"> This triggers a death cinematic.</span>
-                )}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    onChangeCharacterStatus(confirmAction.characterId, confirmAction.status);
-                    setConfirmAction(null);
-                  }}
-                  className={`flex-1 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 cursor-pointer transition-colors ${
-                    confirmAction.status === "dead"
-                      ? "bg-rose/20 hover:bg-rose/30 text-rose"
-                      : "bg-lavender/20 hover:bg-lavender/30 text-lavender"
-                  }`}
-                >
-                  {confirmAction.status === "dead" ? "Yes, End Their Story" : "Yes, Write Their Departure"}
-                </button>
-                <button
-                  onClick={() => setConfirmAction(null)}
-                  className="px-4 text-[10px] text-white/40 hover:text-white cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+          <CharacterSheetSection
+            characters={characters}
+            activePlayerId={activePlayerId}
+            onChangeCharacterStatus={onChangeCharacterStatus}
+            onInviteNewCharacter={onInviteNewCharacter}
+            roster={roster}
+          />
 
           {/* GM Actions */}
           <div className="space-y-4">
@@ -552,93 +164,7 @@ export default function ContextPanel({
 
             <div className="grid grid-cols-1 gap-2">
               {/* Call for a Moment of Truth (formerly Request Roll) */}
-              {showRollForm ? (
-                <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg p-3 space-y-3">
-                  <p className="text-[10px] uppercase tracking-widest text-violet-400 font-bold">Call for a Moment of Truth</p>
-
-                  {/* Target */}
-                  <div>
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider">Who</label>
-                    <select
-                      value={rollTarget}
-                      onChange={(e) => setRollTarget(e.target.value)}
-                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 cursor-pointer"
-                    >
-                      <option value="everyone">Everyone</option>
-                      {activeChars.map((c) => (
-                        <option key={c.userId} value={c.userId}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* What's at stake */}
-                  <div>
-                    <label className="text-[9px] uppercase text-white/30 tracking-wider">What&rsquo;s at stake?</label>
-                    <input
-                      type="text"
-                      value={rollReason}
-                      onChange={(e) => setRollReason(e.target.value)}
-                      placeholder="The bridge crumbles beneath their feet..."
-                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20"
-                    />
-                  </div>
-
-                  {/* Stakes */}
-                  <div>
-                    <label className="text-[9px] uppercase text-emerald-400/60 tracking-wider">If they succeed...</label>
-                    <input
-                      type="text"
-                      value={rollOnSuccess}
-                      onChange={(e) => setRollOnSuccess(e.target.value)}
-                      placeholder="They leap across just in time"
-                      className="w-full bg-black/30 border border-emerald-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-emerald-500/30"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] uppercase text-red-400/60 tracking-wider">If they fail...</label>
-                    <textarea
-                      value={rollOnFailure}
-                      onChange={(e) => setRollOnFailure(e.target.value)}
-                      placeholder="The stones give way and they plunge into darkness"
-                      className="w-full bg-black/30 border border-red-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-red-500/30 resize-none"
-                      rows={2}
-                    />
-                    <p className="text-[8px] text-white/15 mt-1 font-serif italic leading-relaxed">
-                      If failure means death, say so in your stakes — the narrative will carry the weight.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={() => {
-                        if (rollReason.trim()) {
-                          // Pass "Bold" as default — the player chooses their own approach when rolling
-                          onRequestRoll(rollTarget, "Bold", rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim());
-                          setRollReason(""); setRollOnSuccess(""); setRollOnFailure("");
-                          setShowRollForm(false);
-                        }
-                      }}
-                      disabled={!rollReason.trim()}
-                      className="flex-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      Call for the Roll
-                    </button>
-                    <button onClick={() => setShowRollForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowRollForm(true)}
-                  className="bg-violet-500/10 hover:bg-violet-500/15 border border-violet-500/20 rounded-lg p-3 text-left transition-colors flex items-center justify-between group cursor-pointer"
-                >
-                  <span className="text-sm text-violet-400 font-medium">Moment of Truth...</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-400/50 group-hover:translate-x-1 transition-transform">
-                    <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </button>
-              )}
+              <RollRequestForm activeChars={activeChars} onRequestRoll={onRequestRoll} />
 
               {/* Scene Break */}
               {showSceneBreakForm ? (
