@@ -167,10 +167,13 @@ export default function StoryCard({
           className={`h-36 bg-gradient-to-br ${getGradient(genres)} relative overflow-hidden`}
         >
           {coverUrl && (
-            <img
+            <Image
               src={coverUrl}
               alt={title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              fill
+              sizes="300px"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              unoptimized
             />
           )}
           {/* Overlay */}

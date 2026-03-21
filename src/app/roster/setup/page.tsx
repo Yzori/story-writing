@@ -540,7 +540,7 @@ export default function RosterSetupPage() {
                                 : showcaseIds.length >= 5 ? "border-border bg-surface/30 opacity-40"
                                 : "border-border bg-surface/40 hover:border-border-subtle"
                               }`}>
-                              <div className="w-full aspect-[3/2] bg-ink overflow-hidden">
+                              <div className="relative w-full aspect-[3/2] bg-ink overflow-hidden">
                                 {story.coverImageUrl ? (
                                   <Image src={story.coverImageUrl} alt="" fill sizes="200px" className="object-cover" unoptimized />
                                 ) : (

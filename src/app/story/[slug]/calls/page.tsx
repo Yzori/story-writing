@@ -623,7 +623,7 @@ export default function OpenCallsPage() {
                                       className="bg-ink/60 border border-border-subtle rounded-lg p-4"
                                     >
                                       <div className="flex items-center gap-3 mb-2">
-                                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[10px] font-display font-semibold flex-shrink-0 overflow-hidden">
+                                        <div className="relative w-7 h-7 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[10px] font-display font-semibold flex-shrink-0 overflow-hidden">
                                           {resp.user.avatarUrl ? (
                                             <Image src={resp.user.avatarUrl} alt={resp.user.displayName || ""} fill sizes="28px" className="rounded-full object-cover" unoptimized />
                                           ) : (

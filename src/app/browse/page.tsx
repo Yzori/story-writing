@@ -876,7 +876,7 @@ function BrowsePage() {
                     className="flex items-center gap-4 card-page p-4 group transition-all duration-200 hover:border-amber/20"
                   >
                     {/* Cover */}
-                    <div className="w-14 h-[72px] rounded-lg flex-shrink-0 overflow-hidden border border-border-subtle bg-gradient-to-br from-amber/10 to-amber/[0.02]">
+                    <div className="relative w-14 h-[72px] rounded-lg flex-shrink-0 overflow-hidden border border-border-subtle bg-gradient-to-br from-amber/10 to-amber/[0.02]">
                       {story.coverImageUrl ? (
                         <Image src={story.coverImageUrl} alt={story.title} fill sizes="300px" className="object-cover" unoptimized />
                       ) : (

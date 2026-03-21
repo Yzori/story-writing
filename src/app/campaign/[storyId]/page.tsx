@@ -576,7 +576,7 @@ export default function CampaignPage() {
                 className="card-page p-4 flex items-center gap-4"
               >
                 {/* Portrait */}
-                <div className="w-12 h-12 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
+                <div className="relative w-12 h-12 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
                   {char.portrait ? (
                     <Image src={char.portrait} alt={char.name} fill sizes="48px" className="object-cover" unoptimized />
                   ) : (
@@ -1179,7 +1179,7 @@ export default function CampaignPage() {
                     >
                       <div className="flex items-center gap-3">
                         {/* Avatar */}
-                        <div className="w-10 h-10 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
+                        <div className="relative w-10 h-10 rounded-full bg-ink flex items-center justify-center shrink-0 overflow-hidden border border-border">
                           {app.user.avatarUrl ? (
                             <Image src={app.user.avatarUrl} alt={app.user.displayName || ""} fill sizes="40px" className="object-cover" unoptimized />
                           ) : (

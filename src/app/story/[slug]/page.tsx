@@ -554,7 +554,7 @@ export default function StoryPage() {
           {/* Author */}
           {story.author && (
             <Link href={`/profile/${story.author.id}`} className="flex items-center gap-3 mb-6 group">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
+              <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
                 {story.author.avatarUrl ? (
                   <Image src={story.author.avatarUrl} alt={story.author.displayName || ""} fill sizes="44px" className="rounded-full object-cover" unoptimized />
                 ) : (
@@ -755,7 +755,7 @@ export default function StoryPage() {
                   href={`/profile/${collab.userId}`}
                   className="flex items-center gap-2 bg-surface/60 border border-border-subtle rounded-full pl-1 pr-3 py-1 hover:border-amber/20 transition-all group"
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[9px] font-display font-semibold flex-shrink-0 overflow-hidden">
+                  <div className="relative w-6 h-6 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[9px] font-display font-semibold flex-shrink-0 overflow-hidden">
                     {collab.user?.avatarUrl ? (
                       <Image src={collab.user.avatarUrl} alt="" fill sizes="32px" className="rounded-full object-cover" unoptimized />
                     ) : (
@@ -982,7 +982,7 @@ export default function StoryPage() {
                   </span>
                   <div className="bg-surface/60 border border-border-subtle rounded-xl p-5">
                     <Link href={`/profile/${story.author.id}`} className="flex items-start gap-4 group">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
+                      <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-sm font-display font-semibold flex-shrink-0 overflow-hidden">
                         {story.author.avatarUrl ? (
                           <Image src={story.author.avatarUrl} alt={story.author.displayName || ""} fill sizes="44px" className="rounded-full object-cover" unoptimized />
                         ) : (
@@ -1065,7 +1065,7 @@ export default function StoryPage() {
                       className="bg-surface/60 border border-border-subtle rounded-xl p-5"
                     >
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[11px] font-display font-semibold flex-shrink-0 overflow-hidden">
+                        <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[11px] font-display font-semibold flex-shrink-0 overflow-hidden">
                           {update.author.avatarUrl ? (
                             <Image src={update.author.avatarUrl} alt={update.author.displayName || ""} fill sizes="28px" className="rounded-full object-cover" unoptimized />
                           ) : (
