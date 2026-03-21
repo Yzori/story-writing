@@ -127,6 +127,42 @@ export default function SettingsPage() {
       </motion.div>
 
       <div className="space-y-6">
+        {/* Account Info */}
+        {session?.user && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cardClass}
+          >
+            <label className={labelClass}>Account</label>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber font-display font-semibold text-sm overflow-hidden flex-shrink-0">
+                {(session.user as { image?: string | null }).image ? (
+                  <img
+                    src={(session.user as { image?: string | null }).image!}
+                    alt=""
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  (session.user.name || session.user.email || "?").charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0">
+                {session.user.name && (
+                  <p className="text-paper text-[13px] font-medium truncate">{session.user.name}</p>
+                )}
+                <p className="text-text-ghost text-[12px] truncate">{session.user.email}</p>
+              </div>
+              <Link
+                href={`/profile/${session.user.id}/edit`}
+                className="ml-auto text-amber text-[12px] font-medium hover:text-amber-light transition-colors flex-shrink-0"
+              >
+                Edit Profile
+              </Link>
+            </div>
+          </motion.div>
+        )}
+
         {/* Content Comfort */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}

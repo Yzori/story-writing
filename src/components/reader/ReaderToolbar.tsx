@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chapter } from "@/lib/store";
 import ThemeToggle from "@/components/editor/ThemeToggle";
+import { useToast } from "@/components/shared/Toast";
 
 export type ReadingMode = "paginated" | "scroll";
 
@@ -30,6 +31,7 @@ interface ReaderToolbarProps {
   onBack: () => void;
   onSelectChapter: (id: string) => void;
   chapters: Chapter[];
+  wordCount?: number;
 }
 
 export default function ReaderToolbar({
@@ -46,8 +48,10 @@ export default function ReaderToolbar({
   onBack,
   onSelectChapter,
   chapters,
+  wordCount,
 }: ReaderToolbarProps) {
   const [showChapterList, setShowChapterList] = useState(false);
+  const { toast } = useToast();
 
   return (
     <>
@@ -58,7 +62,7 @@ export default function ReaderToolbar({
           <button
             onClick={onBack}
             className="p-1.5 rounded-md text-text-ghost hover:text-text-secondary hover:bg-subtle transition-all shrink-0"
-            title="Back to editor"
+            title="Back to story"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M10 3L5 8l5 5" />
@@ -171,6 +175,33 @@ export default function ReaderToolbar({
               </button>
             ))}
           </div>
+
+          <span className="text-text-ghost/30 mx-1">|</span>
+
+          {/* Share */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href).then(
+                () => toast("Link copied", "success"),
+                () => toast("Couldn\u2019t copy link", "error")
+              );
+            }}
+            className="p-1.5 rounded-md text-text-ghost hover:text-text-secondary hover:bg-subtle transition-all"
+            title="Copy chapter link"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M6 10l4-4" />
+              <path d="M9 3l2-1.5a2.12 2.12 0 0 1 3 3L12.5 7" />
+              <path d="M7 13l-2 1.5a2.12 2.12 0 0 1-3-3L3.5 9" />
+            </svg>
+          </button>
+
+          {/* Reading time */}
+          {wordCount != null && wordCount > 0 && (
+            <span className="text-[10px] text-text-ghost tabular-nums whitespace-nowrap">
+              ~{Math.ceil(wordCount / 250)}m
+            </span>
+          )}
 
           <span className="text-text-ghost/30 mx-1">|</span>
           <ThemeToggle />

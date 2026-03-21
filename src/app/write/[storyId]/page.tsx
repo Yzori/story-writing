@@ -37,6 +37,7 @@ import ToolkitPanel from "@/components/editor/ToolkitPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
+import { useToast } from "@/components/shared/Toast";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
@@ -169,6 +170,7 @@ function apiChapterToLocal(ch: ApiChapter): Chapter {
 export default function WriteStoryPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const storyId = params.storyId as string;
 
   const [project, setProject] = useState<StoryProject | null>(null);
@@ -656,6 +658,8 @@ export default function WriteStoryPage() {
           chapters: [...prev.chapters, newChapter],
           activeChapterId: newChapter.id,
         }));
+      } else {
+        toast("Couldn\u2019t create chapter", "error");
       }
     } catch {
       // Fallback: add locally
@@ -665,8 +669,9 @@ export default function WriteStoryPage() {
         chapters: [...prev.chapters, newChapter],
         activeChapterId: newChapter.id,
       }));
+      toast("Saved locally \u2014 will sync when connection returns", "info");
     }
-  }, [project?.chapters.length, updateProject, storyId]);
+  }, [project?.chapters.length, updateProject, storyId, toast]);
 
   const handleReorderChapters = useCallback(
     (chapters: Chapter[]) => {
@@ -674,7 +679,7 @@ export default function WriteStoryPage() {
       // Save new order to API
       const reorderData = chapters.map((ch, i) => ({ id: ch.id, sortOrder: i }));
       fetch(`/api/stories/${storyId}/chapters/reorder`, {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chapters: reorderData }),
       }).catch(() => {});
@@ -905,23 +910,33 @@ export default function WriteStoryPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isPublic: newValue }),
+    }).then((res) => {
+      if (res.ok) {
+        toast(newValue ? "Story published" : "Story unpublished", "success");
+      } else {
+        setIsPublic(!newValue);
+        toast("Couldn\u2019t update publish status", "error");
+      }
     }).catch(() => {
-      // Revert on failure
       setIsPublic(!newValue);
+      toast("Network error. Changes not saved.", "error");
     });
-  }, [isPublic, storyId]);
+  }, [isPublic, storyId, toast]);
 
   const handleDeleteStory = useCallback(async () => {
     if (!confirm("Are you sure you want to delete this story? This cannot be undone.")) return;
     try {
       const res = await fetch(`/api/stories/${storyId}`, { method: "DELETE" });
       if (res.ok) {
+        toast("Story deleted", "info");
         router.push("/dashboard");
+      } else {
+        toast("Couldn\u2019t delete story", "error");
       }
     } catch {
-      // silently fail
+      toast("Network error. Try again.", "error");
     }
-  }, [storyId, router]);
+  }, [storyId, router, toast]);
 
   // ── Chapter settings handler ────────────────────────────
 

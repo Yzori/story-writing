@@ -8,9 +8,18 @@ export async function POST(request: Request) {
   try {
     const { displayName, email, password } = await request.json();
 
-    if (!email || !password) {
+    if (!email || typeof email !== "string" || !password || typeof password !== "string") {
       return NextResponse.json(
         { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address" },
         { status: 400 }
       );
     }
@@ -18,6 +27,13 @@ export async function POST(request: Request) {
     if (password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (displayName && (typeof displayName !== "string" || displayName.length > 100)) {
+      return NextResponse.json(
+        { error: "Display name must be under 100 characters" },
         { status: 400 }
       );
     }

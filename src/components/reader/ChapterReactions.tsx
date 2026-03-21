@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
+import { useToast } from "@/components/shared/Toast";
 
 interface ChapterReactionsProps {
   storyId: string;
@@ -10,14 +11,14 @@ interface ChapterReactionsProps {
 }
 
 const REACTION_TYPES = [
-  { type: "gasped", emoji: "\u{1F62E}", label: "I gasped" },
-  { type: "cried", emoji: "\u{1F622}", label: "I cried" },
-  { type: "laughed", emoji: "\u{1F602}", label: "I laughed" },
-  { type: "need-more", emoji: "\u{1F525}", label: "Need more" },
-  { type: "saw-it-coming", emoji: "\u{1F914}", label: "Saw it coming" },
-  { type: "heartbroken", emoji: "\u{1F494}", label: "Heartbroken" },
+  { type: "gasped", emoji: "\ud83d\ude2e", label: "I gasped" },
+  { type: "cried", emoji: "\ud83d\ude22", label: "I cried" },
+  { type: "laughed", emoji: "\ud83d\ude02", label: "I laughed" },
+  { type: "need-more", emoji: "\ud83d\udd25", label: "Need more" },
+  { type: "saw-it-coming", emoji: "\ud83e\udd14", label: "Saw it coming" },
+  { type: "heartbroken", emoji: "\ud83d\udc94", label: "Heartbroken" },
   { type: "inspired", emoji: "\u2728", label: "Inspired" },
-  { type: "terrified", emoji: "\u{1F631}", label: "Terrified" },
+  { type: "terrified", emoji: "\ud83d\ude31", label: "Terrified" },
 ] as const;
 
 type ReactionType = (typeof REACTION_TYPES)[number]["type"];
@@ -27,14 +28,17 @@ export default function ChapterReactions({
   chapterId,
 }: ChapterReactionsProps) {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     async function fetchReactions() {
       setLoading(true);
+      setFetchError(false);
       try {
         const res = await fetch(
           `/api/stories/${storyId}/chapters/${chapterId}/reactions`
@@ -43,9 +47,11 @@ export default function ChapterReactions({
           const json = await res.json();
           setCounts(json.data.counts || {});
           setUserReaction(json.data.userReaction || null);
+        } else {
+          setFetchError(true);
         }
       } catch {
-        // silently fail
+        setFetchError(true);
       } finally {
         setLoading(false);
       }
@@ -65,18 +71,15 @@ export default function ChapterReactions({
       const newCounts = { ...counts };
 
       if (userReaction === type) {
-        // Toggle off
         newCounts[type] = Math.max(0, (newCounts[type] || 0) - 1);
         setUserReaction(null);
       } else {
-        // If switching from another reaction, decrement old
         if (userReaction) {
           newCounts[userReaction] = Math.max(
             0,
             (newCounts[userReaction] || 0) - 1
           );
         }
-        // Increment new
         newCounts[type] = (newCounts[type] || 0) + 1;
         setUserReaction(type);
       }
@@ -96,27 +99,40 @@ export default function ChapterReactions({
           setCounts(json.data.counts || {});
           setUserReaction(json.data.userReaction || null);
         } else {
-          // Revert on error
           setCounts(prevCounts);
           setUserReaction(prevUserReaction);
+          toast("Couldn\u2019t save reaction. Try again.", "error");
         }
       } catch {
-        // Revert on error
         setCounts(prevCounts);
         setUserReaction(prevUserReaction);
+        toast("Network error. Check your connection.", "error");
       } finally {
         setToggling(false);
       }
     },
-    [toggling, session, counts, userReaction, storyId, chapterId]
+    [toggling, session, counts, userReaction, storyId, chapterId, toast]
   );
 
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-center py-6">
-          <div className="w-5 h-5 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+        <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-4 block">
+          How did this chapter make you feel?
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-8 w-24 bg-surface/60 border border-border rounded-full animate-pulse" />
+          ))}
         </div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-8 text-center">
+        <p className="text-text-ghost text-[13px]">Couldn&apos;t load reactions.</p>
       </div>
     );
   }
@@ -141,6 +157,7 @@ export default function ChapterReactions({
               onClick={() => handleReaction(type)}
               disabled={!session?.user}
               title={session?.user ? label : "Sign in to react"}
+              aria-label={`${label}${showCount ? ` (${count})` : ""}`}
               className={`
                 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5
                 text-[12px] transition-all duration-200

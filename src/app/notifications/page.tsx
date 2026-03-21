@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-type NotifType = "chapter" | "spark" | "follow" | "comment" | "update";
+type NotifType = "chapter" | "spark" | "follow" | "comment" | "update" | "collaboration" | "suggestion" | "open-call";
 
 interface Notification {
   id: string;
@@ -56,6 +56,34 @@ const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> =
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="8" cy="8" r="6" />
         <path d="M8 5v3l2 2" />
+      </svg>
+    ),
+  },
+  collaboration: {
+    color: "text-lavender bg-lavender/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="6" cy="6" r="3" />
+        <circle cx="11" cy="6" r="3" />
+        <path d="M2 14c0-2.2 1.8-4 4-4h1" />
+        <path d="M14 14c0-2.2-1.8-4-4-4h-1" />
+      </svg>
+    ),
+  },
+  suggestion: {
+    color: "text-sage bg-sage/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M8 2v4M8 10v4M2 8h4M10 8h4" />
+      </svg>
+    ),
+  },
+  "open-call": {
+    color: "text-amber bg-amber/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M3 3h10v7H8l-3 3V10H3V3z" />
+        <path d="M6 6h4M6 8h2" />
       </svg>
     ),
   },
@@ -127,6 +155,9 @@ export default function NotificationsPage() {
     { key: "follow", label: "Follows" },
     { key: "comment", label: "Comments" },
     { key: "update", label: "Updates" },
+    { key: "collaboration", label: "Collabs" },
+    { key: "suggestion", label: "Suggestions" },
+    { key: "open-call", label: "Open Calls" },
   ];
 
   return (
@@ -183,7 +214,7 @@ export default function NotificationsPage() {
       ) : filtered.length > 0 ? (
         <div className="space-y-1">
           {filtered.map((notif, i) => {
-            const config = NOTIF_ICONS[notif.type];
+            const config = NOTIF_ICONS[notif.type] || NOTIF_ICONS.update;
             return (
               <motion.div
                 key={notif.id}

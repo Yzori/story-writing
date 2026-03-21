@@ -9,6 +9,7 @@ import GenrePill from "@/components/shared/GenrePill";
 import StoryCard from "@/components/shared/StoryCard";
 import ReportModal from "@/components/shared/ReportModal";
 import { compressImage } from "@/lib/images";
+import { useToast } from "@/components/shared/Toast";
 
 interface Chapter {
   id: string;
@@ -144,6 +145,7 @@ const ROLE_COLORS: Record<string, string> = {
 export default function StoryPage() {
   const params = useParams();
   const { data: session } = useSession();
+  const { toast } = useToast();
   const slug = params.slug as string;
   const [story, setStory] = useState<StoryData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,6 +205,7 @@ export default function StoryPage() {
       });
       if (res.ok) {
         setStory((prev) => prev ? { ...prev, coverImageUrl: dataUrl } : prev);
+        toast("Cover image updated", "success");
       } else {
         setCoverError("Failed to save cover image. Please try again.");
       }
@@ -391,14 +394,27 @@ export default function StoryPage() {
   const handleFollow = async () => {
     if (!story || followLoading || !session?.user) return;
     setFollowLoading(true);
+    const prevCount = followCount;
+    const prevState = hasFollowed;
+    // Optimistic update
+    setHasFollowed(!hasFollowed);
+    setFollowCount(hasFollowed ? Math.max(0, followCount - 1) : followCount + 1);
     try {
       const res = await fetch(`/api/stories/${story.id}/follows`, { method: "POST" });
       if (res.ok) {
         const json = await res.json();
         setFollowCount(json.data.count);
         setHasFollowed(json.data.followed);
+      } else {
+        setFollowCount(prevCount);
+        setHasFollowed(prevState);
+        toast("Couldn\u2019t update follow. Try again.", "error");
       }
-    } catch {} finally {
+    } catch {
+      setFollowCount(prevCount);
+      setHasFollowed(prevState);
+      toast("Network error. Check your connection.", "error");
+    } finally {
       setFollowLoading(false);
     }
   };
@@ -406,14 +422,27 @@ export default function StoryPage() {
   const handleSpark = async () => {
     if (!story || sparkLoading || !session?.user) return;
     setSparkLoading(true);
+    const prevCount = sparkCount;
+    const prevState = hasSparked;
+    // Optimistic update
+    setHasSparked(!hasSparked);
+    setSparkCount(hasSparked ? Math.max(0, sparkCount - 1) : sparkCount + 1);
     try {
       const res = await fetch(`/api/stories/${story.id}/sparks`, { method: "POST" });
       if (res.ok) {
         const json = await res.json();
         setSparkCount(json.data.count);
         setHasSparked(json.data.sparked);
+      } else {
+        setSparkCount(prevCount);
+        setHasSparked(prevState);
+        toast("Couldn\u2019t update spark. Try again.", "error");
       }
-    } catch {} finally {
+    } catch {
+      setSparkCount(prevCount);
+      setHasSparked(prevState);
+      toast("Network error. Check your connection.", "error");
+    } finally {
       setSparkLoading(false);
     }
   };
@@ -431,9 +460,12 @@ export default function StoryPage() {
         const json = await res.json();
         setUpdates((prev) => [json.data, ...prev]);
         setUpdateContent("");
+        toast("Update posted", "success");
+      } else {
+        toast("Couldn\u2019t post update. Try again.", "error");
       }
     } catch {
-      // silently fail
+      toast("Network error. Check your connection.", "error");
     } finally {
       setPostingUpdate(false);
     }
@@ -685,6 +717,24 @@ export default function StoryPage() {
                 <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
               </svg>
               {sparkCount > 0 ? sparkCount : "Spark"}
+            </button>
+
+            {/* Share */}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href).then(
+                  () => toast("Link copied to clipboard", "success"),
+                  () => toast("Couldn\u2019t copy link", "error")
+                );
+              }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border bg-surface/80 border-border text-text-secondary hover:border-lavender/25 hover:text-lavender text-[13px] font-medium transition-all duration-200 cursor-pointer"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M6 10l4-4" />
+                <path d="M9 3l2-1.5a2.12 2.12 0 0 1 3 3L12.5 7" />
+                <path d="M7 13l-2 1.5a2.12 2.12 0 0 1-3-3L3.5 9" />
+              </svg>
+              Share
             </button>
 
             {/* Edit for owner */}

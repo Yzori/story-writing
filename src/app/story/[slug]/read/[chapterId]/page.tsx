@@ -354,12 +354,20 @@ export default function ChapterReadPage() {
           <p className="text-text-secondary text-[13px]">
             This chapter may have been removed or is not available.
           </p>
-          <button
-            onClick={handleBack}
-            className="mt-2 text-amber hover:text-amber/80 transition-colors text-[13px]"
-          >
-            Back to story
-          </button>
+          <div className="flex items-center gap-4 mt-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="text-amber hover:text-amber/80 transition-colors text-[13px] font-medium"
+            >
+              Try again
+            </button>
+            <button
+              onClick={handleBack}
+              className="text-text-ghost hover:text-text-secondary transition-colors text-[13px]"
+            >
+              Back to story
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -382,6 +390,7 @@ export default function ChapterReadPage() {
           onBack={handleBack}
           onSelectChapter={navigateToChapter}
           chapters={chapters}
+          wordCount={activeChapter.wordCount}
         />
 
         {mode === "paginated" ? (
