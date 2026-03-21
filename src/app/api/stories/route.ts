@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stories, users, sparks as sparksTable, chapters } from "@/lib/db/schema";
-import { eq, isNull, desc, lt, and, sql, count } from "drizzle-orm";
+import { eq, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
 import { auth } from "@/lib/auth";
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      conditions.push(sql`${stories.title} ILIKE ${'%' + search + '%'}`);
+      conditions.push(ilike(stories.title, `%${search}%`));
     }
 
     if (cursor) {

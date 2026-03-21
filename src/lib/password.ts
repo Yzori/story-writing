@@ -44,8 +44,10 @@ export async function verifyPassword(
   const hashArray = new Uint8Array(hash);
 
   if (hashArray.length !== originalHash.length) return false;
+  // Constant-time comparison to prevent timing attacks
+  let mismatch = 0;
   for (let i = 0; i < hashArray.length; i++) {
-    if (hashArray[i] !== originalHash[i]) return false;
+    mismatch |= hashArray[i] ^ originalHash[i];
   }
-  return true;
+  return mismatch === 0;
 }

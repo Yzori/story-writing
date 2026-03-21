@@ -84,18 +84,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ),
     });
 
+    let followed: boolean;
+
     if (existing) {
       // Unfollow
       await db.delete(follows).where(eq(follows.id, existing.id));
+      followed = false;
     } else {
-      // Follow
-      await db.insert(follows).values({
-        userId: session.user.id,
-        storyId,
-      });
+      // Follow — handle race condition where concurrent request already inserted
+      try {
+        await db.insert(follows).values({
+          userId: session.user.id,
+          storyId,
+        });
+        followed = true;
+      } catch (err: unknown) {
+        if ((err as { code?: string }).code === "23505") {
+          // Unique constraint hit — treat as toggle off
+          await db.delete(follows).where(
+            and(eq(follows.userId, session.user.id), eq(follows.storyId, storyId))
+          );
+          followed = false;
+        } else {
+          throw err;
+        }
+      }
 
-      // Notify story owner
-      if (story.userId !== session.user.id) {
+      // Notify story owner (only on new follow)
+      if (followed && story.userId !== session.user.id) {
         const name = session.user.name || "Someone";
         createNotification(
           story.userId,
@@ -112,7 +128,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(eq(follows.storyId, storyId));
 
     return NextResponse.json({
-      data: { followed: !existing, count: followCount },
+      data: { followed, count: followCount },
     });
   } catch (error) {
     console.error("POST /api/stories/[storyId]/follows error:", error);

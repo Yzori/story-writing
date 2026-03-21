@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { comments, users, stories, chapters } from "@/lib/db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createCommentSchema } from "@/lib/validations";
 import { createNotification } from "@/lib/notifications";
@@ -101,6 +101,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { content, parentId } = parsed.data;
     const userId = session.user.id;
+
+    // Verify story exists and chapter is published
+    const storyRecord = await db.query.stories.findFirst({
+      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+    });
+    if (!storyRecord) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+
+    const chapterRecord = await db.query.chapters.findFirst({
+      where: and(
+        eq(chapters.id, chapterId),
+        eq(chapters.storyId, storyId),
+        eq(chapters.status, "published"),
+        isNull(chapters.deletedAt)
+      ),
+    });
+    if (!chapterRecord) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found or not published" } },
+        { status: 404 }
+      );
+    }
 
     const [created] = await db
       .insert(comments)

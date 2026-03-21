@@ -206,7 +206,7 @@ export const writingSessions = pgTable("writing_sessions", {
     .references(() => users.id),
   storyId: uuid("story_id")
     .notNull()
-    .references(() => stories.id),
+    .references(() => stories.id, { onDelete: "cascade" }),
   date: date("date").notNull(),
   wordsWritten: integer("words_written").notNull().default(0),
   durationMinutes: integer("duration_minutes").notNull().default(0),

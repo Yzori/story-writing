@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { readingProgress, stories, chapters, users } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { upsertReadingProgressSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/lib/api-utils";
@@ -120,6 +120,17 @@ export async function PUT(request: NextRequest) {
 
     const { storyId, chapterId, scrollPercent, pageNumber } = parsed.data;
     const userId = session.user.id;
+
+    // Verify story is accessible (public or owned by user)
+    const story = await db.query.stories.findFirst({
+      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+    });
+    if (!story || (!story.isPublic && story.userId !== userId)) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
 
     // Check if progress already exists for this user+story
     const [existing] = await db

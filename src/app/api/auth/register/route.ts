@@ -65,8 +65,16 @@ export async function POST(request: Request) {
       .returning({ id: users.id, email: users.email });
 
     return NextResponse.json({ data: { id: newUser.id, email: newUser.email } });
-  } catch (error) {
-    console.error("Registration error:", error);
+  } catch (error: unknown) {
+    // Handle unique constraint violation (race condition on concurrent signup)
+    const dbError = error as { code?: string };
+    if (dbError.code === "23505") {
+      return NextResponse.json(
+        { error: "An account with this email already exists" },
+        { status: 409 }
+      );
+    }
+    console.error("Registration error");
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 }

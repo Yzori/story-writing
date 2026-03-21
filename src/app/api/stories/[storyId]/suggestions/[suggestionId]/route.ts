@@ -75,6 +75,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Prevent double-review
+    if (existing.status !== "pending") {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "Suggestion has already been reviewed" } },
+        { status: 409 }
+      );
+    }
+
     const [updated] = await db
       .update(suggestions)
       .set({
