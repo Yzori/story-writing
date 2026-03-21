@@ -217,7 +217,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let newVersion = 1;
 
     if (existing[0]) {
-      // Supersede old agreement
+      // Cannot supersede an active (fully-signed) agreement
+      if (existing[0].status === "active") {
+        return NextResponse.json(
+          { error: { code: "CONFLICT", message: "Cannot create a new agreement while one is active" } },
+          { status: 409 }
+        );
+      }
+      // Supersede old draft agreement
       await db
         .update(agreements)
         .set({ status: "superseded", updatedAt: new Date() })

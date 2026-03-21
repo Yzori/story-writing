@@ -252,6 +252,16 @@ export default function WriteStoryPage() {
         }
         const storyJson = await storyRes.json();
         const story = storyJson.data;
+
+        // Verify current user is the story owner
+        const sessionRes = await fetch("/api/auth/session");
+        const sessionData = await sessionRes.json();
+        if (!sessionData?.user?.id || sessionData.user.id !== story.userId) {
+          setError("You don\u2019t have permission to edit this story");
+          setLoading(false);
+          return;
+        }
+
         const chaptersJson = await chaptersRes.json();
         const apiChapters = chaptersRes.ok ? chaptersJson.data : [];
         const bibleJson = bibleRes.ok ? await bibleRes.json() : { data: [] };
@@ -261,13 +271,14 @@ export default function WriteStoryPage() {
         const settings = loadEditorSettings(storyId);
 
         // Build StoryProject from API data + local settings
-        const chapters: Chapter[] = apiChapters.map(apiChapterToLocal);
+        const rawChapters: Chapter[] = apiChapters.map(apiChapterToLocal);
+        const chaptersToUse = rawChapters.length > 0 ? rawChapters : [createChapter("Chapter 1")];
 
         const proj: StoryProject = {
           id: story.id,
           title: story.title,
-          chapters: chapters.length > 0 ? chapters : [createChapter("Chapter 1")],
-          activeChapterId: chapters[0]?.id ?? null,
+          chapters: chaptersToUse,
+          activeChapterId: chaptersToUse[0]?.id ?? null,
           metadata: {
             coverImageDataUrl: story.coverImageUrl || null,
             synopsis: story.synopsis || "",
@@ -719,6 +730,11 @@ export default function WriteStoryPage() {
 
   const handleDeleteChapter = useCallback(
     async (id: string) => {
+      // Prevent deleting the last chapter
+      if ((project?.chapters.length ?? 0) <= 1) {
+        toast("Cannot delete the only chapter", "error");
+        return;
+      }
       await flushPendingSaves();
       // Auto-snapshot before delete
       const chapterToDelete = project?.chapters.find((c) => c.id === id);

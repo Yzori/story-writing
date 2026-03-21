@@ -105,9 +105,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    const updateData: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+    // Clear active player when session ends
+    if (parsed.data.status === "completed") {
+      updateData.activePlayerId = null;
+    }
+
     const [updated] = await db
       .update(campaignSessions)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(campaignSessions.id, sessionId))
       .returning();
 

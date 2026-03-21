@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { campaignTurns, campaignSessions, playerCharacters, users } from "@/lib/db/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/lib/collaboration";
@@ -190,6 +190,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { error: { code: "FORBIDDEN", message: "It is not your turn" } },
         { status: 403 }
       );
+    }
+
+    // Validate character ownership if characterId provided
+    if (parsed.data.characterId) {
+      const char = await db.query.playerCharacters.findFirst({
+        where: and(
+          eq(playerCharacters.id, parsed.data.characterId),
+          eq(playerCharacters.storyId, storyId),
+          eq(playerCharacters.userId, session.user.id),
+        ),
+      });
+      if (!char) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "Character not found or not yours" } },
+          { status: 403 }
+        );
+      }
     }
 
     // Use a subquery insert to atomically compute the next sortOrder,

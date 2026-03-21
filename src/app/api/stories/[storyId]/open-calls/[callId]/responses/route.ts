@@ -124,6 +124,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Cannot respond to your own open call
+    if (story.userId === session.user.id) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "You cannot respond to your own open call" } },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const parsed = createOpenCallResponseSchema.safeParse(body);
 

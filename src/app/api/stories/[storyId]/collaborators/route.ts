@@ -104,6 +104,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Check if user is already invited or a collaborator
+    const existingCollab = await db.query.collaborators.findFirst({
+      where: and(eq(collaborators.storyId, storyId), eq(collaborators.userId, parsed.data.userId)),
+    });
+    if (existingCollab) {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: `User is already ${existingCollab.status === "pending" ? "invited" : "a collaborator"}` } },
+        { status: 409 }
+      );
+    }
+
     const [created] = await db
       .insert(collaborators)
       .values({
