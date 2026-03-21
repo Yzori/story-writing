@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chapter } from "@/lib/store";
+import { Chapter } from "@/types/editor";
 import ThemeToggle from "@/components/editor/ThemeToggle";
 import { useToast } from "@/components/shared/Toast";
 

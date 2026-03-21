@@ -7,14 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
-// ── Types ────────────────────────────────────────────────────
+import type { ApiStoryData } from "@/types/api";
 
-interface StoryData {
-  id: string;
-  userId: string;
-  title: string;
-  slug: string | null;
-}
+// ── Types ────────────────────────────────────────────────────
 
 type CallRole = "writer" | "illustrator" | "editor" | "worldbuilder";
 type CallStatus = "open" | "filled" | "closed";
@@ -92,7 +87,7 @@ export default function OpenCallsPage() {
   const slug = params.slug as string;
 
   // Story state
-  const [story, setStory] = useState<StoryData | null>(null);
+  const [story, setStory] = useState<ApiStoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

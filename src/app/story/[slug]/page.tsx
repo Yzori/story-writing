@@ -9,69 +9,9 @@ import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
 import StoryCard from "@/components/shared/StoryCard";
 import ReportModal from "@/components/shared/ReportModal";
-import { compressImage } from "@/lib/images";
+import { compressImage } from "@/client/images";
 import { useToast } from "@/components/shared/Toast";
-
-interface Chapter {
-  id: string;
-  title: string;
-  wordCount: number;
-  sortOrder: number;
-  status: string;
-  createdAt: string;
-}
-
-interface Author {
-  id: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  bio: string | null;
-  role: string;
-}
-
-interface StoryData {
-  id: string;
-  userId: string;
-  title: string;
-  format: string;
-  synopsis: string | null;
-  dedication: string | null;
-  coverImageUrl: string | null;
-  genres: string[];
-  contentRating: string;
-  status: string;
-  slug: string | null;
-  writingMode: string | null;
-  createdAt: string;
-  updatedAt: string;
-  author: Author | null;
-  chapters: Chapter[];
-}
-
-interface CampaignApplication {
-  id: string;
-  storyId: string;
-  userId: string;
-  pitch: string;
-  status: string;
-  votingDeadline: string | null;
-  createdAt: string;
-  user: {
-    displayName: string | null;
-    avatarUrl: string | null;
-  };
-}
-
-interface Update {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: {
-    id: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-  };
-}
+import type { ApiStoryData, ApiUpdate, ApiCollaborator } from "@/types/api";
 
 const FORMAT_LABELS: Record<string, string> = {
   novel: "Novel",
@@ -120,13 +60,6 @@ function relativeTime(dateStr: string): string {
   return "just now";
 }
 
-interface Collaborator {
-  id: string;
-  userId: string;
-  role: string;
-  status: string;
-  user: { displayName: string | null; avatarUrl: string | null } | null;
-}
 
 type Tab = "chapters" | "about" | "updates";
 
@@ -148,7 +81,7 @@ export default function StoryPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const slug = params.slug as string;
-  const [story, setStory] = useState<StoryData | null>(null);
+  const [story, setStory] = useState<ApiStoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sparkCount, setSparkCount] = useState(0);
@@ -160,13 +93,13 @@ export default function StoryPage() {
   const [activeTab, setActiveTab] = useState<Tab>("chapters");
 
   // Updates state
-  const [updates, setUpdates] = useState<Update[]>([]);
+  const [updates, setUpdates] = useState<ApiUpdate[]>([]);
   const [updatesLoading, setUpdatesLoading] = useState(false);
   const [updatesLoaded, setUpdatesLoaded] = useState(false);
   const [updateContent, setUpdateContent] = useState("");
   const [postingUpdate, setPostingUpdate] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [collaborators, setCollaborators] = useState<ApiCollaborator[]>([]);
 
   // Campaign join flow state
   const [campaignStatus, setCampaignStatus] = useState<"none" | "applied" | "player" | "gm">("none");
@@ -268,7 +201,7 @@ export default function StoryPage() {
         }
         if (collabRes.ok) {
           const collabJson = await collabRes.json();
-          setCollaborators(collabJson.data?.filter((c: Collaborator) => c.status === "accepted") || []);
+          setCollaborators(collabJson.data?.filter((c: ApiCollaborator) => c.status === "accepted") || []);
         }
 
         // Fetch reading progress if logged in

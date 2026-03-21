@@ -16,9 +16,9 @@ import {
   createChapter,
   createStoryProject,
   countWords,
-} from "@/lib/store";
-import { CommentThread, createCommentThread, addReply } from "@/lib/comments";
-import { getOrCreateSession } from "@/lib/goals";
+} from "@/types/editor";
+import { CommentThread, createCommentThread, addReply } from "@/client/comments";
+import { getOrCreateSession } from "@/client/goals";
 // export functions are dynamically imported in handlers below
 import ChapterNav from "@/components/editor/ChapterNav";
 import ProseEditor from "@/components/editor/ProseEditor";
@@ -1258,7 +1258,7 @@ export default function WriteStoryPage() {
   const handleExportPdf = useCallback(async () => {
     if (!project) return;
     try {
-      const { exportPdf } = await import("@/lib/export");
+      const { exportPdf } = await import("@/client/export-pdf");
       exportPdf(project);
     } catch (err) {
       console.error("PDF export failed:", err);
@@ -1269,7 +1269,7 @@ export default function WriteStoryPage() {
   const handleExportEpub = useCallback(async () => {
     if (!project) return;
     try {
-      const { exportEpub } = await import("@/lib/export");
+      const { exportEpub } = await import("@/client/export-pdf");
       exportEpub(project);
     } catch (err) {
       console.error("EPUB export failed:", err);
@@ -1280,7 +1280,7 @@ export default function WriteStoryPage() {
   const handleExportDocx = useCallback(async () => {
     if (!project) return;
     try {
-      const { exportDocx } = await import("@/lib/export-docx");
+      const { exportDocx } = await import("@/client/export-docx");
       exportDocx(project);
     } catch (err) {
       console.error("DOCX export failed:", err);

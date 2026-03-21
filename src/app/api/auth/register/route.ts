@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { hashPassword } from "@/lib/password";
-import { applyRateLimit } from "@/lib/api-utils";
+import { hashPassword } from "@/server/password";
+import { applyRateLimit } from "@/server/api-utils";
 
 export async function POST(request: NextRequest) {
   try {

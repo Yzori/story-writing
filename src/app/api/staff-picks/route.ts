@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/server/db";
 import {
   staffPicks,
   stories,
   users,
   sparks as sparksTable,
   chapters,
-} from "@/lib/db/schema";
+} from "@/server/db/schema";
 import { eq, isNull, desc, and, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { applyRateLimit } from "@/lib/api-utils";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 import { z } from "zod";
 
 const createStaffPickSchema = z.object({

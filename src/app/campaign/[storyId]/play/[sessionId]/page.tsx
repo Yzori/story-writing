@@ -4,11 +4,11 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { useCampaignSession } from "@/components/campaign/use-campaign-session";
+import { useCampaignSession } from "@/hooks/use-campaign-session";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
-import type { RollRequest } from "@/components/campaign/types";
+import type { RollRequest } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
 

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/server/db";
 import {
   campaignApplications,
   campaignVotes,
   users,
   stories,
   playerCharacters,
-} from "@/lib/db/schema";
+} from "@/server/db/schema";
 import { eq, and, isNull, sql, desc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createApplicationSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
-import { createNotification } from "@/lib/notifications";
+import { applyRateLimit } from "@/server/api-utils";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 

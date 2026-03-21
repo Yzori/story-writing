@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import Navbar from "@/components/shared/Navbar";
 

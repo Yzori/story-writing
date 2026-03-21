@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import type { PlayerCharacter, SessionRosterEntry } from "./types";
-import { getPlayerColor } from "./types";
+import type { PlayerCharacter, SessionRosterEntry } from "@/types/campaign";
+import { getPlayerColor } from "@/types/campaign";
 
 // ── Lobby Theme Data ────────────────────────────────────────────
 

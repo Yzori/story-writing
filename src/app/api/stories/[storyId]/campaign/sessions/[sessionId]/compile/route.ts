@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/server/db";
 import {
   stories,
   chapters,
@@ -7,11 +7,11 @@ import {
   campaignTurns,
   playerCharacters,
   users,
-} from "@/lib/db/schema";
+} from "@/server/db/schema";
 import { eq, and, asc, isNull, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { applyRateLimit } from "@/lib/api-utils";
-import { compileSessionToHTML } from "@/lib/compile-session";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
+import { compileSessionToHTML } from "@/server/services/compile-session";
 import { countWords } from "@/lib/utils";
 
 type RouteParams = {

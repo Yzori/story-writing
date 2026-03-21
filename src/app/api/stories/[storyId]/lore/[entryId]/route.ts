@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { loreEntries, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { loreEntries, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 import { updateLoreEntrySchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/lib/collaboration";
+import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
   params: Promise<{ storyId: string; entryId: string }>;
@@ -23,6 +24,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, entryId } = await params;
 

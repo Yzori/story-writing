@@ -7,8 +7,8 @@ import {
   StoryCharacter,
   StoryPlace,
   StoryNote,
-} from "@/lib/store";
-import { compressImage } from "@/lib/images";
+} from "@/types/editor";
+import { compressImage } from "@/client/images";
 
 type BibleTab = "characters" | "places" | "notes";
 type NoteCategory = "all" | "lore" | "timeline" | "research" | "custom";

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TypographySettings } from "@/lib/store";
+import { TypographySettings } from "@/types/editor";
 
 interface TypographyPanelProps {
   settings: TypographySettings;

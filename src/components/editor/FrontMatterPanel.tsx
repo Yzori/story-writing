@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FrontMatter, StoryMetadata, Chapter, formatNumber } from "@/lib/store";
+import { FrontMatter, StoryMetadata, Chapter, formatNumber } from "@/types/editor";
 
 interface FrontMatterPanelProps {
   frontMatter: FrontMatter;

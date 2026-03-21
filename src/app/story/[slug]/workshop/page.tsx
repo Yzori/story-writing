@@ -6,32 +6,9 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { AgreementTab } from "@/components/workshop/AgreementTab";
+import type { ApiStoryData, ApiCollaborator } from "@/types/api";
 
 // ── Types ───────────────────────────────────────────────────
-
-interface StoryData {
-  id: string;
-  userId: string;
-  title: string;
-  slug: string | null;
-  chapters: { id: string; title: string; sortOrder: number }[];
-}
-
-interface Collaborator {
-  id: string;
-  storyId: string;
-  userId: string;
-  role: string;
-  status: string;
-  invitedBy: string;
-  createdAt: string;
-  updatedAt: string;
-  user: {
-    id: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-  } | null;
-}
 
 interface Suggestion {
   id: string;
@@ -141,14 +118,14 @@ function WorkshopContent() {
   const [showRosterNudge, setShowRosterNudge] = useState(false);
 
   // Core state
-  const [story, setStory] = useState<StoryData | null>(null);
+  const [story, setStory] = useState<ApiStoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("team");
 
   // Team state
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [collaborators, setCollaborators] = useState<ApiCollaborator[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamLoaded, setTeamLoaded] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -219,7 +196,7 @@ function WorkshopContent() {
         );
         if (collabRes.ok) {
           const collabJson = await collabRes.json();
-          const isCollab = (collabJson.data as Collaborator[]).some(
+          const isCollab = (collabJson.data as ApiCollaborator[]).some(
             (c) =>
               c.userId === session!.user!.id &&
               (c.status === "accepted" || c.status === "pending")

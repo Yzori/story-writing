@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Chapter } from "@/lib/store";
+import { Chapter } from "@/types/editor";
+import type { ApiStoryData } from "@/types/api";
 import ReaderToolbar, { ReadingMode, FontSizeKey, FONT_SIZE_OPTIONS } from "@/components/reader/ReaderToolbar";
 import ReaderPaginated from "@/components/reader/ReaderPaginated";
 import ReaderScroll from "@/components/reader/ReaderScroll";
@@ -51,14 +52,8 @@ function getFontSizeValue(key: FontSizeKey): string {
   return FONT_SIZE_OPTIONS.find((o) => o.key === key)?.value || "1.1rem";
 }
 
-interface StoryData {
-  id: string;
-  title: string;
-  slug: string | null;
-  chapters: ApiChapter[];
-}
 
-interface ApiChapter {
+interface ReaderApiChapter {
   id: string;
   title: string;
   content: string;
@@ -72,7 +67,7 @@ interface ApiChapter {
   outline: string | null;
 }
 
-function apiChapterToChapter(ch: ApiChapter): Chapter {
+function apiChapterToChapter(ch: ReaderApiChapter): Chapter {
   return {
     id: ch.id,
     title: ch.title,
@@ -150,12 +145,12 @@ export default function ChapterReadPage() {
           return;
         }
 
-        const story: StoryData = storyJson.data;
+        const story: ApiStoryData = storyJson.data;
         setStoryTitle(story.title);
         setStoryId(story.id);
 
         // Convert chapter list (these are summaries from the story endpoint)
-        const chapterList = story.chapters.map(apiChapterToChapter);
+        const chapterList = (story.chapters as ReaderApiChapter[]).map(apiChapterToChapter);
         setChapters(chapterList);
 
         // Fetch the full chapter content
@@ -170,7 +165,7 @@ export default function ChapterReadPage() {
           return;
         }
 
-        const fullChapter = apiChapterToChapter(chapterJson.data);
+        const fullChapter = apiChapterToChapter(chapterJson.data as ReaderApiChapter);
         setActiveChapter(fullChapter);
 
         // Update the chapter in the list with full content

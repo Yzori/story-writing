@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { stories, chapters, users } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { stories, chapters, users } from "@/server/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 
 type RouteParams = { params: Promise<{ slug: string }> };
 

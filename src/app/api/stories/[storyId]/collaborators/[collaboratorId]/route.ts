@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { collaborators, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { collaborators, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { updateCollaboratorSchema } from "@/lib/validations";
 
 type RouteParams = {

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { openCalls, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { openCalls, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 import { z } from "zod";
 
 type RouteParams = {
@@ -26,6 +27,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, callId } = await params;
 

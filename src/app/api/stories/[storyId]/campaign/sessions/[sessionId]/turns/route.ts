@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { campaignTurns, campaignSessions, playerCharacters, users } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { campaignTurns, campaignSessions, playerCharacters, users } from "@/server/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/lib/collaboration";
-import { applyRateLimit } from "@/lib/api-utils";
+import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 

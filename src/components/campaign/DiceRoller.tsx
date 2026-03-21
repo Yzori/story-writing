@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { PlayerCharacter } from "./types";
-import { parseStats, APPROACHES } from "./types";
+import type { PlayerCharacter } from "@/types/campaign";
+import { parseStats, APPROACHES } from "@/types/campaign";
 
 // ── Animated Dice Face ─────────────────────────────────────
 

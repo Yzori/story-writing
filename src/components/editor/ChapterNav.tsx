@@ -2,8 +2,8 @@
 
 import type { KeyboardEvent } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
-import { Chapter } from "@/lib/store";
-import { formatNumber } from "@/lib/store";
+import { Chapter } from "@/types/editor";
+import { formatNumber } from "@/types/editor";
 
 interface ChapterNavProps {
   chapters: Chapter[];

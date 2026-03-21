@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { campaignSessions, stories, playerCharacters } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { campaignSessions, stories, playerCharacters } from "@/server/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
-import { createBulkNotifications } from "@/lib/notifications";
+import { applyRateLimit } from "@/server/api-utils";
+import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 

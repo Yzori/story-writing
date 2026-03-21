@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { agreements, agreementConfirmations, collaborators, users } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { agreements, agreementConfirmations, collaborators, users } from "@/server/db/schema";
 import { eq, and, ne, desc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 import { createAgreementSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/lib/collaboration";
-import { createBulkNotifications, createNotification } from "@/lib/notifications";
+import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/server/services/collaboration";
+import { createBulkNotifications, createNotification } from "@/server/services/notifications";
 import { safeParseJson } from "@/lib/safe-json";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
@@ -138,6 +139,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId } = await params;
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chapter, ChapterSnapshot } from "@/lib/store";
+import { Chapter, ChapterSnapshot } from "@/types/editor";
 
 interface ChapterSettingsPanelProps {
   chapter: Chapter;

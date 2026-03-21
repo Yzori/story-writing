@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { PlayerCharacter } from "./types";
-import { getPlayerColor } from "./types";
+import type { PlayerCharacter } from "@/types/campaign";
+import { getPlayerColor } from "@/types/campaign";
 
 const DEFAULT_TURN_DURATION = 180; // 3 minutes
 

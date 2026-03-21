@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/server/db";
 import {
   sessionPolls,
   sessionPollVotes,
   stories,
   playerCharacters,
-} from "@/lib/db/schema";
+} from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { voteSessionPollSchema, closeSessionPollSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
-import { createBulkNotifications } from "@/lib/notifications";
+import { applyRateLimit } from "@/server/api-utils";
+import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string; pollId: string }> };
 

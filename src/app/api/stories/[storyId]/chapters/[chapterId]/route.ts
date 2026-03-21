@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { chapters, chapterSnapshots, stories, follows } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { chapters, chapterSnapshots, stories, follows } from "@/server/db/schema";
 import { eq, and, isNull, asc, count, ne, sql as dsql } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { auth } from "@/lib/auth";
-import { createBulkNotifications } from "@/lib/notifications";
+import { sanitizeHtml } from "@/server/sanitize";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
+import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -82,6 +83,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, chapterId } = await params;
     const { isOwner } = await verifyStoryOwnership(storyId, session.user.id);
@@ -217,12 +221,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                       ORDER BY created_at ASC
                       LIMIT ${total - MAX_AUTO_SNAPSHOTS}
                     )
-                  `).catch(() => {});
+                  `).catch((err) => console.error("Snapshot prune failed:", err));
                 }
               })
-              .catch(() => {});
+              .catch((err) => console.error("Snapshot count failed:", err));
           })
-          .catch(() => {}); // Non-blocking — don't fail the save
+          .catch((err) => console.error("Auto-snapshot failed:", err));
       }
     }
 

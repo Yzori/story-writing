@@ -4,17 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-
-type NotifType = "chapter" | "spark" | "follow" | "comment" | "update" | "collaboration" | "suggestion" | "open-call";
-
-interface Notification {
-  id: string;
-  type: NotifType;
-  message: string;
-  href: string;
-  read: boolean;
-  createdAt: string;
-}
+import type { NotifType, ApiNotification } from "@/types/api";
 
 const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> = {
   chapter: {
@@ -103,7 +93,7 @@ function formatTimeAgo(ts: string): string {
 
 export default function NotificationsPage() {
   const { data: session } = useSession();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | NotifType>("all");
 

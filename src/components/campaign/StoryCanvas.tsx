@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "./types";
-import { getPlayerColor } from "./types";
+import type { Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
+import { getPlayerColor } from "@/types/campaign";
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
 import SessionLobby from "./SessionLobby";

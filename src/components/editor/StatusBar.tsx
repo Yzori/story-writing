@@ -2,8 +2,8 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { formatNumber, WritingGoals } from "@/lib/store";
-import { getTodaySession } from "@/lib/goals";
+import { formatNumber, WritingGoals } from "@/types/editor";
+import { getTodaySession } from "@/client/goals";
 
 type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 

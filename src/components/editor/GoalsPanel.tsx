@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { WritingGoals } from "@/lib/store";
+import { WritingGoals } from "@/types/editor";
 import {
   getTodaySession,
   calculateStreak,
   getLast7Days,
-} from "@/lib/goals";
+} from "@/client/goals";
 
 interface GoalsPanelProps {
   goals: WritingGoals;

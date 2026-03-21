@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/shared/Toast";
-import { compressImage } from "@/lib/images";
+import { compressImage } from "@/client/images";
 
 const ROLES = ["writer", "illustrator", "editor", "worldbuilder", "reader"] as const;
 

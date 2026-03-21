@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { progressClocks, campaignSessions } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { progressClocks, campaignSessions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { updateProgressClockSchema } from "@/lib/validations";
-import { verifyStoryOwnership } from "@/lib/collaboration";
-import { applyRateLimit } from "@/lib/api-utils";
+import { verifyStoryOwnership } from "@/server/services/collaboration";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string; clockId: string }> };
 

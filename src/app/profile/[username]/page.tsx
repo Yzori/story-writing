@@ -10,23 +10,7 @@ import Epigraph from "@/components/profile/Epigraph";
 import FeaturedWork from "@/components/profile/FeaturedWork";
 import Bookshelf from "@/components/profile/Bookshelf";
 import Colophon from "@/components/profile/Colophon";
-
-interface Story {
-  id: string;
-  title: string;
-  format: string;
-  synopsis: string | null;
-  coverImageUrl: string | null;
-  genres: string[];
-  contentRating: string;
-  status: string;
-  slug: string | null;
-  createdAt: string;
-  updatedAt: string;
-  chapterCount: number;
-  totalWords: number;
-  sparkCount: number;
-}
+import type { ApiStory } from "@/types/api";
 
 interface UserProfile {
   id: string;
@@ -35,7 +19,7 @@ interface UserProfile {
   bio: string | null;
   role: string;
   createdAt: string;
-  stories: Story[];
+  stories: ApiStory[];
 }
 
 interface FollowedStory {
@@ -54,7 +38,7 @@ interface FollowedStory {
   sparkCount: number;
 }
 
-function getTopGenre(stories: Story[]): string | null {
+function getTopGenre(stories: ApiStory[]): string | null {
   const counts: Record<string, number> = {};
   for (const s of stories) {
     for (const g of s.genres) {
@@ -72,7 +56,7 @@ function getTopGenre(stories: Story[]): string | null {
   return top;
 }
 
-function getFeatured(stories: Story[]): Story | null {
+function getFeatured(stories: ApiStory[]): ApiStory | null {
   const published = stories.filter((s) => s.status !== "draft");
   if (published.length === 0) return null;
   return published.reduce((best, s) =>

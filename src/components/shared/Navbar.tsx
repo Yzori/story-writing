@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { type Theme, getStoredTheme, setTheme } from "@/lib/theme";
+import { type Theme, getStoredTheme, setTheme } from "@/client/theme";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);

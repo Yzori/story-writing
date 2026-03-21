@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { collaborators, users, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { collaborators, users, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createCollaboratorSchema } from "@/lib/validations";
-import { createNotification } from "@/lib/notifications";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -34,7 +34,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })
       .from(collaborators)
       .leftJoin(users, eq(collaborators.userId, users.id))
-      .where(eq(collaborators.storyId, storyId));
+      .where(eq(collaborators.storyId, storyId))
+      .limit(200);
 
     return NextResponse.json({ data: result });
   } catch (error) {

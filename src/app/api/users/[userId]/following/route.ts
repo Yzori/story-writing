@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/server/db";
 import {
   follows,
   stories,
   users,
   chapters,
   sparks as sparksTable,
-} from "@/lib/db/schema";
+} from "@/server/db/schema";
 import { eq, and, isNull, desc, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 
 type RouteParams = { params: Promise<{ userId: string }> };
 

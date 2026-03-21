@@ -3,9 +3,9 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { GENRES, CONTENT_RATINGS } from "@/lib/genres";
+import { GENRES, CONTENT_RATINGS } from "@/config/genres";
 import Image from "next/image";
-import { compressImage } from "@/lib/images";
+import { compressImage } from "@/client/images";
 
 // ── Format options (shared by solo + co-op) ─────────────────
 

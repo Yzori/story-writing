@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { PlayerCharacter, SessionRosterEntry } from "./types";
-import { parseStats, APPROACHES } from "./types";
+import type { PlayerCharacter, SessionRosterEntry } from "@/types/campaign";
+import { parseStats, APPROACHES } from "@/types/campaign";
 import ProgressClock from "./ProgressClock";
 import type { ProgressClockData } from "./ProgressClock";
 

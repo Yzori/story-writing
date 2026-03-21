@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Plus_Jakarta_Sans, Literata, IBM_Plex_Mono, Playfair_Display, DM_Sans } from "next/font/google";
-import Providers from "@/components/Providers";
+import Providers from "@/components/providers";
 import "./globals.css";
 
 const fraunces = Fraunces({

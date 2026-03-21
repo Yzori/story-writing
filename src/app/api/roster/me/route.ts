@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { guildProfiles } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { guildProfiles } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { guildProfileSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
+import { applyRateLimit } from "@/server/api-utils";
 
 /**
  * GET /api/roster/me

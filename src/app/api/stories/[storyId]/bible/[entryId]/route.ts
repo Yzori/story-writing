@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { bibleEntries, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { bibleEntries, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updateBibleEntrySchema } from "@/lib/validations";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; entryId: string }>;
@@ -31,6 +32,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, entryId } = await params;
 

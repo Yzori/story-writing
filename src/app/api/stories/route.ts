@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { stories, users, sparks as sparksTable, chapters } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { stories, users, sparks as sparksTable, chapters } from "@/server/db/schema";
 import { eq, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 
 /**
  * GET /api/stories

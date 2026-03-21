@@ -2,9 +2,9 @@
 
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { StoryMetadata } from "@/lib/store";
-import { GENRES, CONTENT_RATINGS, STORY_STATUSES } from "@/lib/genres";
-import { compressImage } from "@/lib/images";
+import { StoryMetadata } from "@/types/editor";
+import { GENRES, CONTENT_RATINGS, STORY_STATUSES } from "@/config/genres";
+import { compressImage } from "@/client/images";
 
 interface MetadataPanelProps {
   metadata: StoryMetadata;

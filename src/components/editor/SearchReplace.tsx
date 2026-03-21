@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Chapter } from "@/lib/store";
-import { SearchMatch, searchInChapters, replaceInHtml, SearchOptions } from "@/lib/search";
+import { Chapter } from "@/types/editor";
+import { SearchMatch, searchInChapters, replaceInHtml, SearchOptions } from "@/client/search";
 
 interface SearchReplaceProps {
   chapters: Chapter[];

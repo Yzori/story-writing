@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { flags } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { flags } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createFlagSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
+import { applyRateLimit } from "@/server/api-utils";
 
 /**
  * POST /api/flags

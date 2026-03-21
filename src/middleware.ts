@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { NextResponse } from "next/server";
-import { validateCsrf } from "@/lib/csrf";
+import { validateCsrf } from "@/server/csrf";
 
 const protectedPaths = ["/write", "/dashboard", "/create"];
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { chapterSnapshots, chapters, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { chapterSnapshots, chapters, stories } from "@/server/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -79,6 +80,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, chapterId } = await params;
     const check = await verifyOwnership(storyId, chapterId, session.user.id);

@@ -1,7 +1,10 @@
 import { vi } from "vitest";
 
+// Mock server-only package (no-op in tests)
+vi.mock("server-only", () => ({}));
+
 // Mock next-auth
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/server/auth", () => ({
   auth: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -26,7 +29,7 @@ vi.mock("next/server", async () => {
 });
 
 // Mock db
-vi.mock("@/lib/db", () => ({
+vi.mock("@/server/db", () => ({
   db: {
     select: vi.fn(),
     insert: vi.fn(),

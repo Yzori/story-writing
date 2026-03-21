@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chapter, ChapterSnapshot } from "@/lib/store";
+import { Chapter, ChapterSnapshot } from "@/types/editor";
 import { computeDiff, diffStats, type DiffSegment } from "@/lib/diff";
 import { useToast } from "@/components/shared/Toast";
 

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Chapter } from "@/lib/store";
+import { Chapter } from "@/types/editor";
 
 interface OutlineNode {
   id: string;

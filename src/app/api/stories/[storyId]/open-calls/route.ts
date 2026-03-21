@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { openCalls, users, stories } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { openCalls, users, stories } from "@/server/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createOpenCallSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -37,7 +37,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(openCalls)
       .leftJoin(users, eq(openCalls.userId, users.id))
       .where(eq(openCalls.storyId, storyId))
-      .orderBy(desc(openCalls.createdAt));
+      .orderBy(desc(openCalls.createdAt))
+      .limit(100);
 
     return NextResponse.json({ data: result });
   } catch (error) {

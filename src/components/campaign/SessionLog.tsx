@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useMemo } from "react";
-import type { Turn } from "./types";
-import { getPlayerColor } from "./types";
+import type { Turn } from "@/types/campaign";
+import { getPlayerColor } from "@/types/campaign";
 
 interface SessionLogProps {
   turns: Turn[];

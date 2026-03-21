@@ -5,13 +5,14 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { GENRES } from "@/lib/genres";
+import { GENRES } from "@/config/genres";
 import StoryCard from "@/components/shared/StoryCard";
 import BookCard from "@/components/shared/BookCard";
 import GenrePill from "@/components/shared/GenrePill";
+import type { ApiStory } from "@/types/api";
 
 // ── Dummy stories for testing while the library is empty ──
-const DUMMY_STORIES: Story[] = [
+const DUMMY_STORIES: ApiStory[] = [
   {
     id: "dummy-1",
     title: "The Ember Throne",
@@ -168,7 +169,7 @@ const DUMMY_STORIES: Story[] = [
 ];
 
 // ── Dummy campaigns for the "Open Adventures" section ──
-const DUMMY_CAMPAIGNS: Story[] = [
+const DUMMY_CAMPAIGNS: ApiStory[] = [
   {
     id: "campaign-1",
     title: "The Obsidian Crown",
@@ -239,25 +240,7 @@ const DUMMY_CAMPAIGNS: Story[] = [
   },
 ];
 
-interface Story {
-  id: string;
-  title: string;
-  format: string;
-  synopsis: string | null;
-  coverImageUrl: string | null;
-  genres: string[];
-  status: string;
-  slug: string | null;
-  createdAt: string;
-  updatedAt: string;
-  authorName: string | null;
-  chapterCount: number;
-  totalWords: number;
-  sparkCount: number;
-  contentRating: string;
-}
-
-interface StaffPick extends Story {
+interface StaffPick extends ApiStory {
   pickId: string;
   curatorNote: string;
   pickedBy: string;
@@ -353,10 +336,10 @@ function BrowsePage() {
   const [sortBy, setSortBy] = useState("latest");
   const [formatFilter, setFormatFilter] = useState("All");
   const [maxRating, setMaxRating] = useState<string>("all");
-  const [stories, setStories] = useState<Story[]>([]);
+  const [stories, setStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
-  const [campaignStories, setCampaignStories] = useState<Story[]>([]);
+  const [campaignStories, setCampaignStories] = useState<ApiStory[]>([]);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [searchFocused, setSearchFocused] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -387,7 +370,7 @@ function BrowsePage() {
         if (res.ok) {
           // Merge real stories with dummy data for testing
           const real = json.data.stories || [];
-          const realIds = new Set(real.map((s: Story) => s.id));
+          const realIds = new Set(real.map((s: ApiStory) => s.id));
           const dummies = DUMMY_STORIES.filter((d) => !realIds.has(d.id));
           setStories([...real, ...dummies]);
         }
@@ -422,7 +405,7 @@ function BrowsePage() {
         if (res.ok) {
           const json = await res.json();
           const real = json.data.stories || [];
-          const realIds = new Set(real.map((s: Story) => s.id));
+          const realIds = new Set(real.map((s: ApiStory) => s.id));
           const dummies = DUMMY_CAMPAIGNS.filter((d) => !realIds.has(d.id));
           setCampaignStories([...real, ...dummies]);
         } else {

@@ -7,23 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
+import type { ApiStoryData } from "@/types/api";
+
 // ── Types ───────────────────────────────────────────────────
-
-interface Author {
-  id: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-}
-
-interface StoryData {
-  id: string;
-  userId: string;
-  title: string;
-  slug: string | null;
-  writingMode: string;
-  isPublic: boolean;
-  author: Author | null;
-}
 
 interface PlayerCharacter {
   id: string;
@@ -109,7 +95,7 @@ export default function CampaignPage() {
   const { data: authSession } = useSession();
   const storyId = params.storyId as string;
 
-  const [story, setStory] = useState<StoryData | null>(null);
+  const [story, setStory] = useState<ApiStoryData | null>(null);
   const [characters, setCharacters] = useState<PlayerCharacter[]>([]);
   const [sessions, setSessions] = useState<CampaignSession[]>([]);
   const [applications, setApplications] = useState<CampaignApplication[]>([]);

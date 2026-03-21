@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { reactions } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { reactions } from "@/server/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createReactionSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/lib/api-utils";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -112,42 +112,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { type } = parsed.data;
 
-    // Check if user already has a reaction on this chapter
-    const existing = await db
-      .select({ id: reactions.id, type: reactions.type })
-      .from(reactions)
-      .where(
-        and(eq(reactions.chapterId, chapterId), eq(reactions.userId, userId))
-      )
-      .limit(1);
+    // Atomic toggle using transaction to prevent race conditions
+    const userReaction = await db.transaction(async (tx) => {
+      const existing = await tx
+        .select({ id: reactions.id, type: reactions.type })
+        .from(reactions)
+        .where(
+          and(eq(reactions.chapterId, chapterId), eq(reactions.userId, userId))
+        )
+        .limit(1);
 
-    let userReaction: string | null = null;
-
-    if (existing.length > 0) {
-      if (existing[0].type === type) {
-        // Same reaction — toggle off
-        await db
-          .delete(reactions)
-          .where(eq(reactions.id, existing[0].id));
-        userReaction = null;
+      if (existing.length > 0) {
+        if (existing[0].type === type) {
+          // Same reaction — toggle off
+          await tx
+            .delete(reactions)
+            .where(eq(reactions.id, existing[0].id));
+          return null;
+        } else {
+          // Different reaction — update
+          await tx
+            .update(reactions)
+            .set({ type })
+            .where(eq(reactions.id, existing[0].id));
+          return type;
+        }
       } else {
-        // Different reaction — update
-        await db
-          .update(reactions)
-          .set({ type })
-          .where(eq(reactions.id, existing[0].id));
-        userReaction = type;
+        // No existing reaction — create
+        await tx.insert(reactions).values({
+          userId,
+          chapterId,
+          storyId,
+          type,
+        });
+        return type;
       }
-    } else {
-      // No existing reaction — create
-      await db.insert(reactions).values({
-        userId,
-        chapterId,
-        storyId,
-        type,
-      });
-      userReaction = type;
-    }
+    });
 
     // Get updated counts
     const countRows = await db

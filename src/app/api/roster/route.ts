@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { guildProfiles, users, stories, sparks } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { guildProfiles, users, stories, sparks } from "@/server/db/schema";
 import { eq, and, ilike, or, sql, desc, ne } from "drizzle-orm";
 import { safeParseJson } from "@/lib/safe-json";
 

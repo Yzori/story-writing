@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { creatorUpdates, stories, users, follows } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { creatorUpdates, stories, users, follows } from "@/server/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createUpdateSchema } from "@/lib/validations";
-import { createBulkNotifications } from "@/lib/notifications";
-import { applyRateLimit } from "@/lib/api-utils";
+import { createBulkNotifications } from "@/server/services/notifications";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 

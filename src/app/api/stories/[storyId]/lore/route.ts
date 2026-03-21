@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { loreEntries, users } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { loreEntries, users } from "@/server/db/schema";
 import { eq, asc } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
 import { createLoreEntrySchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/lib/collaboration";
-import { applyRateLimit } from "@/lib/api-utils";
+import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -59,7 +59,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(loreEntries)
       .leftJoin(users, eq(loreEntries.userId, users.id))
       .where(eq(loreEntries.storyId, storyId))
-      .orderBy(asc(loreEntries.sortOrder));
+      .orderBy(asc(loreEntries.sortOrder))
+      .limit(500);
 
     return NextResponse.json({ data: result });
   } catch (error) {

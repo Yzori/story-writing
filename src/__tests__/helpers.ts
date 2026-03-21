@@ -61,7 +61,7 @@ export function mockAuth(
   userId: string = "user-1",
   extra: Record<string, unknown> = {}
 ) {
-  const { auth } = require("@/lib/auth");
+  const { auth } = require("@/server/auth");
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue({
     user: { id: userId, name: "Test User", email: "test@example.com", ...extra },
     expires: new Date(Date.now() + 86400000).toISOString(),
@@ -72,7 +72,7 @@ export function mockAuth(
  * Mock unauthenticated session.
  */
 export function mockNoAuth() {
-  const { auth } = require("@/lib/auth");
+  const { auth } = require("@/server/auth");
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 }
 

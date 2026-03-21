@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/server/db";
 import {
   campaignApplications,
   collaborators,
   stories,
-} from "@/lib/db/schema";
+} from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 import { updateApplicationSchema } from "@/lib/validations";
-import { createNotification } from "@/lib/notifications";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = {
   params: Promise<{ storyId: string; applicationId: string }>;
@@ -27,6 +28,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
 
     const { storyId, applicationId } = await params;
 

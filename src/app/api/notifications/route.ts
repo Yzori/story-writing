@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { notifications } from "@/lib/db/schema";
+import { db } from "@/server/db";
+import { notifications } from "@/server/db/schema";
 import { eq, desc, and, count } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { applyRateLimit } from "@/lib/api-utils";
+import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 
 /**
  * GET /api/notifications

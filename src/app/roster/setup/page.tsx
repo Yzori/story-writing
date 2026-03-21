@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { GENRES } from "@/lib/genres";
+import { GENRES } from "@/config/genres";
 
 // ── Constants ───────────────────────────────────────────────
 

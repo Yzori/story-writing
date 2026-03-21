@@ -5,41 +5,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import StoryCard from "@/components/shared/StoryCard";
-
-interface Story {
-  id: string;
-  title: string;
-  format: string;
-  synopsis: string | null;
-  coverImageUrl: string | null;
-  genres: string[];
-  contentRating: string;
-  status: string;
-  writingMode: string;
-  slug: string | null;
-  createdAt: string;
-  updatedAt: string;
-  authorName: string | null;
-  chapterCount: number;
-  totalWords: number;
-  sparkCount: number;
-}
-
-interface ReadingProgressItem {
-  storyId: string;
-  chapterId: string;
-  scrollPercent: number;
-  pageNumber: number;
-  updatedAt: string;
-  storyTitle: string;
-  storySlug: string | null;
-  storyCoverUrl: string | null;
-  storyGenres: string[];
-  chapterTitle: string;
-  chapterSortOrder: number;
-  authorName: string | null;
-  authorId: string;
-}
+import type { ApiStory, ApiReadingProgress } from "@/types/api";
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -76,7 +42,7 @@ function AnimatedStat({ value, label, accent }: { value: string | number; label:
 }
 
 // ── Active story — the featured "tome on the easel" ──────────
-function ActiveStorySpotlight({ story }: { story: Story }) {
+function ActiveStorySpotlight({ story }: { story: ApiStory }) {
   const href = story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`;
 
   return (
@@ -157,9 +123,9 @@ function ActiveStorySpotlight({ story }: { story: Story }) {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [stories, setStories] = useState<Story[]>([]);
-  const [followedStories, setFollowedStories] = useState<Story[]>([]);
-  const [continueReading, setContinueReading] = useState<ReadingProgressItem[]>([]);
+  const [stories, setStories] = useState<ApiStory[]>([]);
+  const [followedStories, setFollowedStories] = useState<ApiStory[]>([]);
+  const [continueReading, setContinueReading] = useState<ApiReadingProgress[]>([]);
   const [continueLoading, setContinueLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [followedLoading, setFollowedLoading] = useState(true);
