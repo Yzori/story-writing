@@ -67,6 +67,7 @@ export const updateChapterSchema = z.object({
   authorNoteBefore: z.string().max(5000).optional(),
   authorNoteAfter: z.string().max(5000).optional(),
   outline: z.string().max(10000).optional(),
+  baseVersion: z.number().int().positive().optional(), // optimistic locking
 });
 
 // ── Reorder ──────────────────────────────────────────────────

@@ -124,24 +124,56 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Optimistic locking: reject if version doesn't match
+    const { baseVersion, ...updateFields } = parsed.data;
+    if (baseVersion !== undefined && baseVersion !== existing.version) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "This chapter was modified by another user. Reload to see their changes.",
+          },
+          data: {
+            serverVersion: existing.version,
+            clientVersion: baseVersion,
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {
-      ...parsed.data,
+      ...updateFields,
       updatedAt: new Date(),
+      version: existing.version + 1,
     };
 
     if (updateData.content) {
       updateData.content = sanitizeHtml(updateData.content as string);
     }
 
-    if (parsed.data.content !== undefined) {
-      updateData.wordCount = countWords(parsed.data.content);
+    if (updateFields.content !== undefined) {
+      updateData.wordCount = countWords(updateFields.content);
     }
 
     const [updated] = await db
       .update(chapters)
       .set(updateData)
-      .where(eq(chapters.id, chapterId))
+      .where(and(eq(chapters.id, chapterId), eq(chapters.version, existing.version)))
       .returning();
+
+    // If update returned nothing, another concurrent write won the race
+    if (!updated) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "This chapter was modified by another user. Reload to see their changes.",
+          },
+        },
+        { status: 409 }
+      );
+    }
 
     // Notify followers when a chapter is newly published
     if (

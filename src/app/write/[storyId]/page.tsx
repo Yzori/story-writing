@@ -147,6 +147,7 @@ interface ApiChapter {
   authorNoteBefore: string;
   authorNoteAfter: string;
   outline: string;
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +164,7 @@ function apiChapterToLocal(ch: ApiChapter): Chapter {
     authorNoteBefore: ch.authorNoteBefore || "",
     authorNoteAfter: ch.authorNoteAfter || "",
     outline: ch.outline || "",
+    version: ch.version || 1,
     snapshots: [],
   };
 }
@@ -225,12 +227,12 @@ export default function WriteStoryPage() {
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   // Save state indicator
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error" | "conflict">("idle");
   const savedFadeTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Track which chapters have unsaved content changes
-  const pendingSaves = useRef<Map<string, string>>(new Map());
-  const failedSaves = useRef<Map<string, string>>(new Map());
+  // Track which chapters have unsaved content changes (content + version for optimistic locking)
+  const pendingSaves = useRef<Map<string, { content: string; version: number }>>(new Map());
+  const failedSaves = useRef<Map<string, { content: string; version: number }>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const isRetrying = useRef(false);
   const isSwitching = useRef(false);
@@ -374,11 +376,11 @@ export default function WriteStoryPage() {
         }
 
         try {
-          const saves = entries.map(([chapterId, content]) =>
+          const saves = entries.map(([chapterId, { content, version }]) =>
             fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content }),
+              body: JSON.stringify({ content, baseVersion: version }),
             })
           );
           const responses = await Promise.all(saves);
@@ -387,7 +389,29 @@ export default function WriteStoryPage() {
             window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
             return;
           }
+          // Check for version conflict
+          if (responses.some((r) => r.status === 409)) {
+            pendingSaves.current.clear();
+            failedSaves.current.clear();
+            setSaveState("conflict");
+            toast("Another user edited this chapter. Reload to see their changes.", "error");
+            return;
+          }
           if (responses.every((r) => r.ok)) {
+            // Update local chapter versions from server response
+            for (const res of responses) {
+              try {
+                const json = await res.clone().json();
+                if (json.data?.id && json.data?.version) {
+                  updateProject((prev) => ({
+                    ...prev,
+                    chapters: prev.chapters.map((c) =>
+                      c.id === json.data.id ? { ...c, version: json.data.version } : c
+                    ),
+                  }));
+                }
+              } catch { /* ignore parse errors */ }
+            }
             pendingSaves.current.clear();
             failedSaves.current.clear();
             setSaveState("saved");
@@ -402,8 +426,8 @@ export default function WriteStoryPage() {
 
       if (lastError) {
         // Store failed entries for manual retry
-        for (const [chapterId, content] of entries) {
-          failedSaves.current.set(chapterId, content);
+        for (const [chapterId, entry] of entries) {
+          failedSaves.current.set(chapterId, entry);
         }
         setSaveState("error");
       }
@@ -414,11 +438,11 @@ export default function WriteStoryPage() {
       if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
       // Fire-and-forget flush on unmount
       const entries = Array.from(pendingSaves.current.entries());
-      for (const [chapterId, chapterContent] of entries) {
+      for (const [chapterId, { content: chapterContent, version }] of entries) {
         fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: chapterContent }),
+          body: JSON.stringify({ content: chapterContent, baseVersion: version }),
           keepalive: true,
         }).catch(() => {});
       }
@@ -441,11 +465,11 @@ export default function WriteStoryPage() {
     if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
 
     try {
-      const saves = entries.map(([chapterId, content]) =>
+      const saves = entries.map(([chapterId, { content, version }]) =>
         fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, baseVersion: version }),
         })
       );
       const responses = await Promise.all(saves);
@@ -454,7 +478,29 @@ export default function WriteStoryPage() {
         window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
         return false;
       }
+      // Check for version conflict
+      if (responses.some((r) => r.status === 409)) {
+        pendingSaves.current.clear();
+        failedSaves.current.clear();
+        setSaveState("conflict");
+        toast("Another user edited this chapter. Reload to see their changes.", "error");
+        return false;
+      }
       if (responses.every((r) => r.ok)) {
+        // Update local chapter versions from server response
+        for (const res of responses) {
+          try {
+            const json = await res.clone().json();
+            if (json.data?.id && json.data?.version) {
+              updateProject((prev) => ({
+                ...prev,
+                chapters: prev.chapters.map((c) =>
+                  c.id === json.data.id ? { ...c, version: json.data.version } : c
+                ),
+              }));
+            }
+          } catch { /* ignore parse errors */ }
+        }
         pendingSaves.current.clear();
         failedSaves.current.clear();
         setSaveState("saved");
@@ -466,12 +512,13 @@ export default function WriteStoryPage() {
     }
 
     // On failure, store for manual retry
-    for (const [chapterId, content] of entries) {
-      failedSaves.current.set(chapterId, content);
+    for (const [chapterId, entry] of entries) {
+      failedSaves.current.set(chapterId, entry);
     }
     setSaveState("error");
     return false;
-  }, [storyId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyId, toast]);
 
   // ── Warn user about unsaved changes on navigation ──────
   useEffect(() => {
@@ -493,17 +540,24 @@ export default function WriteStoryPage() {
       if (entries.length === 0) return;
 
       setSaveState("saving");
-      const saves = entries.map(([chapterId, content]) =>
+      const saves = entries.map(([chapterId, { content, version }]) =>
         fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, baseVersion: version }),
         })
       );
       const responses = await Promise.all(saves);
       // Check for auth expiry
       if (responses.some((r) => r.status === 401)) {
         window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+        return;
+      }
+      // Check for version conflict
+      if (responses.some((r) => r.status === 409)) {
+        failedSaves.current.clear();
+        setSaveState("conflict");
+        toast("Another user edited this chapter. Reload to see their changes.", "error");
         return;
       }
       if (responses.every((r) => r.ok)) {
@@ -792,7 +846,8 @@ export default function WriteStoryPage() {
       updateProject((prev) => {
         const chapterId = prev.activeChapterId;
         if (chapterId) {
-          pendingSaves.current.set(chapterId, content);
+          const chapter = prev.chapters.find((c) => c.id === chapterId);
+          pendingSaves.current.set(chapterId, { content, version: chapter?.version ?? 1 });
         }
 
         const updated = {
@@ -998,7 +1053,8 @@ export default function WriteStoryPage() {
       updateProject((prev) => {
         const chapterId = prev.activeChapterId;
         if (chapterId) {
-          pendingSaves.current.set(chapterId, snapshot.content);
+          const chapter = prev.chapters.find((c) => c.id === chapterId);
+          pendingSaves.current.set(chapterId, { content: snapshot.content, version: chapter?.version ?? 1 });
         }
         return {
           ...prev,
@@ -1041,7 +1097,8 @@ export default function WriteStoryPage() {
 
   const handleUpdateChapterContent = useCallback(
     (chapterId: string, content: string) => {
-      pendingSaves.current.set(chapterId, content);
+      const chapter = project?.chapters.find((c) => c.id === chapterId);
+      pendingSaves.current.set(chapterId, { content, version: chapter?.version ?? 1 });
       updateProject((prev) => ({
         ...prev,
         chapters: prev.chapters.map((c) =>
@@ -1538,6 +1595,60 @@ export default function WriteStoryPage() {
             onToggleBible={handleToggleBible}
             onToggleSettings={handleToggleSettings}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Conflict Banner ───────────────────────────────── */}
+      <AnimatePresence>
+        {saveState === "conflict" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-amber/10 border border-amber/20 backdrop-blur-xl text-amber text-sm shadow-2xl"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Another collaborator edited this chapter</span>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1.5 rounded-lg bg-amber/20 hover:bg-amber/30 transition-colors font-medium text-xs"
+            >
+              Reload
+            </button>
+            <button
+              onClick={() => {
+                setSaveState("idle");
+                // Force save with current version (override)
+                if (project) {
+                  const ch = project.chapters.find((c) => c.id === project.activeChapterId);
+                  if (ch) {
+                    fetch(`/api/stories/${storyId}/chapters/${ch.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ content: ch.content }),
+                    }).then((r) => {
+                      if (r.ok) {
+                        r.json().then((json) => {
+                          if (json.data?.version) {
+                            updateProject((prev) => ({
+                              ...prev,
+                              chapters: prev.chapters.map((c) =>
+                                c.id === json.data.id ? { ...c, version: json.data.version } : c
+                              ),
+                            }));
+                          }
+                        });
+                        toast("Your version saved", "success");
+                      }
+                    });
+                  }
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-surface/50 border border-border hover:bg-surface transition-colors font-medium text-xs text-text-secondary"
+            >
+              Keep mine
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { formatNumber, WritingGoals } from "@/lib/store";
 import { getTodaySession } from "@/lib/goals";
 
-type SaveState = "idle" | "saving" | "saved" | "error";
+type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 
 interface StatusBarProps {
   showOutline: boolean;
@@ -159,7 +159,7 @@ function StatusBar({
           <span
             aria-live="polite"
             className={`text-[11px] shrink-0 ${
-              saveState === "error" ? "text-rose" : "text-paper/40"
+              saveState === "error" ? "text-rose" : saveState === "conflict" ? "text-amber" : "text-paper/40"
             }`}
           >
             {saveState === "idle" && (
@@ -181,6 +181,15 @@ function StatusBar({
               </span>
             )}
             {saveState === "error" && "Save failed"}
+            {saveState === "conflict" && (
+              <span className="flex items-center gap-1.5 text-amber">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M8 1L15 14H1L8 1z" />
+                  <path d="M8 6v4M8 12v.5" />
+                </svg>
+                Conflict — reload
+              </span>
+            )}
           </span>
         </div>
 

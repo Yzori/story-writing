@@ -19,6 +19,8 @@ export interface Chapter {
   authorNoteAfter: string;
   // Outline
   outline: string;
+  // Optimistic locking
+  version: number;
   // Version history
   snapshots: ChapterSnapshot[];
 }
@@ -145,6 +147,7 @@ export function createChapter(title: string = "Untitled Chapter"): Chapter {
     authorNoteBefore: "",
     authorNoteAfter: "",
     outline: "",
+    version: 1,
     snapshots: [],
   };
 }

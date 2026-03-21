@@ -117,6 +117,7 @@ export const chapters = pgTable("chapters", {
   authorNoteBefore: text("author_note_before").default(""),
   authorNoteAfter: text("author_note_after").default(""),
   outline: text("outline").default(""),
+  version: integer("version").notNull().default(1),
   sessionId: uuid("session_id"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

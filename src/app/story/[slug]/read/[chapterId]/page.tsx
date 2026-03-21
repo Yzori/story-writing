@@ -84,6 +84,7 @@ function apiChapterToChapter(ch: ApiChapter): Chapter {
     authorNoteBefore: ch.authorNoteBefore || "",
     authorNoteAfter: ch.authorNoteAfter || "",
     outline: ch.outline || "",
+    version: 1,
     snapshots: [],
   };
 }
