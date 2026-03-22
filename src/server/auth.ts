@@ -62,12 +62,20 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        // Look up isAdmin from database
+        const [dbUser] = await db
+          .select({ isAdmin: users.isAdmin })
+          .from(users)
+          .where(eq(users.id, user.id as string))
+          .limit(1);
+        token.isAdmin = dbUser?.isAdmin ?? false;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        (session.user as unknown as Record<string, unknown>).isAdmin = (token.isAdmin as boolean) ?? false;
       }
       return session;
     },

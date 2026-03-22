@@ -65,9 +65,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(eq(bibleEntries.storyId, storyId))
       .orderBy(asc(bibleEntries.sortOrder));
 
+    // Parse contentNotes JSON string to array
+    const parsedContentNotes = story.contentNotes ? JSON.parse(story.contentNotes) : [];
+
     return NextResponse.json({
       data: {
         ...story,
+        contentNotes: parsedContentNotes,
         author: author
           ? {
               id: author.id,
@@ -142,10 +146,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Serialize contentNotes array to JSON string for storage
+    const { contentNotes, ...restData } = parsed.data;
     // Set publishedAt when first published
     const setData: Record<string, unknown> = {
-      ...parsed.data,
+      ...restData,
       updatedAt: new Date(),
+      ...(contentNotes !== undefined && {
+        contentNotes: JSON.stringify(contentNotes),
+      }),
     };
     if (parsed.data.isPublic === true && !existing.publishedAt) {
       setData.publishedAt = new Date();
@@ -157,7 +166,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .where(eq(stories.id, storyId))
       .returning();
 
-    return NextResponse.json({ data: updated });
+    return NextResponse.json({
+      data: {
+        ...updated,
+        contentNotes: updated.contentNotes ? JSON.parse(updated.contentNotes) : [],
+      },
+    });
   } catch (error) {
     console.error("PATCH /api/stories/[storyId] error:", error);
     return NextResponse.json(

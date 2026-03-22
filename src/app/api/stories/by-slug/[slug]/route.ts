@@ -65,9 +65,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(and(...chapterConditions))
       .orderBy(asc(chapters.sortOrder));
 
+    // Parse contentNotes JSON string to array
+    const parsedContentNotes = story.contentNotes ? JSON.parse(story.contentNotes) : [];
+
     return NextResponse.json({
       data: {
         ...story,
+        contentNotes: parsedContentNotes,
         author: author
           ? {
               id: author.id,

@@ -30,6 +30,7 @@ export const users = pgTable("users", {
   comfortRating: text("comfort_rating").notNull().default("everyone"),
   readingMode: text("reading_mode").notNull().default("paginated"),
   readingFont: text("reading_font").notNull().default("default"),
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -65,6 +66,7 @@ export const stories = pgTable("stories", {
     .notNull()
     .default(sql`'{}'::text[]`),
   contentRating: text("content_rating").notNull().default("G"),
+  contentNotes: text("content_notes").default("[]"),
   status: text("status").notNull().default("draft"),
   dedication: text("dedication").default(""),
   language: text("language").notNull().default("English"),

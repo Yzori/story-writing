@@ -37,6 +37,7 @@ export default function CreatePage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [synopsis, setSynopsis] = useState("");
   const [contentRating, setContentRating] = useState("G");
+  const [contentNotes, setContentNotes] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,6 +86,7 @@ export default function CreatePage() {
           genres: selectedGenres,
           synopsis: synopsis || undefined,
           contentRating,
+          contentNotes: contentNotes.length > 0 ? contentNotes : undefined,
           coverImageUrl: coverPreview || undefined,
         }),
       });
@@ -668,6 +670,50 @@ export default function CreatePage() {
                           <span className={`text-[10px] mt-0.5 ${isSelected ? `text-${accentColor}/60` : "text-text-tertiary"}`}>
                             {rating.description}
                           </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+
+                {/* Content Notes */}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.56 }}
+                >
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-1.5 block font-body">
+                    Content Notes
+                  </label>
+                  <p className="text-[11px] text-text-ghost mb-3 font-body">
+                    Help readers make informed choices
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "Violence", "Gore", "Sexual Content", "Strong Language", "Self-Harm",
+                      "Substance Use", "Abuse", "Horror", "Death", "Discrimination",
+                    ].map((note) => {
+                      const isSelected = contentNotes.includes(note);
+                      return (
+                        <button
+                          key={note}
+                          type="button"
+                          onClick={() =>
+                            setContentNotes((prev) =>
+                              prev.includes(note)
+                                ? prev.filter((n) => n !== note)
+                                : prev.length >= 10
+                                ? prev
+                                : [...prev, note]
+                            )
+                          }
+                          className={`px-2.5 py-1 rounded-full text-[11px] border font-body transition-all duration-200 cursor-pointer ${
+                            isSelected
+                              ? `bg-amber/10 text-amber border-amber/30`
+                              : "border-white/[0.08] text-text-secondary hover:border-white/15"
+                          }`}
+                        >
+                          {note}
                         </button>
                       );
                     })}

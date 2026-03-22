@@ -14,6 +14,7 @@ export interface ApiStory {
   coverImageUrl: string | null;
   genres: string[];
   contentRating: string;
+  contentNotes?: string[];
   status: string;
   writingMode?: string;
   slug: string | null;
@@ -23,6 +24,8 @@ export interface ApiStory {
   chapterCount: number;
   totalWords: number;
   sparkCount: number;
+  playerCount?: number;
+  sessionCount?: number;
 }
 
 /** Full story detail returned by /api/stories/by-slug/[slug]. */
@@ -36,6 +39,7 @@ export interface ApiStoryData {
   coverImageUrl: string | null;
   genres: string[];
   contentRating: string;
+  contentNotes?: string[];
   status: string;
   slug: string | null;
   writingMode: string | null;

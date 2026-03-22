@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { stories, users, sparks as sparksTable, chapters } from "@/server/db/schema";
+import { stories, users, sparks as sparksTable, chapters, playerCharacters, campaignSessions } from "@/server/db/schema";
 import { eq, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
@@ -77,6 +77,25 @@ export async function GET(request: NextRequest) {
       .groupBy(sparksTable.storyId)
       .as("spark_stats");
 
+    const playerStats = db
+      .select({
+        storyId: playerCharacters.storyId,
+        playerCount: sql<number>`count(distinct ${playerCharacters.userId})`.as("player_count"),
+      })
+      .from(playerCharacters)
+      .where(eq(playerCharacters.status, "active"))
+      .groupBy(playerCharacters.storyId)
+      .as("player_stats");
+
+    const sessionStats = db
+      .select({
+        storyId: campaignSessions.storyId,
+        sessionCount: sql<number>`count(*)`.as("session_count"),
+      })
+      .from(campaignSessions)
+      .groupBy(campaignSessions.storyId)
+      .as("session_stats");
+
     const results = await db
       .select({
         id: stories.id,
@@ -87,6 +106,7 @@ export async function GET(request: NextRequest) {
         coverImageUrl: stories.coverImageUrl,
         genres: stories.genres,
         contentRating: stories.contentRating,
+        contentNotes: stories.contentNotes,
         status: stories.status,
         writingMode: stories.writingMode,
         isPublic: stories.isPublic,
@@ -99,11 +119,15 @@ export async function GET(request: NextRequest) {
         chapterCount: sql<number>`coalesce(${chapterStats.chapterCount}, 0)`,
         totalWords: sql<number>`coalesce(${chapterStats.totalWords}, 0)`,
         sparkCount: sql<number>`coalesce(${sparkStats.sparkCount}, 0)`,
+        playerCount: sql<number>`coalesce(${playerStats.playerCount}, 0)`,
+        sessionCount: sql<number>`coalesce(${sessionStats.sessionCount}, 0)`,
       })
       .from(stories)
       .leftJoin(users, eq(stories.userId, users.id))
       .leftJoin(chapterStats, eq(stories.id, chapterStats.storyId))
       .leftJoin(sparkStats, eq(stories.id, sparkStats.storyId))
+      .leftJoin(playerStats, eq(stories.id, playerStats.storyId))
+      .leftJoin(sessionStats, eq(stories.id, sessionStats.storyId))
       .where(and(...conditions))
       .orderBy(
         sort === "most-sparked"
@@ -117,8 +141,14 @@ export async function GET(request: NextRequest) {
       .limit(limit + 1);
 
     const hasMore = results.length > limit;
-    const items = hasMore ? results.slice(0, limit) : results;
-    const nextCursor = hasMore ? items[items.length - 1].id : null;
+    const rawItems = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore ? rawItems[rawItems.length - 1].id : null;
+
+    // Parse contentNotes JSON string to array
+    const items = rawItems.map((item) => ({
+      ...item,
+      contentNotes: item.contentNotes ? JSON.parse(item.contentNotes) : [],
+    }));
 
     return NextResponse.json({
       data: {
@@ -166,7 +196,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, ...rest } = parsed.data;
+    const { title, contentNotes, ...rest } = parsed.data;
     const slug = generateSlug(title);
 
     const [story] = await db
@@ -176,10 +206,19 @@ export async function POST(request: NextRequest) {
         slug,
         userId: session.user.id,
         ...rest,
+        ...(contentNotes !== undefined && {
+          contentNotes: JSON.stringify(contentNotes),
+        }),
       })
       .returning();
 
-    return NextResponse.json({ data: story }, { status: 201 });
+    // Parse contentNotes back to array for response
+    const responseStory = {
+      ...story,
+      contentNotes: story.contentNotes ? JSON.parse(story.contentNotes) : [],
+    };
+
+    return NextResponse.json({ data: responseStory }, { status: 201 });
   } catch (error) {
     console.error("POST /api/stories error:", error);
     return NextResponse.json(

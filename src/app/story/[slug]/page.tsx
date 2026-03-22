@@ -972,6 +972,23 @@ export default function StoryPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Content Notes */}
+                {story.contentNotes && story.contentNotes.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2">Content Notes</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {story.contentNotes.map((note: string) => (
+                        <span
+                          key={note}
+                          className="bg-surface/50 text-text-secondary border border-border text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full font-body"
+                        >
+                          {note}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Author Bio */}

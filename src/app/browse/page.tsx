@@ -464,7 +464,7 @@ function BrowsePage() {
                   className="flex-shrink-0 w-[300px]"
                 >
                   <Link
-                    href={`/story/${campaign.slug || campaign.id}`}
+                    href={`/campaign/${campaign.id}`}
                     className="block group"
                   >
                     <div className="relative rounded-2xl overflow-hidden border border-amber/15 hover:border-amber/30 transition-all duration-300 bg-surface/60">
@@ -513,10 +513,42 @@ function BrowsePage() {
                             {campaign.synopsis}
                           </p>
                         )}
-                        <div className="flex items-center gap-2 mt-3">
-                          {campaign.genres.slice(0, 2).map((g) => (
-                            <GenrePill key={g} genre={g} size="sm" />
-                          ))}
+
+                        {/* Campaign stats & join CTA */}
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-3">
+                            {campaign.genres.slice(0, 2).map((g) => (
+                              <GenrePill key={g} genre={g} size="sm" />
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2.5 text-[10px] text-text-ghost">
+                            {/* Player count */}
+                            <span className="flex items-center gap-1" title="Players">
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
+                                <circle cx="6" cy="5" r="2.5" />
+                                <path d="M1 14c0-3 2.5-5 5-5s5 2 5 5" />
+                                <circle cx="11.5" cy="5.5" r="2" />
+                                <path d="M15 14c0-2.5-1.5-4-3.5-4" />
+                              </svg>
+                              {campaign.playerCount ?? 0}
+                            </span>
+                            {/* Session count */}
+                            <span className="flex items-center gap-1" title="Sessions">
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
+                                <rect x="2" y="3" width="12" height="10" rx="1.5" />
+                                <path d="M2 7h12" />
+                                <path d="M5 3v-1M11 3v-1" />
+                              </svg>
+                              {campaign.sessionCount ?? 0}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Join button */}
+                        <div className="mt-3 pt-3 border-t border-border/30">
+                          <span className="text-[11px] font-medium text-violet group-hover:text-amber transition-colors uppercase tracking-wider">
+                            View Adventure &rarr;
+                          </span>
                         </div>
                       </div>
                     </div>
