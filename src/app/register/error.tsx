@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-export default function RosterError({
+export default function RegisterError({
   error,
   reset,
 }: {
@@ -21,17 +21,16 @@ export default function RosterError({
           strokeWidth="1.3"
           className="text-rose/50"
         >
-          <circle cx="14" cy="10" r="5" />
-          <circle cx="24" cy="12" r="4" />
-          <path d="M4 30c0-5.523 4.477-10 10-10s10 4.477 10 10" />
-          <path d="M20 28c0-3.866 2.686-7 6-7s6 3.134 6 7" />
+          <circle cx="18" cy="12" r="6" />
+          <path d="M6 32c0-6.627 5.373-12 12-12s12 5.373 12 12" />
+          <path d="M26 8l4 4M30 8l-4 4" />
         </svg>
       </div>
       <h1 className="font-display text-3xl text-paper font-semibold mb-3">
-        Couldn&apos;t load the roster
+        Couldn&apos;t load registration
       </h1>
       <p className="text-text-secondary text-[14px] max-w-sm mb-8 leading-relaxed">
-        Something went wrong while loading the character roster. Please try again.
+        Something went wrong while loading the registration page. Please try again.
       </p>
       <div className="flex items-center gap-4">
         <button
@@ -41,10 +40,10 @@ export default function RosterError({
           Try again
         </button>
         <Link
-          href="/dashboard"
+          href="/"
           className="bg-surface border border-border text-paper font-medium px-5 py-2.5 rounded-lg hover:border-amber/30 transition-colors text-[13px]"
         >
-          Back to Desk
+          Go Home
         </Link>
       </div>
       {error.digest && (

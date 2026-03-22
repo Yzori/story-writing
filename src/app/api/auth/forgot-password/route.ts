@@ -53,9 +53,9 @@ export async function POST(request: NextRequest) {
       expiresAt,
     });
 
-    // Log the reset URL (replace with Resend email later)
+    // TODO: Send reset email via Resend
     const resetUrl = `${request.nextUrl.origin}/reset-password?token=${token}`;
-    console.log(`[Password Reset] Reset link for ${email}: ${resetUrl}`);
+    console.log("[Password Reset] Token generated for user", user.id);
 
     return successResponse;
   } catch (error) {

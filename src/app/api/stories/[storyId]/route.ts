@@ -66,7 +66,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .orderBy(asc(bibleEntries.sortOrder));
 
     // Parse contentNotes JSON string to array
-    const parsedContentNotes = story.contentNotes ? JSON.parse(story.contentNotes) : [];
+    let parsedContentNotes: string[] = [];
+    try { parsedContentNotes = story.contentNotes ? JSON.parse(story.contentNotes) : []; } catch { /* corrupted JSON */ }
 
     return NextResponse.json({
       data: {

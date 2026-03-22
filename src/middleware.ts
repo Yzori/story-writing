@@ -2,7 +2,7 @@ import { auth } from "@/server/auth";
 import { NextResponse } from "next/server";
 import { validateCsrf } from "@/server/csrf";
 
-const protectedPaths = ["/write", "/dashboard", "/create", "/admin"];
+const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings", "/roster/setup", "/campaign"];
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];
 const authPages = ["/login", "/register"];
 

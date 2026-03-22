@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
       .where(
-        and(eq(comments.storyId, storyId), eq(comments.chapterId, chapterId))
+        and(eq(comments.storyId, storyId), eq(comments.chapterId, chapterId), isNull(comments.deletedAt))
       )
       .orderBy(asc(comments.createdAt))
       .limit(limit + 1)

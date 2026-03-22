@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
     // Parse contentNotes back to array for response
     const responseStory = {
       ...story,
-      contentNotes: story.contentNotes ? JSON.parse(story.contentNotes) : [],
+      contentNotes: (() => { try { return story.contentNotes ? JSON.parse(story.contentNotes) : []; } catch { return []; } })(),
     };
 
     return NextResponse.json({ data: responseStory }, { status: 201 });
