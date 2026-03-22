@@ -67,9 +67,9 @@ html, html.theme-dark {
 
   --t-paper: #F2E8D0;
   --t-text: #D4C4A8;
-  --t-text-secondary: #A89878;
-  --t-text-tertiary: #7A6C54;
-  --t-text-ghost: #5E5040;
+  --t-text-secondary: #B8A888;
+  --t-text-tertiary: #9A8A6A;
+  --t-text-ghost: #7A6C56;
 
   /* Firelight gold — warm, alive, not corporate */
   --t-gold: #C8963C;
@@ -114,9 +114,9 @@ html.theme-light {
 
   --t-paper: #1C1810;
   --t-text: #3A3228;
-  --t-text-secondary: #5C5040;
-  --t-text-tertiary: #887A64;
-  --t-text-ghost: #8A7E68;
+  --t-text-secondary: #50453A;
+  --t-text-tertiary: #6E6050;
+  --t-text-ghost: #857660;
 
   /* Warm brass — deeper than dark theme gold, grounded */
   --t-gold: #7C5A22;
@@ -355,11 +355,11 @@ body::after {
   display: flex;
   gap: 4px;
   padding: 6px 4px;
-  background: rgba(30, 30, 30, 0.97);
+  background: var(--t-elevated);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--t-border);
   border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
 
 .scene-break-picker-btn {
@@ -377,19 +377,19 @@ body::after {
 }
 
 .scene-break-picker-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--t-subtle);
 }
 
 .scene-break-picker-btn .sbp-preview {
   font-size: 16px;
-  color: rgba(200, 160, 80, 0.9);
+  color: var(--t-gold);
 }
 
 .scene-break-picker-btn .sbp-label {
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--t-text-ghost);
 }
 
 /* Scene break — a real block element, not a void <hr> */
@@ -862,7 +862,7 @@ body::after {
   font-family: var(--font-literata, "Literata", serif);
   font-size: var(--reader-font-size, 1.0625rem);
   line-height: 1.85;
-  color: var(--color-paper, #f5f0e8);
+  color: var(--color-paper);
 }
 
 .poetry-reader .stanza {

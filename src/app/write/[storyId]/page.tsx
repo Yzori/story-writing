@@ -1583,10 +1583,10 @@ export default function WriteStoryPage() {
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-paper/15">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
                         <path d="M3 2l4 3-4 3" />
                       </svg>
-                      <span className="text-[10px] text-paper/30 uppercase tracking-[0.15em]">
+                      <span className="text-[10px] text-text-ghost uppercase tracking-[0.15em]">
                         {activeChapterIndex !== undefined ? `${getFormatLabels(storyFormat).singular} ${activeChapterIndex + 1}` : ""}
                       </span>
                     </div>
@@ -1613,7 +1613,7 @@ export default function WriteStoryPage() {
                       </h1>
                       <div className="flex items-center gap-3 shrink-0">
                         {/* Reading time */}
-                        <span className="text-[11px] text-paper/20 hidden sm:block">
+                        <span className="text-[11px] text-text-ghost hidden sm:block">
                           ~{Math.max(1, Math.ceil((activeChapter.wordCount || 0) / 238))} min read
                         </span>
                         {/* Focus mode toggle */}
@@ -1622,7 +1622,7 @@ export default function WriteStoryPage() {
                           className={`p-1.5 rounded-md transition-all text-[11px] hidden sm:flex items-center gap-1 ${
                             focusMode
                               ? "bg-amber/10 text-amber border border-amber/20"
-                              : "text-paper/25 hover:text-paper/40 border border-transparent"
+                              : "text-text-ghost hover:text-text-secondary border border-transparent"
                           }`}
                           title="Focus mode"
                         >
@@ -1637,7 +1637,7 @@ export default function WriteStoryPage() {
                           className={`p-1.5 rounded-md transition-all text-[11px] hidden sm:flex items-center gap-1 ${
                             refPaneOpen
                               ? "bg-lavender/10 text-lavender border border-lavender/20"
-                              : "text-paper/25 hover:text-paper/40 border border-transparent"
+                              : "text-text-ghost hover:text-text-secondary border border-transparent"
                           }`}
                           title="Reference pane"
                         >

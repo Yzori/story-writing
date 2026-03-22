@@ -90,7 +90,7 @@ function SessionTimer() {
       className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-mono transition-colors ${
         running
           ? "text-sage bg-sage/[0.08]"
-          : "text-paper/30 bg-paper/[0.03]"
+          : "text-text-ghost bg-paper/[0.03]"
       }`}
       title={running ? "Pause session timer" : "Resume session timer"}
     >
@@ -164,7 +164,7 @@ function StatusBar({
             className={`p-2 rounded-full transition-all hidden sm:block ${
               showOutline
                 ? "bg-paper/20 text-paper"
-                : "hover:bg-paper/10 text-paper/50 hover:text-paper"
+                : "hover:bg-subtle/50 text-text-tertiary hover:text-paper"
             }`}
             title="Chapter Outline"
             aria-label={showOutline ? "Hide chapter outline" : "Show chapter outline"}
@@ -175,33 +175,33 @@ function StatusBar({
             </svg>
           </button>
 
-          <button onClick={onToggleComments} className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block" title="Comments">
+          <button onClick={onToggleComments} className="p-2 rounded-full transition-all hover:bg-subtle/50 text-text-tertiary hover:text-paper hidden sm:block" title="Comments">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </button>
 
-          <button onClick={onToggleSearch} className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block" title="Search (Ctrl+Shift+H)">
+          <button onClick={onToggleSearch} className="p-2 rounded-full transition-all hover:bg-subtle/50 text-text-tertiary hover:text-paper hidden sm:block" title="Search (Ctrl+Shift+H)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
 
-          <div className="w-[1px] h-5 bg-paper/8 shrink-0 hidden sm:block" />
+          <div className="w-[1px] h-5 bg-border shrink-0 hidden sm:block" />
 
-          <button onClick={onToggleGoals} className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block" title="Writing Goals">
+          <button onClick={onToggleGoals} className="p-2 rounded-full transition-all hover:bg-subtle/50 text-text-tertiary hover:text-paper hidden sm:block" title="Writing Goals">
             <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
             </svg>
           </button>
 
-          <button onClick={onToggleBible} className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block" title="Story Bible">
+          <button onClick={onToggleBible} className="p-2 rounded-full transition-all hover:bg-subtle/50 text-text-tertiary hover:text-paper hidden sm:block" title="Story Bible">
             <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
             </svg>
           </button>
 
-          <button onClick={onToggleHistory} className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block relative" title="Version History">
+          <button onClick={onToggleHistory} className="p-2 rounded-full transition-all hover:bg-subtle/50 text-text-tertiary hover:text-paper hidden sm:block relative" title="Version History">
             <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <circle cx="12" cy="12" r="9" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 3" />
@@ -213,7 +213,7 @@ function StatusBar({
             )}
           </button>
 
-          <button onClick={onToggleSettings} className="p-2 rounded-full transition-all hover:bg-paper/10 text-paper/50 hover:text-paper hidden sm:block" title="Chapter Settings">
+          <button onClick={onToggleSettings} className="p-2 rounded-full transition-all hover:bg-subtle/50 text-text-tertiary hover:text-paper hidden sm:block" title="Chapter Settings">
             <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -221,14 +221,14 @@ function StatusBar({
           </button>
         </div>
 
-        <div className="w-[1px] h-5 bg-paper/8 shrink-0" />
+        <div className="w-[1px] h-5 bg-border shrink-0" />
 
         {/* Center: Session timer + Progress ring + Word counts */}
         <div className="flex items-center gap-3 sm:gap-4">
           {/* Session timer */}
           <SessionTimer />
 
-          <div className="w-[1px] h-5 bg-paper/8 shrink-0 hidden sm:block" />
+          <div className="w-[1px] h-5 bg-border shrink-0 hidden sm:block" />
 
           {/* Progress ring + daily words */}
           <div className="flex items-center gap-2.5">
@@ -237,32 +237,32 @@ function StatusBar({
               <span className="text-[11px] font-mono text-amber leading-none">
                 {formatNumber(todayWords)}
                 {dailyTarget > 0 && (
-                  <span className="text-paper/25 text-[10px]"> / {formatNumber(dailyTarget)}</span>
+                  <span className="text-text-ghost text-[10px]"> / {formatNumber(dailyTarget)}</span>
                 )}
               </span>
-              <span className="text-[8px] text-paper/20 uppercase tracking-wider mt-0.5">Today</span>
+              <span className="text-[8px] text-text-ghost uppercase tracking-wider mt-0.5">Today</span>
             </div>
           </div>
 
-          <div className="w-[1px] h-5 bg-paper/8 shrink-0 hidden sm:block" />
+          <div className="w-[1px] h-5 bg-border shrink-0 hidden sm:block" />
 
           <div className="flex-col items-start shrink-0 hidden sm:flex">
             <span className="text-[11px] font-mono text-paper/50 leading-none">{formatNumber(totalWords)}</span>
-            <span className="text-[8px] text-paper/20 uppercase tracking-wider mt-0.5">Total</span>
+            <span className="text-[8px] text-text-ghost uppercase tracking-wider mt-0.5">Total</span>
           </div>
 
           {/* Save state */}
-          <div className="w-[1px] h-5 bg-paper/8 shrink-0" />
+          <div className="w-[1px] h-5 bg-border shrink-0" />
           <span
             aria-live="polite"
             className={`text-[11px] shrink-0 ${
-              saveState === "error" ? "text-rose" : saveState === "conflict" ? "text-amber" : "text-paper/40"
+              saveState === "error" ? "text-rose" : saveState === "conflict" ? "text-amber" : "text-text-tertiary"
             }`}
           >
             {saveState === "idle" && (
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
-                <span className="text-paper/20">Saved</span>
+                <span className="text-text-ghost">Saved</span>
               </span>
             )}
             {saveState === "saving" && (
@@ -290,7 +290,7 @@ function StatusBar({
           </span>
         </div>
 
-        <div className="w-[1px] h-5 bg-paper/8 shrink-0" />
+        <div className="w-[1px] h-5 bg-border shrink-0" />
 
         {/* Right: Commands button */}
         <button
@@ -304,7 +304,7 @@ function StatusBar({
             </svg>
           </div>
           <span className="text-xs font-medium text-paper/50 group-hover:text-amber hidden sm:inline">Commands</span>
-          <span className="px-1.5 py-0.5 rounded text-[9px] bg-paper/10 text-paper/40 ml-1 font-mono tracking-wider hidden sm:inline">/</span>
+          <span className="px-1.5 py-0.5 rounded text-[9px] bg-subtle/50 text-text-tertiary ml-1 font-mono tracking-wider hidden sm:inline">/</span>
         </button>
       </div>
 

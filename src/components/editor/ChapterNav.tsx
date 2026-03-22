@@ -262,7 +262,7 @@ function ChapterItem({
           <span className={`shrink-0 text-[8px] uppercase tracking-wider px-1 py-0.5 rounded-full ${
             chapter.status === "published"
               ? "bg-sage/12 text-sage/60"
-              : "bg-white/[0.03] text-text-ghost/40"
+              : "bg-subtle/20 text-text-ghost"
           }`}>
             {chapter.status === "published" ? "Live" : "Draft"}
           </span>
@@ -274,7 +274,7 @@ function ChapterItem({
         </div>
         {/* Word count progress bar (show for chapters with content but not published) */}
         {chapter.wordCount > 0 && chapter.status !== "published" && (
-          <div className="mt-1.5 h-[2px] bg-white/[0.03] rounded-full overflow-hidden">
+          <div className="mt-1.5 h-[2px] bg-border rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-amber/30 rounded-full"
               initial={{ width: 0 }}
