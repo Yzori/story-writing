@@ -51,7 +51,7 @@ function ActiveStorySpotlight({ story }: { story: ApiStory }) {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="relative rounded-2xl overflow-hidden border border-border hover:border-amber/20 transition-all duration-300"
+        className="relative rounded-2xl overflow-hidden transition-all duration-300"
       >
         {/* Background — cover image or gradient */}
         <div className="absolute inset-0">
@@ -59,12 +59,13 @@ function ActiveStorySpotlight({ story }: { story: ApiStory }) {
             <img
               src={story.coverImageUrl}
               alt=""
-              className="w-full h-full object-cover opacity-15 blur-sm scale-105"
+              className="w-full h-full object-cover opacity-75 scale-105"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-amber/8 via-surface to-ink" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/95 to-surface/80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-void/20 via-transparent to-void/80" />
+          <div className="absolute inset-0 bg-gradient-to-r from-void/60 via-void/20 to-transparent" />
         </div>
 
         <div className="relative flex items-center gap-8 p-8">

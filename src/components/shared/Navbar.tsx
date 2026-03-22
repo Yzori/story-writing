@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { type Theme, getStoredTheme, setTheme } from "@/client/theme";
+import ThemeToggle from "@/components/editor/ThemeToggle";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -13,15 +13,10 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [currentTheme, setCurrentTheme] = useState<Theme>("dark");
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session, status: sessionStatus } = useSession();
   const isLoading = sessionStatus === "loading";
   const router = useRouter();
-
-  useEffect(() => {
-    setCurrentTheme(getStoredTheme());
-  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -42,7 +37,7 @@ export default function Navbar() {
         const res = await fetch("/api/notifications", { signal: controller.signal });
         if (res.ok) {
           const json = await res.json();
-          setUnreadCount(json.data.unreadCount);
+          setUnreadCount(json?.data?.unreadCount ?? 0);
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -178,27 +173,10 @@ export default function Navbar() {
                 My Desk
               </Link>
 
-              {/* Theme toggle — dark/light */}
-              <button
-                onClick={() => {
-                  const next: Theme = currentTheme === "dark" ? "light" : "dark";
-                  setTheme(next);
-                  setCurrentTheme(next);
-                }}
-                className="relative p-2 rounded-lg text-text-ghost hover:text-gold/80 hover:bg-gold/10 transition-all duration-300 cursor-pointer"
-                aria-label={currentTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              >
-                {currentTheme === "dark" ? (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="8" cy="8" r="3" />
-                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" />
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M13.5 8.5a5.5 5.5 0 01-7-7 5.5 5.5 0 107 7z" />
-                  </svg>
-                )}
-              </button>
+              {/* Theme toggle */}
+              <div className="scale-75 -mx-1">
+                <ThemeToggle />
+              </div>
 
               {/* Notifications — ember badge */}
               <Link

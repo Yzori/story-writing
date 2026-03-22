@@ -59,11 +59,11 @@
 /*   old paper and cedar. Lanterns flicker.                    */
 
 html, html.theme-dark {
-  --t-void: #110E0A;
-  --t-ink: #1A1510;
-  --t-surface: #241E16;
-  --t-elevated: #2E2720;
-  --t-subtle: #38302A;
+  --t-void: #1A1510;
+  --t-ink: #231D15;
+  --t-surface: #2E271E;
+  --t-elevated: #3A3228;
+  --t-subtle: #46392E;
 
   --t-paper: #F2E8D0;
   --t-text: #D4C4A8;
@@ -85,9 +85,9 @@ html, html.theme-dark {
   --t-copper: #9E6B42;
   --t-teal: #3B6E7A;
 
-  --t-charcoal: #161210;
-  --t-espresso: #2A2218;
-  --t-walnut: #4A3C2C;
+  --t-charcoal: #1E1914;
+  --t-espresso: #332A1E;
+  --t-walnut: #544434;
   --t-linen: #F2E8D0;
   --t-cream: #F8F0DC;
   --t-parchment: #D4C4A0;
@@ -108,8 +108,8 @@ html, html.theme-dark {
 html.theme-light {
   --t-void: #F8F3E8;
   --t-ink: #F0EAD8;
-  --t-surface: #E6DEC8;
-  --t-elevated: #EFEAD8;
+  --t-surface: #EFEAD8;
+  --t-elevated: #F5F0E2;
   --t-subtle: #D8D0BA;
 
   --t-paper: #1C1810;

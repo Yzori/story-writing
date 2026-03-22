@@ -1,7 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { Theme, setTheme, getStoredTheme } from "@/client/theme";
+import { type Theme, setTheme, getStoredTheme } from "@/client/theme";
 
 export default function ThemeToggle() {
   const [current, setCurrent] = useState<Theme>("dark");
@@ -12,28 +13,82 @@ export default function ThemeToggle() {
     setTheme(stored);
   }, []);
 
-  const toggle = () => {
-    const next: Theme = current === "dark" ? "light" : "dark";
+  const isDark = current === "dark";
+
+  const toggleTheme = () => {
+    const next: Theme = isDark ? "light" : "dark";
     setCurrent(next);
     setTheme(next);
   };
 
   return (
-    <button
-      onClick={toggle}
-      className="p-1.5 rounded-md text-text-ghost hover:text-text-secondary hover:bg-subtle/50 transition-colors cursor-pointer"
-      title={current === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+    <motion.button
+      onClick={toggleTheme}
+      className={`
+        relative flex items-center justify-center w-12 h-12 rounded-full
+        border border-border-subtle/50 backdrop-blur-md overflow-hidden
+        transition-colors duration-500 focus:outline-none focus:ring-2 focus:ring-amber/50
+        ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'}
+      `}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      aria-label="Toggle Theme"
     >
-      {current === "dark" ? (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <circle cx="7" cy="7" r="3" />
-          <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.75 2.75l1.06 1.06M10.19 10.19l1.06 1.06M2.75 11.25l1.06-1.06M10.19 3.81l1.06-1.06" />
-        </svg>
-      ) : (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M12.5 7.5a5.5 5.5 0 1 1-6-6 4.5 4.5 0 0 0 6 6z" />
-        </svg>
-      )}
-    </button>
+      {/* Dynamic Background Glow */}
+      <motion.div
+        className="absolute inset-0 opacity-40 mix-blend-screen"
+        animate={{
+          background: isDark
+            ? "radial-gradient(circle at center, rgba(167, 139, 250, 0.4) 0%, transparent 70%)"
+            : "radial-gradient(circle at center, rgba(198, 154, 71, 0.4) 0%, transparent 70%)"
+        }}
+        transition={{ duration: 0.5 }}
+      />
+
+      {/* The Icons Container */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center">
+        {/* SUN / LIGHT MODE ICON */}
+        <motion.div
+          initial={false}
+          animate={{
+            opacity: isDark ? 0 : 1,
+            scale: isDark ? 0.5 : 1,
+            rotate: isDark ? -90 : 0,
+          }}
+          transition={{ duration: 0.5, ease: "anticipate" }}
+          className="absolute text-amber drop-shadow-[0_0_8px_rgba(198,154,71,0.6)]"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="4" fill="currentColor" fillOpacity="0.2" />
+            <path d="M12 2v2" />
+            <path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" />
+            <path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" />
+            <path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" />
+            <path d="m19.07 4.93-1.41 1.41" />
+          </svg>
+        </motion.div>
+
+        {/* MOON / DARK MODE ICON */}
+        <motion.div
+          initial={false}
+          animate={{
+            opacity: isDark ? 1 : 0,
+            scale: isDark ? 1 : 0.5,
+            rotate: isDark ? 0 : 90,
+          }}
+          transition={{ duration: 0.5, ease: "anticipate" }}
+          className="absolute text-paper drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" fill="currentColor" fillOpacity="0.2" />
+             <path d="M19 3v4" strokeWidth="1" opacity="0.5" />
+             <path d="M21 5h-4" strokeWidth="1" opacity="0.5" />
+          </svg>
+        </motion.div>
+      </div>
+    </motion.button>
   );
 }

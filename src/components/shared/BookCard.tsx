@@ -76,12 +76,12 @@ export default function BookCard({
 
   return (
     <Link href={linkHref} className="group pb-8 [perspective:1500px] cursor-pointer flex justify-center">
-      <div className="relative w-full aspect-[2/3] max-w-[280px] shadow-xl transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.05] group-hover:z-50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.8)]">
+      <div className="relative w-full aspect-[2/3] max-w-[280px] shadow-xl transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.05] group-hover:z-50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.3)]">
 
         {/* ── 1. The Book Base (Pages + Back Cover) ── */}
-        <div className="absolute inset-0 rounded-r-2xl rounded-l-sm border-y border-r border-border shadow-[inset_10px_0_20px_rgba(0,0,0,0.6)] overflow-hidden bg-surface">
+        <div className="absolute inset-0 rounded-r-2xl rounded-l-sm border-y border-r border-border shadow-[inset_10px_0_20px_rgba(0,0,0,0.15)] overflow-hidden bg-surface">
           {/* Inner spine shadow */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-void via-void/30 to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/30 via-black/10 to-transparent z-10 pointer-events-none" />
 
           {/* Page Content */}
           <div className="relative h-full flex flex-col p-6 pl-8">
@@ -119,7 +119,7 @@ export default function BookCard({
           className="absolute inset-0 origin-left transition-transform duration-[800ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(-155deg)]"
         >
           {/* FRONT of the Cover */}
-          <div className="absolute inset-0 bg-void rounded-r-2xl rounded-l-sm overflow-hidden [backface-visibility:hidden] border-y border-r border-border border-l-[3px] border-l-paper/10 shadow-[2px_0_15px_rgba(0,0,0,0.6)]">
+          <div className="absolute inset-0 bg-neutral-900 rounded-r-2xl rounded-l-sm overflow-hidden [backface-visibility:hidden] border-y border-r border-border border-l-[3px] border-l-black/20 shadow-[2px_0_15px_rgba(0,0,0,0.2)]">
             {/* Cover Art — image or gradient */}
             {coverUrl ? (
               <Image src={coverUrl} alt={title} fill sizes="200px" className="object-cover" unoptimized />
@@ -128,26 +128,26 @@ export default function BookCard({
             )}
 
             {/* The Spine Crease */}
-            <div className="absolute left-[2px] top-0 bottom-0 w-3 border-l border-r border-black/30 bg-gradient-to-r from-black/50 via-transparent to-black/30" />
+            <div className="absolute left-[2px] top-0 bottom-0 w-3 border-l border-r border-black/20 bg-gradient-to-r from-black/40 via-transparent to-black/20" />
 
             {/* Vignette */}
-            <div className="absolute inset-0 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] pointer-events-none" />
+            <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(0,0,0,0.4)] pointer-events-none" />
 
-            {/* Cover content */}
+            {/* Cover content — always light text since covers are dark/image-backed */}
             <div className="relative h-full flex flex-col justify-end p-6 z-10">
               <div className="mb-auto mt-4 ml-4">
-                <span className="px-3 py-1 rounded-full bg-void/50 backdrop-blur-md text-[10px] text-paper font-medium uppercase tracking-wider border border-paper/20 shadow-xl">
+                <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-[10px] text-white font-medium uppercase tracking-wider border border-white/20 shadow-xl">
                   {primaryGenre}
                 </span>
               </div>
 
               <div className="ml-4">
-                <h3 className="font-display text-paper text-xl font-bold leading-[1.1] mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <h3 className="font-display text-white text-xl font-bold leading-[1.1] mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
                   {title}
                 </h3>
-                <div className="w-8 h-[2px] bg-paper/40 mb-2 shadow-xl" />
+                <div className="w-8 h-[2px] bg-white/40 mb-2 shadow-xl" />
                 {author && (
-                  <p className="text-text text-[12px] font-medium tracking-wide uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                  <p className="text-white/80 text-[12px] font-medium tracking-wide uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
                     {author}
                   </p>
                 )}
@@ -157,7 +157,7 @@ export default function BookCard({
 
           {/* BACK of the Cover (Inside Endpaper) */}
           <div
-            className="absolute inset-0 rounded-l-2xl rounded-r-sm overflow-hidden [backface-visibility:hidden] border-y border-l border-border border-r border-black/50"
+            className="absolute inset-0 rounded-l-2xl rounded-r-sm overflow-hidden [backface-visibility:hidden] border-y border-l border-border border-r border-void/50"
             style={{ transform: "rotateY(180deg)" }}
           >
             <div className="absolute inset-0 bg-surface" />
@@ -173,7 +173,7 @@ export default function BookCard({
         </div>
 
         {/* ── 3. Drop Shadow ── */}
-        <div className="absolute -bottom-4 left-4 right-2 h-6 bg-void/80 blur-[20px] rounded-full opacity-50 group-hover:opacity-100 group-hover:scale-95 transition-all duration-700 -z-10" />
+        <div className="absolute -bottom-4 left-4 right-2 h-6 bg-void/60 blur-[20px] rounded-full opacity-30 group-hover:opacity-70 group-hover:scale-95 transition-all duration-700 -z-10" />
       </div>
     </Link>
   );
