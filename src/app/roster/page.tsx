@@ -423,7 +423,7 @@ function RosterPageContent() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-void text-paper overflow-x-hidden font-body pb-32">
+    <div className="relative min-h-[calc(100vh-64px)] bg-void text-paper overflow-x-hidden font-body pb-32">
       {/* ── Breathing Ambient Background ────────────────────── */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <motion.div
