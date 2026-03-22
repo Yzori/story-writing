@@ -50,21 +50,60 @@ function slugify(text: string): string {
 
 // ── PDF Export (via print) ──────────────────────────────────
 
-export function exportPdf(project: StoryProject) {
+export async function exportPdf(project: StoryProject) {
   const slug = slugify(project.title);
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
 
-  const chaptersHtml = project.chapters
-    .map(
-      (ch, i) => `
-      <div class="chapter" ${i > 0 ? 'style="page-break-before: always;"' : ""}>
-        <h2 class="chapter-title">${escapeXml(ch.title)}</h2>
-        <div class="chapter-content">${ch.content}</div>
-      </div>
-    `
-    )
-    .join("\n");
+  // For webtoon format, fetch panels from API and render as images
+  let chaptersHtml: string;
+
+  if (project.format === "webtoon") {
+    const chapterParts: string[] = [];
+    for (let i = 0; i < project.chapters.length; i++) {
+      const ch = project.chapters[i];
+      let panelsHtml = "";
+      try {
+        const res = await fetch(`/api/stories/${project.id}/chapters/${ch.id}/panels`);
+        if (res.ok) {
+          const json = await res.json();
+          const panels = (json.data || []).sort(
+            (a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder
+          );
+          panelsHtml = panels
+            .map(
+              (p: { imageData: string; caption: string }, idx: number) => `
+              <div class="webtoon-panel" style="margin-bottom: 0; text-align: center;">
+                <img src="${p.imageData}" alt="Panel ${idx + 1}" style="max-width: 100%; height: auto;" />
+                ${p.caption ? `<p class="panel-caption" style="font-style: italic; color: #666; margin: 0.5em 0 1.5em; font-size: 10pt;">${escapeXml(p.caption)}</p>` : ""}
+              </div>
+            `
+            )
+            .join("\n");
+        }
+      } catch {
+        panelsHtml = "<p style='color: #999;'>Panels could not be loaded for export.</p>";
+      }
+      chapterParts.push(`
+        <div class="chapter" ${i > 0 ? 'style="page-break-before: always;"' : ""}>
+          <h2 class="chapter-title">${escapeXml(ch.title)}</h2>
+          <div class="chapter-content">${panelsHtml}</div>
+        </div>
+      `);
+    }
+    chaptersHtml = chapterParts.join("\n");
+  } else {
+    chaptersHtml = project.chapters
+      .map(
+        (ch, i) => `
+        <div class="chapter" ${i > 0 ? 'style="page-break-before: always;"' : ""}>
+          <h2 class="chapter-title">${escapeXml(ch.title)}</h2>
+          <div class="chapter-content">${ch.content}</div>
+        </div>
+      `
+      )
+      .join("\n");
+  }
 
   const coverHtml = project.metadata.coverImageDataUrl
     ? `<div class="cover" style="page-break-after: always; text-align: center; padding-top: 20vh;">

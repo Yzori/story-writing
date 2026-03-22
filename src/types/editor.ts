@@ -127,6 +127,7 @@ export interface TypographySettings {
 export interface StoryProject {
   id: string;
   title: string;
+  format: string;
   chapters: Chapter[];
   activeChapterId: string | null;
   metadata: StoryMetadata;
@@ -221,6 +222,7 @@ export function createStoryProject(title: string = "Untitled Story"): StoryProje
   return {
     id: crypto.randomUUID(),
     title,
+    format: "novel",
     chapters: [firstChapter],
     activeChapterId: firstChapter.id,
     metadata: createMetadata(),

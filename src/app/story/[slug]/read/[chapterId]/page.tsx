@@ -395,9 +395,11 @@ export default function ChapterReadPage() {
           wordCount={activeChapter.wordCount}
         />
 
-        {storyFormat === "webtoon" ? (
+        {storyFormat === "webtoon" && storyId ? (
           <WebtoonReader
             key={chapterId}
+            storyId={storyId}
+            chapterId={chapterId}
             content={activeChapter.content}
             chapterTitle={activeChapter.title}
             hasNextChapter={activeChapterIndex < chapters.length - 1}

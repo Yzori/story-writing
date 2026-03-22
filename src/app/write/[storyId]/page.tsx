@@ -284,6 +284,7 @@ export default function WriteStoryPage() {
         const proj: StoryProject = {
           id: story.id,
           title: story.title,
+          format: story.format || "novel",
           chapters: chaptersToUse,
           activeChapterId: chaptersToUse[0]?.id ?? null,
           metadata: {
@@ -1271,7 +1272,7 @@ export default function WriteStoryPage() {
     if (!project) return;
     try {
       const { exportPdf } = await import("@/client/export-pdf");
-      exportPdf(project);
+      await exportPdf(project);
     } catch (err) {
       console.error("PDF export failed:", err);
       setSaveState("error");
@@ -1582,8 +1583,8 @@ export default function WriteStoryPage() {
                     ) : storyFormat === "webtoon" ? (
                       <WebtoonEditor
                         key={activeChapter.id}
-                        content={activeChapter.content}
-                        onUpdate={handleUpdateContent}
+                        storyId={storyId}
+                        chapterId={activeChapter.id}
                       />
                     ) : storyFormat === "illustrated" ? (
                       <IllustratedEditor

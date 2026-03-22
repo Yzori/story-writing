@@ -13,48 +13,54 @@ import { compressImage } from "@/client/images";
 
 interface Panel {
   id: string;
-  imageDataUrl: string;
+  imageData: string;
   caption: string;
-  order: number;
+  sortOrder: number;
+  sizing: string;
+  aspectRatio: string | null;
+  overlays: string;
 }
 
+type PanelSizing = "standard" | "tall" | "wide" | "custom";
+
+const SIZING_OPTIONS: { key: PanelSizing; label: string; ratio: string }[] = [
+  { key: "standard", label: "Standard", ratio: "" },
+  { key: "tall", label: "Tall", ratio: "9:16" },
+  { key: "wide", label: "Wide", ratio: "16:9" },
+];
+
 interface WebtoonEditorProps {
-  content: string; // JSON stringified array of panels
-  onUpdate: (content: string, wordCount: number) => void;
+  storyId: string;
+  chapterId: string;
   editable?: boolean;
   placeholder?: string;
   scriptContent?: string;
   onScriptUpdate?: (content: string) => void;
+  onWordCountChange?: (count: number) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function generateId(): string {
-  return `panel-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function parsePanels(content: string): Panel[] {
-  if (!content || content.trim() === "" || content === "[]") return [];
-  try {
-    const parsed = JSON.parse(content);
-    if (Array.isArray(parsed)) return parsed;
-  } catch {
-    // ignore
-  }
-  return [];
-}
-
-function countWords(panels: Panel[]): number {
-  const allText = panels.map((p) => p.caption).join(" ");
+function countWords(panelList: Panel[]): number {
+  const allText = panelList.map((p) => p.caption || "").join(" ");
   const trimmed = allText.trim();
   return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
-// Larger max dim for webtoon panels — they need decent resolution
 const PANEL_MAX_DIM = 1200;
 const PANEL_QUALITY = 0.8;
+
+function getSizingStyle(sizing: string, aspectRatio: string | null): React.CSSProperties {
+  if (sizing === "tall") return { aspectRatio: "9/16", objectFit: "cover" as const };
+  if (sizing === "wide") return { aspectRatio: "16/9", objectFit: "cover" as const };
+  if (sizing === "custom" && aspectRatio) {
+    const [w, h] = aspectRatio.split(":").map(Number);
+    if (w && h) return { aspectRatio: `${w}/${h}`, objectFit: "cover" as const };
+  }
+  return {};
+}
 
 // ---------------------------------------------------------------------------
 // Panel Card
@@ -64,15 +70,22 @@ function PanelCard({
   panel,
   index,
   editable,
+  isSaving,
   onCaptionChange,
+  onSizingChange,
   onDelete,
 }: {
   panel: Panel;
   index: number;
   editable: boolean;
+  isSaving: boolean;
   onCaptionChange: (id: string, caption: string) => void;
+  onSizingChange: (id: string, sizing: PanelSizing) => void;
   onDelete: (id: string) => void;
 }) {
+  const sizingStyle = getSizingStyle(panel.sizing, panel.aspectRatio);
+  const hasCustomSizing = panel.sizing !== "standard";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -88,34 +101,52 @@ function PanelCard({
           {index + 1}
         </div>
 
-        {/* Delete button */}
+        {/* Saving indicator */}
+        {isSaving && (
+          <div className="absolute top-3 left-12 z-10 flex items-center gap-1.5 bg-void/70 backdrop-blur-sm rounded-full px-2.5 py-1">
+            <div className="w-3 h-3 border border-text-ghost border-t-amber rounded-full animate-spin" />
+            <span className="text-[10px] text-text-ghost">Saving</span>
+          </div>
+        )}
+
+        {/* Controls (top right) */}
         {editable && (
-          <button
-            onClick={() => onDelete(panel.id)}
-            className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-void/70 backdrop-blur-sm text-text-ghost hover:text-rose hover:bg-void/90 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-            title="Remove panel"
-            aria-label="Remove panel"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Sizing dropdown */}
+            <select
+              value={panel.sizing || "standard"}
+              onChange={(e) => onSizingChange(panel.id, e.target.value as PanelSizing)}
+              className="bg-void/70 backdrop-blur-sm text-text-secondary text-[10px] rounded-md px-1.5 py-1 border border-white/10 outline-none cursor-pointer"
+              title="Panel sizing"
             >
-              <line x1="3" y1="3" x2="9" y2="9" />
-              <line x1="9" y1="3" x2="3" y2="9" />
-            </svg>
-          </button>
+              {SIZING_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Delete */}
+            <button
+              onClick={() => onDelete(panel.id)}
+              className="w-7 h-7 rounded-full bg-void/70 backdrop-blur-sm text-text-ghost hover:text-rose hover:bg-void/90 flex items-center justify-center transition-all"
+              title="Remove panel"
+              aria-label="Remove panel"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="3" y1="3" x2="9" y2="9" />
+                <line x1="9" y1="3" x2="3" y2="9" />
+              </svg>
+            </button>
+          </div>
         )}
 
         {/* The panel image */}
         <img
-          src={panel.imageDataUrl}
+          src={panel.imageData}
           alt={`Panel ${index + 1}`}
-          className="w-full block"
+          className={`w-full block ${hasCustomSizing ? "object-cover" : ""}`}
+          style={hasCustomSizing ? sizingStyle : undefined}
           draggable={false}
         />
       </div>
@@ -124,7 +155,7 @@ function PanelCard({
       <div className="bg-elevated px-4 py-3">
         {editable ? (
           <textarea
-            value={panel.caption}
+            value={panel.caption || ""}
             onChange={(e) => onCaptionChange(panel.id, e.target.value)}
             placeholder="Caption or dialogue..."
             rows={2}
@@ -188,7 +219,6 @@ function UploadZone({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
         onFilesSelected(e.target.files);
-        // Reset so re-selecting the same file triggers onChange
         e.target.value = "";
       }
     },
@@ -227,7 +257,6 @@ function UploadZone({
         </div>
       ) : (
         <>
-          {/* Upload icon */}
           <div
             className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${
               isDragOver
@@ -235,16 +264,7 @@ function UploadZone({
                 : "bg-surface text-text-ghost"
             }`}
           >
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 28 28"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="22" height="22" rx="3" />
               <circle cx="10" cy="10" r="2" />
               <path d="M3 20l6-6 4 4 3-3 9 9" />
@@ -304,7 +324,6 @@ function ScriptPane({
     immediatelyRender: false,
   });
 
-  // Sync content changes from parent
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
       const current = editor.getHTML();
@@ -336,77 +355,140 @@ function ScriptPane({
 // ---------------------------------------------------------------------------
 
 export default function WebtoonEditor({
-  content,
-  onUpdate,
+  storyId,
+  chapterId,
   editable = true,
   placeholder,
   scriptContent,
   onScriptUpdate,
+  onWordCountChange,
 }: WebtoonEditorProps) {
-  const [panels, setPanels] = useState<Panel[]>(() => parsePanels(content));
+  const [panels, setPanels] = useState<Panel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [savingPanels, setSavingPanels] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"visual" | "script">("visual");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Track whether we initialized from content
-  const initializedRef = useRef(false);
+  // Debounce timers for caption saves
+  const captionTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  // Sync panels from parent content on content change (e.g. switching episodes)
+  const apiBase = `/api/stories/${storyId}/chapters/${chapterId}/panels`;
+
+  // ---- Load panels from API ----
   useEffect(() => {
-    const incoming = parsePanels(content);
-    // Only re-sync if the serialized form differs
-    const currentSerialized = JSON.stringify(panels);
-    const incomingSerialized = JSON.stringify(incoming);
-    if (currentSerialized !== incomingSerialized) {
-      setPanels(incoming);
-    }
-    // We intentionally only depend on content, not panels
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+    let cancelled = false;
 
-  // Emit updates to parent
-  const emitUpdate = useCallback(
-    (updated: Panel[]) => {
-      const serialized = JSON.stringify(updated);
-      const words = countWords(updated);
-      onUpdate(serialized, words);
-    },
-    [onUpdate]
-  );
+    async function loadPanels() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(apiBase);
+        if (!res.ok) throw new Error("Failed to load panels");
+        const json = await res.json();
+        if (!cancelled) {
+          setPanels(json.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to load panels:", err);
+        if (!cancelled) setPanels([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    loadPanels();
+    return () => { cancelled = true; };
+  }, [apiBase]);
+
+  // ---- Report word count to parent ----
+  const wordCount = useMemo(() => countWords(panels), [panels]);
+
+  useEffect(() => {
+    onWordCountChange?.(wordCount);
+  }, [wordCount, onWordCountChange]);
+
+  // ---- API helpers ----
+
+  const markSaving = useCallback((panelId: string, saving: boolean) => {
+    setSavingPanels((prev) => {
+      const next = new Set(prev);
+      if (saving) next.add(panelId);
+      else next.delete(panelId);
+      return next;
+    });
+  }, []);
+
+  const patchPanel = useCallback(async (panelId: string, data: Record<string, unknown>) => {
+    markSaving(panelId, true);
+    try {
+      await fetch(`${apiBase}/${panelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      console.error("Failed to save panel:", err);
+    } finally {
+      markSaving(panelId, false);
+    }
+  }, [apiBase, markSaving]);
 
   // ---- Panel operations ----
 
   const handleCaptionChange = useCallback(
     (id: string, caption: string) => {
-      setPanels((prev) => {
-        const next = prev.map((p) => (p.id === id ? { ...p, caption } : p));
-        emitUpdate(next);
-        return next;
-      });
+      // Update local state immediately
+      setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, caption } : p)));
+
+      // Debounce the API call
+      const existing = captionTimers.current.get(id);
+      if (existing) clearTimeout(existing);
+      captionTimers.current.set(id, setTimeout(() => {
+        patchPanel(id, { caption });
+        captionTimers.current.delete(id);
+      }, 600));
     },
-    [emitUpdate]
+    [patchPanel]
+  );
+
+  const handleSizingChange = useCallback(
+    (id: string, sizing: PanelSizing) => {
+      const ratio = SIZING_OPTIONS.find((o) => o.key === sizing)?.ratio || null;
+      setPanels((prev) => prev.map((p) =>
+        p.id === id ? { ...p, sizing, aspectRatio: ratio } : p
+      ));
+      patchPanel(id, { sizing, aspectRatio: ratio });
+    },
+    [patchPanel]
   );
 
   const handleDeletePanel = useCallback(
-    (id: string) => {
-      setPanels((prev) => {
-        const next = prev
-          .filter((p) => p.id !== id)
-          .map((p, i) => ({ ...p, order: i }));
-        emitUpdate(next);
-        return next;
-      });
+    async (id: string) => {
+      setPanels((prev) => prev.filter((p) => p.id !== id));
+      try {
+        await fetch(`${apiBase}/${id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Failed to delete panel:", err);
+      }
     },
-    [emitUpdate]
+    [apiBase]
   );
 
   const handleReorder = useCallback(
     (reordered: Panel[]) => {
-      const updated = reordered.map((p, i) => ({ ...p, order: i }));
+      const updated = reordered.map((p, i) => ({ ...p, sortOrder: i }));
       setPanels(updated);
-      emitUpdate(updated);
+
+      // Fire and forget reorder API call
+      fetch(`${apiBase}/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          panels: updated.map((p) => ({ id: p.id, sortOrder: p.sortOrder })),
+        }),
+      }).catch((err) => console.error("Reorder failed:", err));
     },
-    [emitUpdate]
+    [apiBase]
   );
 
   const handleFilesSelected = useCallback(
@@ -425,30 +507,31 @@ export default function WebtoonEditor({
       }
 
       try {
-        const newPanels: Panel[] = [];
+        const newPanelData: { imageData: string; caption: string; sortOrder: number }[] = [];
 
         for (const file of imageFiles) {
-          const dataUrl = await compressImage(
-            file,
-            PANEL_MAX_DIM,
-            PANEL_QUALITY
-          );
-          newPanels.push({
-            id: generateId(),
-            imageDataUrl: dataUrl,
+          const dataUrl = await compressImage(file, PANEL_MAX_DIM, PANEL_QUALITY);
+          newPanelData.push({
+            imageData: dataUrl,
             caption: "",
-            order: 0, // will be recalculated
+            sortOrder: panels.length + newPanelData.length,
           });
         }
 
-        setPanels((prev) => {
-          const combined = [...prev, ...newPanels].map((p, i) => ({
-            ...p,
-            order: i,
-          }));
-          emitUpdate(combined);
-          return combined;
+        // POST to API
+        const res = await fetch(apiBase, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ panels: newPanelData }),
         });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error?.message || "Failed to upload panels");
+        }
+
+        const json = await res.json();
+        setPanels((prev) => [...prev, ...(json.data || [])]);
       } catch (err) {
         setUploadError(
           err instanceof Error ? err.message : "Failed to process images."
@@ -457,30 +540,39 @@ export default function WebtoonEditor({
         setIsUploading(false);
       }
     },
-    [emitUpdate]
+    [apiBase, panels.length]
   );
+
+  // ---- Cleanup caption timers ----
+  useEffect(() => {
+    return () => {
+      captionTimers.current.forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   // ---- Render ----
 
   const panelCount = panels.length;
-  const wordCount = useMemo(() => countWords(panels), [panels]);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-text-ghost border-t-amber rounded-full animate-spin" />
+          <p className="text-sm text-text-ghost">Loading episode...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full bg-void overflow-hidden">
       {/* Toolbar */}
       <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border bg-surface/30 backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          {/* Stats */}
           <div className="flex items-center gap-3 text-xs text-text-ghost">
             <span className="flex items-center gap-1.5">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="2" y="2" width="10" height="10" rx="1.5" />
                 <path d="M5 2v10M9 2v10M2 5h10M2 9h10" />
               </svg>
@@ -520,7 +612,6 @@ export default function WebtoonEditor({
 
       {/* Main content area */}
       {viewMode === "visual" ? (
-        /* ---- Visual Mode ---- */
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-[680px] mx-auto px-6 py-8 space-y-6">
             {/* Panel list */}
@@ -542,7 +633,9 @@ export default function WebtoonEditor({
                         panel={panel}
                         index={i}
                         editable={editable}
+                        isSaving={savingPanels.has(panel.id)}
                         onCaptionChange={handleCaptionChange}
+                        onSizingChange={handleSizingChange}
                         onDelete={handleDeletePanel}
                       />
                     </Reorder.Item>
@@ -550,7 +643,6 @@ export default function WebtoonEditor({
                 </AnimatePresence>
               </Reorder.Group>
             ) : panelCount > 0 ? (
-              /* Read-only mode — no reorder */
               <div className="space-y-6">
                 <AnimatePresence mode="popLayout">
                   {panels.map((panel, i) => (
@@ -559,7 +651,9 @@ export default function WebtoonEditor({
                       panel={panel}
                       index={i}
                       editable={false}
+                      isSaving={false}
                       onCaptionChange={handleCaptionChange}
+                      onSizingChange={handleSizingChange}
                       onDelete={handleDeletePanel}
                     />
                   ))}
@@ -591,7 +685,6 @@ export default function WebtoonEditor({
                   isLoading={isUploading}
                 />
 
-                {/* Upload error */}
                 <AnimatePresence>
                   {uploadError && (
                     <motion.div
@@ -600,15 +693,7 @@ export default function WebtoonEditor({
                       exit={{ opacity: 0 }}
                       className="flex items-center gap-2 px-4 py-3 rounded-lg bg-rose/10 border border-rose/20 text-rose text-sm"
                     >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                         <circle cx="8" cy="8" r="6" />
                         <path d="M8 5v4M8 11v0.5" />
                       </svg>
@@ -617,15 +702,7 @@ export default function WebtoonEditor({
                         onClick={() => setUploadError(null)}
                         className="ml-auto text-rose/60 hover:text-rose"
                       >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                           <line x1="3" y1="3" x2="9" y2="9" />
                           <line x1="9" y1="3" x2="3" y2="9" />
                         </svg>
@@ -640,7 +717,6 @@ export default function WebtoonEditor({
       ) : (
         /* ---- Script Mode ---- */
         <div className="flex-1 flex overflow-hidden">
-          {/* Left pane: script text editor */}
           <div className="w-1/2 border-r border-border bg-surface flex flex-col">
             <div className="px-5 py-3 border-b border-border">
               <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -653,7 +729,6 @@ export default function WebtoonEditor({
             />
           </div>
 
-          {/* Right pane: panel sequence */}
           <div className="w-1/2 bg-void flex flex-col">
             <div className="px-5 py-3 border-b border-border">
               <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -673,7 +748,7 @@ export default function WebtoonEditor({
                           {i + 1}
                         </div>
                         <img
-                          src={panel.imageDataUrl}
+                          src={panel.imageData}
                           alt={`Panel ${i + 1}`}
                           className="w-full block"
                           draggable={false}
@@ -691,8 +766,7 @@ export default function WebtoonEditor({
                 ) : (
                   <div className="text-center py-12">
                     <p className="text-sm text-text-ghost">
-                      No panels uploaded yet. Switch to Visual mode to add
-                      panels.
+                      No panels uploaded yet. Switch to Visual mode to add panels.
                     </p>
                   </div>
                 )}

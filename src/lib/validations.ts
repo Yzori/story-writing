@@ -70,6 +70,35 @@ export const updateChapterSchema = z.object({
   baseVersion: z.number().int().positive().optional(), // optimistic locking
 });
 
+// ── Webtoon Panels ──────────────────────────────────────────
+
+export const createPanelsSchema = z.object({
+  panels: z.array(z.object({
+    imageData: z.string().max(1_500_000), // ~1MB base64
+    caption: z.string().max(2000).optional(),
+    sortOrder: z.number().int().min(0),
+    sizing: z.enum(["tall", "wide", "standard", "custom"]).optional(),
+    aspectRatio: z.string().max(20).optional(),
+    overlays: z.string().max(50000).optional(),
+  })).min(1).max(20),
+});
+
+export const updatePanelSchema = z.object({
+  imageData: z.string().max(1_500_000).optional(),
+  caption: z.string().max(2000).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  sizing: z.enum(["tall", "wide", "standard", "custom"]).optional(),
+  aspectRatio: z.string().max(20).optional(),
+  overlays: z.string().max(50000).optional(),
+});
+
+export const reorderPanelsSchema = z.object({
+  panels: z.array(z.object({
+    id: z.string().uuid(),
+    sortOrder: z.number().int().min(0),
+  })).min(1),
+});
+
 // ── Reorder ──────────────────────────────────────────────────
 
 export const reorderChaptersSchema = z.object({

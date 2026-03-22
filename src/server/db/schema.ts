@@ -142,6 +142,7 @@ export const chaptersRelations = relations(chapters, ({ one, many }) => ({
     references: [campaignSessions.id],
   }),
   snapshots: many(chapterSnapshots),
+  panels: many(panels),
 }));
 
 // ── Chapter Snapshots ────────────────────────────────────────
@@ -172,6 +173,38 @@ export const chapterSnapshotsRelations = relations(
     }),
   })
 );
+
+// ── Webtoon Panels ──────────────────────────────────────────
+
+export const panels = pgTable("panels", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  chapterId: uuid("chapter_id")
+    .notNull()
+    .references(() => chapters.id, { onDelete: "cascade" }),
+  imageData: text("image_data").notNull(),
+  caption: text("caption").default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+  sizing: text("sizing").notNull().default("standard"), // tall | wide | standard | custom
+  aspectRatio: text("aspect_ratio"),
+  overlays: text("overlays").default("[]"), // JSON: text overlay positions
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  index("idx_panels_chapter_sort").on(table.chapterId, table.sortOrder),
+]);
+
+export const panelsRelations = relations(panels, ({ one }) => ({
+  chapter: one(chapters, {
+    fields: [panels.chapterId],
+    references: [chapters.id],
+  }),
+}));
 
 // ── Bible Entries ────────────────────────────────────────────
 
