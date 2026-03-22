@@ -80,6 +80,17 @@ export default function OverlayRenderer({
     [dragging]
   );
 
+  // Click on empty area to deselect; auto-delete empty bubbles
+  const handleBackgroundClick = useCallback(() => {
+    if (!editable || !selectedId) return;
+    // If the selected bubble has no text, delete it
+    const selected = overlays.find((o) => o.id === selectedId);
+    if (selected && !selected.text.trim()) {
+      onDelete?.(selectedId);
+    }
+    onSelect?.(null);
+  }, [editable, selectedId, overlays, onDelete, onSelect]);
+
   if (overlays.length === 0 && !editable) return null;
 
   return (
@@ -89,6 +100,7 @@ export default function OverlayRenderer({
       style={{ pointerEvents: editable ? "auto" : "none" }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onClick={handleBackgroundClick}
     >
       {overlays.map((overlay) => {
         const isSelected = selectedId === overlay.id;
@@ -97,10 +109,12 @@ export default function OverlayRenderer({
           <div
             key={overlay.id}
             className={`bubble-base bubble-${overlay.style} ${
-              isSelected ? "ring-2 ring-amber ring-offset-1" : ""
-            } ${editable ? "cursor-grab" : ""} ${
-              dragging === overlay.id ? "cursor-grabbing opacity-90" : ""
-            }`}
+              isSelected
+                ? "ring-2 ring-amber ring-offset-1 shadow-lg"
+                : "transition-shadow"
+            } ${editable && !isSelected ? "cursor-grab hover:ring-1 hover:ring-white/20" : ""} ${
+              editable && isSelected ? "cursor-move" : ""
+            } ${dragging === overlay.id ? "cursor-grabbing opacity-90 scale-[1.02]" : ""}`}
             data-tail={overlay.tailDirection}
             style={{
               left: `${overlay.x}%`,
@@ -115,11 +129,12 @@ export default function OverlayRenderer({
               onSelect?.(overlay.id);
             }}
           >
-            {editable ? (
+            {editable && isSelected ? (
               <textarea
                 value={overlay.text}
                 onChange={(e) => onTextChange?.(overlay.id, e.target.value)}
-                placeholder="Type..."
+                placeholder="Type dialogue..."
+                autoFocus
                 className="w-full bg-transparent text-center outline-none resize-none leading-snug"
                 style={{ fontSize: "inherit", color: "inherit", fontWeight: "inherit" }}
                 rows={1}
@@ -128,9 +143,19 @@ export default function OverlayRenderer({
                   el.style.height = "auto";
                   el.style.height = el.scrollHeight + "px";
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    onSelect?.(null);
+                  }
+                }}
               />
             ) : (
-              <span className="whitespace-pre-wrap">{overlay.text}</span>
+              <span className="whitespace-pre-wrap">
+                {overlay.text || (editable ? (
+                  <span className="opacity-40 italic text-[12px]">Click to edit</span>
+                ) : null)}
+              </span>
             )}
           </div>
         );
