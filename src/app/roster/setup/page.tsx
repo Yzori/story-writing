@@ -74,7 +74,7 @@ function PreviewCard({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="group relative w-full aspect-[2/3.2] rounded-3xl overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out border border-white/10 bg-ink"
+        className="group relative w-full aspect-[2/3.2] rounded-3xl overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out border border-border bg-ink"
       >
         <div className="absolute inset-0 bg-void -z-20">
           <div className="absolute inset-0 bg-gradient-to-br from-surface/80 to-void" />
@@ -138,7 +138,7 @@ function PreviewCard({
               </div>
             </motion.div>
 
-            <div className="overflow-hidden mt-4 pt-4 border-t border-white/10">
+            <div className="overflow-hidden mt-4 pt-4 border-t border-border">
               <div className="text-[12px] text-paper/80 font-body leading-relaxed" style={{ transform: "translateZ(15px)" }}>
                 <span className={`text-[9px] uppercase tracking-widest text-${color}/70 block mb-1.5 transition-colors duration-500`}>Looking For</span>
                 <p className="line-clamp-3">{lookingFor || "Describe what you\u2019re seeking..."}</p>
@@ -405,7 +405,7 @@ export default function RosterSetupPage() {
               <div className="relative group">
                 <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value.slice(0, 100))}
                   placeholder="e.g. Weaver of dark fantasies and forgotten gods"
-                  className={`w-full bg-ink/50 border border-border-subtle rounded-2xl px-5 py-4 text-[15px] text-paper font-reading italic placeholder:text-text-ghost/40 placeholder:not-italic focus:outline-none focus:border-${activeRoleColor}/50 focus:bg-ink transition-all shadow-inner relative z-10`}
+                  className={`w-full bg-elevated/80 border border-border-subtle rounded-2xl px-5 py-4 text-[15px] text-paper font-reading italic placeholder:text-text-ghost/40 placeholder:not-italic focus:outline-none focus:border-${activeRoleColor}/50 focus:bg-elevated transition-all shadow-inner relative z-10`}
                 />
                 <div className={`absolute inset-0 rounded-2xl bg-${activeRoleColor}/20 blur-md opacity-0 group-focus-within:opacity-100 transition-opacity duration-500`} />
                 <p className="absolute -bottom-5 right-2 text-[9px] text-text-ghost/40">{tagline.length}/100</p>
@@ -436,7 +436,7 @@ export default function RosterSetupPage() {
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-text-ghost mb-3 block">Years of Experience</label>
                 <input type="number" min={0} max={100} value={yearsWriting} onChange={(e) => setYearsWriting(e.target.value)} placeholder="e.g. 5"
-                  className={`w-full bg-ink/50 border border-border-subtle rounded-2xl px-5 py-4 text-[15px] text-paper focus:outline-none focus:border-${activeRoleColor}/50 transition-colors shadow-inner`}
+                  className={`w-full bg-elevated/80 border border-border-subtle rounded-2xl px-5 py-4 text-[15px] text-paper focus:outline-none focus:border-${activeRoleColor}/50 transition-colors shadow-inner`}
                 />
               </div>
             </motion.div>
@@ -447,7 +447,7 @@ export default function RosterSetupPage() {
               <textarea value={lookingFor} onChange={(e) => setLookingFor(e.target.value.slice(0, 300))}
                 placeholder="Describe the projects or collaborators you're hoping to find..."
                 rows={4}
-                className={`w-full bg-ink/50 border border-border-subtle rounded-2xl px-5 py-4 text-[14px] text-text font-body placeholder:text-text-ghost/40 resize-none focus:outline-none focus:border-${activeRoleColor}/50 focus:bg-ink transition-all shadow-inner`}
+                className={`w-full bg-elevated/80 border border-border-subtle rounded-2xl px-5 py-4 text-[14px] text-text font-body placeholder:text-text-ghost/40 resize-none focus:outline-none focus:border-${activeRoleColor}/50 focus:bg-elevated transition-all shadow-inner`}
               />
               <p className="text-[9px] text-text-ghost/40 mt-2 text-right">{lookingFor.length}/300</p>
             </motion.div>
@@ -510,7 +510,7 @@ export default function RosterSetupPage() {
             {myStories.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="pt-8 border-t border-border/50">
                 <button type="button" onClick={() => setShowShowcase(!showShowcase)}
-                  className="w-full bg-surface/30 border border-white/5 rounded-2xl p-5 flex items-center justify-between group cursor-pointer hover:bg-surface/50 hover:border-white/10 transition-colors">
+                  className="w-full bg-surface/30 border border-border-subtle rounded-2xl p-5 flex items-center justify-between group cursor-pointer hover:bg-surface/50 hover:border-border transition-colors">
                   <div>
                     <p className="text-paper text-[14px] font-medium flex items-center gap-2">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost group-hover:text-amber transition-colors">
@@ -570,7 +570,7 @@ export default function RosterSetupPage() {
             {/* Portfolio Links (expandable) */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
               <button type="button" onClick={() => setShowPortfolio(!showPortfolio)}
-                className="w-full bg-surface/30 border border-white/5 rounded-2xl p-5 flex items-center justify-between group cursor-pointer hover:bg-surface/50 hover:border-white/10 transition-colors">
+                className="w-full bg-surface/30 border border-border-subtle rounded-2xl p-5 flex items-center justify-between group cursor-pointer hover:bg-surface/50 hover:border-border transition-colors">
                 <div>
                   <p className="text-paper text-[14px] font-medium flex items-center gap-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost group-hover:text-amber transition-colors">
@@ -596,9 +596,9 @@ export default function RosterSetupPage() {
                       {portfolioLinks.map((link, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <input type="text" value={link.label} onChange={(e) => setPortfolioLinks((prev) => prev.map((l, j) => j === i ? { ...l, label: e.target.value } : l))}
-                            placeholder="Label" className="w-28 bg-ink/50 border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] text-text placeholder:text-text-ghost/40 focus:outline-none focus:border-amber/30 transition-colors" />
+                            placeholder="Label" className="w-28 bg-elevated/80 border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] text-text placeholder:text-text-ghost/40 focus:outline-none focus:border-amber/30 transition-colors" />
                           <input type="url" value={link.url} onChange={(e) => setPortfolioLinks((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
-                            placeholder="https://..." className="flex-1 bg-ink/50 border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] text-text placeholder:text-text-ghost/40 focus:outline-none focus:border-amber/30 transition-colors" />
+                            placeholder="https://..." className="flex-1 bg-elevated/80 border border-border-subtle rounded-xl px-3 py-2.5 text-[13px] text-text placeholder:text-text-ghost/40 focus:outline-none focus:border-amber/30 transition-colors" />
                           <button type="button" onClick={() => setPortfolioLinks((prev) => prev.filter((_, j) => j !== i))}
                             className="text-text-ghost hover:text-rose transition-colors p-1">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l8 8M11 3l-8 8" /></svg>

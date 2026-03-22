@@ -196,7 +196,7 @@ function CharacterCard({ member, index }: { member: RosterMember; index: number 
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="group relative w-full aspect-[2/3.2] max-w-[340px] mx-auto rounded-3xl overflow-hidden cursor-pointer shadow-2xl transition-all duration-300 ease-out border border-white/5 bg-ink"
+        className="group relative w-full aspect-[2/3.2] max-w-[340px] mx-auto rounded-3xl overflow-hidden cursor-pointer shadow-2xl transition-all duration-300 ease-out border border-border bg-ink"
       >
         {/* Background image from showcase */}
         <div className="absolute inset-0 bg-void -z-20">
@@ -204,7 +204,7 @@ function CharacterCard({ member, index }: { member: RosterMember; index: number 
             <img
               src={member.showcaseStories[0].coverImageUrl}
               alt=""
-              className="w-full h-full object-cover opacity-30 group-hover:opacity-10 group-hover:scale-110 transition-all duration-700 blur-[2px] group-hover:blur-[8px]"
+              className="w-full h-full object-cover opacity-50 group-hover:opacity-30 group-hover:scale-110 transition-all duration-700 blur-[1px] group-hover:blur-[6px]"
             />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-surface/50 to-void" />
@@ -212,7 +212,7 @@ function CharacterCard({ member, index }: { member: RosterMember; index: number 
         </div>
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/80 to-transparent z-0 opacity-90" />
+        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent z-0 opacity-80" />
 
         {/* Role-colored border glow on hover */}
         <div
@@ -301,7 +301,7 @@ function CharacterCard({ member, index }: { member: RosterMember; index: number 
                 className="text-[12px] text-paper/70 font-body leading-relaxed max-h-0 opacity-0 group-hover:max-h-32 group-hover:opacity-100 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
                 style={{ transform: "translateZ(10px)" }}
               >
-                <p className="border-t border-white/10 pt-4">
+                <p className="border-t border-border pt-4">
                   <span className="text-[9px] uppercase tracking-widest text-text-ghost block mb-1">
                     Looking For
                   </span>
@@ -444,7 +444,7 @@ function RosterPageContent() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-6xl mx-auto bg-surface/40 backdrop-blur-2xl border border-white/5 rounded-3xl p-6 sm:p-8 shadow-[0_20px_40px_rgba(0,0,0,0.5)] flex flex-col md:flex-row gap-6 items-center justify-between"
+            className="max-w-6xl mx-auto bg-surface/60 backdrop-blur-2xl border border-border rounded-3xl p-6 sm:p-8 shadow-[0_20px_40px_rgba(0,0,0,0.15)] flex flex-col md:flex-row gap-6 items-center justify-between"
           >
             <div className="w-full md:w-auto text-center md:text-left">
               <h1 className="font-display text-4xl sm:text-5xl font-medium tracking-tight mb-2">
@@ -469,12 +469,12 @@ function RosterPageContent() {
                   value={search}
                   onChange={(e) => handleSearch(e.target.value)}
                   placeholder="Seek a creative..."
-                  className="w-full bg-black/30 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm text-paper placeholder:text-text-ghost focus:outline-none focus:border-amber/40 focus:bg-black/50 transition-colors shadow-inner"
+                  className="w-full bg-elevated/80 border border-border rounded-full pl-10 pr-4 py-2.5 text-sm text-paper placeholder:text-text-ghost focus:outline-none focus:border-amber/40 focus:bg-elevated transition-colors"
                 />
               </div>
 
               {/* Role Toggles */}
-              <div className="flex bg-black/40 border border-white/10 rounded-full p-1 self-start sm:self-auto overflow-x-auto max-w-full shadow-inner">
+              <div className="flex bg-elevated/80 border border-border rounded-full p-1 self-start sm:self-auto overflow-x-auto max-w-full">
                 {ROLE_CRAFTS.map((role) => {
                   const isActive = activeRoles.has(role.id);
                   return (
@@ -484,7 +484,7 @@ function RosterPageContent() {
                       className={`px-4 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 whitespace-nowrap ${
                         isActive
                           ? `bg-${role.color}/20 text-${role.color}`
-                          : "text-text-secondary hover:text-paper hover:bg-white/5"
+                          : "text-text-secondary hover:text-paper hover:bg-subtle/50"
                       }`}
                     >
                       {role.label}
@@ -509,10 +509,10 @@ function RosterPageContent() {
               <button
                 key={genre}
                 onClick={() => toggleGenre(genre)}
-                className={`px-4 py-1.5 rounded-full text-[10px] uppercase tracking-wider transition-all duration-300 shrink-0 border border-white/5 shadow-sm ${
+                className={`px-4 py-1.5 rounded-full text-[10px] uppercase tracking-wider transition-all duration-300 shrink-0 border shadow-sm ${
                   activeGenre === genre
                     ? "bg-amber/15 text-amber border-amber/30"
-                    : "bg-surface/30 text-text-secondary hover:bg-surface/50 hover:text-paper hover:border-white/10"
+                    : "bg-surface/40 text-text-secondary hover:bg-surface/60 hover:text-paper border-border"
                 }`}
               >
                 {genre}
@@ -564,7 +564,7 @@ function RosterPageContent() {
               animate={{ opacity: 1 }}
               className="text-center py-32 flex flex-col items-center"
             >
-              <div className="w-16 h-16 rounded-full bg-surface/50 border border-white/5 flex items-center justify-center mb-6 text-text-ghost shadow-inner">
+              <div className="w-16 h-16 rounded-full bg-surface/50 border border-border-subtle flex items-center justify-center mb-6 text-text-ghost shadow-inner">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="12" cy="12" r="10" />
                   <path d="M16 16l-4-4-4 4" />
