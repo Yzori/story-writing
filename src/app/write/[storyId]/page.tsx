@@ -1574,8 +1574,11 @@ export default function WriteStoryPage() {
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="w-full flex-1 min-h-0 flex flex-col items-center"
               >
+                {/* Spacer to push content below navbar area */}
+                <div className="w-full h-16 shrink-0" />
+
                 {/* Sticky chapter header */}
-                <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03] pt-6">
+                <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03] pt-3">
                   <div className="max-w-[680px] mx-auto px-8 pb-3">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
