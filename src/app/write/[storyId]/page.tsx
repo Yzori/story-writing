@@ -955,6 +955,7 @@ export default function WriteStoryPage() {
         contentRating: metadata.contentRating,
         status: metadata.status,
         language: metadata.language,
+        dedication: metadata.dedication,
       };
       // Sync cover image (data URL for MVP, URL for production)
       if (metadata.coverImageDataUrl) {

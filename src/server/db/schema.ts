@@ -1281,3 +1281,31 @@ export const guildProfilesRelations = relations(guildProfiles, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ── Password Reset Tokens ───────────────────────────────────
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+},
+  (table) => [
+    index("idx_password_reset_tokens_token").on(table.token),
+    index("idx_password_reset_tokens_user_id").on(table.userId),
+  ]
+);
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResetTokens.userId],
+    references: [users.id],
+  }),
+}));

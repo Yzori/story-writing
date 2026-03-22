@@ -11,234 +11,6 @@ import BookCard from "@/components/shared/BookCard";
 import GenrePill from "@/components/shared/GenrePill";
 import type { ApiStory } from "@/types/api";
 
-// ── Dummy stories for testing while the library is empty ──
-const DUMMY_STORIES: ApiStory[] = [
-  {
-    id: "dummy-1",
-    title: "The Ember Throne",
-    format: "novel",
-    synopsis: "In a kingdom where fire is currency and ash is memory, a young forgekeeper discovers she can shape flames into living things — and that the throne has been feeding on her family's bloodline for centuries.",
-    coverImageUrl: "/solo_story_mode.png",
-    genres: ["Fantasy", "Adventure"],
-    status: "in-progress",
-    slug: "the-ember-throne",
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    authorName: "Isolde Varen",
-    chapterCount: 24,
-    totalWords: 84200,
-    sparkCount: 312,
-    contentRating: "PG13",
-  },
-  {
-    id: "dummy-2",
-    title: "Neon Meridian",
-    format: "novel",
-    synopsis: "Tokyo, 2089. A blacklisted neural architect takes one last job: hack a dead woman's memories to find a cure buried in her consciousness. But the deeper he dives, the less he trusts his own mind.",
-    coverImageUrl: "/coop_story_mode.png",
-    genres: ["Cyberpunk", "Science Fiction"],
-    status: "in-progress",
-    slug: "neon-meridian",
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    authorName: "Kael Lysander",
-    chapterCount: 18,
-    totalWords: 62800,
-    sparkCount: 189,
-    contentRating: "R",
-  },
-  {
-    id: "dummy-3",
-    title: "Salt & Ruin",
-    format: "novel",
-    synopsis: "A cursed cartographer maps coastlines that shouldn't exist, each one leading her closer to the drowned city her mother died trying to find. The sea remembers everything — and it wants her back.",
-    coverImageUrl: "/adventure_mode.png",
-    genres: ["Dark Fantasy", "Mystery"],
-    status: "in-progress",
-    slug: "salt-and-ruin",
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updatedAt: new Date(Date.now() - 7200000).toISOString(),
-    authorName: "Maren Holt",
-    chapterCount: 21,
-    totalWords: 71500,
-    sparkCount: 247,
-    contentRating: "PG13",
-  },
-  {
-    id: "dummy-4",
-    title: "The Quiet Between",
-    format: "novel",
-    synopsis: "Two strangers share a hospital waiting room for seven nights. Through silence and small confessions, they rebuild something neither expected — not love, exactly, but a reason to stay.",
-    coverImageUrl: "/dashboard/study-morning.png",
-    genres: ["Literary Fiction", "Drama"],
-    status: "complete",
-    slug: "the-quiet-between",
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    authorName: "Sora Tanaka",
-    chapterCount: 12,
-    totalWords: 38900,
-    sparkCount: 156,
-    contentRating: "PG",
-  },
-  {
-    id: "dummy-5",
-    title: "Axiom Breach",
-    format: "novel",
-    synopsis: "When a theoretical physicist accidentally proves that free will is a computational error, governments race to weaponize the discovery. She has 72 hours to destroy her own proof before someone uses it.",
-    coverImageUrl: "/dashboard/study-night.png",
-    genres: ["Science Fiction", "Thriller"],
-    status: "in-progress",
-    slug: "axiom-breach",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 1800000).toISOString(),
-    authorName: "Dex Calloway",
-    chapterCount: 16,
-    totalWords: 55300,
-    sparkCount: 203,
-    contentRating: "PG13",
-  },
-  {
-    id: "dummy-6",
-    title: "Bloodroot",
-    format: "novel",
-    synopsis: "A botanist inherits her grandmother's estate in rural Appalachia, along with a garden that blooms exclusively at night. The flowers are beautiful. The soil is hungry. The roots go deeper than the house.",
-    coverImageUrl: "/dashboard/study-afternoon.png",
-    genres: ["Horror", "Paranormal"],
-    status: "in-progress",
-    slug: "bloodroot",
-    createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    authorName: "Elowen Ashford",
-    chapterCount: 15,
-    totalWords: 48600,
-    sparkCount: 178,
-    contentRating: "R",
-  },
-  {
-    id: "dummy-7",
-    title: "Wandering Stars",
-    format: "novel",
-    synopsis: "Three siblings inherit a travelling circus that moves between dimensions. Each show is a doorway, each audience a different species. The ringmaster left no instructions — only a warning not to let the tent collapse.",
-    coverImageUrl: null,
-    genres: ["Fantasy", "Adventure"],
-    status: "in-progress",
-    slug: "wandering-stars",
-    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-    updatedAt: new Date(Date.now() - 43200000).toISOString(),
-    authorName: "Ren Solaris",
-    chapterCount: 9,
-    totalWords: 31200,
-    sparkCount: 94,
-    contentRating: "PG",
-  },
-  {
-    id: "dummy-8",
-    title: "The Last Cartographer",
-    format: "novel",
-    synopsis: "In a world where the edges of the map are literally unwritten, one woman's job is to walk into the blank spaces and decide what exists there. Her latest expedition discovers something that was never supposed to be found.",
-    coverImageUrl: null,
-    genres: ["Magical Realism", "Literary Fiction"],
-    status: "in-progress",
-    slug: "the-last-cartographer",
-    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    authorName: "Lira Voss",
-    chapterCount: 14,
-    totalWords: 45800,
-    sparkCount: 132,
-    contentRating: "PG",
-  },
-  {
-    id: "dummy-9",
-    title: "Midnight Protocol",
-    format: "novel",
-    synopsis: "A retired spy receives a coded message from an agent who's been dead for ten years. The code is one only they knew. Following the trail leads back to a conspiracy that never ended — it just went deeper underground.",
-    coverImageUrl: null,
-    genres: ["Thriller", "Mystery"],
-    status: "complete",
-    slug: "midnight-protocol",
-    createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    authorName: "Jack Mercer",
-    chapterCount: 22,
-    totalWords: 67400,
-    sparkCount: 267,
-    contentRating: "R",
-  },
-];
-
-// ── Dummy campaigns for the "Open Adventures" section ──
-const DUMMY_CAMPAIGNS: ApiStory[] = [
-  {
-    id: "campaign-1",
-    title: "The Obsidian Crown",
-    format: "novel",
-    synopsis: "A prophecy. A lost artifact. A darkness stirring beneath a ruined city. Three adventurers descend into the Shattered City to find the Crown before it finds them.",
-    coverImageUrl: "/adventure_mode.png",
-    genres: ["Dark Fantasy", "Adventure"],
-    status: "in-progress",
-    slug: "the-obsidian-crown",
-    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-    updatedAt: new Date(Date.now() - 3600000).toISOString(),
-    authorName: "AlexTheGM",
-    chapterCount: 3,
-    totalWords: 12400,
-    sparkCount: 47,
-    contentRating: "PG13",
-  },
-  {
-    id: "campaign-2",
-    title: "The Drift",
-    format: "novel",
-    synopsis: "A generation ship has been flying for 400 years. Nobody remembers where it's going. The AI that runs it has started lying. Five crew members are about to find out why.",
-    coverImageUrl: "/coop_story_mode.png",
-    genres: ["Science Fiction", "Mystery"],
-    status: "in-progress",
-    slug: "the-drift",
-    createdAt: new Date(Date.now() - 86400000 * 8).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    authorName: "Nova Chen",
-    chapterCount: 1,
-    totalWords: 5800,
-    sparkCount: 23,
-    contentRating: "PG13",
-  },
-  {
-    id: "campaign-3",
-    title: "Bloodtide Bay",
-    format: "novel",
-    synopsis: "Pirates, sea monsters, and a cursed treasure map that changes every full moon. The crew of the Wailing Siren must decide: chase the gold or save each other.",
-    coverImageUrl: "/solo_story_mode.png",
-    genres: ["Fantasy", "Adventure"],
-    status: "in-progress",
-    slug: "bloodtide-bay",
-    createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    authorName: "Maren Holt",
-    chapterCount: 5,
-    totalWords: 18200,
-    sparkCount: 89,
-    contentRating: "PG13",
-  },
-  {
-    id: "campaign-4",
-    title: "The Last Lantern",
-    format: "novel",
-    synopsis: "In a world where darkness is literal and spreading, the last lightkeeper guards a lantern that can hold it back — but only if someone is willing to burn inside it.",
-    coverImageUrl: null,
-    genres: ["Dark Fantasy", "Horror"],
-    status: "in-progress",
-    slug: "the-last-lantern",
-    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
-    updatedAt: new Date(Date.now() - 7200000).toISOString(),
-    authorName: "Elowen Ashford",
-    chapterCount: 0,
-    totalWords: 0,
-    sparkCount: 12,
-    contentRating: "R",
-  },
-];
 
 interface StaffPick extends ApiStory {
   pickId: string;
@@ -368,11 +140,7 @@ function BrowsePage() {
         const res = await fetch(`/api/stories?${params}`);
         const json = await res.json();
         if (res.ok) {
-          // Merge real stories with dummy data for testing
-          const real = json.data.stories || [];
-          const realIds = new Set(real.map((s: ApiStory) => s.id));
-          const dummies = DUMMY_STORIES.filter((d) => !realIds.has(d.id));
-          setStories([...real, ...dummies]);
+          setStories(json.data.stories || []);
         }
       } catch {
         // silently fail
@@ -404,12 +172,7 @@ function BrowsePage() {
         const res = await fetch("/api/stories?public=true&writingMode=campaign&limit=6");
         if (res.ok) {
           const json = await res.json();
-          const real = json.data.stories || [];
-          const realIds = new Set(real.map((s: ApiStory) => s.id));
-          const dummies = DUMMY_CAMPAIGNS.filter((d) => !realIds.has(d.id));
-          setCampaignStories([...real, ...dummies]);
-        } else {
-          setCampaignStories(DUMMY_CAMPAIGNS);
+          setCampaignStories(json.data.stories || []);
         }
       } catch {
         // silently fail
@@ -1016,41 +779,55 @@ function BrowsePage() {
           ) : (
             /* ── Empty state — these shelves are bare ── */
             <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="relative w-28 h-28 mb-8">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber/10 to-amber/[0.02] border border-amber/10" />
-                <div className="absolute -inset-6 bg-amber/5 rounded-full blur-3xl" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <svg
-                    width="44"
-                    height="44"
-                    viewBox="0 0 32 32"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="0.8"
-                    className="text-amber/40"
-                  >
-                    {/* Empty bookshelf */}
-                    <path d="M4 6h24M4 14h24M4 22h24M4 6v20M28 6v20" />
-                    {/* Single book leaning */}
-                    <path d="M13 14l2-8h3l-2 8" fill="currentColor" fillOpacity="0.1" />
-                  </svg>
-                </div>
-              </div>
-              <h3 className="font-display text-xl text-paper mb-2">
-                {searchQuery ? "No tomes found" : "These shelves await their first stories"}
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                className="text-text-ghost mb-5"
+              >
+                {/* Book icon */}
+                <path d="M5 4c3-1 6-1 11 1v22c-5-2-8-2-11-1V4z" />
+                <path d="M16 5c5-2 8-2 11-1v22c-3-1-6-1-11 1V5z" />
+              </svg>
+              <h3 className="font-display text-lg text-paper mb-2">
+                {searchQuery
+                  ? "No stories found"
+                  : selectedGenre || formatFilter !== "All"
+                    ? "No stories match these filters"
+                    : "No stories yet"}
               </h3>
               <p className="text-text-secondary text-[13px] max-w-sm leading-relaxed">
                 {searchQuery
-                  ? "The library holds no records matching your search. Try different words or clear your filters."
-                  : "The Grand Library grows with every story written. Be the first to place your work upon these shelves."}
+                  ? "Try different keywords or adjust your filters."
+                  : selectedGenre || formatFilter !== "All"
+                    ? "Try broadening your filters or explore a different genre."
+                    : "The library is waiting for its first stories."}
+              </p>
+              <p className="text-text-ghost text-[12px] mt-2">
+                <Link href="/create" className="text-amber hover:text-amber-light transition-colors">
+                  Create a story
+                </Link>
+                {" "}and be the first on these shelves.
               </p>
 
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="mt-5 text-amber text-[13px] font-medium hover:text-amber-light transition-colors"
+                  className="mt-4 text-amber text-[13px] font-medium hover:text-amber-light transition-colors"
                 >
                   Clear search
+                </button>
+              )}
+
+              {(selectedGenre || formatFilter !== "All") && (
+                <button
+                  onClick={() => { setSelectedGenre(null); setFormatFilter("All"); }}
+                  className="mt-4 text-amber text-[13px] font-medium hover:text-amber-light transition-colors"
+                >
+                  Clear filters
                 </button>
               )}
 
