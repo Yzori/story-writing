@@ -156,6 +156,18 @@ interface ApiChapter {
   updatedAt: string;
 }
 
+const FORMAT_LABELS: Record<string, { singular: string; plural: string }> = {
+  novel: { singular: "Chapter", plural: "Chapters" },
+  poetry: { singular: "Poem", plural: "Poems" },
+  webtoon: { singular: "Episode", plural: "Episodes" },
+  illustrated: { singular: "Chapter", plural: "Chapters" },
+  screenplay: { singular: "Scene", plural: "Scenes" },
+};
+
+function getFormatLabels(format: string) {
+  return FORMAT_LABELS[format] || FORMAT_LABELS.novel;
+}
+
 function apiChapterToLocal(ch: ApiChapter): Chapter {
   return {
     id: ch.id,
@@ -221,6 +233,12 @@ export default function WriteStoryPage() {
   const [rosterNudgeDismissed, setRosterNudgeDismissed] = useState(false);
   // Format-aware editor
   const [storyFormat, setStoryFormat] = useState("novel");
+
+  // Focus mode
+  const [focusMode, setFocusMode] = useState(false);
+  // Reference pane
+  const [refPaneOpen, setRefPaneOpen] = useState(false);
+  const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes">("bible");
 
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
@@ -794,6 +812,29 @@ export default function WriteStoryPage() {
       });
     },
     [updateProject, storyId]
+  );
+
+  const handleUpdateChapterStatus = useCallback(
+    async (id: string, status: "draft" | "published") => {
+      try {
+        const res = await fetch(`/api/stories/${storyId}/chapters/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        if (res.ok) {
+          updateProject((prev) => ({
+            ...prev,
+            chapters: prev.chapters.map((c) =>
+              c.id === id ? { ...c, status } : c
+            ),
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to update chapter status:", err);
+      }
+    },
+    [storyId, updateProject]
   );
 
   const handleDeleteChapter = useCallback(
@@ -1533,37 +1574,108 @@ export default function WriteStoryPage() {
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="w-full flex-1 min-h-0 flex flex-col items-center"
               >
-                {/* Chapter title area */}
-                <div className="w-full max-w-[680px] px-8 pt-24 transition-opacity duration-700 opacity-100">
-                  <p className="font-display text-[11px] tracking-[0.25em] text-amber/50 uppercase mb-4">{project.title}</p>
-                  <h1
-                    className="text-3xl md:text-4xl font-display text-paper/90 mb-2 outline-none focus:text-amber/90 transition-colors cursor-text"
-                    contentEditable
-                    suppressContentEditableWarning
-                    spellCheck={false}
-                    onBlur={(e) => {
-                      const newTitle = e.currentTarget.textContent?.trim();
-                      if (newTitle && activeChapter && newTitle !== activeChapter.title) {
-                        handleRenameChapter(activeChapter.id, newTitle);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        e.currentTarget.blur();
-                      }
-                    }}
-                  >
-                    {activeChapter.title ?? "Untitled"}
-                  </h1>
-                  <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mb-8" />
+                {/* Sticky chapter header */}
+                <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03]">
+                  <div className="max-w-[680px] mx-auto px-8 py-3">
+                    {/* Breadcrumb */}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-paper/15">
+                        <path d="M3 2l4 3-4 3" />
+                      </svg>
+                      <span className="text-[10px] text-paper/30 uppercase tracking-[0.15em]">
+                        {activeChapterIndex !== undefined ? `${getFormatLabels(storyFormat).singular} ${activeChapterIndex + 1}` : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <h1
+                        className="text-xl md:text-2xl font-display text-paper/90 outline-none focus:text-amber/90 transition-colors cursor-text"
+                        contentEditable
+                        suppressContentEditableWarning
+                        spellCheck={false}
+                        onBlur={(e) => {
+                          const newTitle = e.currentTarget.textContent?.trim();
+                          if (newTitle && activeChapter && newTitle !== activeChapter.title) {
+                            handleRenameChapter(activeChapter.id, newTitle);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      >
+                        {activeChapter.title ?? "Untitled"}
+                      </h1>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {/* Reading time */}
+                        <span className="text-[11px] text-paper/20 hidden sm:block">
+                          ~{Math.max(1, Math.ceil((activeChapter.wordCount || 0) / 238))} min read
+                        </span>
+                        {/* Focus mode toggle */}
+                        <button
+                          onClick={() => setFocusMode((f) => !f)}
+                          className={`p-1.5 rounded-md transition-all text-[11px] hidden sm:flex items-center gap-1 ${
+                            focusMode
+                              ? "bg-amber/10 text-amber border border-amber/20"
+                              : "text-paper/25 hover:text-paper/40 border border-transparent"
+                          }`}
+                          title="Focus mode"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                            <circle cx="7" cy="7" r="3" />
+                            <path d="M7 1v2M7 11v2M1 7h2M11 7h2" />
+                          </svg>
+                        </button>
+                        {/* Reference pane toggle */}
+                        <button
+                          onClick={() => setRefPaneOpen((r) => !r)}
+                          className={`p-1.5 rounded-md transition-all text-[11px] hidden sm:flex items-center gap-1 ${
+                            refPaneOpen
+                              ? "bg-lavender/10 text-lavender border border-lavender/20"
+                              : "text-paper/25 hover:text-paper/40 border border-transparent"
+                          }`}
+                          title="Reference pane"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                            <rect x="1" y="1" width="12" height="12" rx="2" />
+                            <line x1="9" y1="1" x2="9" y2="13" />
+                          </svg>
+                        </button>
+                        {/* Quick publish */}
+                        {activeChapter.status !== "published" ? (
+                          <button
+                            onClick={() => {
+                              if (activeChapter) {
+                                handleUpdateChapterStatus(activeChapter.id, "published");
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] border border-sage/30 text-sage hover:bg-sage/10 transition-all"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                              <path d="M2 6l3 3 5-5" />
+                            </svg>
+                            Publish
+                          </button>
+                        ) : (
+                          <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-sage/10 text-sage/60">
+                            Live
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div
-                  className={`w-full flex-1 min-h-0 ${
-                    project.typography.dropCaps ? "drop-caps" : ""
-                  } scene-break-${project.typography.sceneBreakStyle || "asterism"}`}
-                >
+                <div className="w-full flex-1 min-h-0 flex">
+                  <div
+                    className={`flex-1 min-w-0 ${
+                      project.typography.dropCaps ? "drop-caps" : ""
+                    } scene-break-${project.typography.sceneBreakStyle || "asterism"} ${
+                      focusMode ? "focus-mode" : ""
+                    }`}
+                  >
                   <EditorErrorBoundary>
                     {storyFormat === "screenplay" ? (
                       <ScreenplayEditor
@@ -1606,6 +1718,92 @@ export default function WriteStoryPage() {
                       />
                     )}
                   </EditorErrorBoundary>
+                  </div>
+
+                  {/* Reference pane */}
+                  <AnimatePresence>
+                    {refPaneOpen && (
+                      <motion.aside
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 300, opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                        className="shrink-0 border-l border-border bg-surface/50 overflow-hidden hidden sm:block"
+                      >
+                        <div className="min-w-[300px] flex flex-col h-full">
+                          <div className="flex items-center gap-1 px-4 py-3 border-b border-border">
+                            <button
+                              onClick={() => setRefPaneTab("bible")}
+                              className={`px-2.5 py-1 rounded-md text-[11px] transition-colors ${
+                                refPaneTab === "bible"
+                                  ? "bg-amber/[0.08] text-amber border border-amber/20"
+                                  : "text-text-ghost hover:text-text-secondary"
+                              }`}
+                            >
+                              Characters
+                            </button>
+                            <button
+                              onClick={() => setRefPaneTab("notes")}
+                              className={`px-2.5 py-1 rounded-md text-[11px] transition-colors ${
+                                refPaneTab === "notes"
+                                  ? "bg-amber/[0.08] text-amber border border-amber/20"
+                                  : "text-text-ghost hover:text-text-secondary"
+                              }`}
+                            >
+                              Notes
+                            </button>
+                            <button
+                              onClick={() => setRefPaneOpen(false)}
+                              className="ml-auto p-1 rounded text-text-ghost hover:text-text-secondary transition-colors"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                                <line x1="4" y1="4" x2="10" y2="10" />
+                                <line x1="10" y1="4" x2="4" y2="10" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                            {refPaneTab === "bible" ? (
+                              project.bible.characters.length > 0 ? (
+                                project.bible.characters.map((char) => (
+                                  <div key={char.id} className="rounded-lg border border-border bg-elevated/50 p-3">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: char.color }} />
+                                      <span className="text-[13px] font-medium text-paper truncate">{char.name}</span>
+                                    </div>
+                                    {char.description && (
+                                      <p className="text-[11px] text-text-ghost leading-relaxed line-clamp-3">
+                                        {char.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-[12px] text-text-ghost text-center py-8">
+                                  No characters yet. Add them in the Story Bible.
+                                </p>
+                              )
+                            ) : (
+                              project.bible.notes.length > 0 ? (
+                                project.bible.notes.map((note) => (
+                                  <div key={note.id} className="rounded-lg border border-border bg-elevated/50 p-3">
+                                    <p className="text-[13px] font-medium text-paper mb-1">{note.title}</p>
+                                    <p className="text-[11px] text-text-ghost leading-relaxed line-clamp-4">
+                                      {note.content}
+                                    </p>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-[12px] text-text-ghost text-center py-8">
+                                  No notes yet. Add them in the Story Bible.
+                                </p>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </motion.aside>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             )}

@@ -8,6 +8,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
+import Focus from "@tiptap/extension-focus";
 import { useEffect, useCallback, useRef, useState } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
@@ -173,6 +174,7 @@ export default function ProseEditor({
       Typography,
       Highlight.configure({ multicolor: false }),
       Underline,
+      Focus.configure({ className: "has-focus", mode: "deepest" }),
       IllustrationBlock,
       CommentMark,
       CharacterMention.configure({ characters }),

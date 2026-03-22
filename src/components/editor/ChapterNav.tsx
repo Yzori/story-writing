@@ -51,6 +51,7 @@ export default function ChapterNav({
 }: ChapterNavProps) {
   const totalWords = chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
   const labels = getFormatLabels(format);
+  const publishedCount = chapters.filter((ch) => ch.status === "published").length;
 
   return (
     <motion.aside
@@ -98,9 +99,16 @@ export default function ChapterNav({
                 placeholder="Untitled Story"
                 aria-label="Story title"
               />
-              <p className="text-[10px] text-text-ghost mt-1.5 uppercase tracking-[0.15em]">
-                {chapters.length} {chapters.length === 1 ? labels.singular : labels.plural} · {formatNumber(totalWords)} words
-              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <p className="text-[10px] text-text-ghost uppercase tracking-[0.15em]">
+                  {chapters.length} {chapters.length === 1 ? labels.singular : labels.plural} · {formatNumber(totalWords)} words
+                </p>
+                {publishedCount > 0 && (
+                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-sage/10 text-sage/60">
+                    {publishedCount} live
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Chapter list */}
@@ -181,13 +189,16 @@ export default function ChapterNav({
               key={ch.id}
               onClick={() => onSelectChapter(ch.id)}
               title={ch.title}
-              className={`w-6 h-6 rounded text-[9px] font-medium flex items-center justify-center transition-colors ${
+              className={`w-6 h-6 rounded text-[9px] font-medium flex items-center justify-center transition-colors relative ${
                 ch.id === activeChapterId
                   ? "bg-amber/15 text-amber"
                   : "text-text-ghost hover:text-text-secondary hover:bg-subtle/50"
               }`}
             >
               {i + 1}
+              {ch.status === "published" && (
+                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-sage/60" />
+              )}
             </button>
           ))}
         </div>
@@ -233,22 +244,45 @@ function ChapterItem({
 
       {/* Title + meta */}
       <div className="flex-1 min-w-0">
-        <input
-          value={chapter.title}
-          onChange={(e) => {
-            e.stopPropagation();
-            onRename(e.target.value);
-          }}
-          onClick={(e) => e.stopPropagation()}
-          className={`w-full bg-transparent text-[13px] outline-none truncate transition-colors ${
-            isActive ? "text-paper" : "text-text-secondary"
-          } placeholder:text-text-ghost`}
-          placeholder="Untitled"
-          aria-label="Title"
-        />
-        <p className="text-[10px] text-text-ghost mt-0.5">
-          {formatNumber(chapter.wordCount)} words
-        </p>
+        <div className="flex items-center gap-1.5">
+          <input
+            value={chapter.title}
+            onChange={(e) => {
+              e.stopPropagation();
+              onRename(e.target.value);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className={`flex-1 min-w-0 bg-transparent text-[13px] outline-none truncate transition-colors ${
+              isActive ? "text-paper" : "text-text-secondary"
+            } placeholder:text-text-ghost`}
+            placeholder="Untitled"
+            aria-label="Title"
+          />
+          {/* Status badge */}
+          <span className={`shrink-0 text-[8px] uppercase tracking-wider px-1 py-0.5 rounded-full ${
+            chapter.status === "published"
+              ? "bg-sage/12 text-sage/60"
+              : "bg-white/[0.03] text-text-ghost/40"
+          }`}>
+            {chapter.status === "published" ? "Live" : "Draft"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="text-[10px] text-text-ghost">
+            {formatNumber(chapter.wordCount)} words
+          </p>
+        </div>
+        {/* Word count progress bar (show for chapters with content but not published) */}
+        {chapter.wordCount > 0 && chapter.status !== "published" && (
+          <div className="mt-1.5 h-[2px] bg-white/[0.03] rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-amber/30 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, (chapter.wordCount / 3000) * 100)}%` }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Delete button */}
