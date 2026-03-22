@@ -1575,8 +1575,8 @@ export default function WriteStoryPage() {
                 className="w-full flex-1 min-h-0 flex flex-col items-center"
               >
                 {/* Sticky chapter header */}
-                <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03]">
-                  <div className="max-w-[680px] mx-auto px-8 py-3">
+                <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03] pt-6">
+                  <div className="max-w-[680px] mx-auto px-8 pb-3">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
@@ -1668,7 +1668,7 @@ export default function WriteStoryPage() {
                   </div>
                 </div>
 
-                <div className="w-full flex-1 min-h-0 flex">
+                <div className="w-full flex-1 min-h-0 flex pt-8">
                   <div
                     className={`flex-1 min-w-0 ${
                       project.typography.dropCaps ? "drop-caps" : ""
