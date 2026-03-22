@@ -116,8 +116,8 @@ function SessionEndedBlock({
     <>
     <SessionHighlights storyTurns={storyTurns} logTurns={logTurns} />
     <div className="w-full max-w-[650px] mt-4">
-      <div className="text-center py-8 border border-white/5 rounded-2xl bg-white/[0.02]">
-        <p className="text-white/40 text-sm font-serif italic">This session has ended.</p>
+      <div className="text-center py-8 border border-border-subtle rounded-2xl bg-subtle/20">
+        <p className="text-text-tertiary text-sm font-serif italic">This session has ended.</p>
 
         {isGM && compileState === "idle" && (
           <button
@@ -150,7 +150,7 @@ function SessionEndedBlock({
               </a>
             )}
             {compiledChapterId?.startsWith("demo") && (
-              <p className="text-xs text-white/30">(Demo mode — no chapter was actually created)</p>
+              <p className="text-xs text-text-tertiary">(Demo mode — no chapter was actually created)</p>
             )}
           </div>
         )}
@@ -162,7 +162,7 @@ function SessionEndedBlock({
             </p>
             <button
               onClick={() => setCompileState("idle")}
-              className="text-xs text-white/40 hover:text-white/60 underline underline-offset-2 transition-colors cursor-pointer"
+              className="text-xs text-text-tertiary hover:text-text-secondary underline underline-offset-2 transition-colors cursor-pointer"
             >
               Try again
             </button>
@@ -651,13 +651,13 @@ export default function StoryCanvas({
   const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
 
   return (
-    <div className="flex-1 h-full flex flex-col relative bg-[#0a0a0a]">
+    <div className="flex-1 h-full flex flex-col relative bg-void">
       {/* Map Toggle */}
       <div className="absolute top-24 right-4 z-50 flex gap-2">
         <button
           onClick={() => setShowMap(!showMap)}
           className={`border rounded-full px-4 py-1.5 text-xs transition-colors flex items-center gap-2 backdrop-blur-md cursor-pointer ${
-            showMap ? "bg-amber text-black border-amber" : "bg-white/5 text-white/60 border-white/10 hover:text-white hover:bg-white/10"
+            showMap ? "bg-amber text-black border-amber" : "bg-subtle/30 text-text-secondary border-border hover:text-paper hover:bg-subtle/50"
           }`}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -729,7 +729,7 @@ export default function StoryCanvas({
                 mysterious: "border-cyan-400/30 text-cyan-400/50",
                 romantic: "border-pink-400/30 text-pink-400/50",
               };
-              const colors = moodBorderColors[currentMood ?? ""] ?? "border-white/20 text-white/40";
+              const colors = moodBorderColors[currentMood ?? ""] ?? "border-border-active text-text-tertiary";
               return (
                 <motion.span
                   key={aspect}
@@ -781,7 +781,7 @@ export default function StoryCanvas({
         {/* Story Content */}
         <div className="w-full max-w-[650px] mb-8">
           <div className="mb-12">
-            <h1 className="text-4xl font-display text-white/90">{sessionTitle}</h1>
+            <h1 className="text-4xl font-display text-paper">{sessionTitle}</h1>
             <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mt-6 mb-12" />
           </div>
 
@@ -794,7 +794,7 @@ export default function StoryCanvas({
 
           {storyTurns.length === 0 && !sessionOpening ? (
             <div className="text-center py-20">
-              <p className="text-white/20 text-sm font-serif italic">
+              <p className="text-text-ghost text-sm font-serif italic">
                 {isGM ? "Set the scene with your opening narration." : "Waiting for the GM to begin..."}
               </p>
             </div>
@@ -805,10 +805,10 @@ export default function StoryCanvas({
                 <div className="flex justify-center !mb-8">
                   <button
                     onClick={handleLoadEarlier}
-                    className="bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-white/20 text-white/40 hover:text-white/60 rounded-full px-5 py-2.5 text-[11px] uppercase tracking-widest font-display transition-all cursor-pointer group"
+                    className="bg-subtle/20 hover:bg-subtle/40 border border-border hover:border-border-active text-text-tertiary hover:text-text-secondary rounded-full px-5 py-2.5 text-[11px] uppercase tracking-widest font-display transition-all cursor-pointer group"
                   >
                     Load earlier turns
-                    <span className="ml-2 text-white/20 group-hover:text-white/30 transition-colors">
+                    <span className="ml-2 text-text-ghost group-hover:text-text-tertiary transition-colors">
                       ({visibleStartIndex} more)
                     </span>
                   </button>
@@ -868,7 +868,7 @@ export default function StoryCanvas({
                       transition={{ duration: 0.6, ease: "easeOut" }}
                       className="my-10 flex flex-col items-center"
                     >
-                      <div className="max-w-full rounded-xl overflow-hidden border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+                      <div className="max-w-full rounded-xl overflow-hidden border border-border shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
                         <img
                           src={imageUrl}
                           alt={caption || "Illustration"}
@@ -922,10 +922,10 @@ export default function StoryCanvas({
                           <div className="bg-amber/5 border border-amber/20 rounded-xl p-4 mt-2 mb-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-[9px] uppercase tracking-widest text-amber/50 font-display">Quick Edit</span>
-                              <span className="text-[9px] text-white/20">Changes apply instantly</span>
+                              <span className="text-[9px] text-text-ghost">Changes apply instantly</span>
                             </div>
                             <textarea
-                              className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[60px] placeholder:text-white/20"
+                              className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[60px] placeholder:text-text-ghost"
                               value={editContent}
                               onChange={(e) => setEditContent(e.target.value)}
                               autoFocus
@@ -933,7 +933,7 @@ export default function StoryCanvas({
                             <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-amber/10">
                               <button
                                 onClick={handleEditCancel}
-                                className="text-[10px] text-white/40 hover:text-white/60 px-3 py-1 cursor-pointer"
+                                className="text-[10px] text-text-tertiary hover:text-text-secondary px-3 py-1 cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -960,7 +960,7 @@ export default function StoryCanvas({
         {/* Draft Box */}
         {canWrite && (
           <div className="w-full max-w-[650px] mt-auto">
-            <div className="bg-[#111] border border-amber/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
+            <div className="bg-ink border border-amber/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
               <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-amber">
                 {isGM ? "Narrator" : "Your Turn"}
               </div>
@@ -973,7 +973,7 @@ export default function StoryCanvas({
                     className={`px-3 py-1 text-[10px] uppercase tracking-[0.08em] font-medium rounded-full border transition-all cursor-pointer ${
                       draftType === t.key
                         ? "bg-amber/15 text-amber border-amber/30"
-                        : "bg-white/5 text-white/40 border-white/10 hover:text-white/60"
+                        : "bg-subtle/30 text-text-tertiary border-border hover:text-text-secondary"
                     }`}
                     title={t.hint}
                   >
@@ -984,8 +984,8 @@ export default function StoryCanvas({
                   onClick={() => setShowTurnHelp((v) => !v)}
                   className={`w-6 h-6 rounded-full border text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center ${
                     showTurnHelp
-                      ? "bg-white/10 border-white/20 text-white/50"
-                      : "bg-white/5 border-white/10 text-white/30 hover:text-white/50 hover:bg-white/10"
+                      ? "bg-subtle/50 border-border-active text-text-secondary"
+                      : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary hover:bg-subtle/50"
                   }`}
                   title="Show turn type help"
                 >
@@ -1003,16 +1003,16 @@ export default function StoryCanvas({
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4 mb-3">
+                    <div className="bg-subtle/20 border border-border-subtle rounded-xl p-4 mb-3">
                       <div className="text-[10px] uppercase tracking-widest text-amber/60 font-bold mb-1">
                         {draftTypes.find((t) => t.key === draftType)?.label ?? draftType}
                       </div>
-                      <div className="text-xs text-white/40 mb-2">
+                      <div className="text-xs text-text-tertiary mb-2">
                         {TURN_DESCRIPTIONS[draftType]}
                       </div>
-                      <div className="text-sm text-white/25 font-serif italic leading-relaxed">
+                      <div className="text-sm text-text-ghost font-serif italic leading-relaxed">
                         {isPlayerTurnType(draftType) && myCharName && (
-                          <span className="text-white/35 not-italic">{myCharName} </span>
+                          <span className="text-text-tertiary not-italic">{myCharName} </span>
                         )}
                         {TURN_EXAMPLES[draftType]}
                       </div>
@@ -1023,23 +1023,23 @@ export default function StoryCanvas({
 
               {/* Render preview — shows how the turn will appear in the story */}
               {!isGM && renderPreview[draftType] && (
-                <div className="mb-2 px-1 text-[11px] text-white/25 font-serif italic">
+                <div className="mb-2 px-1 text-[11px] text-text-ghost font-serif italic">
                   Appears as: {renderPreview[draftType]}
                 </div>
               )}
 
               <textarea
-                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[120px] placeholder:text-white/20"
+                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[120px] placeholder:text-text-ghost"
                 placeholder={draftPlaceholders[draftType] ?? "Write..."}
                 value={draftContent}
                 onChange={(e) => setDraftContent(e.target.value)}
               />
 
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
-                <div className="text-xs text-white/40 font-serif italic flex items-center gap-3">
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border-subtle">
+                <div className="text-xs text-text-tertiary font-serif italic flex items-center gap-3">
                   <span>{isGM ? "The narrator sets the stage." : "Take your time. The party is waiting."}</span>
                   {draftSaved && draftContent && (
-                    <span className="text-white/20 text-[10px] not-italic">Draft saved</span>
+                    <span className="text-text-ghost text-[10px] not-italic">Draft saved</span>
                   )}
                   {isListening && (
                     <span className="text-rose/60 text-[10px] not-italic flex items-center gap-1.5">
@@ -1055,7 +1055,7 @@ export default function StoryCanvas({
                       className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
                         isListening
                           ? "bg-rose/20 border-rose/40 text-rose shadow-[0_0_12px_rgba(244,63,94,0.3)]"
-                          : "bg-white/5 border-white/10 text-white/40 hover:text-white/60 hover:bg-white/10"
+                          : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary hover:bg-subtle/50"
                       }`}
                       title={isListening ? "Stop dictation" : "Voice dictation"}
                     >
@@ -1084,8 +1084,8 @@ export default function StoryCanvas({
           const isGMTurn = !characters.some((c) => c.userId === activePlayerId && c.status === "active");
           return (
             <div className="w-full max-w-[650px] mt-auto">
-              <div className="bg-[#111] border border-white/10 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
-                <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-white/30">
+              <div className="bg-ink border border-border rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
+                <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-text-tertiary">
                   {isGMTurn ? "GM Narrating" : "Waiting"}
                 </div>
 
@@ -1098,7 +1098,7 @@ export default function StoryCanvas({
                       <p className="font-serif italic text-sm">The GM is setting the scene...</p>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 text-white/40">
+                    <div className="flex items-center gap-3 text-text-tertiary">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-50">
                         <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                       </svg>
@@ -1108,7 +1108,7 @@ export default function StoryCanvas({
                 </div>
 
                 {/* Reaction buttons */}
-                <div className="flex items-center justify-center gap-2 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-center gap-2 pt-3 border-t border-border-subtle">
                   {REACTIONS.map((r) => (
                     <motion.button
                       key={r.key}
@@ -1116,14 +1116,14 @@ export default function StoryCanvas({
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleReactionClick(r.key)}
                       disabled={reactionCooldown}
-                      className={`flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 transition-all cursor-pointer ${
+                      className={`flex items-center gap-1.5 bg-subtle/30 border border-border rounded-full px-3 py-1.5 transition-all cursor-pointer ${
                         reactionCooldown
                           ? "opacity-30 cursor-not-allowed"
-                          : "hover:bg-white/10 hover:border-white/20"
+                          : "hover:bg-subtle/50 hover:border-border-active"
                       }`}
                     >
                       <span className="text-sm leading-none">{r.emoji}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-white/40 leading-none">{r.label}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-text-tertiary leading-none">{r.label}</span>
                     </motion.button>
                   ))}
                 </div>
@@ -1135,17 +1135,17 @@ export default function StoryCanvas({
         {/* Last Words — when character has died */}
         {!isGM && isCharDead && !lastWordsSent && isActive && (
           <div className="w-full max-w-[650px] mt-auto">
-            <div className="bg-[#111] border border-rose/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
+            <div className="bg-ink border border-rose/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
               <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-rose">
                 Your character has fallen
               </div>
 
-              <p className="text-xs text-white/40 font-serif italic mb-4">
+              <p className="text-xs text-text-tertiary font-serif italic mb-4">
                 Write your final moment — a last breath, a whispered name, a defiant gaze. This is your character&apos;s goodbye.
               </p>
 
               <textarea
-                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[80px] placeholder:text-white/20"
+                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[80px] placeholder:text-text-ghost"
                 placeholder="Their final words, their last thought..."
                 value={lastWordsContent}
                 onChange={(e) => setLastWordsContent(e.target.value)}
@@ -1160,7 +1160,7 @@ export default function StoryCanvas({
                     }
                   }}
                   disabled={!lastWordsContent.trim()}
-                  className="bg-rose/10 hover:bg-rose border border-rose/20 text-rose hover:text-white transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="bg-rose/10 hover:bg-rose border border-rose/20 text-rose hover:text-paper transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Final Words
                 </button>
@@ -1172,13 +1172,13 @@ export default function StoryCanvas({
         {/* Spectator mode — after death/retirement */}
         {!isGM && isCharGone && (lastWordsSent || isCharRetired) && isActive && (
           <div className="w-full max-w-[650px] mt-8">
-            <div className="text-center py-8 border border-white/5 rounded-2xl bg-white/[0.02]">
-              <p className="text-white/30 text-sm font-serif italic">
+            <div className="text-center py-8 border border-border-subtle rounded-2xl bg-subtle/20">
+              <p className="text-text-tertiary text-sm font-serif italic">
                 {isCharDead
                   ? "Your character has passed. You are now a spectator."
                   : "Your character has retired from this adventure."}
               </p>
-              <p className="text-white/20 text-xs mt-2">You can still chat in the session log.</p>
+              <p className="text-text-ghost text-xs mt-2">You can still chat in the session log.</p>
             </div>
           </div>
         )}
@@ -1220,7 +1220,7 @@ export default function StoryCanvas({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="absolute inset-x-8 inset-y-8 z-40 bg-[#15100a] rounded-3xl border border-amber/20 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+            className="absolute inset-x-8 inset-y-8 z-40 bg-ink rounded-3xl border border-amber/20 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
           >
             <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] pointer-events-none" />
             <LoreMap

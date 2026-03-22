@@ -39,11 +39,11 @@ const MOOD_COLORS: Record<string, { bg: string; border: string; glow: string; te
 };
 
 const DEFAULT_PIN_STYLE = {
-  bg: "bg-[#d4af37]/80", // Gold-ish default
-  border: "border-[#d4af37]/60",
+  bg: "bg-amber/80", // Gold-ish default
+  border: "border-amber/60",
   glow: "shadow-[0_0_12px_rgba(212,175,55,0.4)]",
-  text: "text-[#d4af37]",
-  pill: "bg-[#d4af37]/20 text-[#d4af37]",
+  text: "text-amber",
+  pill: "bg-amber/20 text-amber",
   fill: "#d4af37",
   stroke: "rgba(212,175,55,0.4)"
 };
@@ -202,17 +202,17 @@ function PinCreationForm({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9, y: 10 }}
       transition={{ duration: 0.2, type: "spring", stiffness: 300, damping: 25 }}
-      className="absolute z-50 w-[280px] bg-[#1a1512]/95 backdrop-blur-md border border-[#d4af37]/30 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] overflow-hidden"
+      className="absolute z-50 w-[280px] bg-surface/95 backdrop-blur-md border border-amber/30 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] overflow-hidden"
       style={formStyle}
     >
-      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#d4af37]/50 to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber/50 to-transparent" />
       <form onSubmit={handleSubmit} className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[#d4af37]/80 font-bold flex items-center gap-1.5">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-amber/80 font-bold flex items-center gap-1.5">
             <MapPinIcon size={12} />
             Mark Location
           </p>
-          <button type="button" onClick={onCancel} className="text-white/30 hover:text-white transition-colors cursor-pointer p-1">
+          <button type="button" onClick={onCancel} className="text-text-tertiary hover:text-paper transition-colors cursor-pointer p-1">
             <X size={14} />
           </button>
         </div>
@@ -225,13 +225,13 @@ function PinCreationForm({
              onChange={(e) => setLabel(e.target.value)}
              placeholder="e.g. The Sunken Temple"
              autoFocus
-             className="w-full bg-black/40 border border-[#d4af37]/20 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#d4af37]/60 font-serif shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] transition-colors placeholder:text-[#d4af37]/30"
+             className="w-full bg-black/40 border border-amber/20 rounded-md px-3 py-2 text-sm text-paper focus:outline-none focus:border-amber/60 font-serif shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] transition-colors placeholder:text-amber/30"
            />
         </div>
 
         {/* Mood selector */}
         <div>
-          <p className="text-[9px] uppercase tracking-widest text-white/30 mb-2">Vibe / Danger Level</p>
+          <p className="text-[9px] uppercase tracking-widest text-text-tertiary mb-2">Vibe / Danger Level</p>
           <div className="flex flex-wrap gap-1.5">
             {MOODS.map((m) => {
               const style = MOOD_COLORS[m];
@@ -244,7 +244,7 @@ function PinCreationForm({
                   className={`px-2 py-0.5 rounded-full text-[10px] capitalize border transition-all cursor-pointer ${
                     isSelected
                       ? `${style.pill} border-current font-bold ring-2 ring-current ring-offset-1 ring-offset-[#1a1512]`
-                      : "bg-white/5 text-white/40 border-white/10 hover:border-white/30 hover:bg-white/10"
+                      : "bg-subtle/30 text-text-tertiary border-border hover:border-border-active hover:bg-subtle/50"
                   }`}
                 >
                   {m}
@@ -260,14 +260,14 @@ function PinCreationForm({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Jot down notes, discoveries, or warnings..."
           rows={3}
-          className="w-full bg-black/40 border border-[#d4af37]/20 rounded-md px-3 py-2 text-xs text-white/80 placeholder:text-[#d4af37]/30 focus:outline-none focus:border-[#d4af37]/60 resize-none font-serif shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] transition-colors leading-relaxed"
+          className="w-full bg-black/40 border border-amber/20 rounded-md px-3 py-2 text-xs text-paper/80 placeholder:text-amber/30 focus:outline-none focus:border-amber/60 resize-none font-serif shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] transition-colors leading-relaxed"
         />
 
         {/* Actions */}
         <button
           type="submit"
           disabled={!label.trim()}
-          className="w-full bg-gradient-to-r from-[#d4af37]/10 via-[#d4af37]/20 to-[#d4af37]/10 hover:via-[#d4af37]/30 border border-[#d4af37]/30 text-[#d4af37] rounded-md py-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(212,175,55,0.1)]"
+          className="w-full bg-gradient-to-r from-amber/10 via-amber/20 to-amber/10 hover:via-amber/30 border border-amber/30 text-amber rounded-md py-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(212,175,55,0.1)]"
         >
           Etch into Map
         </button>
@@ -329,8 +329,8 @@ function PinTooltip({
 
         {/* Mood pill (like a wax stamp or strong ink) */}
         {pin.mood && (
-          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[9px] uppercase tracking-wider font-bold text-white border border-black/20 shadow-sm mb-2`} style={{ backgroundColor: style.fill }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[9px] uppercase tracking-wider font-bold text-paper border border-black/20 shadow-sm mb-2`} style={{ backgroundColor: style.fill }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-subtle/300" />
             {pin.mood}
           </span>
         )}
@@ -485,23 +485,23 @@ export default function LoreMap({
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0806]" ref={containerRef}>
+    <div className="flex flex-col h-full bg-void" ref={containerRef}>
       {/* Floating Header UI */}
       <div className="absolute top-6 left-6 right-6 z-30 flex justify-between items-start pointer-events-none">
          <div className="pointer-events-auto">
-            <h2 className="text-2xl font-display text-[#d4af37] tracking-[0.3em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            <h2 className="text-2xl font-display text-amber tracking-[0.3em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 Known World
             </h2>
-            <div className="h-0.5 w-16 bg-gradient-to-r from-[#d4af37] to-transparent mt-1" />
+            <div className="h-0.5 w-16 bg-gradient-to-r from-amber to-transparent mt-1" />
             
             {/* Legend / Info */}
             <div className="mt-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-xs font-serif text-[#d4af37]/70 italic drop-shadow-md">
-                   <div className="w-4 h-0.5 bg-[#d4af37]" /> The party's trail
+                <div className="flex items-center gap-2 text-xs font-serif text-amber/70 italic drop-shadow-md">
+                   <div className="w-4 h-0.5 bg-amber" /> The party's trail
                 </div>
                 {isGM && (
-                   <div className="flex items-center gap-2 text-[10px] text-white/40 uppercase tracking-widest bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/5 w-fit mt-2">
-                     <Plus size={12} className="text-[#d4af37]" /> Click to map location
+                   <div className="flex items-center gap-2 text-[10px] text-text-tertiary uppercase tracking-widest bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border-subtle w-fit mt-2">
+                     <Plus size={12} className="text-amber" /> Click to map location
                    </div>
                 )}
             </div>
@@ -509,7 +509,7 @@ export default function LoreMap({
 
          <button 
            onClick={onClose} 
-           className="pointer-events-auto w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 hover:border-[#d4af37]/50 hover:bg-[#d4af37]/10 flex items-center justify-center text-white/50 hover:text-[#d4af37] transition-all cursor-pointer shadow-lg"
+           className="pointer-events-auto w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-border hover:border-amber/50 hover:bg-amber/10 flex items-center justify-center text-text-secondary hover:text-amber transition-all cursor-pointer shadow-lg"
          >
            <X size={20} />
          </button>
@@ -606,9 +606,9 @@ export default function LoreMap({
                transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
                className="relative"
             >
-               <Compass size={180} strokeWidth={0.5} className="text-[#d4af37]" />
+               <Compass size={180} strokeWidth={0.5} className="text-amber" />
                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-1 h-24 bg-gradient-to-b from-[#d4af37] to-transparent rounded-full shadow-[0_0_10px_#d4af37]" />
+                  <div className="w-1 h-24 bg-gradient-to-b from-amber to-transparent rounded-full shadow-[0_0_10px_#d4af37]" />
                </div>
             </motion.div>
          </div>

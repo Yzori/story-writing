@@ -60,10 +60,10 @@ function DiceFace({ value, rolling, index }: { value: number | null; rolling: bo
       }
       className={`w-16 h-16 rounded-xl flex items-center justify-center relative border-2 transition-colors duration-300 ${
         rolling
-          ? "bg-[#1a1a1a] border-amber/50"
+          ? "bg-surface border-amber/50"
           : value !== null
-            ? "bg-[#1a1a1a] border-amber/60 shadow-[0_0_25px_rgba(200,150,60,0.4)]"
-            : "bg-[#1a1a1a] border-white/20"
+            ? "bg-surface border-amber/60 shadow-[0_0_25px_rgba(200,150,60,0.4)]"
+            : "bg-surface border-border-active"
       }`}
     >
       {/* Pip dots */}
@@ -77,7 +77,7 @@ function DiceFace({ value, rolling, index }: { value: number | null; rolling: bo
                   ? "bg-amber/40"
                   : value !== null
                     ? "bg-amber shadow-[0_0_6px_rgba(200,150,60,0.6)]"
-                    : "bg-white/20"
+                    : "bg-subtle/50"
               }`}
               style={{
                 left: `${pip.x}%`,
@@ -90,7 +90,7 @@ function DiceFace({ value, rolling, index }: { value: number | null; rolling: bo
           ))}
         </div>
       ) : (
-        <span className="text-2xl font-display font-bold text-white/30">?</span>
+        <span className="text-2xl font-display font-bold text-text-tertiary">?</span>
       )}
 
       {/* Impact flash on landing */}
@@ -230,14 +230,14 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50"
         >
-          <div className="bg-[#111]/95 backdrop-blur-2xl border border-white/10 p-8 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.9)] flex flex-col items-center min-w-[320px]">
-            <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/50 mb-2">Roll 2d6</h3>
+          <div className="bg-ink/95 backdrop-blur-2xl border border-border p-8 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.9)] flex flex-col items-center min-w-[320px]">
+            <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-text-secondary mb-2">Roll 2d6</h3>
             {rollReason && (
               <p className="text-xs text-violet-400 mb-2 text-center max-w-[280px]">
-                GM: <span className="text-white/70">{rollReason}</span>
+                GM: <span className="text-text">{rollReason}</span>
               </p>
             )}
-            <p className="text-[10px] text-white/30 mb-5">
+            <p className="text-[10px] text-text-tertiary mb-5">
               10+ success &bull; 7-9 partial &bull; 6- fail
             </p>
 
@@ -254,18 +254,18 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
               <div className="w-full max-w-[280px] mb-5 space-y-2">
                 {rollOnSuccess && (
                   <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border transition-all duration-500 ${
-                    total !== null && !rolling && total >= 7 ? "bg-emerald-500/15 border-emerald-500/30" : "bg-white/[0.02] border-white/5"
+                    total !== null && !rolling && total >= 7 ? "bg-emerald-500/15 border-emerald-500/30" : "bg-subtle/20 border-border-subtle"
                   }`}>
                     <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 transition-colors ${total !== null && !rolling && total >= 7 ? "text-emerald-400" : "text-emerald-400/40"}`}>Win</span>
-                    <span className={`text-[11px] leading-relaxed transition-colors ${total !== null && !rolling && total >= 7 ? "text-white/80" : "text-white/40"}`}>{rollOnSuccess}</span>
+                    <span className={`text-[11px] leading-relaxed transition-colors ${total !== null && !rolling && total >= 7 ? "text-text" : "text-text-tertiary"}`}>{rollOnSuccess}</span>
                   </div>
                 )}
                 {rollOnFailure && (
                   <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border transition-all duration-500 ${
-                    total !== null && !rolling && total < 7 ? "bg-red-500/15 border-red-500/30" : "bg-white/[0.02] border-white/5"
+                    total !== null && !rolling && total < 7 ? "bg-red-500/15 border-red-500/30" : "bg-subtle/20 border-border-subtle"
                   }`}>
                     <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 transition-colors ${total !== null && !rolling && total < 7 ? "text-red-400" : "text-red-400/40"}`}>Lose</span>
-                    <span className={`text-[11px] leading-relaxed transition-colors ${total !== null && !rolling && total < 7 ? "text-white/80" : "text-white/40"}`}>{rollOnFailure}</span>
+                    <span className={`text-[11px] leading-relaxed transition-colors ${total !== null && !rolling && total < 7 ? "text-text" : "text-text-tertiary"}`}>{rollOnFailure}</span>
                   </div>
                 )}
               </div>
@@ -273,7 +273,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
 
             {/* Approach selector */}
             <div className="mb-4 w-full">
-              <p className="text-[9px] uppercase tracking-widest text-white/30 mb-2 text-center">Approach</p>
+              <p className="text-[9px] uppercase tracking-widest text-text-tertiary mb-2 text-center">Approach</p>
               <div className="flex gap-2 justify-center">
                 {APPROACHES.map((approach) => {
                   const mod = approaches[approach];
@@ -286,14 +286,14 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
                       className={`px-3 py-2 rounded-lg border transition-all cursor-pointer flex flex-col items-center gap-0.5 min-w-[80px] disabled:cursor-default ${
                         isSelected
                           ? "bg-amber/20 border-amber/40 text-amber"
-                          : "bg-white/5 border-white/10 text-white/50 hover:text-white/70"
+                          : "bg-subtle/30 border-border text-text-secondary hover:text-text"
                       }`}
                     >
                       <span className="text-xs font-bold">{approach}</span>
-                      <span className={`text-[9px] ${mod > 0 ? "text-amber/70" : mod < 0 ? "text-red-400/70" : "text-white/30"}`}>
+                      <span className={`text-[9px] ${mod > 0 ? "text-amber/70" : mod < 0 ? "text-red-400/70" : "text-text-tertiary"}`}>
                         {mod >= 0 ? `+${mod}` : mod}
                       </span>
-                      <span className="text-[8px] text-white/20">{approachDescriptions[approach]}</span>
+                      <span className="text-[8px] text-text-ghost">{approachDescriptions[approach]}</span>
                     </button>
                   );
                 })}
@@ -307,7 +307,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
                 className={`mb-5 px-4 py-2 rounded-xl border text-xs transition-all cursor-pointer max-w-[280px] text-center leading-relaxed ${
                   aspectInvoked
                     ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
-                    : "bg-white/[0.02] border-white/10 text-white/40 hover:text-white/60 hover:border-white/20"
+                    : "bg-subtle/20 border-border text-text-tertiary hover:text-text-secondary hover:border-border-active"
                 }`}
               >
                 <span className="text-[9px] uppercase tracking-widest block mb-1 text-violet-400/60">
@@ -343,7 +343,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
 
               <div className="relative flex items-center gap-4 p-4">
                 <DiceFace value={die1} rolling={rolling} index={0} />
-                <span className="text-white/30 text-xl font-display select-none">+</span>
+                <span className="text-text-tertiary text-xl font-display select-none">+</span>
                 <DiceFace value={die2} rolling={rolling} index={1} />
               </div>
 
@@ -373,7 +373,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
                 className="flex flex-col items-center"
               >
                 <motion.div
-                  className="text-3xl font-display font-bold text-white mb-1 relative"
+                  className="text-3xl font-display font-bold text-paper mb-1 relative"
                   initial={{ textShadow: "0 0 0px transparent" }}
                   animate={{
                     textShadow: total >= 10
@@ -394,7 +394,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
               <p className="text-[10px] text-amber/30 mt-2">Click the dice to roll</p>
             )}
 
-            <button onClick={onClose} className="text-xs text-white/30 hover:text-white cursor-pointer mt-6">
+            <button onClick={onClose} className="text-xs text-text-tertiary hover:text-paper cursor-pointer mt-6">
               {total !== null ? "Close" : "Cancel"}
             </button>
           </div>

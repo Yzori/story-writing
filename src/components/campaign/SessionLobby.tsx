@@ -119,10 +119,10 @@ function CharacterCard({
         delay: 0.4 + index * 0.15,
         ease: [0.16, 1, 0.3, 1],
       }}
-      className={`flex flex-col items-center gap-2 px-4 py-3 rounded-2xl bg-white/[0.03] border backdrop-blur-sm transition-opacity ${
+      className={`flex flex-col items-center gap-2 px-4 py-3 rounded-2xl bg-subtle/20 border backdrop-blur-sm transition-opacity ${
         isActive
-          ? "border-white/10"
-          : "border-white/5 opacity-40"
+          ? "border-border"
+          : "border-border-subtle opacity-40"
       }`}
       style={{ minWidth: 120 }}
     >
@@ -138,7 +138,7 @@ function CharacterCard({
         )}
         <div
           className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-display font-bold border-2 ${
-            isActive ? "border-white/20 bg-white/10" : "border-white/5 bg-white/5"
+            isActive ? "border-border-active bg-subtle/50" : "border-border-subtle bg-subtle/30"
           } ${colorClass}`}
         >
           {initial}
@@ -146,13 +146,13 @@ function CharacterCard({
       </div>
 
       {/* Name */}
-      <span className={`text-sm font-bold ${isActive ? "text-white/90" : "text-white/40"}`}>
+      <span className={`text-sm font-bold ${isActive ? "text-paper" : "text-text-tertiary"}`}>
         {character.name}
       </span>
 
       {/* Traits */}
       {character.traits && (
-        <span className="text-[10px] text-white/30 text-center leading-tight">
+        <span className="text-[10px] text-text-tertiary text-center leading-tight">
           {character.traits}
         </span>
       )}
@@ -168,16 +168,16 @@ function EmptySlot({ index }: { index: number }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
-      className="flex flex-col items-center gap-2 px-4 py-3 rounded-2xl border border-dashed border-white/10"
+      className="flex flex-col items-center gap-2 px-4 py-3 rounded-2xl border border-dashed border-border"
       style={{ minWidth: 120 }}
     >
-      <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/15">
+      <div className="w-12 h-12 rounded-full border-2 border-dashed border-border flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
           <circle cx="12" cy="8" r="4" />
           <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
         </svg>
       </div>
-      <span className="text-[11px] text-white/20 font-serif italic">Awaiting...</span>
+      <span className="text-[11px] text-text-ghost font-serif italic">Awaiting...</span>
     </motion.div>
   );
 }
@@ -226,8 +226,8 @@ function RosterToggleCard({
       onClick={onToggle}
       className={`flex items-center gap-3 px-4 py-3 rounded-2xl backdrop-blur-sm transition-all cursor-pointer ${
         isPresent
-          ? "bg-white/[0.05] border-2 border-white/15"
-          : "bg-white/[0.02] border-2 border-dashed border-white/10 opacity-40"
+          ? "bg-subtle/30 border-2 border-border"
+          : "bg-subtle/20 border-2 border-dashed border-border opacity-40"
       }`}
       style={{ minWidth: 180 }}
     >
@@ -243,7 +243,7 @@ function RosterToggleCard({
         )}
         <div
           className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-display font-bold border-2 ${
-            isPresent ? "border-white/20 bg-white/10" : "border-white/5 bg-white/5"
+            isPresent ? "border-border-active bg-subtle/50" : "border-border-subtle bg-subtle/30"
           } ${colorClass}`}
         >
           {initial}
@@ -253,7 +253,7 @@ function RosterToggleCard({
       {/* Info */}
       <div className="flex flex-col items-start min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={`text-sm font-bold truncate ${isPresent ? "text-white/90" : "text-white/40"}`}>
+          <span className={`text-sm font-bold truncate ${isPresent ? "text-paper" : "text-text-tertiary"}`}>
             {character.name}
           </span>
           {isIntroduced && (
@@ -262,7 +262,7 @@ function RosterToggleCard({
             </span>
           )}
         </div>
-        <span className={`text-[10px] ${isPresent ? "text-white/40" : "text-white/20"}`}>
+        <span className={`text-[10px] ${isPresent ? "text-text-tertiary" : "text-text-ghost"}`}>
           {playerName}
         </span>
       </div>
@@ -272,7 +272,7 @@ function RosterToggleCard({
         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
           isPresent
             ? "border-emerald-400/50 bg-emerald-400/20"
-            : "border-white/15 bg-transparent"
+            : "border-border bg-transparent"
         }`}>
           {isPresent && (
             <motion.div
@@ -391,15 +391,15 @@ export default function SessionLobby({
               transition={{ duration: 1.2, delay: 0.1, ease: "easeOut" }}
               className="mb-8 max-w-lg text-center"
             >
-              <span className="text-[9px] uppercase tracking-[0.25em] text-white/20 font-display block mb-3">
+              <span className="text-[9px] uppercase tracking-[0.25em] text-text-ghost font-display block mb-3">
                 Previously...
               </span>
-              <p className="text-white/25 font-serif italic text-sm leading-relaxed">
+              <p className="text-text-ghost font-serif italic text-sm leading-relaxed">
                 {previousEpilogue.length > 250
                   ? previousEpilogue.slice(0, 250).trimEnd() + "..."
                   : previousEpilogue}
               </p>
-              <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent mx-auto mt-4" />
+              <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-text-ghost/30 to-transparent mx-auto mt-4" />
             </motion.div>
           )}
 
@@ -420,7 +420,7 @@ export default function SessionLobby({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display text-3xl sm:text-4xl text-white/90 text-center mb-3"
+            className="font-display text-3xl sm:text-4xl text-paper text-center mb-3"
           >
             {sessionTitle}
           </motion.h1>
@@ -458,7 +458,7 @@ export default function SessionLobby({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.9 }}
-            className="text-[11px] text-white/25 mb-10 tracking-wide"
+            className="text-[11px] text-text-ghost mb-10 tracking-wide"
           >
             {displayCharacters.filter((c) => c.status === "active").length} of {displayCharacters.length + emptySlotCount} gathered
           </motion.p>
@@ -471,7 +471,7 @@ export default function SessionLobby({
               transition={{ duration: 0.6, delay: 0.7 }}
               className="mb-10 w-full max-w-lg"
             >
-              <p className="text-[11px] text-white/30 font-serif italic text-center mb-4">
+              <p className="text-[11px] text-text-tertiary font-serif italic text-center mb-4">
                 Who&rsquo;s at the table tonight?
               </p>
               <div className="flex flex-col gap-2">
@@ -498,7 +498,7 @@ export default function SessionLobby({
               transition={{ duration: 0.8, delay: 1.0, ease: "easeOut" }}
               className="mb-10 max-w-lg text-center"
             >
-              <p className="text-white/30 font-serif italic text-sm leading-relaxed">
+              <p className="text-text-tertiary font-serif italic text-sm leading-relaxed">
                 <span className="text-amber/30 text-lg mr-1">&ldquo;</span>
                 {sessionOpening.length > 180
                   ? sessionOpening.slice(0, 180).trimEnd() + "..."
@@ -527,7 +527,7 @@ export default function SessionLobby({
               >
                 Begin the Story
               </motion.button>
-              <span className="text-[10px] text-white/20">
+              <span className="text-[10px] text-text-ghost">
                 {sessionOpening
                   ? "Your opening narration will play as a cinematic moment."
                   : "Your players are waiting."}
@@ -538,7 +538,7 @@ export default function SessionLobby({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 1.2 }}
-              className="font-serif italic text-white/30 text-sm"
+              className="font-serif italic text-text-tertiary text-sm"
             >
               Waiting for the GM to begin...
             </motion.p>

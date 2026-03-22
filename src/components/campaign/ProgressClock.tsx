@@ -59,7 +59,7 @@ export default function ProgressClock({
       {interactive && onDelete && (
         <button
           onClick={onDelete}
-          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black border border-white/10 text-white/30 hover:text-rose hover:border-rose/30 flex items-center justify-center opacity-0 group-hover/clock:opacity-100 transition-all cursor-pointer z-10"
+          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black border border-border text-text-tertiary hover:text-rose hover:border-rose/30 flex items-center justify-center opacity-0 group-hover/clock:opacity-100 transition-all cursor-pointer z-10"
           title="Remove clock"
         >
           <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">

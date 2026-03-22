@@ -22,11 +22,11 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
 
         {/* Target */}
         <div>
-          <label className="text-[9px] uppercase text-white/30 tracking-wider">Who</label>
+          <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Who</label>
           <select
             value={rollTarget}
             onChange={(e) => setRollTarget(e.target.value)}
-            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 cursor-pointer"
+            className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 cursor-pointer"
           >
             <option value="everyone">Everyone</option>
             {activeChars.map((c) => (
@@ -37,13 +37,13 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
 
         {/* What's at stake */}
         <div>
-          <label className="text-[9px] uppercase text-white/30 tracking-wider">What&rsquo;s at stake?</label>
+          <label className="text-[9px] uppercase text-text-tertiary tracking-wider">What&rsquo;s at stake?</label>
           <input
             type="text"
             value={rollReason}
             onChange={(e) => setRollReason(e.target.value)}
             placeholder="The bridge crumbles beneath their feet..."
-            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20"
+            className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost"
           />
         </div>
 
@@ -55,7 +55,7 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
             value={rollOnSuccess}
             onChange={(e) => setRollOnSuccess(e.target.value)}
             placeholder="They leap across just in time"
-            className="w-full bg-black/30 border border-emerald-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-emerald-500/30"
+            className="w-full bg-black/30 border border-emerald-500/10 rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-emerald-500/30"
           />
         </div>
         <div>
@@ -64,10 +64,10 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
             value={rollOnFailure}
             onChange={(e) => setRollOnFailure(e.target.value)}
             placeholder="The stones give way and they plunge into darkness"
-            className="w-full bg-black/30 border border-red-500/10 rounded-lg px-3 py-2 text-xs text-white outline-none mt-1 placeholder:text-white/20 focus:border-red-500/30 resize-none"
+            className="w-full bg-black/30 border border-red-500/10 rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-red-500/30 resize-none"
             rows={2}
           />
-          <p className="text-[8px] text-white/15 mt-1 font-serif italic leading-relaxed">
+          <p className="text-[8px] text-text-ghost mt-1 font-serif italic leading-relaxed">
             If failure means death, say so in your stakes — the narrative will carry the weight.
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
           >
             Call for the Roll
           </button>
-          <button onClick={() => setShowRollForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+          <button onClick={() => setShowRollForm(false)} className="px-3 text-[10px] text-text-tertiary hover:text-paper cursor-pointer">
             Cancel
           </button>
         </div>

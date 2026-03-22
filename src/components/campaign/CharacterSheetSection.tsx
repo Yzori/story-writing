@@ -52,9 +52,9 @@ export default function CharacterSheetSection({
   return (
     <>
       <div className="space-y-4 mb-8">
-        <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 border-b border-white/10 pb-2">Party Status</h3>
+        <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-text-tertiary border-b border-border pb-2">Party Status</h3>
         {characters.length === 0 && (
-          <p className="text-[11px] text-white/20 italic font-serif">No players have joined yet.</p>
+          <p className="text-[11px] text-text-ghost italic font-serif">No players have joined yet.</p>
         )}
         {presentChars.map((c) => {
           const stats = parseStats(c.stats);
@@ -65,12 +65,12 @@ export default function CharacterSheetSection({
           const isExpanded = expandedStats.has(c.id);
 
           return (
-            <div key={c.id} className={`bg-white/[0.02] p-3 rounded-lg border transition-all relative overflow-hidden ${
+            <div key={c.id} className={`bg-subtle/20 p-3 rounded-lg border transition-all relative overflow-hidden ${
               isInactive
-                ? "opacity-40 border-white/5"
+                ? "opacity-40 border-border-subtle"
                 : isActivePlayer
                   ? "border-amber/30 shadow-[0_0_15px_rgba(200,150,60,0.15),inset_0_1px_0_rgba(200,150,60,0.1)]"
-                  : "border-white/5 hover:border-white/10"
+                  : "border-border-subtle hover:border-border"
             }`}>
               {/* Active player glow accent */}
               {isActivePlayer && !isInactive && (
@@ -86,7 +86,7 @@ export default function CharacterSheetSection({
                     : isActivePlayer ? "bg-amber shadow-[0_0_10px_rgba(200,150,60,0.6)] animate-pulse"
                     : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                   }`} />
-                  <span className={`text-xs ${isInactive ? "text-white/40 line-through" : isActivePlayer ? "text-amber/90 font-medium" : "text-white/80"}`}>{c.name}</span>
+                  <span className={`text-xs ${isInactive ? "text-text-tertiary line-through" : isActivePlayer ? "text-amber/90 font-medium" : "text-text"}`}>{c.name}</span>
                   {isDead && <span className="text-[9px] text-rose/60 uppercase tracking-wider">Fallen</span>}
                   {isRetired && <span className="text-[9px] text-lavender/60 uppercase tracking-wider">Departed</span>}
                   {isActivePlayer && !isInactive && <span className="text-[9px] text-amber/50 uppercase tracking-wider">Writing</span>}
@@ -94,7 +94,7 @@ export default function CharacterSheetSection({
 
                 {/* Traits line */}
                 {c.traits && !isInactive && (
-                  <p className="text-[10px] text-white/30 ml-4 mt-0.5">{c.traits}</p>
+                  <p className="text-[10px] text-text-tertiary ml-4 mt-0.5">{c.traits}</p>
                 )}
 
                 {/* Aspect */}
@@ -111,7 +111,7 @@ export default function CharacterSheetSection({
                       else next.add(c.id);
                       setExpandedStats(next);
                     }}
-                    className="flex items-center gap-1 mt-1.5 ml-3 text-[9px] text-white/20 hover:text-white/40 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 mt-1.5 ml-3 text-[9px] text-text-ghost hover:text-text-tertiary transition-colors cursor-pointer"
                   >
                     <svg
                       width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -127,9 +127,9 @@ export default function CharacterSheetSection({
                 {isExpanded && stats && !isInactive && (
                   <div className="mt-2 ml-4 flex gap-3">
                     {Object.entries(stats.approaches).map(([key, val]) => (
-                      <span key={key} className="text-[10px] text-white/40">
-                        <span className="text-white/20 uppercase">{key}</span>{" "}
-                        <span className={val > 0 ? "text-amber/60" : val < 0 ? "text-red-400/50" : "text-white/30"}>
+                      <span key={key} className="text-[10px] text-text-tertiary">
+                        <span className="text-text-ghost uppercase">{key}</span>{" "}
+                        <span className={val > 0 ? "text-amber/60" : val < 0 ? "text-red-400/50" : "text-text-tertiary"}>
                           {val >= 0 ? `+${val}` : val}
                         </span>
                       </span>
@@ -140,7 +140,7 @@ export default function CharacterSheetSection({
 
               {/* GM character actions */}
               {!isInactive && (
-                <div className="flex gap-2 mt-2 pt-2 border-t border-white/5 relative">
+                <div className="flex gap-2 mt-2 pt-2 border-t border-border-subtle relative">
                   <button
                     onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "retired" })}
                     className="text-[9px] text-lavender/50 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
@@ -156,7 +156,7 @@ export default function CharacterSheetSection({
                 </div>
               )}
               {isInactive && (
-                <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                <div className="flex gap-2 mt-2 pt-2 border-t border-border-subtle">
                   <button
                     onClick={() => onChangeCharacterStatus(c.id, "active")}
                     className="text-[9px] text-sage/50 hover:text-sage uppercase tracking-wider cursor-pointer transition-colors"
@@ -172,12 +172,12 @@ export default function CharacterSheetSection({
 
         {/* Spectating characters */}
         {spectatingChars.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-white/5">
-            <p className="text-[9px] uppercase tracking-widest text-white/20 mb-2">Spectating</p>
+          <div className="mt-3 pt-3 border-t border-border-subtle">
+            <p className="text-[9px] uppercase tracking-widest text-text-ghost mb-2">Spectating</p>
             {spectatingChars.map((c) => (
               <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 opacity-40">
                 <span className="w-2 h-2 rounded-full bg-cyan-400/30" />
-                <span className="text-[11px] text-white/50">{c.name}</span>
+                <span className="text-[11px] text-text-secondary">{c.name}</span>
                 <span className="text-[8px] text-cyan-400/40 uppercase tracking-wider ml-auto">Spectating</span>
               </div>
             ))}
@@ -186,12 +186,12 @@ export default function CharacterSheetSection({
 
         {/* Invite New Character */}
         {deadCharsNeedingInvite.length > 0 && onInviteNewCharacter && (
-          <div className="mt-3 pt-3 border-t border-white/5">
+          <div className="mt-3 pt-3 border-t border-border-subtle">
             {deadCharsNeedingInvite.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-2 px-2 py-1.5">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="w-2 h-2 rounded-full bg-rose/40" />
-                  <span className="text-[11px] text-white/40 line-through truncate">{c.name}</span>
+                  <span className="text-[11px] text-text-tertiary line-through truncate">{c.name}</span>
                   <span className="text-[8px] text-rose/40 uppercase tracking-wider">Fallen</span>
                 </div>
                 <button
@@ -226,9 +226,9 @@ export default function CharacterSheetSection({
               {confirmAction.status === "dead" ? "Their Story Ends" : "They Depart"}
             </span>
           </div>
-          <p className="text-xs text-white/60">
+          <p className="text-xs text-text-secondary">
             Are you sure you want to {confirmAction.status === "dead" ? "end the story of" : "write the departure of"}{" "}
-            <span className="text-white/90 font-medium">{confirmAction.characterName}</span>?
+            <span className="text-paper font-medium">{confirmAction.characterName}</span>?
             {confirmAction.status === "dead" && (
               <span className="text-rose/60"> This triggers a death cinematic.</span>
             )}
@@ -249,7 +249,7 @@ export default function CharacterSheetSection({
             </button>
             <button
               onClick={() => setConfirmAction(null)}
-              className="px-4 text-[10px] text-white/40 hover:text-white cursor-pointer"
+              className="px-4 text-[10px] text-text-tertiary hover:text-paper cursor-pointer"
             >
               Cancel
             </button>

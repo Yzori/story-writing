@@ -17,7 +17,7 @@ export const SCENE_BREAK_MOOD_CLASSES: Record<string, { line: string; text: stri
   mysterious: { line: "via-cyan-400/30", text: "text-cyan-400/60", textFaded: "text-cyan-400/40" },
   romantic: { line: "via-pink-400/30", text: "text-pink-400/60", textFaded: "text-pink-400/40" },
 };
-export const DEFAULT_SCENE_BREAK_CLASSES = { line: "via-white/30", text: "text-white/60", textFaded: "text-white/40" };
+export const DEFAULT_SCENE_BREAK_CLASSES = { line: "via-text-ghost/30", text: "text-text-secondary", textFaded: "text-text-tertiary" };
 
 // Should two consecutive turns merge into the same paragraph?
 export function shouldMerge(prev: Turn, next: Turn): boolean {

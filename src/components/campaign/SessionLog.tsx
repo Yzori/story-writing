@@ -48,40 +48,40 @@ export default function SessionLog({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 h-full flex flex-col items-center border-r border-white/5 bg-[#050505] shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 py-4 gap-3">
+      <div className="w-12 h-full flex flex-col items-center border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 py-4 gap-3">
         <button
           onClick={onToggleCollapse}
-          className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/10 transition-all cursor-pointer"
+          className="w-8 h-8 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text hover:bg-subtle/60 transition-all cursor-pointer"
           title="Expand Session Log"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
-        <div className="w-px flex-1 bg-white/5" />
+        <div className="w-px flex-1 bg-subtle/30" />
         <div className="flex flex-col items-center gap-1.5">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span className="text-[9px] text-white/30 font-mono tabular-nums">{turns.length}</span>
+          <span className="text-[9px] text-text-tertiary font-mono tabular-nums">{turns.length}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-[320px] lg:w-[380px] h-full flex flex-col border-r border-white/5 bg-[#050505] shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0">
+    <div className="w-[320px] lg:w-[380px] h-full flex flex-col border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0">
       {/* Header */}
-      <div className="p-6 border-b border-white/5 bg-black/40 backdrop-blur-md pb-4 shrink-0">
+      <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md pb-4 shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">Session Log</h2>
-            <p className="text-white/40 text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
+            <p className="text-text-tertiary text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
           </div>
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
+              className="w-7 h-7 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-subtle/60 transition-all cursor-pointer"
               title="Collapse Session Log"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -96,7 +96,7 @@ export default function SessionLog({
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col" style={{ scrollbarWidth: "none" }}>
         {turns.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-white/20 text-xs italic font-serif">No messages yet...</p>
+            <p className="text-text-ghost text-xs italic font-serif">No messages yet...</p>
           </div>
         )}
 
@@ -110,8 +110,8 @@ export default function SessionLog({
                 </span>
                 <div className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-[13px] leading-relaxed ${
                   turn.userId === currentUserId
-                    ? "bg-amber/10 border border-amber/20 text-white"
-                    : "bg-white/5 border border-white/5 text-white/80"
+                    ? "bg-amber/10 border border-amber/20 text-paper"
+                    : "bg-subtle/30 border border-border-subtle text-text"
                 }`}>
                   {turn.content}
                 </div>
@@ -141,7 +141,7 @@ export default function SessionLog({
                     <p className={`text-[10px] uppercase tracking-widest font-bold z-10 relative ${fatal ? "text-rose" : "text-violet-400"}`}>
                       {fatal ? "Fatal Roll" : "Roll Requested"}
                     </p>
-                    <p className="text-xs text-white/60 mt-1 z-10 relative">
+                    <p className="text-xs text-text-secondary mt-1 z-10 relative">
                       {attribute} check — {reason}
                     </p>
                     {(onSuccess || onFailure) && (
@@ -177,23 +177,23 @@ export default function SessionLog({
                   ? "text-yellow-400"
                   : tier === "failure"
                     ? "text-red-400"
-                    : "text-white";
+                    : "text-paper";
 
               const tierLabel = tier === "success" ? "Success" : tier === "partial" ? "Partial" : tier === "failure" ? "Fail" : "";
 
               return (
                 <div className="flex flex-col items-center my-2">
-                  <div className="bg-[#111] border border-amber/30 rounded-xl p-4 w-full flex items-center justify-between shadow-[0_5px_15px_rgba(200,150,60,0.05)] relative overflow-hidden">
+                  <div className="bg-ink border border-amber/30 rounded-xl p-4 w-full flex items-center justify-between shadow-[0_5px_15px_rgba(200,150,60,0.05)] relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-amber/0 via-amber/5 to-amber/0" />
                     <div className="flex items-center gap-3 z-10">
-                      <div className={`w-8 h-8 rounded bg-white/5 flex items-center justify-center font-bold text-sm ${getPlayerColor(turn.userId, userIds)}`}>
+                      <div className={`w-8 h-8 rounded bg-subtle/30 flex items-center justify-center font-bold text-sm ${getPlayerColor(turn.userId, userIds)}`}>
                         {(turn.characterName ?? turn.user?.displayName ?? "?").charAt(0)}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-white/40 uppercase tracking-widest">
+                        <span className="text-[10px] text-text-tertiary uppercase tracking-widest">
                           2d6{attribute && attribute !== "none" ? ` + ${attribute.toUpperCase()}` : ""}{modifier !== 0 ? ` (${modifier >= 0 ? "+" : ""}${modifier})` : ""}
                         </span>
-                        <span className="text-[13px] text-white/80 font-medium">{turn.characterName ?? turn.user?.displayName} Rolled</span>
+                        <span className="text-[13px] text-text font-medium">{turn.characterName ?? turn.user?.displayName} Rolled</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 z-10">
@@ -215,14 +215,14 @@ export default function SessionLog({
       </div>
 
       {/* Chat Input — OOC only, no dice button */}
-      <div className="p-4 border-t border-white/5 bg-black/40 backdrop-blur-md shrink-0">
+      <div className="p-4 border-t border-border-subtle bg-black/40 backdrop-blur-md shrink-0">
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <input
             type="text"
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             placeholder="Message party (OOC)..."
-            className="flex-1 bg-[#111] border border-white/10 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-amber/40 transition-colors"
+            className="flex-1 bg-ink border border-border rounded-xl py-3 px-4 text-sm text-paper outline-none focus:border-amber/40 transition-colors"
           />
         </form>
       </div>

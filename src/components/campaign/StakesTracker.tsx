@@ -60,7 +60,7 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
         {onClocksChange && (
           <button
             onClick={() => setShowAddClockForm(!showAddClockForm)}
-            className="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/10 transition-all cursor-pointer"
+            className="w-5 h-5 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-subtle/50 transition-all cursor-pointer"
             title="Add clock"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -72,13 +72,13 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
 
       {/* Add Clock Form */}
       {showAddClockForm && (
-        <div className="bg-white/[0.02] border border-white/10 rounded-lg p-3 space-y-2">
+        <div className="bg-subtle/20 border border-border rounded-lg p-3 space-y-2">
           <input
             type="text"
             value={newClockName}
             onChange={(e) => setNewClockName(e.target.value)}
             placeholder="Clock name..."
-            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none placeholder:text-white/20 focus:border-white/30"
+            className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none placeholder:text-text-ghost focus:border-border-active"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleAddClock();
@@ -86,15 +86,15 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
             }}
           />
           <div className="flex gap-1.5">
-            <label className="text-[9px] uppercase text-white/30 tracking-wider self-center mr-1">Segments</label>
+            <label className="text-[9px] uppercase text-text-tertiary tracking-wider self-center mr-1">Segments</label>
             {([4, 6, 8] as const).map((n) => (
               <button
                 key={n}
                 onClick={() => setNewClockSegments(n)}
                 className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer ${
                   newClockSegments === n
-                    ? "bg-white/10 border-white/30 text-white"
-                    : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                    ? "bg-subtle/50 border-border-active text-paper"
+                    : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary"
                 }`}
               >
                 {n}
@@ -102,7 +102,7 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
             ))}
           </div>
           <div className="flex gap-1.5">
-            <label className="text-[9px] uppercase text-white/30 tracking-wider self-center mr-1">Type</label>
+            <label className="text-[9px] uppercase text-text-tertiary tracking-wider self-center mr-1">Type</label>
             {(["danger", "progress", "racing"] as const).map((t) => {
               const typeColors: Record<string, string> = {
                 danger: "bg-rose/20 border-rose/40 text-rose",
@@ -116,7 +116,7 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
                   className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer capitalize ${
                     newClockType === t
                       ? typeColors[t]
-                      : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                      : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary"
                   }`}
                 >
                   {t}
@@ -128,11 +128,11 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
             <button
               onClick={handleAddClock}
               disabled={!newClockName.trim()}
-              className="flex-1 bg-white/10 hover:bg-white/15 text-white/80 text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+              className="flex-1 bg-subtle/50 hover:bg-subtle/60 text-text text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
             >
               Add Clock
             </button>
-            <button onClick={() => setShowAddClockForm(false)} className="px-3 text-[10px] text-white/40 hover:text-white cursor-pointer">
+            <button onClick={() => setShowAddClockForm(false)} className="px-3 text-[10px] text-text-tertiary hover:text-paper cursor-pointer">
               Cancel
             </button>
           </div>
@@ -156,7 +156,7 @@ export default function StakesTracker({ clocks, onClocksChange }: StakesTrackerP
       )}
 
       {clocks.length === 0 && !showAddClockForm && (
-        <p className="text-[10px] text-white/20 italic font-serif text-center">No tension clocks yet.</p>
+        <p className="text-[10px] text-text-ghost italic font-serif text-center">No tension clocks yet.</p>
       )}
     </div>
   );

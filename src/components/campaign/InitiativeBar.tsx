@@ -114,13 +114,13 @@ export default function InitiativeBar({
     ? "text-red-400"
     : secondsLeft <= 60
       ? "text-amber"
-      : "text-white/50";
+      : "text-text-secondary";
 
   const timerBg = secondsLeft <= 30
     ? "bg-red-500/10 border-red-500/20"
     : secondsLeft <= 60
       ? "bg-amber/10 border-amber/20"
-      : "bg-white/5 border-white/10";
+      : "bg-subtle/30 border-border";
 
   // Progress percentage for the ring
   const progress = isPlayerTurn ? secondsLeft / turnDuration : 1;
@@ -144,7 +144,7 @@ export default function InitiativeBar({
   const showExtendButton = isMyTurn && isActive && secondsLeft > 0 && secondsLeft < 60;
 
   return (
-    <div className="w-full h-20 border-b border-white/5 bg-black/40 backdrop-blur-xl flex items-center justify-between px-8 z-30 shrink-0">
+    <div className="w-full h-20 border-b border-border-subtle bg-black/40 backdrop-blur-xl flex items-center justify-between px-8 z-30 shrink-0">
       <div className="flex items-center gap-3">
         {/* GM badge */}
         {isGM && (
@@ -154,11 +154,11 @@ export default function InitiativeBar({
           </div>
         )}
         <div className="flex flex-col">
-          <span className="text-[10px] uppercase font-display tracking-[0.2em] text-white/50">
+          <span className="text-[10px] uppercase font-display tracking-[0.2em] text-text-secondary">
             {sessionTitle}
           </span>
           <span className={`text-[9px] uppercase tracking-widest ${
-            !isActive ? "text-white/30" : isPlayerTurn ? "text-amber/60" : activePlayerId ? "text-amber/60" : "text-emerald-400/60"
+            !isActive ? "text-text-tertiary" : isPlayerTurn ? "text-amber/60" : activePlayerId ? "text-amber/60" : "text-emerald-400/60"
           }`}>
             {stateLabel}
           </span>
@@ -180,8 +180,8 @@ export default function InitiativeBar({
                 ${activePlayerId === p.userId
                   ? "bg-black ring-2 ring-amber text-amber shadow-[0_0_20px_rgba(200,150,60,0.5)]"
                   : activePlayerId === null && isActive
-                    ? "bg-[#111] border border-emerald-500/30 text-white/50"
-                    : "bg-[#111] border border-white/10 text-white/30 hover:border-white/30"
+                    ? "bg-ink border border-emerald-500/30 text-text-secondary"
+                    : "bg-ink border border-border text-text-tertiary hover:border-border-active"
                 }`}
             >
               {p.initial}
@@ -202,15 +202,15 @@ export default function InitiativeBar({
             )}
 
             {/* Tooltip */}
-            <div className="absolute top-12 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity bg-black border border-white/10 rounded px-2 py-1 flex flex-col items-center whitespace-nowrap pointer-events-none z-50">
+            <div className="absolute top-12 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity bg-black border border-border rounded px-2 py-1 flex flex-col items-center whitespace-nowrap pointer-events-none z-50">
               <span className={`text-[10px] font-bold ${p.color}`}>{p.name}</span>
-              <span className="text-[9px] text-white/50">{p.character}</span>
+              <span className="text-[9px] text-text-secondary">{p.character}</span>
             </div>
           </button>
         ))}
 
         {initiativeList.length === 0 && (
-          <span className="text-[10px] text-white/30 italic">No players yet</span>
+          <span className="text-[10px] text-text-tertiary italic">No players yet</span>
         )}
 
         {/* Turn Timer — only visible when a player has the turn */}
@@ -219,7 +219,7 @@ export default function InitiativeBar({
             {/* Circular progress indicator */}
             <div className="relative w-5 h-5">
               <svg className="w-5 h-5 -rotate-90" viewBox="0 0 20 20">
-                <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/10" />
+                <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-ghost" />
                 <circle
                   cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="2"
                   className={timerColor}
@@ -262,7 +262,7 @@ export default function InitiativeBar({
         {isGM && isActive && (
           <button
             onClick={onEndSession}
-            className="text-[10px] uppercase tracking-widest text-white/30 border border-white/10 px-3 py-1.5 rounded-full hover:bg-rose/20 hover:text-rose hover:border-rose/30 transition-all cursor-pointer"
+            className="text-[10px] uppercase tracking-widest text-text-tertiary border border-border px-3 py-1.5 rounded-full hover:bg-rose/20 hover:text-rose hover:border-rose/30 transition-all cursor-pointer"
             title="End this session"
           >
             End Session

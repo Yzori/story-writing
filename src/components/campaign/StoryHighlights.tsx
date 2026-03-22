@@ -53,7 +53,7 @@ export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlig
             icon: "\uD83C\uDFAC",
             label: "Scene",
             text: meta.title,
-            color: "text-white/60",
+            color: "text-text-secondary",
           });
         }
       } catch { /* ignore */ }
@@ -102,7 +102,7 @@ export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlig
       icon: "\uD83D\uDCDC",
       label: "Session Stats",
       text: parts.join(" \u00B7 "),
-      color: "text-white/50",
+      color: "text-text-secondary",
     });
   }
 
@@ -123,14 +123,14 @@ export default function SessionHighlights({ storyTurns, logTurns }: { storyTurns
       >
         <svg
           width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          className={`text-white/30 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`text-text-tertiary transition-transform ${expanded ? "rotate-90" : ""}`}
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <span className="text-[10px] uppercase font-display tracking-[0.2em] text-white/30 group-hover:text-white/50 transition-colors">
+        <span className="text-[10px] uppercase font-display tracking-[0.2em] text-text-tertiary group-hover:text-text-secondary transition-colors">
           Session Highlights
         </span>
-        <span className="text-[9px] text-white/20">{highlights.length}</span>
+        <span className="text-[9px] text-text-ghost">{highlights.length}</span>
       </button>
 
       {expanded && (
@@ -138,14 +138,14 @@ export default function SessionHighlights({ storyTurns, logTurns }: { storyTurns
           {highlights.map((h, i) => (
             <div
               key={i}
-              className="flex items-start gap-3 px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl"
+              className="flex items-start gap-3 px-4 py-3 bg-subtle/20 border border-border-subtle rounded-xl"
             >
               <span className="text-base leading-none mt-0.5 shrink-0">{h.icon}</span>
               <div className="min-w-0">
                 <span className={`text-[9px] uppercase tracking-widest font-bold ${h.color}`}>
                   {h.label}
                 </span>
-                <p className="text-sm text-white/60 font-serif mt-0.5 leading-relaxed">{h.text}</p>
+                <p className="text-sm text-text-secondary font-serif mt-0.5 leading-relaxed">{h.text}</p>
               </div>
             </div>
           ))}

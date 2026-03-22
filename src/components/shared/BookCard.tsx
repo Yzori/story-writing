@@ -5,39 +5,39 @@ import Link from "next/link";
 
 // ── Genre accent mapping ──
 const GENRE_ACCENTS: Record<string, { gradient: string; text: string }> = {
-  Fantasy: { gradient: "from-amber/60 via-amber/20 to-[#181818]", text: "text-amber" },
-  "Science Fiction": { gradient: "from-lavender/60 via-lavender/20 to-[#181818]", text: "text-lavender" },
-  Romance: { gradient: "from-rose/60 via-rose/20 to-[#181818]", text: "text-rose" },
-  Mystery: { gradient: "from-violet/60 via-violet/20 to-[#181818]", text: "text-violet" },
-  Thriller: { gradient: "from-rose/50 via-rose/15 to-[#181818]", text: "text-rose" },
-  Horror: { gradient: "from-red-900/60 via-red-900/20 to-[#181818]", text: "text-red-400" },
-  "Literary Fiction": { gradient: "from-sage/60 via-sage/20 to-[#181818]", text: "text-sage" },
-  "Historical Fiction": { gradient: "from-copper/60 via-copper/20 to-[#181818]", text: "text-copper" },
-  Adventure: { gradient: "from-teal/60 via-teal/20 to-[#181818]", text: "text-teal" },
-  "Young Adult": { gradient: "from-lavender/50 via-lavender/15 to-[#181818]", text: "text-lavender" },
-  Contemporary: { gradient: "from-sage/50 via-sage/15 to-[#181818]", text: "text-sage" },
-  Dystopian: { gradient: "from-rose/50 via-rose/15 to-[#181818]", text: "text-rose" },
-  "Urban Fantasy": { gradient: "from-amber/50 via-amber/15 to-[#181818]", text: "text-amber" },
-  "Dark Fantasy": { gradient: "from-rose/60 via-rose/20 to-[#181818]", text: "text-rose" },
-  Paranormal: { gradient: "from-violet/50 via-violet/15 to-[#181818]", text: "text-violet" },
-  Crime: { gradient: "from-rose/50 via-rose/15 to-[#181818]", text: "text-rose" },
-  Humor: { gradient: "from-sage/50 via-sage/15 to-[#181818]", text: "text-sage" },
-  Drama: { gradient: "from-copper/50 via-copper/15 to-[#181818]", text: "text-copper" },
-  "Slice of Life": { gradient: "from-sage/50 via-sage/15 to-[#181818]", text: "text-sage" },
-  Action: { gradient: "from-burnt/60 via-burnt/20 to-[#181818]", text: "text-burnt" },
-  "Magical Realism": { gradient: "from-amber/50 via-amber/15 to-[#181818]", text: "text-amber" },
-  Mythology: { gradient: "from-amber/60 via-amber/20 to-[#181818]", text: "text-amber" },
-  Steampunk: { gradient: "from-copper/60 via-copper/20 to-[#181818]", text: "text-copper" },
-  Cyberpunk: { gradient: "from-lavender/60 via-lavender/20 to-[#181818]", text: "text-lavender" },
-  Wuxia: { gradient: "from-amber/50 via-amber/15 to-[#181818]", text: "text-amber" },
-  Isekai: { gradient: "from-lavender/50 via-lavender/15 to-[#181818]", text: "text-lavender" },
-  LitRPG: { gradient: "from-teal/60 via-teal/20 to-[#181818]", text: "text-teal" },
-  Poetry: { gradient: "from-sage/60 via-sage/20 to-[#181818]", text: "text-sage" },
-  Memoir: { gradient: "from-copper/50 via-copper/15 to-[#181818]", text: "text-copper" },
-  Fanfiction: { gradient: "from-violet/50 via-violet/15 to-[#181818]", text: "text-violet" },
+  Fantasy: { gradient: "from-amber/60 via-amber/20 to-void", text: "text-amber" },
+  "Science Fiction": { gradient: "from-lavender/60 via-lavender/20 to-void", text: "text-lavender" },
+  Romance: { gradient: "from-rose/60 via-rose/20 to-void", text: "text-rose" },
+  Mystery: { gradient: "from-violet/60 via-violet/20 to-void", text: "text-violet" },
+  Thriller: { gradient: "from-rose/50 via-rose/15 to-void", text: "text-rose" },
+  Horror: { gradient: "from-red-900/60 via-red-900/20 to-void", text: "text-red-400" },
+  "Literary Fiction": { gradient: "from-sage/60 via-sage/20 to-void", text: "text-sage" },
+  "Historical Fiction": { gradient: "from-copper/60 via-copper/20 to-void", text: "text-copper" },
+  Adventure: { gradient: "from-teal/60 via-teal/20 to-void", text: "text-teal" },
+  "Young Adult": { gradient: "from-lavender/50 via-lavender/15 to-void", text: "text-lavender" },
+  Contemporary: { gradient: "from-sage/50 via-sage/15 to-void", text: "text-sage" },
+  Dystopian: { gradient: "from-rose/50 via-rose/15 to-void", text: "text-rose" },
+  "Urban Fantasy": { gradient: "from-amber/50 via-amber/15 to-void", text: "text-amber" },
+  "Dark Fantasy": { gradient: "from-rose/60 via-rose/20 to-void", text: "text-rose" },
+  Paranormal: { gradient: "from-violet/50 via-violet/15 to-void", text: "text-violet" },
+  Crime: { gradient: "from-rose/50 via-rose/15 to-void", text: "text-rose" },
+  Humor: { gradient: "from-sage/50 via-sage/15 to-void", text: "text-sage" },
+  Drama: { gradient: "from-copper/50 via-copper/15 to-void", text: "text-copper" },
+  "Slice of Life": { gradient: "from-sage/50 via-sage/15 to-void", text: "text-sage" },
+  Action: { gradient: "from-burnt/60 via-burnt/20 to-void", text: "text-burnt" },
+  "Magical Realism": { gradient: "from-amber/50 via-amber/15 to-void", text: "text-amber" },
+  Mythology: { gradient: "from-amber/60 via-amber/20 to-void", text: "text-amber" },
+  Steampunk: { gradient: "from-copper/60 via-copper/20 to-void", text: "text-copper" },
+  Cyberpunk: { gradient: "from-lavender/60 via-lavender/20 to-void", text: "text-lavender" },
+  Wuxia: { gradient: "from-amber/50 via-amber/15 to-void", text: "text-amber" },
+  Isekai: { gradient: "from-lavender/50 via-lavender/15 to-void", text: "text-lavender" },
+  LitRPG: { gradient: "from-teal/60 via-teal/20 to-void", text: "text-teal" },
+  Poetry: { gradient: "from-sage/60 via-sage/20 to-void", text: "text-sage" },
+  Memoir: { gradient: "from-copper/50 via-copper/15 to-void", text: "text-copper" },
+  Fanfiction: { gradient: "from-violet/50 via-violet/15 to-void", text: "text-violet" },
 };
 
-const DEFAULT_ACCENT = { gradient: "from-amber/50 via-amber/15 to-[#181818]", text: "text-amber" };
+const DEFAULT_ACCENT = { gradient: "from-amber/50 via-amber/15 to-void", text: "text-amber" };
 
 function formatWordCount(count: number): string {
   if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
@@ -79,7 +79,7 @@ export default function BookCard({
       <div className="relative w-full aspect-[2/3] max-w-[280px] shadow-xl transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.05] group-hover:z-50 group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.8)]">
 
         {/* ── 1. The Book Base (Pages + Back Cover) ── */}
-        <div className="absolute inset-0 rounded-r-2xl rounded-l-sm border-y border-r border-[#3a3a3a] shadow-[inset_10px_0_20px_rgba(0,0,0,0.6)] overflow-hidden bg-surface">
+        <div className="absolute inset-0 rounded-r-2xl rounded-l-sm border-y border-r border-border shadow-[inset_10px_0_20px_rgba(0,0,0,0.6)] overflow-hidden bg-surface">
           {/* Inner spine shadow */}
           <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-void via-void/30 to-transparent z-10 pointer-events-none" />
 
@@ -119,7 +119,7 @@ export default function BookCard({
           className="absolute inset-0 origin-left transition-transform duration-[800ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(-155deg)]"
         >
           {/* FRONT of the Cover */}
-          <div className="absolute inset-0 bg-void rounded-r-2xl rounded-l-sm overflow-hidden [backface-visibility:hidden] border-y border-r border-[#3a3a3a] border-l-[3px] border-l-white/10 shadow-[2px_0_15px_rgba(0,0,0,0.6)]">
+          <div className="absolute inset-0 bg-void rounded-r-2xl rounded-l-sm overflow-hidden [backface-visibility:hidden] border-y border-r border-border border-l-[3px] border-l-paper/10 shadow-[2px_0_15px_rgba(0,0,0,0.6)]">
             {/* Cover Art — image or gradient */}
             {coverUrl ? (
               <Image src={coverUrl} alt={title} fill sizes="200px" className="object-cover" unoptimized />
@@ -136,18 +136,18 @@ export default function BookCard({
             {/* Cover content */}
             <div className="relative h-full flex flex-col justify-end p-6 z-10">
               <div className="mb-auto mt-4 ml-4">
-                <span className="px-3 py-1 rounded-full bg-void/50 backdrop-blur-md text-[10px] text-white/90 font-medium uppercase tracking-wider border border-white/20 shadow-xl">
+                <span className="px-3 py-1 rounded-full bg-void/50 backdrop-blur-md text-[10px] text-paper font-medium uppercase tracking-wider border border-paper/20 shadow-xl">
                   {primaryGenre}
                 </span>
               </div>
 
               <div className="ml-4">
-                <h3 className="font-display text-white text-xl font-bold leading-[1.1] mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <h3 className="font-display text-paper text-xl font-bold leading-[1.1] mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                   {title}
                 </h3>
-                <div className="w-8 h-[2px] bg-white/40 mb-2 shadow-xl" />
+                <div className="w-8 h-[2px] bg-paper/40 mb-2 shadow-xl" />
                 {author && (
-                  <p className="text-white/80 text-[12px] font-medium tracking-wide uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                  <p className="text-text text-[12px] font-medium tracking-wide uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                     {author}
                   </p>
                 )}
@@ -157,10 +157,10 @@ export default function BookCard({
 
           {/* BACK of the Cover (Inside Endpaper) */}
           <div
-            className="absolute inset-0 rounded-l-2xl rounded-r-sm overflow-hidden [backface-visibility:hidden] border-y border-l border-[#3a3a3a] border-r border-black/50"
+            className="absolute inset-0 rounded-l-2xl rounded-r-sm overflow-hidden [backface-visibility:hidden] border-y border-l border-border border-r border-black/50"
             style={{ transform: "rotateY(180deg)" }}
           >
-            <div className="absolute inset-0 bg-[#1a1a1a]" />
+            <div className="absolute inset-0 bg-surface" />
             {/* Inner spine shadow */}
             <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-void/90 via-void/40 to-transparent" />
             {/* Faint quill watermark */}
