@@ -5,11 +5,25 @@ import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Chapter } from "@/types/editor";
 import { formatNumber } from "@/types/editor";
 
+// Format-aware vocabulary — "chapter" for novels, "poem" for poetry, etc.
+const FORMAT_LABELS: Record<string, { singular: string; plural: string; newLabel: string }> = {
+  novel: { singular: "chapter", plural: "chapters", newLabel: "New Chapter" },
+  poetry: { singular: "poem", plural: "poems", newLabel: "New Poem" },
+  webtoon: { singular: "episode", plural: "episodes", newLabel: "New Episode" },
+  illustrated: { singular: "chapter", plural: "chapters", newLabel: "New Chapter" },
+  screenplay: { singular: "scene", plural: "scenes", newLabel: "New Scene" },
+};
+
+function getFormatLabels(format?: string) {
+  return FORMAT_LABELS[format || "novel"] || FORMAT_LABELS.novel;
+}
+
 interface ChapterNavProps {
   chapters: Chapter[];
   activeChapterId: string | null;
   storyTitle: string;
   collapsed: boolean;
+  format?: string;
   onSelectChapter: (id: string) => void;
   onAddChapter: () => void;
   onReorderChapters: (chapters: Chapter[]) => void;
@@ -25,6 +39,7 @@ export default function ChapterNav({
   activeChapterId,
   storyTitle,
   collapsed,
+  format,
   onSelectChapter,
   onAddChapter,
   onReorderChapters,
@@ -35,6 +50,7 @@ export default function ChapterNav({
   onOpenToolkit,
 }: ChapterNavProps) {
   const totalWords = chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
+  const labels = getFormatLabels(format);
 
   return (
     <motion.aside
@@ -83,7 +99,7 @@ export default function ChapterNav({
                 aria-label="Story title"
               />
               <p className="text-[10px] text-text-ghost mt-1.5 uppercase tracking-[0.15em]">
-                {chapters.length} {chapters.length === 1 ? "chapter" : "chapters"} · {formatNumber(totalWords)} words
+                {chapters.length} {chapters.length === 1 ? labels.singular : labels.plural} · {formatNumber(totalWords)} words
               </p>
             </div>
 
@@ -132,13 +148,13 @@ export default function ChapterNav({
               <button
                 onClick={onAddChapter}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-subtle/30 transition-colors text-sm"
-                aria-label="Add new chapter"
+                aria-label={`Add new ${labels.singular}`}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <line x1="7" y1="3" x2="7" y2="11" />
                   <line x1="3" y1="7" x2="11" y2="7" />
                 </svg>
-                New Chapter
+                {labels.newLabel}
               </button>
               <button
                 onClick={onOpenToolkit}
@@ -228,7 +244,7 @@ function ChapterItem({
             isActive ? "text-paper" : "text-text-secondary"
           } placeholder:text-text-ghost`}
           placeholder="Untitled"
-          aria-label="Chapter title"
+          aria-label="Title"
         />
         <p className="text-[10px] text-text-ghost mt-0.5">
           {formatNumber(chapter.wordCount)} words
@@ -243,8 +259,8 @@ function ChapterItem({
             onDelete();
           }}
           className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1 rounded text-text-ghost hover:text-rose transition-all"
-          title="Delete chapter"
-          aria-label="Delete chapter"
+          title="Delete"
+          aria-label="Delete"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <line x1="3" y1="3" x2="9" y2="9" />

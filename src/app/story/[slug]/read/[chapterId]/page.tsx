@@ -10,6 +10,10 @@ import ReaderPaginated from "@/components/reader/ReaderPaginated";
 import ReaderScroll from "@/components/reader/ReaderScroll";
 import ChapterComments from "@/components/reader/ChapterComments";
 import ChapterReactions from "@/components/reader/ChapterReactions";
+import WebtoonReader from "@/components/reader/WebtoonReader";
+import PoetryReader from "@/components/reader/PoetryReader";
+import ScreenplayReader from "@/components/reader/ScreenplayReader";
+import IllustratedReader from "@/components/reader/IllustratedReader";
 
 const READER_PREFS_KEY = "quiloria-reader-prefs";
 const READING_FONT_KEY = "quiloria-reading-font";
@@ -110,6 +114,7 @@ export default function ChapterReadPage() {
   const chapterId = params.chapterId as string;
 
   const [storyTitle, setStoryTitle] = useState("");
+  const [storyFormat, setStoryFormat] = useState("novel");
   const [storyId, setStoryId] = useState<string | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
@@ -147,6 +152,7 @@ export default function ChapterReadPage() {
 
         const story: ApiStoryData = storyJson.data;
         setStoryTitle(story.title);
+        setStoryFormat(story.format || "novel");
         setStoryId(story.id);
 
         // Convert chapter list (these are summaries from the story endpoint)
@@ -389,7 +395,91 @@ export default function ChapterReadPage() {
           wordCount={activeChapter.wordCount}
         />
 
-        {mode === "paginated" ? (
+        {storyFormat === "webtoon" ? (
+          <WebtoonReader
+            key={chapterId}
+            content={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
+          />
+        ) : storyFormat === "poetry" ? (
+          <PoetryReader
+            key={chapterId}
+            content={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            fontClass={fontClass}
+            fontSizeValue={getFontSizeValue(fontSize)}
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
+          />
+        ) : storyFormat === "screenplay" ? (
+          <ScreenplayReader
+            key={chapterId}
+            content={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
+          />
+        ) : storyFormat === "illustrated" ? (
+          <IllustratedReader
+            key={chapterId}
+            content={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            fontClass={fontClass}
+            fontSizeValue={getFontSizeValue(fontSize)}
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
+          />
+        ) : mode === "paginated" ? (
           <ReaderPaginated
             key={chapterId}
             htmlContent={activeChapter.content}

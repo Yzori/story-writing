@@ -22,8 +22,11 @@ import { getOrCreateSession } from "@/client/goals";
 // export functions are dynamically imported in handlers below
 import ChapterNav from "@/components/editor/ChapterNav";
 import ProseEditor from "@/components/editor/ProseEditor";
+import PoetryEditor from "@/components/editor/PoetryEditor";
+import ScreenplayEditor from "@/components/editor/ScreenplayEditor";
+import WebtoonEditor from "@/components/editor/WebtoonEditor";
+import IllustratedEditor from "@/components/editor/IllustratedEditor";
 import EditorErrorBoundary from "@/components/editor/EditorErrorBoundary";
-import FormatStub from "@/components/editor/FormatStub";
 import CommandPalette from "@/components/editor/CommandPalette";
 import CommentsSidebar from "@/components/editor/CommentsSidebar";
 import CommentPopover from "@/components/editor/CommentPopover";
@@ -218,7 +221,6 @@ export default function WriteStoryPage() {
   const [rosterNudgeDismissed, setRosterNudgeDismissed] = useState(false);
   // Format-aware editor
   const [storyFormat, setStoryFormat] = useState("novel");
-  const [useProseAnyway, setUseProseAnyway] = useState(false);
 
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
@@ -275,7 +277,9 @@ export default function WriteStoryPage() {
 
         // Build StoryProject from API data + local settings
         const rawChapters: Chapter[] = apiChapters.map(apiChapterToLocal);
-        const chaptersToUse = rawChapters.length > 0 ? rawChapters : [createChapter("Chapter 1")];
+        const formatFirstUnit: Record<string, string> = { novel: "Chapter 1", poetry: "Poem 1", webtoon: "Episode 1", illustrated: "Chapter 1", screenplay: "Scene 1" };
+        const firstTitle = formatFirstUnit[story.format || "novel"] || "Chapter 1";
+        const chaptersToUse = rawChapters.length > 0 ? rawChapters : [createChapter(firstTitle)];
 
         const proj: StoryProject = {
           id: story.id,
@@ -307,7 +311,7 @@ export default function WriteStoryPage() {
           const res = await fetch(`/api/stories/${storyId}/chapters`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: "Chapter 1" }),
+            body: JSON.stringify({ title: firstTitle }),
           });
           if (res.ok) {
             const json = await res.json();
@@ -707,7 +711,15 @@ export default function WriteStoryPage() {
   }, [updateProject]);
 
   const handleAddChapter = useCallback(async () => {
-    const title = `Chapter ${(project?.chapters.length ?? 0) + 1}`;
+    const unitLabels: Record<string, string> = {
+      novel: "Chapter",
+      poetry: "Poem",
+      webtoon: "Episode",
+      illustrated: "Chapter",
+      screenplay: "Scene",
+    };
+    const unit = unitLabels[storyFormat] || "Chapter";
+    const title = `${unit} ${(project?.chapters.length ?? 0) + 1}`;
 
     try {
       const res = await fetch(`/api/stories/${storyId}/chapters`, {
@@ -1379,17 +1391,7 @@ export default function WriteStoryPage() {
     );
   }
 
-  // Show format stub for non-novel formats (unless user opted into novel mode)
-  if (storyFormat !== "novel" && !useProseAnyway) {
-    return (
-      <FormatStub
-        format={storyFormat}
-        storyTitle={project.title}
-        storyId={storyId}
-        onUseProse={() => setUseProseAnyway(true)}
-      />
-    );
-  }
+  // All formats now have dedicated editors — no FormatStub needed
 
   const showUI = !isTyping && !commandOpen;
 
@@ -1462,6 +1464,7 @@ export default function WriteStoryPage() {
                 activeChapterId={project.activeChapterId}
                 storyTitle={project.title}
                 collapsed={false}
+                format={storyFormat}
                 onSelectChapter={handleSelectChapter}
                 onAddChapter={handleAddChapter}
                 onReorderChapters={handleReorderChapters}
@@ -1561,16 +1564,46 @@ export default function WriteStoryPage() {
                   } scene-break-${project.typography.sceneBreakStyle || "asterism"}`}
                 >
                   <EditorErrorBoundary>
-                    <ProseEditor
-                      key={activeChapter.id}
-                      content={activeChapter.content}
-                      onUpdate={handleUpdateContent}
-                      onEditorReady={handleEditorReady}
-                      onComment={handleAddComment}
-                      onMentionClick={handleMentionClick}
-                      characters={mentionCharacters}
-                      characterDetails={mentionCharacterDetails}
-                    />
+                    {storyFormat === "screenplay" ? (
+                      <ScreenplayEditor
+                        key={activeChapter.id}
+                        content={activeChapter.content}
+                        onUpdate={handleUpdateContent}
+                        onEditorReady={handleEditorReady}
+                      />
+                    ) : storyFormat === "poetry" ? (
+                      <PoetryEditor
+                        key={activeChapter.id}
+                        content={activeChapter.content}
+                        onUpdate={handleUpdateContent}
+                        onEditorReady={handleEditorReady}
+                        alignment="left"
+                      />
+                    ) : storyFormat === "webtoon" ? (
+                      <WebtoonEditor
+                        key={activeChapter.id}
+                        content={activeChapter.content}
+                        onUpdate={handleUpdateContent}
+                      />
+                    ) : storyFormat === "illustrated" ? (
+                      <IllustratedEditor
+                        key={activeChapter.id}
+                        content={activeChapter.content}
+                        onUpdate={handleUpdateContent}
+                        onEditorReady={handleEditorReady}
+                      />
+                    ) : (
+                      <ProseEditor
+                        key={activeChapter.id}
+                        content={activeChapter.content}
+                        onUpdate={handleUpdateContent}
+                        onEditorReady={handleEditorReady}
+                        onComment={handleAddComment}
+                        onMentionClick={handleMentionClick}
+                        characters={mentionCharacters}
+                        characterDetails={mentionCharacterDetails}
+                      />
+                    )}
                   </EditorErrorBoundary>
                 </div>
               </motion.div>

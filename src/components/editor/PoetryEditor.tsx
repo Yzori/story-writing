@@ -1,0 +1,671 @@
+"use client";
+
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Node, mergeAttributes } from "@tiptap/core";
+import Placeholder from "@tiptap/extension-placeholder";
+import CharacterCount from "@tiptap/extension-character-count";
+import Typography from "@tiptap/extension-typography";
+import { useEffect, useCallback, useState, useRef } from "react";
+import { TextSelection } from "@tiptap/pm/state";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Editor } from "@tiptap/react";
+import type { ResolvedPos } from "@tiptap/pm/model";
+
+// ── Custom Nodes ──────────────────────────────────────────────────────────────
+
+/**
+ * A poetry line — renders as a <div> with no paragraph spacing.
+ * Enter creates a new line within the same stanza.
+ */
+const PoetryLine = Node.create({
+  name: "poetryLine",
+  content: "inline*",
+  group: "block",
+  defining: true,
+
+  parseHTML() {
+    return [
+      { tag: "div.poetry-line" },
+      // Also accept plain <p> for pasting regular content
+      { tag: "p", priority: 40 },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, { class: "poetry-line" }),
+      0,
+    ];
+  },
+});
+
+/**
+ * A stanza — wraps one or more poetryLine nodes.
+ * Visually separated from other stanzas with generous vertical spacing.
+ * A double-Enter (creating an empty line then pressing Enter again)
+ * splits into a new stanza.
+ */
+const Stanza = Node.create({
+  name: "stanza",
+  content: "poetryLine+",
+  group: "block",
+  defining: true,
+
+  parseHTML() {
+    return [{ tag: "div.stanza" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, { class: "stanza" }),
+      0,
+    ];
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        // Check if we're inside a stanza
+        const stanzaDepth = findAncestorDepth($from, "stanza");
+        if (stanzaDepth === null) return false;
+
+        const lineDepth = findAncestorDepth($from, "poetryLine");
+        if (lineDepth === null) return false;
+
+        const currentLine = $from.node(lineDepth);
+        const isLineEmpty = currentLine.textContent.length === 0;
+
+        if (isLineEmpty) {
+          // Empty line + Enter = new stanza
+          const stanzaNode = $from.node(stanzaDepth);
+          const lineIndex = $from.index(stanzaDepth);
+
+          // If this empty line is the only line in the stanza
+          if (stanzaNode.childCount === 1) {
+            return editor
+              .chain()
+              .command(({ tr, dispatch }) => {
+                if (!dispatch) return true;
+                const pos = $from.before(lineDepth);
+                tr.delete(pos, pos + currentLine.nodeSize);
+                const stanzaEnd = $from.after(stanzaDepth);
+                const newStanza = state.schema.nodes.stanza.create(
+                  null,
+                  state.schema.nodes.poetryLine.create()
+                );
+                tr.insert(stanzaEnd - currentLine.nodeSize, newStanza);
+                const targetPos = stanzaEnd - currentLine.nodeSize + 2;
+                tr.setSelection(
+                  TextSelection.near(tr.doc.resolve(targetPos))
+                );
+                return true;
+              })
+              .run();
+          }
+
+          // If empty line is at the end of a stanza with other lines
+          if (lineIndex === stanzaNode.childCount - 1) {
+            return editor
+              .chain()
+              .command(({ tr, dispatch }) => {
+                if (!dispatch) return true;
+                const linePos = $from.before(lineDepth);
+                tr.delete(linePos, linePos + currentLine.nodeSize);
+                const stanzaEnd = $from.after(stanzaDepth);
+                const newStanza = state.schema.nodes.stanza.create(
+                  null,
+                  state.schema.nodes.poetryLine.create()
+                );
+                tr.insert(stanzaEnd - currentLine.nodeSize, newStanza);
+                const targetPos = stanzaEnd - currentLine.nodeSize + 2;
+                tr.setSelection(
+                  TextSelection.near(tr.doc.resolve(targetPos))
+                );
+                return true;
+              })
+              .run();
+          }
+
+          // Empty line in the middle — split the stanza
+          return editor
+            .chain()
+            .command(({ tr, dispatch }) => {
+              if (!dispatch) return true;
+              const linePos = $from.before(lineDepth);
+              const linesAfter: Array<typeof stanzaNode> = [];
+              for (let i = lineIndex + 1; i < stanzaNode.childCount; i++) {
+                linesAfter.push(stanzaNode.child(i));
+              }
+              const stanzaEnd = $from.after(stanzaDepth);
+              const deleteTo = stanzaEnd - 1;
+              tr.delete(linePos, deleteTo);
+              const newStanzaContent =
+                linesAfter.length > 0
+                  ? linesAfter
+                  : [state.schema.nodes.poetryLine.create()];
+              const newStanza = state.schema.nodes.stanza.create(
+                null,
+                newStanzaContent
+              );
+              const insertPos = tr.mapping.map(stanzaEnd);
+              tr.insert(insertPos, newStanza);
+              tr.setSelection(
+                TextSelection.near(tr.doc.resolve(insertPos + 2))
+              );
+              return true;
+            })
+            .run();
+        }
+
+        // Non-empty line: create a new poetry line within the same stanza
+        return editor.chain().splitBlock().run();
+      },
+
+      Backspace: ({ editor }) => {
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        if ($from.parentOffset !== 0) return false;
+
+        const stanzaDepth = findAncestorDepth($from, "stanza");
+        if (stanzaDepth === null) return false;
+
+        const lineIndex = $from.index(stanzaDepth);
+        if (lineIndex !== 0) return false;
+
+        const stanzaIndex = $from.index(stanzaDepth - 1);
+        if (stanzaIndex === 0) return false;
+
+        return editor.chain().joinBackward().run();
+      },
+    };
+  },
+});
+
+/** Find the depth of an ancestor node with the given name */
+function findAncestorDepth(
+  $pos: ResolvedPos,
+  nodeName: string
+): number | null {
+  for (let d = $pos.depth; d >= 0; d--) {
+    if ($pos.node(d).type.name === nodeName) return d;
+  }
+  return null;
+}
+
+// ── Floating Toolbar ──────────────────────────────────────────────────────────
+
+function PoetryFloatingToolbar({ editor }: { editor: Editor }) {
+  const [show, setShow] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const hideTimeout = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const updatePosition = useCallback(() => {
+    const { empty } = editor.state.selection;
+
+    if (empty) {
+      setShow(false);
+      return;
+    }
+
+    const domSelection = window.getSelection();
+    if (!domSelection || domSelection.rangeCount === 0) {
+      setShow(false);
+      return;
+    }
+
+    const range = domSelection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    if (rect.width === 0 && rect.height === 0) {
+      setShow(false);
+      return;
+    }
+
+    setPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8,
+    });
+    setShow(true);
+  }, [editor]);
+
+  useEffect(() => {
+    editor.on("selectionUpdate", updatePosition);
+
+    const handleBlur = () => {
+      hideTimeout.current = setTimeout(() => setShow(false), 200);
+    };
+    const handleFocus = () => {
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    };
+
+    editor.on("blur", handleBlur);
+    editor.on("focus", handleFocus);
+
+    return () => {
+      editor.off("selectionUpdate", updatePosition);
+      editor.off("blur", handleBlur);
+      editor.off("focus", handleFocus);
+      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    };
+  }, [editor, updatePosition]);
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: 4, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 4, scale: 0.95 }}
+          transition={{ duration: 0.12 }}
+          className="fixed z-50"
+          style={{
+            left: `${position.x}px`,
+            top: `${position.y}px`,
+            transform: "translateX(-50%) translateY(-100%)",
+          }}
+        >
+          <div className="flex items-center gap-0.5 bg-elevated/95 backdrop-blur-xl border border-border rounded-lg shadow-2xl px-1 py-1">
+            <ToolbarButton
+              active={editor.isActive("bold")}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              title="Bold (Ctrl+B)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+              </svg>
+            </ToolbarButton>
+            <ToolbarButton
+              active={editor.isActive("italic")}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              title="Italic (Ctrl+I)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="4" x2="10" y2="4" />
+                <line x1="14" y1="20" x2="5" y2="20" />
+                <line x1="15" y1="4" x2="9" y2="20" />
+              </svg>
+            </ToolbarButton>
+            <ToolbarButton
+              active={editor.isActive("strike")}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+              title="Strikethrough"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 4H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H8" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+              </svg>
+            </ToolbarButton>
+            <div className="w-px h-4 bg-border mx-0.5" />
+            <ToolbarButton
+              active={false}
+              onClick={() => editor.chain().focus().insertContent("\u2014").run()}
+              title="Em Dash"
+            >
+              <span className="text-xs font-medium leading-none">&mdash;</span>
+            </ToolbarButton>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function ToolbarButton({
+  active,
+  onClick,
+  children,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <button
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors duration-150 ${
+        active
+          ? "bg-amber/20 text-amber"
+          : "text-text-secondary hover:text-paper hover:bg-white/5"
+      }`}
+      title={title}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+interface PoetryEditorProps {
+  content: string;
+  onUpdate: (content: string, wordCount: number) => void;
+  onEditorReady?: (editor: Editor) => void;
+  editable?: boolean;
+  alignment?: "left" | "center";
+  showLineNumbers?: boolean;
+  placeholder?: string;
+}
+
+export default function PoetryEditor({
+  content,
+  onUpdate,
+  onEditorReady,
+  editable = true,
+  alignment = "left",
+  showLineNumbers = false,
+  placeholder = "Begin writing...",
+}: PoetryEditorProps) {
+  const [lineNumbers, setLineNumbers] = useState(showLineNumbers);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+        blockquote: false,
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        codeBlock: false,
+        code: false,
+        horizontalRule: false,
+        bold: undefined,
+        italic: undefined,
+        strike: undefined,
+        paragraph: false,
+        hardBreak: false,
+        dropcursor: { color: "var(--t-gold)", width: 2 },
+      }),
+      Stanza,
+      PoetryLine,
+      Placeholder.configure({
+        placeholder: () => "",
+        emptyEditorClass: "is-editor-empty",
+        emptyNodeClass: "is-empty-line",
+      }),
+      CharacterCount,
+      Typography,
+    ],
+    content: wrapInStanzas(content),
+    editable,
+    editorProps: {
+      attributes: {
+        class: `poetry-editor-content ${alignment === "center" ? "poetry-centered" : "poetry-left"}`,
+        "data-placeholder": placeholder,
+      },
+    },
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      const text = editor.state.doc.textContent;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      onUpdate(html, words);
+    },
+    immediatelyRender: false,
+  });
+
+  // Notify parent when editor is ready
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
+
+  // Sync content when it changes externally
+  const setContent = useCallback(
+    (newContent: string) => {
+      if (editor && !editor.isDestroyed) {
+        const currentHtml = editor.getHTML();
+        if (currentHtml !== newContent) {
+          editor.commands.setContent(wrapInStanzas(newContent) || "");
+        }
+      }
+    },
+    [editor]
+  );
+
+  useEffect(() => {
+    setContent(content);
+  }, [content, setContent]);
+
+  // Update alignment class when prop changes
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      const el = editor.view.dom;
+      el.classList.remove("poetry-centered", "poetry-left");
+      el.classList.add(
+        alignment === "center" ? "poetry-centered" : "poetry-left"
+      );
+    }
+  }, [alignment, editor]);
+
+  // Update editable state
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.setEditable(editable);
+    }
+  }, [editable, editor]);
+
+  // Sync showLineNumbers prop
+  useEffect(() => {
+    setLineNumbers(showLineNumbers);
+  }, [showLineNumbers]);
+
+  if (!editor) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-text-ghost border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div
+        className={`max-w-[680px] mx-auto px-8 pb-64 pt-8 min-h-full ${
+          lineNumbers ? "poetry-line-numbers" : ""
+        }`}
+      >
+        <PoetryFloatingToolbar editor={editor} />
+
+        {/* Line numbers toggle */}
+        {editable && (
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => setLineNumbers((v) => !v)}
+              className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors duration-200 ${
+                lineNumbers
+                  ? "bg-amber/10 border-amber/30 text-amber"
+                  : "bg-transparent border-border text-text-ghost hover:text-text-secondary hover:border-border-active"
+              }`}
+              title="Toggle line numbers"
+            >
+              Line numbers
+            </button>
+          </div>
+        )}
+
+        <EditorContent editor={editor} className="poetry-editor-wrapper" />
+      </div>
+
+      {/* Styles for poetry editor */}
+      <style jsx global>{`
+        /* ── Poetry Editor Base ─────────────────────────────── */
+        .poetry-editor-content {
+          outline: none;
+          font-family: var(--font-literata, "Literata", serif);
+          font-size: 1.0625rem;
+          line-height: 1.85;
+          color: var(--color-paper, #f5f0e8);
+          caret-color: var(--color-amber, #d4a574);
+          min-height: 60vh;
+        }
+
+        .poetry-editor-content.poetry-centered .stanza {
+          text-align: center;
+        }
+
+        .poetry-editor-content.poetry-left .stanza {
+          text-align: left;
+        }
+
+        /* ── Stanza spacing ────────────────────────────────── */
+        .poetry-editor-content .stanza {
+          margin-bottom: 2.5rem;
+          position: relative;
+        }
+
+        .poetry-editor-content .stanza:last-child {
+          margin-bottom: 0;
+        }
+
+        /* ── Poetry line ───────────────────────────────────── */
+        .poetry-editor-content .poetry-line {
+          margin: 0;
+          padding: 0;
+          min-height: 1.85em;
+          position: relative;
+        }
+
+        /* ── Placeholder ───────────────────────────────────── */
+        .poetry-editor-content.is-editor-empty::before {
+          content: attr(data-placeholder);
+          color: var(--color-text-ghost, #6b6560);
+          position: absolute;
+          pointer-events: none;
+          font-style: italic;
+          opacity: 0.6;
+        }
+
+        .poetry-editor-content .is-empty-line::before {
+          content: none;
+        }
+
+        .poetry-editor-content.is-editor-empty
+          .stanza:first-child
+          .poetry-line:first-child::before {
+          content: attr(data-placeholder);
+          color: var(--color-text-ghost, #6b6560);
+          pointer-events: none;
+          font-style: italic;
+          opacity: 0.6;
+        }
+
+        /* ── Line numbers ──────────────────────────────────── */
+        .poetry-line-numbers .poetry-editor-content .stanza {
+          counter-reset: none;
+        }
+
+        .poetry-line-numbers .poetry-editor-content {
+          counter-reset: poetry-line;
+        }
+
+        .poetry-line-numbers .poetry-editor-content .poetry-line {
+          padding-left: 3rem;
+        }
+
+        .poetry-line-numbers .poetry-editor-content .poetry-line::before {
+          counter-increment: poetry-line;
+          content: counter(poetry-line);
+          position: absolute;
+          left: 0;
+          width: 2rem;
+          text-align: right;
+          color: var(--color-text-ghost, #6b6560);
+          font-family: var(--font-mono, "IBM Plex Mono", monospace);
+          font-size: 0.7rem;
+          line-height: 1.85em;
+          opacity: 0.5;
+          user-select: none;
+          pointer-events: none;
+        }
+
+        /* ── Formatting marks ──────────────────────────────── */
+        .poetry-editor-content strong {
+          font-weight: 700;
+          color: var(--color-paper, #f5f0e8);
+        }
+
+        .poetry-editor-content em {
+          font-style: italic;
+          color: var(--color-amber, #d4a574);
+        }
+
+        .poetry-editor-content s {
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
+
+        /* ── Selection ─────────────────────────────────────── */
+        .poetry-editor-content ::selection {
+          background-color: var(--color-amber, #d4a574);
+          color: var(--color-void, #0d0c0b);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Wrap plain HTML content in stanza/line structure if it isn't already.
+ * Accepts existing stanza-wrapped content as-is.
+ * Converts <p> tags and plain text into stanza > poetryLine structure.
+ */
+function wrapInStanzas(html: string): string {
+  if (!html || html === "<p></p>") {
+    return '<div class="stanza"><div class="poetry-line"></div></div>';
+  }
+
+  // Already wrapped in stanzas
+  if (html.includes('class="stanza"')) {
+    return html;
+  }
+
+  // Normalize: convert <p>...</p> to lines
+  const normalized = html
+    .replace(/<p><\/p>/g, "\n\n")
+    .replace(/<p>/g, "")
+    .replace(/<\/p>/g, "\n")
+    .replace(/<br\s*\/?>/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+
+  // Split into stanzas by double newlines
+  const stanzas = normalized
+    .split("\n\n")
+    .filter((s) => s.trim().length > 0);
+
+  if (stanzas.length === 0) {
+    return '<div class="stanza"><div class="poetry-line"></div></div>';
+  }
+
+  return stanzas
+    .map((stanza) => {
+      const lines = stanza
+        .split("\n")
+        .filter(
+          (l) => l.length > 0 || stanza.split("\n").length === 1
+        );
+      const lineHtml =
+        lines.length > 0
+          ? lines
+              .map((l) => `<div class="poetry-line">${l.trim()}</div>`)
+              .join("")
+          : '<div class="poetry-line"></div>';
+      return `<div class="stanza">${lineHtml}</div>`;
+    })
+    .join("");
+}

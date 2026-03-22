@@ -88,7 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (limited) return limited;
 
     const { storyId, chapterId } = await params;
-    const { isOwner } = await verifyStoryOwnership(storyId, session.user.id);
+    const { story, isOwner } = await verifyStoryOwnership(storyId, session.user.id);
 
     if (!isOwner) {
       return NextResponse.json(
@@ -152,11 +152,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       version: existing.version + 1,
     };
 
-    if (updateData.content) {
+    // Webtoon content is JSON (panel arrays) — skip HTML sanitization and word counting
+    const isWebtoon = story?.format === "webtoon";
+
+    if (updateData.content && !isWebtoon) {
       updateData.content = sanitizeHtml(updateData.content as string);
     }
 
-    if (updateFields.content !== undefined) {
+    if (updateFields.content !== undefined && !isWebtoon) {
       updateData.wordCount = countWords(updateFields.content);
     }
 

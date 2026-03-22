@@ -10,11 +10,11 @@ import { compressImage } from "@/client/images";
 // ── Format options (shared by solo + co-op) ─────────────────
 
 const FORMATS = [
-  { id: "novel", label: "Novel", desc: "Long-form prose fiction", icon: "M4 2h12a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zm2 4v0h8M6 10v0h8M6 14v0h5", soon: false },
-  { id: "webtoon", label: "Webtoon", desc: "Vertical scroll comics", icon: "M4 3h16v18H4zM4 9h16M4 15h16", soon: true },
-  { id: "poetry", label: "Poetry", desc: "Verse and stanza", icon: "M6 4v0h4M5 8v0h6M7 12v0h3M4 16v0h8M6 20v0h5", soon: true },
-  { id: "illustrated", label: "Illustrated", desc: "Art-driven narrative", icon: "M3 3h18v18H3zM3 17l5-5 3.5 3.5 2.5-2.5L21 20M9 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z", soon: true },
-  { id: "screenplay", label: "Screenplay", desc: "Script format", icon: "M7 2h10l4 4v14a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2zm2 8h6M9 12h6M9 16h4", soon: true },
+  { id: "novel", label: "Novel", desc: "Long-form fiction", icon: "M4 2h12a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zm2 4v0h8M6 10v0h8M6 14v0h5", soon: false },
+  { id: "webtoon", label: "Webtoon", desc: "Vertical scroll comics", icon: "M4 3h16v18H4zM4 9h16M4 15h16", soon: false },
+  { id: "poetry", label: "Poetry", desc: "Verse and stanza", icon: "M6 4v0h4M5 8v0h6M7 12v0h3M4 16v0h8M6 20v0h5", soon: false },
+  { id: "illustrated", label: "Illustrated", desc: "Art-driven narrative", icon: "M3 3h18v18H3zM3 17l5-5 3.5 3.5 2.5-2.5L21 20M9 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z", soon: false },
+  { id: "screenplay", label: "Screenplay", desc: "Script format", icon: "M7 2h10l4 4v14a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2zm2 8h6M9 12h6M9 16h4", soon: false },
 ];
 
 const POPULAR_GENRES = [
@@ -494,12 +494,12 @@ export default function CreatePage() {
                           <button
                             key={f.id}
                             type="button"
-                            onClick={() => !f.soon && setFormat(f.id)}
+                            onClick={() => setFormat(f.id)}
                             className={`relative flex flex-col items-center gap-2 px-3 py-4 rounded-xl border text-center transition-all duration-200 cursor-pointer ${
                               isSelected
                                 ? `bg-${accentColor}/10 border-${accentColor}/30 shadow-[0_0_20px_var(--color-${accentColor}/0.08)]`
                                 : "border-white/[0.08] hover:border-white/15 bg-elevated/70"
-                            } ${f.soon ? "opacity-40 cursor-default" : ""}`}
+                            }`}
                           >
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={isSelected ? `text-${accentColor}` : "text-text-secondary"}>
                               <path d={f.icon} />
@@ -510,19 +510,13 @@ export default function CreatePage() {
                             <span className={`text-[10px] leading-tight font-body ${isSelected ? `text-${accentColor}/50` : "text-text-tertiary"}`}>
                               {f.desc}
                             </span>
-                            {f.soon && (
-                              <span className="absolute top-2 right-2 text-[8px] uppercase tracking-wider text-lavender/60 bg-lavender/10 px-1.5 py-0.5 rounded-full">
-                                Soon
-                              </span>
-                            )}
                           </button>
                         );
                       })}
                     </div>
                     {format !== "novel" && (
-                      <p className="text-[11px] text-lavender/70 mt-2.5 italic">
-                        The {FORMATS.find((f) => f.id === format)?.label} editor is coming soon.
-                        Your story will be created with the novel editor for now.
+                      <p className="text-[11px] text-text-ghost mt-2.5">
+                        Each format has its own dedicated editor tuned to that medium.
                       </p>
                     )}
                   </motion.div>
