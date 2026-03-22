@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 interface ScreenplayReaderProps {
   content: string;
@@ -23,6 +25,8 @@ export default function ScreenplayReader({
   nextChapterTitle,
   reactionsElement,
 }: ScreenplayReaderProps) {
+  const sanitizedContent = useMemo(() => sanitizeHtmlClient(content), [content]);
+
   return (
     <div className="flex-1 overflow-y-auto bg-void">
       <div className="max-w-[740px] mx-auto px-4 py-8">
@@ -47,7 +51,7 @@ export default function ScreenplayReader({
           {/* Script content */}
           <div
             className="screenplay-reader-content"
-            dangerouslySetInnerHTML={{ __html: content }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         </motion.div>
 

@@ -45,8 +45,9 @@ import { useToast } from "@/components/shared/Toast";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
+import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
 
-type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history";
+type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat";
 
 // Local storage key for editor-only settings (typography, goals, etc.)
 function editorSettingsKey(storyId: string) {
@@ -231,6 +232,9 @@ export default function WriteStoryPage() {
   const [needsTeamSetup, setNeedsTeamSetup] = useState(false);
   const [showRosterNudge, setShowRosterNudge] = useState(false);
   const [rosterNudgeDismissed, setRosterNudgeDismissed] = useState(false);
+  // Co-op: collaborator presence
+  const [collaborators, setCollaborators] = useState<{ id: string; userId: string; displayName: string | null; avatarUrl: string | null; role: string; status: string }[]>([]);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   // Format-aware editor
   const [storyFormat, setStoryFormat] = useState("novel");
 
@@ -276,13 +280,41 @@ export default function WriteStoryPage() {
         const storyJson = await storyRes.json();
         const story = storyJson.data;
 
-        // Verify current user is the story owner
+        // Verify current user is the story owner or an accepted collaborator
         const sessionRes = await fetch("/api/auth/session");
         const sessionData = await sessionRes.json();
-        if (!sessionData?.user?.id || sessionData.user.id !== story.userId) {
-          setError("You don\u2019t have permission to edit this story");
+        if (!sessionData?.user?.id) {
+          setError("You must be logged in to edit this story");
           setLoading(false);
           return;
+        }
+        setSessionUserId(sessionData.user.id);
+        const isOwner = sessionData.user.id === story.userId;
+        if (!isOwner) {
+          // For co-op/campaign stories, check if user is an accepted collaborator
+          if (story.writingMode !== "solo") {
+            try {
+              const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
+              const collabJson = collabRes.ok ? await collabRes.json() : { data: [] };
+              const isCollab = (collabJson.data || []).some(
+                (c: { userId: string; status: string }) =>
+                  c.userId === sessionData.user.id && c.status === "accepted"
+              );
+              if (!isCollab) {
+                setError("You don\u2019t have permission to edit this story");
+                setLoading(false);
+                return;
+              }
+            } catch {
+              setError("You don\u2019t have permission to edit this story");
+              setLoading(false);
+              return;
+            }
+          } else {
+            setError("You don\u2019t have permission to edit this story");
+            setLoading(false);
+            return;
+          }
         }
 
         const chaptersJson = await chaptersRes.json();
@@ -346,16 +378,23 @@ export default function WriteStoryPage() {
         setWritingMode(story.writingMode || "solo");
         setStorySlug(story.slug || storyId);
 
-        // Co-op gate: check if any collaborators have accepted
-        if (story.writingMode === "co-op") {
+        // Co-op: fetch collaborators for presence + gate
+        if (story.writingMode === "co-op" || story.writingMode === "campaign") {
           try {
             const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
             if (collabRes.ok) {
               const collabJson = await collabRes.json();
-              const accepted = (collabJson.data || []).filter(
-                (c: { status: string }) => c.status === "accepted"
-              );
-              if (accepted.length === 0) {
+              const allCollabs = (collabJson.data || []).map((c: { id: string; userId: string; role: string; status: string; user?: { displayName?: string | null; avatarUrl?: string | null } | null }) => ({
+                id: c.id,
+                userId: c.userId,
+                displayName: c.user?.displayName || null,
+                avatarUrl: c.user?.avatarUrl || null,
+                role: c.role,
+                status: c.status,
+              }));
+              setCollaborators(allCollabs);
+              const accepted = allCollabs.filter((c: { status: string }) => c.status === "accepted");
+              if (accepted.length === 0 && story.writingMode === "co-op") {
                 setNeedsTeamSetup(true);
               }
             }
@@ -413,12 +452,20 @@ export default function WriteStoryPage() {
             window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
             return;
           }
-          // Check for version conflict
+          // Check for version conflict — preserve the user's work in localStorage
           if (responses.some((r) => r.status === 409)) {
+            for (const [chId, { content: conflictContent }] of entries) {
+              try {
+                localStorage.setItem(
+                  `quiloria-conflict-${storyId}-${chId}`,
+                  JSON.stringify({ content: conflictContent, savedAt: new Date().toISOString() })
+                );
+              } catch { /* storage full */ }
+            }
             pendingSaves.current.clear();
             failedSaves.current.clear();
             setSaveState("conflict");
-            toast("Another user edited this chapter. Reload to see their changes.", "error");
+            toast("Another user edited this chapter. Your draft has been saved locally.", "error");
             return;
           }
           if (responses.every((r) => r.ok)) {
@@ -502,12 +549,20 @@ export default function WriteStoryPage() {
         window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
         return false;
       }
-      // Check for version conflict
+      // Check for version conflict — preserve work in localStorage
       if (responses.some((r) => r.status === 409)) {
+        for (const [chId, { content: conflictContent }] of entries) {
+          try {
+            localStorage.setItem(
+              `quiloria-conflict-${storyId}-${chId}`,
+              JSON.stringify({ content: conflictContent, savedAt: new Date().toISOString() })
+            );
+          } catch { /* storage full */ }
+        }
         pendingSaves.current.clear();
         failedSaves.current.clear();
         setSaveState("conflict");
-        toast("Another user edited this chapter. Reload to see their changes.", "error");
+        toast("Another user edited this chapter. Your draft has been saved locally.", "error");
         return false;
       }
       if (responses.every((r) => r.ok)) {
@@ -577,11 +632,19 @@ export default function WriteStoryPage() {
         window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
         return;
       }
-      // Check for version conflict
+      // Check for version conflict — preserve work in localStorage
       if (responses.some((r) => r.status === 409)) {
+        for (const [chId, { content: conflictContent }] of entries) {
+          try {
+            localStorage.setItem(
+              `quiloria-conflict-${storyId}-${chId}`,
+              JSON.stringify({ content: conflictContent, savedAt: new Date().toISOString() })
+            );
+          } catch { /* storage full */ }
+        }
         failedSaves.current.clear();
         setSaveState("conflict");
-        toast("Another user edited this chapter. Reload to see their changes.", "error");
+        toast("Another user edited this chapter. Your draft has been saved locally.", "error");
         return;
       }
       if (responses.every((r) => r.ok)) {
@@ -1584,6 +1647,9 @@ export default function WriteStoryPage() {
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
+                      {writingMode === "co-op" && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal/10 border border-teal/20 text-teal uppercase tracking-widest">Co-op</span>
+                      )}
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
                         <path d="M3 2l4 3-4 3" />
                       </svg>
@@ -1613,6 +1679,41 @@ export default function WriteStoryPage() {
                         {activeChapter.title ?? "Untitled"}
                       </h1>
                       <div className="flex items-center gap-3 shrink-0">
+                        {/* Co-op: Collaborator presence */}
+                        {writingMode !== "solo" && collaborators.length > 0 && (
+                          <div className="hidden sm:flex items-center gap-1.5">
+                            <div className="flex -space-x-1.5">
+                              {collaborators.filter((c) => c.status === "accepted").slice(0, 4).map((c) => (
+                                <div
+                                  key={c.id}
+                                  className="w-6 h-6 rounded-full border border-void bg-elevated flex items-center justify-center text-[8px] font-bold text-text-secondary overflow-hidden"
+                                  title={c.displayName || "Collaborator"}
+                                >
+                                  {c.avatarUrl ? (
+                                    <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    (c.displayName || "?").charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {/* Chat toggle */}
+                            <button
+                              onClick={() => setRightPanel((p) => p === "chat" ? "none" : "chat")}
+                              className={`p-1.5 rounded-md transition-all ${
+                                rightPanel === "chat"
+                                  ? "bg-teal/10 text-teal border border-teal/20"
+                                  : "text-text-ghost hover:text-text-secondary border border-transparent"
+                              }`}
+                              title="Workshop Chat"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                              </svg>
+                            </button>
+                            <div className="w-px h-4 bg-border" />
+                          </div>
+                        )}
                         {/* Reading time */}
                         <span className="text-[11px] text-text-ghost hidden sm:block">
                           ~{Math.max(1, Math.ceil((activeChapter.wordCount || 0) / 238))} min read
@@ -1847,12 +1948,30 @@ export default function WriteStoryPage() {
             className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-amber/10 border border-amber/20 backdrop-blur-xl text-amber text-sm shadow-2xl"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span>Another collaborator edited this chapter</span>
+            <span>Another collaborator edited this chapter. Your draft is saved locally.</span>
             <button
               onClick={() => window.location.reload()}
               className="px-3 py-1.5 rounded-lg bg-amber/20 hover:bg-amber/30 transition-colors font-medium text-xs"
             >
               Reload
+            </button>
+            <button
+              onClick={() => {
+                const ch = project?.chapters.find((c) => c.id === project.activeChapterId);
+                if (!ch) return;
+                const key = `quiloria-conflict-${storyId}-${ch.id}`;
+                try {
+                  const saved = localStorage.getItem(key);
+                  if (saved) {
+                    const { content } = JSON.parse(saved);
+                    navigator.clipboard.writeText(content || "");
+                    toast("Draft copied to clipboard", "success");
+                  }
+                } catch { toast("Could not recover draft", "error"); }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-surface/50 border border-border hover:bg-surface transition-colors font-medium text-xs text-text-secondary"
+            >
+              Copy my draft
             </button>
             <button
               onClick={() => {
@@ -2032,6 +2151,13 @@ export default function WriteStoryPage() {
             <TypographyPanel
               settings={project.typography}
               onUpdate={handleUpdateTypography}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "chat" && sessionUserId && (
+            <WorkshopChatPanel
+              storyId={storyId}
+              currentUserId={sessionUserId}
               onClose={handleClosePanel}
             />
           )}

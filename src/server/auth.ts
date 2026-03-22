@@ -9,6 +9,25 @@ import { eq } from "drizzle-orm";
 import { verifyPassword } from "@/server/password";
 import { env } from "@/server/env";
 
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      email?: string | null;
+      name?: string | null;
+      image?: string | null;
+      isAdmin: boolean;
+    };
+  }
+}
+
+declare module "next-auth" {
+  interface JWT {
+    id?: string;
+    isAdmin?: boolean;
+  }
+}
+
 export const { auth, signIn, signOut, handlers } = NextAuth({
   adapter: DrizzleAdapter(db),
   session: { strategy: "jwt" },
@@ -59,14 +78,23 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
-        // Look up isAdmin from database
+        // Look up isAdmin from database on initial sign-in
         const [dbUser] = await db
           .select({ isAdmin: users.isAdmin })
           .from(users)
           .where(eq(users.id, user.id as string))
+          .limit(1);
+        token.isAdmin = dbUser?.isAdmin ?? false;
+      }
+      // Re-check admin status on explicit session update, not every refresh
+      if (trigger === "update" && token.id) {
+        const [dbUser] = await db
+          .select({ isAdmin: users.isAdmin })
+          .from(users)
+          .where(eq(users.id, token.id as string))
           .limit(1);
         token.isAdmin = dbUser?.isAdmin ?? false;
       }
@@ -75,7 +103,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
-        (session.user as unknown as Record<string, unknown>).isAdmin = (token.isAdmin as boolean) ?? false;
+        session.user.isAdmin = (token.isAdmin as boolean) ?? false;
       }
       return session;
     },

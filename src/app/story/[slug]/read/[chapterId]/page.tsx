@@ -229,11 +229,17 @@ export default function ChapterReadPage() {
       .catch(() => {});
   }, [session?.user?.id, storyId, chapterId]);
 
-  // Save progress on chapter navigation (unmount)
+  // Flush pending save on unmount so progress is never lost
   useEffect(() => {
+    const saveRef = saveTimerRef;
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (saveRef.current) {
+        clearTimeout(saveRef.current);
+        // Fire immediate save with last known position
+        saveProgress({});
+      }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleScrollProgress = useCallback(

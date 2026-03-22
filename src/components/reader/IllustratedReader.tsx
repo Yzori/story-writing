@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 interface IllustratedReaderProps {
   content: string;
@@ -52,7 +53,7 @@ export default function IllustratedReader({
               : "side-by-side"
             : layout;
 
-        return `<figure class="illustration-block" data-layout="${layoutClass}">
+        return `<figure class="illustration-block" data-layout="${escapeHtml(layoutClass)}">
           <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" class="w-full h-auto rounded-lg" />
           ${caption ? `<figcaption class="text-center text-[12px] text-text-ghost mt-2 italic">${escapeHtml(caption)}</figcaption>` : ""}
         </figure>`;
@@ -84,7 +85,7 @@ export default function IllustratedReader({
               ? ({ "--reader-font-size": fontSizeValue } as React.CSSProperties)
               : undefined
           }
-          dangerouslySetInnerHTML={{ __html: processedContent }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtmlClient(processedContent) }}
         />
 
         {/* Reactions */}

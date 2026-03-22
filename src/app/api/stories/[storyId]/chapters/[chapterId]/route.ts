@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { chapters, chapterSnapshots, stories, follows } from "@/server/db/schema";
+import { chapters, chapterSnapshots, stories, follows, collaborators } from "@/server/db/schema";
 import { eq, and, isNull, asc, count, ne, sql as dsql } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
@@ -47,16 +47,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Draft chapters require ownership
+    // Draft chapters require ownership or collaborator access
     if (chapter.status !== "published") {
       const story = await db.query.stories.findFirst({
         where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
       });
-      if (!story || story.userId !== session?.user?.id) {
+      if (!story) {
         return NextResponse.json(
           { error: { code: "NOT_FOUND", message: "Chapter not found" } },
           { status: 404 }
         );
+      }
+      const isOwner = story.userId === session?.user?.id;
+      if (!isOwner) {
+        let isCollab = false;
+        if (session?.user?.id && story.writingMode !== "solo") {
+          const collab = await db.query.collaborators.findFirst({
+            where: and(
+              eq(collaborators.storyId, storyId),
+              eq(collaborators.userId, session.user.id),
+              eq(collaborators.status, "accepted")
+            ),
+          });
+          isCollab = !!collab;
+        }
+        if (!isCollab) {
+          return NextResponse.json(
+            { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+            { status: 404 }
+          );
+        }
       }
     }
 
@@ -91,10 +111,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { story, isOwner } = await verifyStoryOwnership(storyId, session.user.id);
 
     if (!isOwner) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
-        { status: 403 }
-      );
+      // Check if user is an accepted collaborator on non-solo stories
+      let isCollab = false;
+      if (story && story.writingMode !== "solo") {
+        const collab = await db.query.collaborators.findFirst({
+          where: and(
+            eq(collaborators.storyId, storyId),
+            eq(collaborators.userId, session.user.id),
+            eq(collaborators.status, "accepted")
+          ),
+        });
+        isCollab = !!collab;
+      }
+      if (!isCollab) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "Not authorized to edit this chapter" } },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await request.json();

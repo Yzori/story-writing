@@ -84,6 +84,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validate state transitions
+    const validTransitions: Record<string, string[]> = {
+      pending: ["voting", "approved", "declined"],
+      voting: ["approved", "declined"],
+      approved: [],
+      declined: [],
+    };
+    const currentStatus = application.status;
+    if (!validTransitions[currentStatus]?.includes(parsed.data.status)) {
+      return NextResponse.json(
+        { error: { code: "BAD_REQUEST", message: `Cannot transition from "${currentStatus}" to "${parsed.data.status}"` } },
+        { status: 400 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {
       status: parsed.data.status,
       updatedAt: new Date(),

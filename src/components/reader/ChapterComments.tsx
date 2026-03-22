@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/components/shared/Toast";
 
@@ -50,13 +50,21 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchComments = useCallback(async (pageNum: number, append = false) => {
+    // Cancel any in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
     setFetchError(false);
     try {
       const res = await fetch(
-        `/api/stories/${storyId}/chapters/${chapterId}/comments?page=${pageNum}&limit=${PAGE_SIZE}`
+        `/api/stories/${storyId}/chapters/${chapterId}/comments?page=${pageNum}&limit=${PAGE_SIZE}`,
+        { signal: controller.signal }
       );
       if (res.ok) {
         const json = await res.json();
@@ -66,7 +74,8 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
       } else {
         setFetchError(true);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setFetchError(true);
     } finally {
       setLoading(false);
@@ -77,6 +86,7 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
   useEffect(() => {
     setPage(1);
     fetchComments(1);
+    return () => { abortRef.current?.abort(); };
   }, [fetchComments]);
 
   const handleLoadMore = () => {

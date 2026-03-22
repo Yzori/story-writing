@@ -155,7 +155,7 @@ function WorkshopContent() {
           const isCollab = (collabJson.data as ApiCollaborator[]).some(
             (c) =>
               c.userId === session!.user!.id &&
-              (c.status === "accepted" || c.status === "pending")
+              c.status === "accepted"
           );
           if (!isCollab) {
             setAccessDenied(true);
@@ -558,7 +558,7 @@ function WorkshopContent() {
               <div className="flex items-center gap-3 mt-3">
                 {teamLoaded && collaborators.some((c) => c.status === "accepted") && (
                   <Link
-                    href={`/write/${story.id}`}
+                    href={`/write/${story.id}/co-op`}
                     className="px-4 py-1.5 bg-teal text-void font-semibold text-[12px] rounded-full hover:bg-teal/90 transition-all"
                   >
                     Start Writing

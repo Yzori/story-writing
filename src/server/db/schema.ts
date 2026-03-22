@@ -56,7 +56,7 @@ export const stories = pgTable("stories", {
     .default(sql`gen_random_uuid()`),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   format: text("format").notNull().default("novel"),
   synopsis: text("synopsis").default(""),
@@ -65,7 +65,7 @@ export const stories = pgTable("stories", {
     .array()
     .notNull()
     .default(sql`'{}'::text[]`),
-  contentRating: text("content_rating").notNull().default("G"),
+  contentRating: text("content_rating").notNull().default("everyone"),
   contentNotes: text("content_notes").default("[]"),
   status: text("status").notNull().default("draft"),
   dedication: text("dedication").default(""),
@@ -120,7 +120,7 @@ export const chapters = pgTable("chapters", {
   authorNoteAfter: text("author_note_after").default(""),
   outline: text("outline").default(""),
   version: integer("version").notNull().default(1),
-  sessionId: uuid("session_id"),
+  sessionId: uuid("session_id").references(() => campaignSessions.id, { onDelete: "set null" }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -158,7 +158,7 @@ export const chapterSnapshots = pgTable("chapter_snapshots", {
   content: text("content").notNull(),
   wordCount: integer("word_count").notNull().default(0),
   label: text("label").default(""),
-  userId: uuid("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   version: integer("version"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -248,7 +248,7 @@ export const writingSessions = pgTable("writing_sessions", {
     .default(sql`gen_random_uuid()`),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   storyId: uuid("story_id")
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
@@ -284,7 +284,7 @@ export const sparks = pgTable(
       .default(sql`gen_random_uuid()`),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     storyId: uuid("story_id")
       .notNull()
       .references(() => stories.id, { onDelete: "cascade" }),
@@ -313,7 +313,7 @@ export const follows = pgTable(
       .default(sql`gen_random_uuid()`),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     storyId: uuid("story_id")
       .notNull()
       .references(() => stories.id, { onDelete: "cascade" }),
@@ -340,7 +340,7 @@ export const comments = pgTable("comments", {
     .default(sql`gen_random_uuid()`),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   chapterId: uuid("chapter_id")
     .notNull()
     .references(() => chapters.id, { onDelete: "cascade" }),
@@ -359,6 +359,7 @@ export const comments = pgTable("comments", {
 },
   (table) => [
     index("idx_comments_chapter_story").on(table.chapterId, table.storyId),
+    index("idx_comments_parent_id").on(table.parentId),
   ]
 );
 
@@ -385,7 +386,7 @@ export const creatorUpdates = pgTable("creator_updates", {
     .references(() => stories.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -418,7 +419,7 @@ export const flags = pgTable("flags", {
     .default(sql`gen_random_uuid()`),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   storyId: uuid("story_id").references(() => stories.id, {
     onDelete: "cascade",
   }),
@@ -492,12 +493,12 @@ export const collaborators = pgTable(
       .references(() => stories.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     role: text("role").notNull(), // 'writer' | 'illustrator' | 'editor' | 'worldbuilder'
     status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined'
     invitedBy: uuid("invited_by")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -507,6 +508,7 @@ export const collaborators = pgTable(
   },
   (table) => [
     unique("collaborators_story_user_unique").on(table.storyId, table.userId),
+    index("idx_collaborators_story_status").on(table.storyId, table.status),
   ]
 );
 
@@ -565,7 +567,7 @@ export const agreementConfirmations = pgTable(
       .references(() => agreements.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -606,11 +608,11 @@ export const suggestions = pgTable("suggestions", {
     .references(() => chapters.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   note: text("note"),
   status: text("status").notNull().default("pending"), // 'pending' | 'woven' | 'revised' | 'passed'
-  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
   reviewNote: text("review_note"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -621,6 +623,7 @@ export const suggestions = pgTable("suggestions", {
 },
   (table) => [
     index("idx_suggestions_story_id").on(table.storyId),
+    index("idx_suggestions_status").on(table.status),
   ]
 );
 
@@ -650,7 +653,7 @@ export const openCalls = pgTable("open_calls", {
     .references(() => stories.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   role: text("role").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -689,7 +692,7 @@ export const openCallResponses = pgTable(
       .references(() => openCalls.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     pitch: text("pitch").notNull(),
     status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined'
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -728,7 +731,7 @@ export const reactions = pgTable(
       .default(sql`gen_random_uuid()`),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     chapterId: uuid("chapter_id")
       .notNull()
       .references(() => chapters.id, { onDelete: "cascade" }),
@@ -768,7 +771,7 @@ export const loreEntries = pgTable("lore_entries", {
     .references(() => stories.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   category: text("category").notNull(), // 'character' | 'place' | 'event' | 'item' | 'lore'
   title: text("title").notNull(),
   content: text("content").notNull().default(""),
@@ -793,6 +796,86 @@ export const loreEntriesRelations = relations(loreEntries, ({ one }) => ({
   user: one(users, {
     fields: [loreEntries.userId],
     references: [users.id],
+  }),
+}));
+
+// ── Workshop Messages (Co-op Chat + Activity Feed) ─────────
+
+export const workshopMessages = pgTable("workshop_messages", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  type: text("type").notNull().default("chat"), // 'chat' | 'edit' | 'join' | 'leave' | 'suggestion' | 'publish'
+  metadata: text("metadata").default("{}"), // JSON: { chapterTitle, chapterId, etc. }
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+},
+  (table) => [
+    index("idx_workshop_messages_story_created").on(table.storyId, table.createdAt),
+  ]
+);
+
+// ── Editor Presence (Co-op) ────────────────────────────────
+
+export const editorPresence = pgTable(
+  "editor_presence",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chapterId: uuid("chapter_id")
+      .references(() => chapters.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("viewing"), // 'viewing' | 'editing'
+    lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("editor_presence_story_user_unique").on(table.storyId, table.userId),
+    index("idx_editor_presence_story").on(table.storyId),
+  ]
+);
+
+export const workshopMessagesRelations = relations(workshopMessages, ({ one }) => ({
+  story: one(stories, {
+    fields: [workshopMessages.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [workshopMessages.userId],
+    references: [users.id],
+  }),
+}));
+
+export const editorPresenceRelations = relations(editorPresence, ({ one }) => ({
+  story: one(stories, {
+    fields: [editorPresence.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [editorPresence.userId],
+    references: [users.id],
+  }),
+  chapter: one(chapters, {
+    fields: [editorPresence.chapterId],
+    references: [chapters.id],
   }),
 }));
 
@@ -832,7 +915,7 @@ export const playerCharacters = pgTable(
       .references(() => stories.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     portrait: text("portrait"), // base64 or URL
     description: text("description").default(""),
@@ -850,6 +933,7 @@ export const playerCharacters = pgTable(
   (table) => [
     index("idx_player_characters_story_id").on(table.storyId),
     index("idx_player_characters_user_id").on(table.userId),
+    index("idx_player_characters_story_status").on(table.storyId, table.status),
   ]
 );
 
@@ -926,7 +1010,7 @@ export const sessionRoster = pgTable(
       .references(() => playerCharacters.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     status: text("status").notNull().default("present"), // 'present' | 'absent' | 'introduced' | 'spectating'
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -967,7 +1051,7 @@ export const sessionPolls = pgTable("session_polls", {
     .references(() => stories.id, { onDelete: "cascade" }),
   createdBy: uuid("created_by")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   title: text("title").default("When should we play next?"),
   options: text("options").notNull(), // JSON array of strings
   status: text("status").notNull().default("open"), // 'open' | 'closed'
@@ -1008,7 +1092,7 @@ export const sessionPollVotes = pgTable(
       .references(() => sessionPolls.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     selectedOptions: text("selected_options").notNull(), // JSON array of indices
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -1073,7 +1157,7 @@ export const campaignTurns = pgTable("campaign_turns", {
     .references(() => campaignSessions.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   characterId: uuid("character_id").references(() => playerCharacters.id, {
     onDelete: "set null",
   }),
@@ -1116,7 +1200,7 @@ export const campaignApplications = pgTable(
       .references(() => stories.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     pitch: text("pitch").notNull(),
     status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'declined' | 'voting'
     votingDeadline: timestamp("voting_deadline", { withTimezone: true }),
@@ -1162,7 +1246,7 @@ export const campaignVotes = pgTable(
       .references(() => campaignApplications.id, { onDelete: "cascade" }),
     voterId: uuid("voter_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     vote: boolean("vote").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -1295,6 +1379,7 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
     .references(() => users.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

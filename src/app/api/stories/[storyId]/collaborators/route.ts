@@ -136,7 +136,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
 
     return NextResponse.json({ data: created }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
+    // Handle unique constraint violation (race condition: concurrent invite)
+    if (error instanceof Error && error.message?.includes("collaborators_story_user_unique")) {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "User is already invited or a collaborator" } },
+        { status: 409 }
+      );
+    }
     console.error("POST /api/stories/[storyId]/collaborators error:", error);
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to invite collaborator" } },

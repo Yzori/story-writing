@@ -63,24 +63,20 @@ export function validateCsrf(request: NextRequest): NextResponse | null {
   }
 
   // Layer 2: Double-submit cookie validation
-  // If the CSRF cookie exists, the header must match
+  // Both cookie AND header must be present and match for mutating requests
   const cookieToken = request.cookies.get(CSRF_COOKIE)?.value;
   const headerToken = request.headers.get(CSRF_HEADER);
 
-  if (cookieToken && headerToken) {
-    // Both present: they must match (double-submit pattern)
-    if (cookieToken !== headerToken) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "CSRF token mismatch" } },
-        { status: 403 }
-      );
-    }
-  }
-
-  // If no origin AND no CSRF tokens, reject (belt-and-suspenders)
-  if (!origin && !cookieToken) {
+  if (!cookieToken || !headerToken) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Missing CSRF protection" } },
+      { status: 403 }
+    );
+  }
+
+  if (cookieToken !== headerToken) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "CSRF token mismatch" } },
       { status: 403 }
     );
   }

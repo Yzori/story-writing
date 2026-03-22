@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { chapters, stories } from "@/server/db/schema";
+import { chapters, stories, collaborators } from "@/server/db/schema";
 import { eq, and, isNull, asc, sql } from "drizzle-orm";
 import { createChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
@@ -34,8 +34,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { searchParams } = new URL(request.url);
     const withContent = searchParams.get("withContent") === "true";
 
-    // Only owners can fetch with content (used by editor)
-    if (withContent && !isOwner) {
+    // Check if user is an accepted collaborator (for co-op/campaign stories)
+    let isCollaborator = false;
+    if (!isOwner && session?.user?.id && story.writingMode !== "solo") {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      isCollaborator = !!collab;
+    }
+
+    // Owners and accepted collaborators can fetch with content (used by editor)
+    if (withContent && !isOwner && !isCollaborator) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Not authorized" } },
         { status: 403 }
@@ -62,8 +75,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const conditions = [eq(chapters.storyId, storyId), isNull(chapters.deletedAt)];
 
-    // Non-owners only see published chapters
-    if (!isOwner) {
+    // Non-owners/non-collaborators only see published chapters
+    if (!isOwner && !isCollaborator) {
       conditions.push(eq(chapters.status, "published"));
     }
 
@@ -128,11 +141,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Owner can always create; collaborators can create on co-op/campaign stories
     if (story.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
-        { status: 403 }
-      );
+      let allowed = false;
+      if (story.writingMode !== "solo") {
+        const collab = await db.query.collaborators.findFirst({
+          where: and(
+            eq(collaborators.storyId, storyId),
+            eq(collaborators.userId, session.user.id),
+            eq(collaborators.status, "accepted")
+          ),
+        });
+        allowed = !!collab;
+      }
+      if (!allowed) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "Not authorized to create chapters" } },
+          { status: 403 }
+        );
+      }
     }
 
     const [maxResult] = await db

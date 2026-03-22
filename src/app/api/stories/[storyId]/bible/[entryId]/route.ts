@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { bibleEntries, stories } from "@/server/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { bibleEntries } from "@/server/db/schema";
+import { eq, and } from "drizzle-orm";
 import { updateBibleEntrySchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
   params: Promise<{ storyId: string; entryId: string }>;
 };
-
-async function verifyOwnership(storyId: string, userId: string) {
-  const story = await db.query.stories.findFirst({
-    where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-  });
-  if (!story) return { error: "NOT_FOUND" as const };
-  if (story.userId !== userId) return { error: "FORBIDDEN" as const };
-  return { story };
-}
 
 /**
  * PATCH /api/stories/[storyId]/bible/[entryId]
@@ -38,7 +30,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, entryId } = await params;
 
-    const check = await verifyOwnership(storyId, session.user.id);
+    const check = await verifyCollaboratorAccess(storyId, session.user.id);
     if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
@@ -47,7 +39,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     if (check.error === "FORBIDDEN") {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized" } },
         { status: 403 }
       );
     }
@@ -121,7 +113,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, entryId } = await params;
 
-    const check = await verifyOwnership(storyId, session.user.id);
+    const check = await verifyCollaboratorAccess(storyId, session.user.id);
     if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
@@ -130,7 +122,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
     if (check.error === "FORBIDDEN") {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized" } },
         { status: 403 }
       );
     }

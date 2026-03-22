@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 interface PoetryReaderProps {
   content: string;
@@ -28,6 +29,8 @@ export default function PoetryReader({
   fontSizeValue,
   reactionsElement,
 }: PoetryReaderProps) {
+  const sanitizedContent = useMemo(() => sanitizeHtmlClient(content), [content]);
+
   // Check if content already has stanza structure
   const hasStanzaStructure = useMemo(
     () => content.includes('class="stanza"'),
@@ -58,7 +61,7 @@ export default function PoetryReader({
               ? ({ "--reader-font-size": fontSizeValue } as React.CSSProperties)
               : undefined
           }
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{ __html: sanitizedContent }}
         />
 
         {/* Reactions */}

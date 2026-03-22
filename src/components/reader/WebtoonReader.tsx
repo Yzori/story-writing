@@ -166,6 +166,9 @@ export default function WebtoonReader({
                   onLoad={() =>
                     setLoadedPanels((prev) => new Set(prev).add(panel.id))
                   }
+                  onError={() =>
+                    setLoadedPanels((prev) => new Set(prev).add(panel.id))
+                  }
                 />
 
                 {/* Speech bubbles / text overlays */}

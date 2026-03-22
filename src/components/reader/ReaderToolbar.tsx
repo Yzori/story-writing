@@ -251,7 +251,7 @@ export default function ReaderToolbar({
                     {ch.title}
                   </span>
                   <span className="text-[10px] text-text-ghost ml-auto shrink-0">
-                    {ch.wordCount.toLocaleString()}w
+                    {(ch.wordCount ?? 0).toLocaleString()}w
                   </span>
                 </button>
               ))}

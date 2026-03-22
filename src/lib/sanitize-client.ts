@@ -1,7 +1,5 @@
-import "server-only";
 import DOMPurify from "isomorphic-dompurify";
 
-// Allow Tiptap's HTML elements and our custom attributes
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "u", "s", "del",
   "h1", "h2", "h3", "h4", "h5", "h6",
@@ -20,7 +18,7 @@ const ALLOWED_ATTR = [
   "id",
 ];
 
-export function sanitizeHtml(html: string): string {
+export function sanitizeHtmlClient(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,

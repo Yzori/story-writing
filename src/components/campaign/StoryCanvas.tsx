@@ -106,8 +106,8 @@ function SessionEndedBlock({
       const { data } = await res.json();
       setCompiledChapterId(data.chapterId);
       setCompileState("done");
-    } catch (err: any) {
-      setErrorMessage(err.message ?? "Something went wrong");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
       setCompileState("error");
     }
   };

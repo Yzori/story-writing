@@ -87,16 +87,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      // Only one active session per story
+      // Only one active session per story — use transaction to prevent race
       if (newStatus === "active") {
-        const existingActive = await db.query.campaignSessions.findFirst({
-          where: and(
-            eq(campaignSessions.storyId, storyId),
-            eq(campaignSessions.status, "active"),
-            sql`${campaignSessions.id} != ${sessionId}`
-          ),
+        const conflict = await db.transaction(async (tx) => {
+          const existingActive = await tx
+            .select({ id: campaignSessions.id })
+            .from(campaignSessions)
+            .where(
+              and(
+                eq(campaignSessions.storyId, storyId),
+                eq(campaignSessions.status, "active"),
+                sql`${campaignSessions.id} != ${sessionId}`
+              )
+            )
+            .limit(1);
+          return existingActive.length > 0;
         });
-        if (existingActive) {
+        if (conflict) {
           return NextResponse.json(
             { error: { code: "BAD_REQUEST", message: "Another session is already active" } },
             { status: 400 }

@@ -450,7 +450,7 @@ export default function WebtoonEditor({
           setPanels(json.data || []);
         }
       } catch (err) {
-        console.error("Failed to load panels:", err);
+        // Panel load failed — fall back to empty
         if (!cancelled) setPanels([]);
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -488,7 +488,7 @@ export default function WebtoonEditor({
         body: JSON.stringify(data),
       });
     } catch (err) {
-      console.error("Failed to save panel:", err);
+      // Panel save failed silently — user can retry
     } finally {
       markSaving(panelId, false);
     }
@@ -547,7 +547,7 @@ export default function WebtoonEditor({
       try {
         await fetch(`${apiBase}/${id}`, { method: "DELETE" });
       } catch (err) {
-        console.error("Failed to delete panel:", err);
+        // Panel delete failed silently
       }
     },
     [apiBase]
@@ -565,7 +565,7 @@ export default function WebtoonEditor({
         body: JSON.stringify({
           panels: updated.map((p) => ({ id: p.id, sortOrder: p.sortOrder })),
         }),
-      }).catch((err) => console.error("Reorder failed:", err));
+      }).catch(() => {});
     },
     [apiBase]
   );

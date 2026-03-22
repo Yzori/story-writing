@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 interface ReaderScrollProps {
   htmlContent: string;
@@ -37,6 +38,7 @@ export default function ReaderScroll({
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
+  const sanitizedContent = useMemo(() => sanitizeHtmlClient(htmlContent), [htmlContent]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -100,7 +102,7 @@ export default function ReaderScroll({
           <div
             className={`prose-reader ${fontClass || ""}`}
             style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
 
           {authorNoteAfter?.trim() && (

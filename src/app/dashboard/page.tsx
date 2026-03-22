@@ -43,7 +43,7 @@ function AnimatedStat({ value, label, accent }: { value: string | number; label:
 
 // ── Active story — the featured "tome on the easel" ──────────
 function ActiveStorySpotlight({ story }: { story: ApiStory }) {
-  const href = story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`;
+  const href = story.writingMode === "campaign" ? `/campaign/${story.id}` : story.writingMode === "co-op" ? `/write/${story.id}/co-op` : `/write/${story.id}`;
 
   return (
     <Link href={href} className="block group">

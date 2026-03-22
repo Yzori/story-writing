@@ -4,6 +4,7 @@ import { collaborators, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCollaboratorSchema } from "@/lib/validations";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = {
   params: Promise<{ storyId: string; collaboratorId: string }>;
@@ -169,6 +170,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await db
       .delete(collaborators)
       .where(eq(collaborators.id, collaboratorId));
+
+    // Notify the removed collaborator
+    createNotification(
+      existing.userId,
+      "collaboration",
+      `You have been removed from "${story.title}"`,
+      `/browse`
+    );
 
     return NextResponse.json({ data: { id: collaboratorId, deleted: true } });
   } catch (error) {

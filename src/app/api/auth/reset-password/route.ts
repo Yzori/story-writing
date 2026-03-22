@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, isNull } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
 import { applyRateLimit } from "@/server/api-utils";
 
@@ -37,14 +37,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find valid (non-expired) token
+    // Find valid (non-expired, unused) token
     const [resetToken] = await db
       .select()
       .from(passwordResetTokens)
       .where(
         and(
           eq(passwordResetTokens.token, token),
-          gt(passwordResetTokens.expiresAt, new Date())
+          gt(passwordResetTokens.expiresAt, new Date()),
+          isNull(passwordResetTokens.usedAt)
         )
       )
       .limit(1);
@@ -55,6 +56,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Mark token as used immediately to prevent replay
+    await db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.id, resetToken.id));
 
     // Hash new password and update user
     const hashedPassword = await hashPassword(password);

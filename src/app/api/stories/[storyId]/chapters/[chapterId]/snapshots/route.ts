@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { chapterSnapshots, chapters, stories } from "@/server/db/schema";
+import { chapterSnapshots, chapters } from "@/server/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
 };
 
-async function verifyOwnership(storyId: string, chapterId: string, userId: string) {
-  const story = await db.query.stories.findFirst({
-    where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-  });
-  if (!story) return { error: "NOT_FOUND" as const };
-  if (story.userId !== userId) return { error: "FORBIDDEN" as const };
+async function verifyChapterAccess(storyId: string, chapterId: string, userId: string) {
+  const check = await verifyCollaboratorAccess(storyId, userId);
+  if (check.error) return { error: check.error };
 
   const chapter = await db.query.chapters.findFirst({
     where: and(
@@ -24,12 +22,12 @@ async function verifyOwnership(storyId: string, chapterId: string, userId: strin
     ),
   });
   if (!chapter) return { error: "NOT_FOUND" as const };
-  return { story, chapter };
+  return { story: check.story, chapter };
 }
 
 /**
  * GET /api/stories/[storyId]/chapters/[chapterId]/snapshots
- * List snapshots for a chapter. Requires ownership.
+ * List snapshots for a chapter. Requires ownership or collaborator access.
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -42,11 +40,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { storyId, chapterId } = await params;
-    const check = await verifyOwnership(storyId, chapterId, session.user.id);
-    if ("error" in check) {
+    const check = await verifyChapterAccess(storyId, chapterId, session.user.id);
+    if ("error" in check && check.error) {
       const status = check.error === "FORBIDDEN" ? 403 : 404;
       return NextResponse.json(
-        { error: { code: check.error, message: check.error === "FORBIDDEN" ? "You don't own this story" : "Not found" } },
+        { error: { code: check.error, message: check.error === "FORBIDDEN" ? "Not authorized" : "Not found" } },
         { status }
       );
     }
@@ -69,7 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * POST /api/stories/[storyId]/chapters/[chapterId]/snapshots
- * Create a snapshot of the current chapter content. Requires ownership.
+ * Create a snapshot of the current chapter content. Requires ownership or collaborator access.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -85,11 +83,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (limited) return limited;
 
     const { storyId, chapterId } = await params;
-    const check = await verifyOwnership(storyId, chapterId, session.user.id);
-    if ("error" in check) {
+    const check = await verifyChapterAccess(storyId, chapterId, session.user.id);
+    if ("error" in check && check.error) {
       const status = check.error === "FORBIDDEN" ? 403 : 404;
       return NextResponse.json(
-        { error: { code: check.error, message: check.error === "FORBIDDEN" ? "You don't own this story" : "Not found" } },
+        { error: { code: check.error, message: check.error === "FORBIDDEN" ? "Not authorized" : "Not found" } },
         { status }
       );
     }

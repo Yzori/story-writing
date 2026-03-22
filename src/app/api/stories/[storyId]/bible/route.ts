@@ -5,6 +5,7 @@ import { eq, and, isNull, asc } from "drizzle-orm";
 import { createBibleEntrySchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -24,15 +25,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { storyId } = await params;
 
-    // Verify story exists
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-
-    if (!story) {
+    // Verify story exists and user has access (owner or accepted collaborator)
+    const check = await verifyCollaboratorAccess(storyId, session.user.id);
+    if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
+      );
+    }
+    if (check.error === "FORBIDDEN") {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Not authorized" } },
+        { status: 403 }
       );
     }
 
@@ -92,21 +96,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify story exists and ownership
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-
-    if (!story) {
+    // Verify story exists and user has access
+    const check = await verifyCollaboratorAccess(storyId, session.user.id);
+    if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
       );
     }
-
-    if (story.userId !== session.user.id) {
+    if (check.error === "FORBIDDEN") {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized" } },
         { status: 403 }
       );
     }

@@ -93,7 +93,7 @@ export default function StoryCard({
             {coverUrl && (
               <Image
                 src={coverUrl}
-                alt={title}
+                alt={title || "Story cover"}
                 fill
                 sizes="300px"
                 className="object-cover transition-transform duration-500 group-hover:scale-105"

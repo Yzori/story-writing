@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 interface ReaderPaginatedProps {
   htmlContent: string;
@@ -154,6 +155,8 @@ export default function ReaderPaginated({
     setShowJump(false);
   };
 
+  const sanitizedContent = useMemo(() => sanitizeHtmlClient(htmlContent), [htmlContent]);
+
   const scrollOffset = (currentPage - 1) * pageHeight;
   const progress = totalPages > 1 ? ((currentPage - 1) / (totalPages - 1)) * 100 : 100;
 
@@ -189,7 +192,7 @@ export default function ReaderPaginated({
               <div
                 className={`prose-reader ${fontClass || ""}`}
                 style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
+                dangerouslySetInnerHTML={{ __html: sanitizedContent }}
               />
               {authorNoteAfter?.trim() && (
                 <div className="author-note">{authorNoteAfter}</div>
