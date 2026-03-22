@@ -995,3 +995,188 @@ body::after {
   display: table;
   clear: both;
 }
+
+/* ─── Webtoon Speech Bubbles ─────────────────────────────── */
+
+.bubble-base {
+  position: absolute;
+  padding: 8px 12px;
+  text-align: center;
+  line-height: 1.4;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  min-width: 40px;
+  min-height: 24px;
+}
+
+/* Speech: white rounded, pointed tail */
+.bubble-speech {
+  background: white;
+  color: #1a1a1a;
+  border-radius: 18px;
+  border: 2px solid #222;
+  font-family: "Comic Sans MS", "Chalkboard SE", sans-serif;
+}
+
+.bubble-speech[data-tail="bottom-left"]::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  left: 18%;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 14px solid white;
+  filter: drop-shadow(0 2px 0 #222);
+}
+
+.bubble-speech[data-tail="bottom-right"]::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  right: 18%;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 14px solid white;
+  filter: drop-shadow(0 2px 0 #222);
+}
+
+.bubble-speech[data-tail="top-left"]::after {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 18%;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 14px solid white;
+  filter: drop-shadow(0 -2px 0 #222);
+}
+
+.bubble-speech[data-tail="top-right"]::after {
+  content: "";
+  position: absolute;
+  top: -14px;
+  right: 18%;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 14px solid white;
+  filter: drop-shadow(0 -2px 0 #222);
+}
+
+/* Thought: cloud border, circle dot tail */
+.bubble-thought {
+  background: white;
+  color: #1a1a1a;
+  border-radius: 50% / 40%;
+  border: 2px solid #222;
+  font-family: "Comic Sans MS", "Chalkboard SE", sans-serif;
+  font-style: italic;
+}
+
+.bubble-thought[data-tail="bottom-left"]::after,
+.bubble-thought[data-tail="bottom-right"]::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border: 2px solid #222;
+  border-radius: 50%;
+}
+
+.bubble-thought[data-tail="bottom-left"]::after { left: 20%; }
+.bubble-thought[data-tail="bottom-right"]::after { right: 20%; }
+
+.bubble-thought[data-tail="bottom-left"]::before,
+.bubble-thought[data-tail="bottom-right"]::before {
+  content: "";
+  position: absolute;
+  bottom: -18px;
+  width: 6px;
+  height: 6px;
+  background: white;
+  border: 2px solid #222;
+  border-radius: 50%;
+}
+
+.bubble-thought[data-tail="bottom-left"]::before { left: 16%; }
+.bubble-thought[data-tail="bottom-right"]::before { right: 16%; }
+
+.bubble-thought[data-tail="top-left"]::after,
+.bubble-thought[data-tail="top-right"]::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border: 2px solid #222;
+  border-radius: 50%;
+}
+
+.bubble-thought[data-tail="top-left"]::after { left: 20%; }
+.bubble-thought[data-tail="top-right"]::after { right: 20%; }
+
+/* Narration: dark semi-transparent box, no tail */
+.bubble-narration {
+  background: rgba(0, 0, 0, 0.8);
+  color: #f0f0f0;
+  border-radius: 4px;
+  font-style: italic;
+  font-family: var(--font-reading, "Literata", serif);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Shout: angular spiky feel */
+.bubble-shout {
+  background: #fffbe6;
+  color: #1a1a1a;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 3px solid #222;
+  border-radius: 4px;
+  font-family: "Impact", "Arial Black", sans-serif;
+  box-shadow: 3px 3px 0 #222;
+}
+
+.bubble-shout[data-tail="bottom-left"]::after,
+.bubble-shout[data-tail="bottom-right"]::after {
+  content: "";
+  position: absolute;
+  bottom: -16px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 16px solid #fffbe6;
+  filter: drop-shadow(2px 2px 0 #222);
+}
+
+.bubble-shout[data-tail="bottom-left"]::after { left: 15%; }
+.bubble-shout[data-tail="bottom-right"]::after { right: 15%; }
+
+.bubble-shout[data-tail="top-left"]::after,
+.bubble-shout[data-tail="top-right"]::after {
+  content: "";
+  position: absolute;
+  top: -16px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 16px solid #fffbe6;
+  filter: drop-shadow(2px -2px 0 #222);
+}
+
+.bubble-shout[data-tail="top-left"]::after { left: 15%; }
+.bubble-shout[data-tail="top-right"]::after { right: 15%; }

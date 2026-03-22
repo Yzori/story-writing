@@ -333,3 +333,43 @@ export function estimateReadingTime(words: number): string {
   if (minutes < 1) return "< 1 min";
   return `${minutes} min`;
 }
+
+// ── Webtoon Text Overlays ───────────────────────────────────
+
+export type BubbleStyle = "speech" | "thought" | "narration" | "shout";
+export type TailDirection = "bottom-left" | "bottom-right" | "top-left" | "top-right" | "none";
+export type OverlayFontSize = "small" | "medium" | "large";
+
+export interface TextOverlay {
+  id: string;
+  text: string;
+  x: number;       // 0-100 percentage from left
+  y: number;       // 0-100 percentage from top
+  width: number;   // 0-100 percentage
+  style: BubbleStyle;
+  tailDirection: TailDirection;
+  fontSize: OverlayFontSize;
+}
+
+export function createTextOverlay(x = 50, y = 50): TextOverlay {
+  return {
+    id: crypto.randomUUID(),
+    text: "",
+    x,
+    y,
+    width: 30,
+    style: "speech",
+    tailDirection: "bottom-left",
+    fontSize: "medium",
+  };
+}
+
+export function parseOverlays(json: string): TextOverlay[] {
+  if (!json || json === "[]") return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}

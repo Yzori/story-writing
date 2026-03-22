@@ -6,6 +6,9 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { compressImage } from "@/client/images";
+import { parseOverlays, createTextOverlay } from "@/types/editor";
+import type { TextOverlay } from "@/types/editor";
+import OverlayRenderer from "./OverlayRenderer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,6 +76,7 @@ function PanelCard({
   isSaving,
   onCaptionChange,
   onSizingChange,
+  onOverlaysChange,
   onDelete,
 }: {
   panel: Panel;
@@ -81,10 +85,41 @@ function PanelCard({
   isSaving: boolean;
   onCaptionChange: (id: string, caption: string) => void;
   onSizingChange: (id: string, sizing: PanelSizing) => void;
+  onOverlaysChange: (id: string, overlays: TextOverlay[]) => void;
   onDelete: (id: string) => void;
 }) {
   const sizingStyle = getSizingStyle(panel.sizing, panel.aspectRatio);
   const hasCustomSizing = panel.sizing !== "standard";
+  const overlays = useMemo(() => parseOverlays(panel.overlays), [panel.overlays]);
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+
+  const handleAddBubble = useCallback(() => {
+    const bubble = createTextOverlay(50, 40);
+    const updated = [...overlays, bubble];
+    onOverlaysChange(panel.id, updated);
+    setSelectedOverlayId(bubble.id);
+  }, [overlays, panel.id, onOverlaysChange]);
+
+  const handleOverlayTextChange = useCallback((overlayId: string, text: string) => {
+    const updated = overlays.map((o) => o.id === overlayId ? { ...o, text } : o);
+    onOverlaysChange(panel.id, updated);
+  }, [overlays, panel.id, onOverlaysChange]);
+
+  const handleOverlayPosition = useCallback((overlayId: string, x: number, y: number) => {
+    const updated = overlays.map((o) => o.id === overlayId ? { ...o, x, y } : o);
+    onOverlaysChange(panel.id, updated);
+  }, [overlays, panel.id, onOverlaysChange]);
+
+  const handleOverlayStyle = useCallback((overlayId: string, updates: Partial<TextOverlay>) => {
+    const updated = overlays.map((o) => o.id === overlayId ? { ...o, ...updates } : o);
+    onOverlaysChange(panel.id, updated);
+  }, [overlays, panel.id, onOverlaysChange]);
+
+  const handleOverlayDelete = useCallback((overlayId: string) => {
+    const updated = overlays.filter((o) => o.id !== overlayId);
+    onOverlaysChange(panel.id, updated);
+    setSelectedOverlayId(null);
+  }, [overlays, panel.id, onOverlaysChange]);
 
   return (
     <motion.div
@@ -112,6 +147,18 @@ function PanelCard({
         {/* Controls (top right) */}
         {editable && (
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Add text bubble */}
+            <button
+              onClick={handleAddBubble}
+              className="flex items-center gap-1 bg-void/70 backdrop-blur-sm text-text-secondary hover:text-amber text-[10px] rounded-md px-2 py-1 border border-white/10 transition-colors"
+              title="Add speech bubble"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                <path d="M2 2h8a1 1 0 011 1v5a1 1 0 01-1 1H5l-2 2V9H2a1 1 0 01-1-1V3a1 1 0 011-1z" />
+              </svg>
+              Text
+            </button>
+
             {/* Sizing dropdown */}
             <select
               value={panel.sizing || "standard"}
@@ -149,6 +196,20 @@ function PanelCard({
           style={hasCustomSizing ? sizingStyle : undefined}
           draggable={false}
         />
+
+        {/* Speech bubbles / text overlays */}
+        {(overlays.length > 0 || editable) && (
+          <OverlayRenderer
+            overlays={overlays}
+            editable={editable}
+            selectedId={selectedOverlayId}
+            onSelect={setSelectedOverlayId}
+            onTextChange={handleOverlayTextChange}
+            onPositionChange={handleOverlayPosition}
+            onStyleChange={handleOverlayStyle}
+            onDelete={handleOverlayDelete}
+          />
+        )}
       </div>
 
       {/* Caption area */}
@@ -462,6 +523,24 @@ export default function WebtoonEditor({
     [patchPanel]
   );
 
+  const handleOverlaysChange = useCallback(
+    (id: string, overlaysList: TextOverlay[]) => {
+      const json = JSON.stringify(overlaysList);
+      setPanels((prev) => prev.map((p) =>
+        p.id === id ? { ...p, overlays: json } : p
+      ));
+
+      // Debounce save
+      const existing = captionTimers.current.get(`overlay-${id}`);
+      if (existing) clearTimeout(existing);
+      captionTimers.current.set(`overlay-${id}`, setTimeout(() => {
+        patchPanel(id, { overlays: json });
+        captionTimers.current.delete(`overlay-${id}`);
+      }, 600));
+    },
+    [patchPanel]
+  );
+
   const handleDeletePanel = useCallback(
     async (id: string) => {
       setPanels((prev) => prev.filter((p) => p.id !== id));
@@ -636,6 +715,7 @@ export default function WebtoonEditor({
                         isSaving={savingPanels.has(panel.id)}
                         onCaptionChange={handleCaptionChange}
                         onSizingChange={handleSizingChange}
+                        onOverlaysChange={handleOverlaysChange}
                         onDelete={handleDeletePanel}
                       />
                     </Reorder.Item>
@@ -654,6 +734,7 @@ export default function WebtoonEditor({
                       isSaving={false}
                       onCaptionChange={handleCaptionChange}
                       onSizingChange={handleSizingChange}
+                      onOverlaysChange={handleOverlaysChange}
                       onDelete={handleDeletePanel}
                     />
                   ))}

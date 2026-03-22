@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { parseOverlays } from "@/types/editor";
+import OverlayRenderer from "@/components/editor/OverlayRenderer";
 
 interface Panel {
   id: string;
@@ -146,6 +148,7 @@ export default function WebtoonReader({
           {sortedPanels.map((panel, i) => {
             const hasCustomSizing = panel.sizing !== "standard";
             const sizingStyle = getSizingStyle(panel.sizing, panel.aspectRatio);
+            const overlays = parseOverlays(panel.overlays);
 
             return (
               <motion.div
@@ -164,6 +167,11 @@ export default function WebtoonReader({
                     setLoadedPanels((prev) => new Set(prev).add(panel.id))
                   }
                 />
+
+                {/* Speech bubbles / text overlays */}
+                {overlays.length > 0 && (
+                  <OverlayRenderer overlays={overlays} />
+                )}
 
                 {/* Caption */}
                 {panel.caption && (
