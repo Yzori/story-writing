@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { StoryProject } from "@/types/editor";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 // ── Shared utilities ────────────────────────────────────────
 
@@ -98,7 +99,7 @@ export async function exportPdf(project: StoryProject) {
         (ch, i) => `
         <div class="chapter" ${i > 0 ? 'style="page-break-before: always;"' : ""}>
           <h2 class="chapter-title">${escapeXml(ch.title)}</h2>
-          <div class="chapter-content">${ch.content}</div>
+          <div class="chapter-content">${sanitizeHtmlClient(ch.content)}</div>
         </div>
       `
       )
@@ -107,7 +108,7 @@ export async function exportPdf(project: StoryProject) {
 
   const coverHtml = project.metadata.coverImageDataUrl
     ? `<div class="cover" style="page-break-after: always; text-align: center; padding-top: 20vh;">
-        <img src="${project.metadata.coverImageDataUrl}" style="max-width: 60%; max-height: 50vh; border-radius: 4px;" />
+        <img src="${escapeXml(project.metadata.coverImageDataUrl ?? "")}" style="max-width: 60%; max-height: 50vh; border-radius: 4px;" />
        </div>`
     : "";
 
@@ -279,7 +280,7 @@ export async function exportEpub(project: StoryProject) {
   project.chapters.forEach((ch, i) => {
     const id = `chapter-${i + 1}`;
     const filename = `${id}.xhtml`;
-    const content = htmlToXhtml(ch.content);
+    const content = htmlToXhtml(sanitizeHtmlClient(ch.content));
 
     zip.file(
       `OEBPS/${filename}`,

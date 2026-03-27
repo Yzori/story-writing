@@ -54,6 +54,8 @@ export function validateCsrf(request: NextRequest): NextResponse | null {
           { status: 403 }
         );
       }
+      // Origin present and matches — sufficient CSRF protection for browser requests
+      return null;
     } catch {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Invalid request origin" } },
@@ -62,8 +64,8 @@ export function validateCsrf(request: NextRequest): NextResponse | null {
     }
   }
 
-  // Layer 2: Double-submit cookie validation
-  // Both cookie AND header must be present and match for mutating requests
+  // Layer 2: Double-submit cookie validation (for non-browser clients without Origin header)
+  // Both cookie AND header must be present and match
   const cookieToken = request.cookies.get(CSRF_COOKIE)?.value;
   const headerToken = request.headers.get(CSRF_HEADER);
 

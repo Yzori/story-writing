@@ -1,4 +1,5 @@
 import { StoryProject } from "@/types/editor";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 /**
  * Export story as DOCX using the OOXML format.
@@ -23,8 +24,9 @@ export async function exportDocx(project: StoryProject) {
 
   function htmlToDocxParagraphs(html: string): string {
     // Strip HTML to extract text and basic structure
-    const div = document.createElement("div");
-    div.innerHTML = html;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${sanitizeHtmlClient(html)}</div>`, "text/html");
+    const div = doc.body.firstChild as HTMLElement;
     const paras: string[] = [];
 
     function processNode(node: Node) {

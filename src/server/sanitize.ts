@@ -12,7 +12,7 @@ const ALLOWED_TAGS = [
 ];
 
 const ALLOWED_ATTR = [
-  "href", "target", "rel", "class", "style",
+  "href", "target", "rel", "class",
   "data-mention", "data-comment-id", "data-illustration",
   "data-type", "data-layout", "data-src", "data-alt",
   "data-caption", "data-floatside",

@@ -30,6 +30,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (password.length > 128) {
+      return NextResponse.json(
+        { error: "Password must be under 128 characters" },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest) {
       message: "Password has been reset successfully.",
     });
   } catch (error) {
-    console.error("Reset password error:", error);
+    console.error("Reset password error");
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 }

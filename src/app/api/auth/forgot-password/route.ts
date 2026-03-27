@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
 
     // TODO: Send reset email via Resend
     const resetUrl = `${request.nextUrl.origin}/reset-password?token=${token}`;
-    console.log("[Password Reset] Token generated for user", user.id);
+    // Token generated — email delivery pending (Resend integration)
 
     return successResponse;
   } catch (error) {
-    console.error("Forgot password error:", error);
+    console.error("Forgot password error");
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 }

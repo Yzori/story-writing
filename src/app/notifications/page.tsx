@@ -213,7 +213,7 @@ export default function NotificationsPage() {
                 transition={{ delay: 0.1 + i * 0.03 }}
               >
                 <Link
-                  href={notif.href}
+                  href={notif.href?.startsWith("/") && !notif.href.startsWith("//") ? notif.href : "/"}
                   onClick={() => !notif.read && handleMarkRead(notif.id)}
                   className={`flex items-start gap-3 px-4 py-3.5 rounded-xl transition-all hover:bg-surface/80 ${
                     !notif.read ? "bg-surface/50" : ""

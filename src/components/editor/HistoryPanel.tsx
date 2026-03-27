@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chapter, ChapterSnapshot } from "@/types/editor";
 import { computeDiff, diffStats, type DiffSegment } from "@/lib/diff";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 import { useToast } from "@/components/shared/Toast";
 
 interface HistoryPanelProps {
@@ -410,7 +411,7 @@ export default function HistoryPanel({
                         </p>
                         <div
                           className="text-[13px] text-text-secondary leading-relaxed font-reading prose-preview"
-                          dangerouslySetInnerHTML={{ __html: selected.content }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlClient(selected.content) }}
                         />
                       </div>
                     )}

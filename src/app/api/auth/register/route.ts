@@ -32,6 +32,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (password.length > 128) {
+      return NextResponse.json(
+        { error: "Password must be under 128 characters" },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
@@ -55,8 +62,8 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
+        { error: "If this email is available, your account has been created. Check your email." },
+        { status: 200 }
       );
     }
 
