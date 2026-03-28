@@ -22,6 +22,13 @@
       "when": 1774196668379,
       "tag": "0002_flat_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774721992504,
+      "tag": "0003_graceful_blacklash",
+      "breakpoints": true
     }
   ]
 }

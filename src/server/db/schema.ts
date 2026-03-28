@@ -88,7 +88,13 @@ export const stories = pgTable("stories", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_stories_user_id").on(table.userId),
+    index("idx_stories_browse").on(table.isPublic, table.status, table.deletedAt, table.publishedAt),
+    index("idx_stories_status").on(table.status),
+  ]
+);
 
 export const storiesRelations = relations(stories, ({ one, many }) => ({
   user: one(users, { fields: [stories.userId], references: [users.id] }),
@@ -163,7 +169,11 @@ export const chapterSnapshots = pgTable("chapter_snapshots", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_chapter_snapshots_chapter_id").on(table.chapterId),
+  ]
+);
 
 export const chapterSnapshotsRelations = relations(
   chapterSnapshots,
@@ -258,7 +268,12 @@ export const writingSessions = pgTable("writing_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_writing_sessions_user_id").on(table.userId),
+    index("idx_writing_sessions_story_id").on(table.storyId),
+  ]
+);
 
 export const writingSessionsRelations = relations(
   writingSessions,
@@ -360,6 +375,7 @@ export const comments = pgTable("comments", {
   (table) => [
     index("idx_comments_chapter_story").on(table.chapterId, table.storyId),
     index("idx_comments_parent_id").on(table.parentId),
+    index("idx_comments_user_id").on(table.userId),
   ]
 );
 
@@ -624,6 +640,7 @@ export const suggestions = pgTable("suggestions", {
   (table) => [
     index("idx_suggestions_story_id").on(table.storyId),
     index("idx_suggestions_status").on(table.status),
+    index("idx_suggestions_chapter_id").on(table.chapterId),
   ]
 );
 
@@ -665,7 +682,11 @@ export const openCalls = pgTable("open_calls", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    index("idx_open_calls_story_id").on(table.storyId),
+  ]
+);
 
 export const openCallsRelations = relations(openCalls, ({ one, many }) => ({
   story: one(stories, {
@@ -745,6 +766,8 @@ export const reactions = pgTable(
   },
   (table) => [
     unique("reactions_user_chapter_unique").on(table.userId, table.chapterId),
+    index("idx_reactions_chapter_id").on(table.chapterId),
+    index("idx_reactions_story_id").on(table.storyId),
   ]
 );
 
@@ -1170,6 +1193,7 @@ export const campaignTurns = pgTable("campaign_turns", {
     .defaultNow(),
 }, (table) => [
   index("idx_campaign_turns_session_sort").on(table.sessionId, table.sortOrder),
+  index("idx_campaign_turns_user_id").on(table.userId),
 ]);
 
 export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
