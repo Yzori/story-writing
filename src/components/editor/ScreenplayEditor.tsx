@@ -6,7 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Node, mergeAttributes, Extension } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
@@ -284,12 +284,12 @@ const AutoDetectExtension = Extension.create({
   name: "autoDetect",
 
   addProseMirrorPlugins() {
-    let hintWidget: HTMLElement | null = null;
-
     return [
       new Plugin({
         key: autoDetectPluginKey,
         view() {
+          let hintWidget: HTMLElement | null = null;
+
           return {
             update(view) {
               const { state } = view;
@@ -304,13 +304,18 @@ const AutoDetectExtension = Extension.create({
               }
 
               // Auto-convert: INT. or EXT. → sceneHeading
+              // Deferred via requestAnimationFrame to avoid dispatching inside update()
               if (
                 currentNode.type.name === "action" &&
                 /^(INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)/.test(text.toUpperCase())
               ) {
                 const pos = $head.before();
-                const tr = state.tr.setNodeMarkup(pos, state.schema.nodes.sceneHeading);
-                view.dispatch(tr);
+                requestAnimationFrame(() => {
+                  if (!view.isDestroyed) {
+                    const tr = view.state.tr.setNodeMarkup(pos, view.state.schema.nodes.sceneHeading);
+                    view.dispatch(tr);
+                  }
+                });
                 return;
               }
 
@@ -367,6 +372,16 @@ export default function ScreenplayEditor({
 
   const editor = useEditor({
     extensions: [
+      // Action registered first so it becomes the default block node
+      Action.extend({
+        // Make "action" the default node by aliasing paragraph parsing
+        parseHTML() {
+          return [
+            { tag: 'div[data-type="action"]' },
+            { tag: "p" },
+          ];
+        },
+      }),
       StarterKit.configure({
         heading: false,
         blockquote: false,
@@ -378,16 +393,6 @@ export default function ScreenplayEditor({
         horizontalRule: false,
         paragraph: false,
         dropcursor: { color: "var(--t-gold)", width: 2 },
-      }),
-      // Use Action as the default block node (replaces paragraph)
-      Action.extend({
-        // Make "action" the default node by aliasing paragraph parsing
-        parseHTML() {
-          return [
-            { tag: 'div[data-type="action"]' },
-            { tag: "p" },
-          ];
-        },
       }),
       SceneHeading,
       CharacterName,
@@ -430,9 +435,11 @@ export default function ScreenplayEditor({
     immediatelyRender: false,
   });
 
-  // Notify parent when editor is ready
+  // Notify parent when editor is ready (once per editor instance)
+  const hasCalledReady = useRef(false);
   useEffect(() => {
-    if (editor && !editor.isDestroyed && onEditorReady) {
+    if (editor && !editor.isDestroyed && onEditorReady && !hasCalledReady.current) {
+      hasCalledReady.current = true;
       onEditorReady(editor);
     }
   }, [editor, onEditorReady]);

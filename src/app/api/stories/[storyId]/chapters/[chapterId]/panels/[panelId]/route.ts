@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { panels, chapters, stories } from "@/server/db/schema";
+import { panels, chapters, stories, collaborators } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updatePanelSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
@@ -33,11 +33,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
-    if (!story || story.userId !== session.user.id) {
+    if (!story) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
-        { status: 403 }
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
       );
+    }
+    if (story.userId !== session.user.id) {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      if (!collab) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "You don't have access to this story" } },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await request.json();
@@ -109,11 +124,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
-    if (!story || story.userId !== session.user.id) {
+    if (!story) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
-        { status: 403 }
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
       );
+    }
+    if (story.userId !== session.user.id) {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      if (!collab) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "You don't have access to this story" } },
+          { status: 403 }
+        );
+      }
     }
 
     // Verify panel belongs to this chapter

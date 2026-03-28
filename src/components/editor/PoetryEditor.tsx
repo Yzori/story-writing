@@ -93,14 +93,15 @@ const Stanza = Node.create({
               .command(({ tr, dispatch }) => {
                 if (!dispatch) return true;
                 const pos = $from.before(lineDepth);
-                tr.delete(pos, pos + currentLine.nodeSize);
                 const stanzaEnd = $from.after(stanzaDepth);
+                tr.delete(pos, pos + currentLine.nodeSize);
                 const newStanza = state.schema.nodes.stanza.create(
                   null,
                   state.schema.nodes.poetryLine.create()
                 );
-                tr.insert(stanzaEnd - currentLine.nodeSize, newStanza);
-                const targetPos = stanzaEnd - currentLine.nodeSize + 2;
+                const mappedEnd = tr.mapping.map(stanzaEnd);
+                tr.insert(mappedEnd, newStanza);
+                const targetPos = mappedEnd + 2;
                 tr.setSelection(
                   TextSelection.near(tr.doc.resolve(targetPos))
                 );
@@ -116,14 +117,15 @@ const Stanza = Node.create({
               .command(({ tr, dispatch }) => {
                 if (!dispatch) return true;
                 const linePos = $from.before(lineDepth);
-                tr.delete(linePos, linePos + currentLine.nodeSize);
                 const stanzaEnd = $from.after(stanzaDepth);
+                tr.delete(linePos, linePos + currentLine.nodeSize);
                 const newStanza = state.schema.nodes.stanza.create(
                   null,
                   state.schema.nodes.poetryLine.create()
                 );
-                tr.insert(stanzaEnd - currentLine.nodeSize, newStanza);
-                const targetPos = stanzaEnd - currentLine.nodeSize + 2;
+                const mappedEnd = tr.mapping.map(stanzaEnd);
+                tr.insert(mappedEnd, newStanza);
+                const targetPos = mappedEnd + 2;
                 tr.setSelection(
                   TextSelection.near(tr.doc.resolve(targetPos))
                 );
@@ -416,9 +418,11 @@ export default function PoetryEditor({
     immediatelyRender: false,
   });
 
-  // Notify parent when editor is ready
+  // Notify parent when editor is ready (once per editor instance)
+  const hasCalledReady = useRef(false);
   useEffect(() => {
-    if (editor && !editor.isDestroyed && onEditorReady) {
+    if (editor && !editor.isDestroyed && onEditorReady && !hasCalledReady.current) {
+      hasCalledReady.current = true;
       onEditorReady(editor);
     }
   }, [editor, onEditorReady]);
@@ -540,15 +544,6 @@ export default function PoetryEditor({
         }
 
         /* ── Placeholder ───────────────────────────────────── */
-        .poetry-editor-content.is-editor-empty::before {
-          content: attr(data-placeholder);
-          color: var(--color-text-ghost, #6b6560);
-          position: absolute;
-          pointer-events: none;
-          font-style: italic;
-          opacity: 0.6;
-        }
-
         .poetry-editor-content .is-empty-line::before {
           content: none;
         }
@@ -630,8 +625,8 @@ function wrapInStanzas(html: string): string {
     return '<div class="stanza"><div class="poetry-line"></div></div>';
   }
 
-  // Already wrapped in stanzas
-  if (html.includes('class="stanza"')) {
+  // Already wrapped in stanzas (handle both single and double quotes)
+  if (html.includes('class="stanza"') || html.includes("class='stanza'")) {
     return html;
   }
 

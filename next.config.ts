@@ -18,7 +18,7 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://avatars.githubusercontent.com",
       "font-src 'self' https://fonts.gstatic.com",
       "connect-src 'self'",
       "frame-ancestors 'none'",

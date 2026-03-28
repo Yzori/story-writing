@@ -13,6 +13,8 @@ interface ScreenplayReaderProps {
   onPrevChapter?: () => void;
   nextChapterTitle?: string;
   reactionsElement?: React.ReactNode;
+  fontClass?: string;
+  fontSizeValue?: string;
 }
 
 export default function ScreenplayReader({
@@ -24,6 +26,8 @@ export default function ScreenplayReader({
   onPrevChapter,
   nextChapterTitle,
   reactionsElement,
+  fontClass,
+  fontSizeValue,
 }: ScreenplayReaderProps) {
   const sanitizedContent = useMemo(() => sanitizeHtmlClient(content), [content]);
 
@@ -50,7 +54,8 @@ export default function ScreenplayReader({
 
           {/* Script content */}
           <div
-            className="screenplay-reader-content"
+            className={`screenplay-reader-content ${fontClass ?? ""}`}
+            style={fontSizeValue ? { fontSize: fontSizeValue } : undefined}
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         </motion.div>

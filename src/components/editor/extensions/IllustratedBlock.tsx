@@ -84,13 +84,37 @@ export const IllustratedBlock = Node.create({
 
   addAttributes() {
     return {
-      src: { default: null },
-      alt: { default: "" },
-      caption: { default: "" },
-      layout: { default: "inline" },
-      prompt: { default: "" },
-      floatSide: { default: "left" }, // for side-by-side: "left" | "right"
-      uploading: { default: false },
+      src: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-src"),
+        renderHTML: (attrs: Record<string, unknown>) => attrs.src ? { "data-src": attrs.src } : {},
+      },
+      alt: {
+        default: "",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-alt") || "",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-alt": attrs.alt }),
+      },
+      caption: {
+        default: "",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-caption") || "",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-caption": attrs.caption }),
+      },
+      layout: {
+        default: "inline",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-layout") || "inline",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-layout": attrs.layout }),
+      },
+      prompt: {
+        default: "",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-prompt") || "",
+        renderHTML: (attrs: Record<string, unknown>) => attrs.prompt ? { "data-prompt": attrs.prompt } : {},
+      },
+      floatSide: {
+        default: "left",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-floatside") || "left",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-floatside": attrs.floatSide }),
+      },
+      uploading: { default: false, rendered: false },
     };
   },
 

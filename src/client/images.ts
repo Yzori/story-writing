@@ -3,7 +3,7 @@
  * Progressively reduces quality until the result fits the size limit.
  */
 
-const MAX_DATA_URL_LENGTH = 500_000; // ~375KB decoded
+const MAX_DATA_URL_LENGTH = 1_400_000; // stay just under the 1.5MB server limit
 
 export function compressImage(
   file: File,
