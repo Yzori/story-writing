@@ -1014,6 +1014,7 @@ export const campaignSessionsRelations = relations(
     turns: many(campaignTurns),
     roster: many(sessionRoster),
     clocks: many(progressClocks),
+    spectators: many(spectatorPresence),
   })
 );
 
@@ -1388,6 +1389,44 @@ export const guildProfiles = pgTable(
 export const guildProfilesRelations = relations(guildProfiles, ({ one }) => ({
   user: one(users, {
     fields: [guildProfiles.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Spectator Presence ──────────────────────────────────────
+
+export const spectatorPresence = pgTable(
+  "spectator_presence",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    token: text("token").notNull(), // client-generated UUID for anonymous viewers
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }), // optional, set if logged in
+    lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("spectator_presence_session_token_unique").on(table.sessionId, table.token),
+    index("idx_spectator_presence_session").on(table.sessionId),
+    index("idx_spectator_presence_heartbeat").on(table.lastHeartbeat),
+  ]
+);
+
+export const spectatorPresenceRelations = relations(spectatorPresence, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [spectatorPresence.sessionId],
+    references: [campaignSessions.id],
+  }),
+  user: one(users, {
+    fields: [spectatorPresence.userId],
     references: [users.id],
   }),
 }));

@@ -59,6 +59,7 @@ interface StoryCanvasProps {
   rosterCharacters?: PlayerCharacter[];
   allCharacters?: PlayerCharacter[];
   onUpdateRoster?: (characterIds: string[]) => void;
+  spectatorMode?: boolean;
 }
 
 // SessionHighlights and extractHighlights are now in StoryHighlights.tsx

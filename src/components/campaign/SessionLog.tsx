@@ -14,6 +14,7 @@ interface SessionLogProps {
   setChatInput: (val: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  readOnly?: boolean;
 }
 
 export default function SessionLog({
@@ -26,6 +27,7 @@ export default function SessionLog({
   setChatInput,
   isCollapsed = false,
   onToggleCollapse,
+  readOnly = false,
 }: SessionLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -214,18 +216,20 @@ export default function SessionLog({
         <div className="mt-auto pt-4" />
       </div>
 
-      {/* Chat Input — OOC only, no dice button */}
-      <div className="p-4 border-t border-border-subtle bg-black/40 backdrop-blur-md shrink-0">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Message party (OOC)..."
-            className="flex-1 bg-ink border border-border rounded-xl py-3 px-4 text-sm text-paper outline-none focus:border-amber/40 transition-colors"
-          />
-        </form>
-      </div>
+      {/* Chat Input — OOC only, no dice button (hidden in read-only / spectator mode) */}
+      {!readOnly && (
+        <div className="p-4 border-t border-border-subtle bg-black/40 backdrop-blur-md shrink-0">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Message party (OOC)..."
+              className="flex-1 bg-ink border border-border rounded-xl py-3 px-4 text-sm text-paper outline-none focus:border-amber/40 transition-colors"
+            />
+          </form>
+        </div>
+      )}
     </div>
   );
 }

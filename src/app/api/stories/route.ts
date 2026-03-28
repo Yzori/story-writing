@@ -162,10 +162,27 @@ export async function GET(request: NextRequest) {
     const rawItems = hasMore ? results.slice(0, limit) : results;
     const nextCursor = hasMore ? rawItems[rawItems.length - 1].id : null;
 
+    // Batch-check which stories have an active campaign session
+    const storyIds = rawItems.map((r) => r.id);
+    let activeSessionStoryIds = new Set<string>();
+    if (storyIds.length > 0) {
+      const activeSessions = await db
+        .select({ storyId: campaignSessions.storyId })
+        .from(campaignSessions)
+        .where(
+          and(
+            sql`${campaignSessions.storyId} IN (${sql.join(storyIds.map(id => sql`${id}`), sql`, `)})`,
+            eq(campaignSessions.status, "active")
+          )
+        );
+      activeSessionStoryIds = new Set(activeSessions.map((s) => s.storyId));
+    }
+
     // Parse contentNotes JSON string to array
     const items = rawItems.map((item) => ({
       ...item,
       contentNotes: item.contentNotes ? JSON.parse(item.contentNotes) : [],
+      hasActiveSession: activeSessionStoryIds.has(item.id),
     }));
 
     return NextResponse.json({
