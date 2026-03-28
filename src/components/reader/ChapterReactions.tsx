@@ -187,7 +187,7 @@ export default function ChapterReactions({
 
       {!session?.user && (
         <p className="text-text-ghost text-[11px] mt-3">
-          Sign in to leave a reaction.
+          <a href="/login" className="text-amber hover:underline">Sign in</a> to leave a reaction.
         </p>
       )}
     </div>

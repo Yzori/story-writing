@@ -41,7 +41,7 @@ export default function RegisterPage() {
       if (!res.ok) { setError(data.error || "Registration failed. Please try again."); setLoading(false); return; }
 
       const result = await signIn("credentials", { email, password, redirect: false });
-      if (result?.error) { router.push("/login"); } else { router.push("/dashboard"); router.refresh(); }
+      if (result?.error) { router.push("/login"); } else { router.push("/welcome"); router.refresh(); }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -172,7 +172,7 @@ export default function RegisterPage() {
           {/* GitHub OAuth */}
           <button
             type="button"
-            onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
+            onClick={() => signIn("github", { callbackUrl: "/welcome" })}
             className="w-full flex items-center justify-center gap-2.5 bg-elevated/80 border border-border text-text-secondary font-medium px-6 py-2.5 rounded-full hover:text-paper hover:border-border-active transition-all duration-200 text-sm"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters, playerCharacters, campaignSessions } from "@/server/db/schema";
-import { eq, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
+import { eq, ne, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
 import { auth } from "@/server/auth";
@@ -45,6 +45,24 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       conditions.push(ilike(stories.title, `%${search}%`));
+    }
+
+    // Filter by author userId
+    const filterUserId = searchParams.get("userId");
+    if (filterUserId) {
+      conditions.push(eq(stories.userId, filterUserId));
+    }
+
+    // Filter by genre
+    const filterGenre = searchParams.get("genre");
+    if (filterGenre) {
+      conditions.push(sql`${filterGenre} = ANY(${stories.genres})`);
+    }
+
+    // Exclude a specific story
+    const excludeId = searchParams.get("exclude");
+    if (excludeId) {
+      conditions.push(ne(stories.id, excludeId));
     }
 
     if (cursor) {

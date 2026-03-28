@@ -154,7 +154,7 @@ export default function Navbar() {
             href="/roster"
             className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
           >
-            Roster
+            Writers
           </Link>
           {isLoading ? (
             <div className="w-8 h-8 rounded-full bg-elevated/40 border border-border animate-pulse" />
@@ -170,7 +170,7 @@ export default function Navbar() {
                 href="/dashboard"
                 className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
               >
-                My Desk
+                My Sanctum
               </Link>
 
               {/* Theme toggle */}
@@ -364,7 +364,7 @@ export default function Navbar() {
                 className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 font-body"
                 onClick={() => setMobileOpen(false)}
               >
-                Roster
+                Writers
               </Link>
               {session ? (
                 <>
@@ -380,7 +380,7 @@ export default function Navbar() {
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
-                    My Desk
+                    My Sanctum
                   </Link>
                   <Link
                     href="/notifications"

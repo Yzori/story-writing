@@ -1,8 +1,10 @@
 "use client";
 
 import { motion, useScroll, useTransform, useMotionValue, AnimatePresence, animate } from "framer-motion";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import StoryCard from "@/components/shared/StoryCard";
 
 // ── Seeded pseudo-random to avoid hydration mismatches ──────
 function seededRandom(seed: number) {
@@ -173,6 +175,24 @@ type InkParticle = {
   offsetY: number;
   size: number;
 };
+
+// ── Auth-aware "Begin Writing" CTA ──────────────────────────
+function BeginWritingCTA() {
+  const { data: session } = useSession();
+  const href = session?.user ? "/create" : "/register?callbackUrl=/create";
+
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-void font-body font-semibold text-sm tracking-wide
+        hover:bg-gold-light transition-all duration-300
+        shadow-[0_0_30px_rgba(200,150,60,0.2),0_0_60px_rgba(200,150,60,0.08)]
+        hover:shadow-[0_0_40px_rgba(200,150,60,0.3),0_0_80px_rgba(200,150,60,0.12)]"
+    >
+      Begin Writing
+    </Link>
+  );
+}
 
 // ── Hero Section with Quill Writing Animation ───────────────
 function HeroSection() {
@@ -439,34 +459,25 @@ function HeroSection() {
           </div>
         </h1>
 
-        {/* Subheadline — fades in after writing completes */}
+        {/* Subheadline — visible immediately with subtle delay */}
         <motion.p
           className="mt-6 md:mt-8 text-text-secondary text-base md:text-lg font-body leading-relaxed max-w-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={writingDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.8 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
         >
-          A place for writers and readers who believe stories deserve
-          more than a feed. Novels, comics, poetry, screenplays — all
-          under one roof, written with care.
+          Write novels, poetry, screenplays &amp; comics. Read, react,
+          and collaborate with fellow storytellers.
         </motion.p>
 
-        {/* CTAs — fade in after writing completes */}
+        {/* CTAs — visible immediately with subtle delay */}
         <motion.div
           className="mt-10 md:mt-12 flex flex-col sm:flex-row gap-4 sm:gap-5 w-full sm:w-auto"
-          initial={{ opacity: 0, y: 20 }}
-          animate={writingDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
         >
-          <Link
-            href="/create"
-            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-void font-body font-semibold text-sm tracking-wide
-              hover:bg-gold-light transition-all duration-300
-              shadow-[0_0_30px_rgba(200,150,60,0.2),0_0_60px_rgba(200,150,60,0.08)]
-              hover:shadow-[0_0_40px_rgba(200,150,60,0.3),0_0_80px_rgba(200,150,60,0.12)]"
-          >
-            Begin Writing
-          </Link>
+          <BeginWritingCTA />
           <Link
             href="/browse"
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border border-border-active text-text-secondary font-body font-medium text-sm tracking-wide
@@ -477,12 +488,12 @@ function HeroSection() {
         </motion.div>
       </motion.div>
 
-      {/* Scroll hint — appears after writing */}
+      {/* Scroll hint — appears with a delay */}
       <motion.div
         className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
         initial={{ opacity: 0 }}
-        animate={writingDone ? { opacity: 1 } : { opacity: 0 }}
-        transition={{ delay: 0.5, duration: 1 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 2, duration: 1 }}
       >
         <span className="text-text-ghost text-[10px] uppercase tracking-[0.2em] font-display">
           Scroll to explore
@@ -703,13 +714,24 @@ function VideoShowcase() {
 // ── Format Carousel ─────────────────────────────────────────
 function FormatShowcase() {
   const [activeIdx, setActiveIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pause rotation for 15s after a manual tab click, then resume
+  const handleTabClick = useCallback((i: number) => {
+    setActiveIdx(i);
+    setPaused(true);
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    pauseTimeoutRef.current = setTimeout(() => setPaused(false), 15000);
+  }, []);
 
   useEffect(() => {
+    if (paused) return;
     const timer = setInterval(() => {
       setActiveIdx((prev) => (prev + 1) % FORMATS.length);
-    }, 4000);
+    }, 7000);
     return () => clearInterval(timer);
-  }, []);
+  }, [paused]);
 
   const fmt = FORMATS[activeIdx];
 
@@ -730,7 +752,14 @@ function FormatShowcase() {
         </motion.div>
 
         {/* Active format spotlight */}
-        <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
+        <div
+          className="flex flex-col lg:flex-row gap-10 lg:gap-16 items-start"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => {
+            if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+            setPaused(false);
+          }}
+        >
           {/* Left: big format name */}
           <motion.div
             className="flex-1 min-w-0"
@@ -845,6 +874,121 @@ function GenreShelves() {
   );
 }
 
+// ── Featured Stories Section ─────────────────────────────────
+interface FeaturedStory {
+  id: string;
+  title: string;
+  authorName: string | null;
+  coverImageUrl: string | null;
+  genres: string[];
+  totalWords: number;
+  chapterCount: number;
+  sparkCount: number;
+  contentRating: string | null;
+  status: string;
+  slug: string;
+  synopsis: string | null;
+  writingMode: string | null;
+}
+
+function FeaturedStories() {
+  const [stories, setStories] = useState<FeaturedStory[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/stories?public=true&limit=4&sort=most-sparked")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        const items = data.stories || data;
+        if (Array.isArray(items) && items.length > 0) {
+          setStories(items.slice(0, 4));
+        }
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  // Hide section entirely if no stories
+  if (loaded && stories.length === 0) return null;
+  if (!loaded) return null;
+
+  return (
+    <section className="relative py-24 md:py-32 px-6">
+      <div className="max-w-5xl mx-auto">
+        {/* Section label */}
+        <motion.div
+          className="flourish mb-16 md:mb-20"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 1 }}
+        >
+          <span className="font-display text-[11px] uppercase tracking-[0.2em] text-text-ghost px-4">
+            From the Library
+          </span>
+        </motion.div>
+
+        <motion.h2
+          className="font-display text-3xl sm:text-4xl text-paper font-medium leading-[1.1] text-center mb-12"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          Stories being written <span className="text-gold italic">right now</span>
+        </motion.h2>
+
+        {/* Story cards row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {stories.map((story, i) => (
+            <motion.div
+              key={story.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+            >
+              <StoryCard
+                title={story.title}
+                author={story.authorName || undefined}
+                coverUrl={story.coverImageUrl || undefined}
+                genres={story.genres || []}
+                wordCount={story.totalWords}
+                chapterCount={story.chapterCount}
+                sparkCount={story.sparkCount}
+                contentRating={story.contentRating || undefined}
+                status={story.status as "draft" | "in-progress" | "on-hiatus" | "complete"}
+                slug={story.slug}
+                writingMode={story.writingMode || undefined}
+                variant="featured"
+              />
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Browse link */}
+        <motion.div
+          className="mt-10 text-center"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.5, duration: 0.8 }}
+        >
+          <Link
+            href="/browse"
+            className="inline-flex items-center gap-2 text-text-secondary hover:text-gold font-body text-sm transition-colors duration-300"
+          >
+            Browse all stories
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 8h10M9 4l4 4-4 4" />
+            </svg>
+          </Link>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 // ── Final CTA Section ───────────────────────────────────────
 function FinalCTA() {
   return (
@@ -901,15 +1045,7 @@ function FinalCTA() {
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.4 }}
         >
-          <Link
-            href="/create"
-            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-void font-body font-semibold text-sm tracking-wide
-              hover:bg-gold-light transition-all duration-300
-              shadow-[0_0_30px_rgba(200,150,60,0.2),0_0_60px_rgba(200,150,60,0.08)]
-              hover:shadow-[0_0_40px_rgba(200,150,60,0.3),0_0_80px_rgba(200,150,60,0.12)]"
-          >
-            Begin Writing
-          </Link>
+          <BeginWritingCTA />
           <Link
             href="/browse"
             className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border border-border-active text-text-secondary font-body font-medium text-sm tracking-wide

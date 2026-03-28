@@ -290,32 +290,24 @@ export default function StoryPage() {
 
     async function fetchRelated() {
       try {
-        // More by same author
+        // More by same author — use userId filter
         const authorRes = await fetch(
-          `/api/stories?public=true&limit=5&sort=most-sparked`
+          `/api/stories?public=true&limit=5&sort=most-sparked&userId=${story!.userId}&exclude=${story!.id}`
         );
         if (authorRes.ok) {
           const json = await authorRes.json();
-          const others = (json.data.stories || []).filter(
-            (s: { id: string; userId: string }) =>
-              s.userId === story!.userId && s.id !== story!.id
-          );
-          setMoreByAuthor(others.slice(0, 4));
+          setMoreByAuthor((json.data.stories || []).slice(0, 4));
         }
 
-        // More in same genre
+        // More in same genre — use genre filter
         if (story!.genres.length > 0) {
+          const primaryGenre = story!.genres[0];
           const genreRes = await fetch(
-            `/api/stories?public=true&limit=20&sort=most-sparked`
+            `/api/stories?public=true&limit=7&sort=most-sparked&genre=${encodeURIComponent(primaryGenre)}&exclude=${story!.id}`
           );
           if (genreRes.ok) {
             const json = await genreRes.json();
-            const primaryGenre = story!.genres[0];
-            const others = (json.data.stories || []).filter(
-              (s: { id: string; genres: string[] }) =>
-                s.id !== story!.id && s.genres.includes(primaryGenre)
-            );
-            setMoreInGenre(others.slice(0, 6));
+            setMoreInGenre((json.data.stories || []).slice(0, 6));
           }
         }
       } catch {
@@ -465,6 +457,14 @@ export default function StoryPage() {
   const publishedChapters = story.chapters.filter((ch) => ch.status === "published");
   const isOwner = session?.user?.id === story.userId;
 
+  // Compute "last updated" from most recently created/updated chapter
+  const lastUpdated = story.chapters.reduce((latest, ch) => {
+    const d = new Date(ch.createdAt);
+    return d > latest ? d : latest;
+  }, new Date(story.updatedAt));
+  const daysAgo = Math.floor((Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+  const lastUpdatedText = daysAgo === 0 ? "Updated today" : daysAgo === 1 ? "Updated yesterday" : `Updated ${daysAgo}d ago`;
+
   return (
     <div>
       {/* Hero / Cover */}
@@ -598,6 +598,16 @@ export default function StoryPage() {
             {totalWords > 0 && (
               <span>{totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords} words</span>
             )}
+            {totalWords > 0 && (
+              <span>~{Math.ceil(totalWords / 250)} min read</span>
+            )}
+            {sparkCount > 0 && (
+              <span>{sparkCount} spark{sparkCount !== 1 ? "s" : ""}</span>
+            )}
+            {followCount > 0 && (
+              <span>{followCount} follower{followCount !== 1 ? "s" : ""}</span>
+            )}
+            <span className="text-text-ghost">{lastUpdatedText}</span>
           </div>
 
           {/* Action buttons */}

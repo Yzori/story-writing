@@ -205,54 +205,31 @@ export default function ReaderPaginated({
             </motion.div>
           </div>
 
-          {/* Click zones for prev/next */}
-          <div className="absolute inset-0 flex pointer-events-none">
-            <button
-              onClick={() => {
-                if (currentPage <= 1 && hasPrevChapter && onPrevChapter) {
-                  onPrevChapter();
-                } else {
-                  goToPage(currentPage - 1);
-                }
-              }}
-              disabled={currentPage <= 1 && !hasPrevChapter}
-              className="w-1/4 h-full cursor-w-resize disabled:cursor-default pointer-events-auto group"
-              aria-label="Previous page"
-            >
-              {(currentPage > 1 || hasPrevChapter) && (
-                <div className="flex items-center justify-start pl-2 h-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="p-2 rounded-full bg-elevated/80 backdrop-blur border border-border text-text-ghost">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M8 3l-4 4 4 4" />
-                    </svg>
-                  </div>
-                </div>
-              )}
-            </button>
-            <div className="flex-1" />
-            <button
-              onClick={() => {
-                if (currentPage >= totalPages && hasNextChapter && onNextChapter) {
-                  onNextChapter();
-                } else {
-                  goToPage(currentPage + 1);
-                }
-              }}
-              disabled={currentPage >= totalPages && !hasNextChapter}
-              className="w-1/4 h-full cursor-e-resize disabled:cursor-default pointer-events-auto group"
-              aria-label="Next page"
-            >
-              {(currentPage < totalPages || hasNextChapter) && (
-                <div className="flex items-center justify-end pr-2 h-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="p-2 rounded-full bg-elevated/80 backdrop-blur border border-border text-text-ghost">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M6 3l4 4-4 4" />
-                    </svg>
-                  </div>
-                </div>
-              )}
-            </button>
-          </div>
+          {/* Click zones for prev/next -- wider on mobile, with click-vs-drag detection */}
+          <ClickZone
+            side="prev"
+            disabled={currentPage <= 1 && !hasPrevChapter}
+            onActivate={() => {
+              if (currentPage <= 1 && hasPrevChapter && onPrevChapter) {
+                onPrevChapter();
+              } else {
+                goToPage(currentPage - 1);
+              }
+            }}
+            showIndicator={currentPage > 1 || !!hasPrevChapter}
+          />
+          <ClickZone
+            side="next"
+            disabled={currentPage >= totalPages && !hasNextChapter}
+            onActivate={() => {
+              if (currentPage >= totalPages && hasNextChapter && onNextChapter) {
+                onNextChapter();
+              } else {
+                goToPage(currentPage + 1);
+              }
+            }}
+            showIndicator={currentPage < totalPages || !!hasNextChapter}
+          />
         </div>
       </div>
 
@@ -392,6 +369,74 @@ export default function ReaderPaginated({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Click zone with drag detection ─────────────────────────────
+// Only fires navigation if the mouseup/touchend is within 200ms and 5px of the start position.
+const CLICK_MAX_TIME = 200;
+const CLICK_MAX_DISTANCE = 5;
+
+function ClickZone({
+  side,
+  disabled,
+  onActivate,
+  showIndicator,
+}: {
+  side: "prev" | "next";
+  disabled: boolean;
+  onActivate: () => void;
+  showIndicator: boolean;
+}) {
+  const startRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    startRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (!startRef.current || disabled) return;
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      const dt = Date.now() - startRef.current.time;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      startRef.current = null;
+
+      if (dt <= CLICK_MAX_TIME && dist <= CLICK_MAX_DISTANCE) {
+        onActivate();
+      }
+    },
+    [disabled, onActivate]
+  );
+
+  const isPrev = side === "prev";
+
+  return (
+    <div
+      className={`absolute top-0 ${isPrev ? "left-0" : "right-0"} h-full w-1/3 md:w-1/4 pointer-events-auto ${
+        disabled ? "cursor-default" : isPrev ? "cursor-w-resize" : "cursor-e-resize"
+      } group`}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      aria-label={isPrev ? "Previous page" : "Next page"}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+    >
+      {showIndicator && (
+        <div
+          className={`flex items-center h-full opacity-0 group-hover:opacity-100 transition-opacity ${
+            isPrev ? "justify-start pl-2" : "justify-end pr-2"
+          }`}
+        >
+          <div className="p-2 rounded-full bg-elevated/80 backdrop-blur border border-border text-text-ghost">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d={isPrev ? "M8 3l-4 4 4 4" : "M6 3l4 4-4 4"} />
+            </svg>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

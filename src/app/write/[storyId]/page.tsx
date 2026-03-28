@@ -696,6 +696,8 @@ export default function WriteStoryPage() {
           if (!prev) return prev;
           const idx = prev.chapters.findIndex((c) => c.id === prev.activeChapterId);
           if (idx < prev.chapters.length - 1) {
+            // Flush saves before switching — fire and forget
+            flushPendingSaves();
             return { ...prev, activeChapterId: prev.chapters[idx + 1].id };
           }
           return prev;
@@ -707,6 +709,7 @@ export default function WriteStoryPage() {
           if (!prev) return prev;
           const idx = prev.chapters.findIndex((c) => c.id === prev.activeChapterId);
           if (idx > 0) {
+            flushPendingSaves();
             return { ...prev, activeChapterId: prev.chapters[idx - 1].id };
           }
           return prev;
@@ -724,6 +727,16 @@ export default function WriteStoryPage() {
         e.preventDefault();
         setCommandOpen(true);
       }
+      // Ctrl+S — manual save
+      if (isMod && e.key.toLowerCase() === "s" && !e.shiftKey) {
+        e.preventDefault();
+        flushPendingSaves();
+      }
+      // Ctrl+/ — keyboard shortcuts panel
+      if (isMod && e.key === "/") {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+      }
       if (e.key === "Escape" && commandOpen) {
         setCommandOpen(false);
       }
@@ -740,7 +753,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen, togglePanel]);
+  }, [commandOpen, togglePanel, flushPendingSaves]);
 
   const activeChapter = useMemo(() =>
     project?.chapters.find((c) => c.id === project.activeChapterId),
@@ -1761,11 +1774,11 @@ export default function WriteStoryPage() {
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                               <path d="M2 6l3 3 5-5" />
                             </svg>
-                            Publish
+                            Publish Chapter
                           </button>
                         ) : (
-                          <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-sage/10 text-sage/60">
-                            Live
+                          <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-sage/10 text-sage/60" title="This chapter is visible to readers">
+                            Chapter Live
                           </span>
                         )}
                       </div>
@@ -1935,6 +1948,38 @@ export default function WriteStoryPage() {
             onToggleHistory={() => setRightPanel((p) => (p === "history" ? "none" : "history"))}
             snapshotCount={activeChapter?.snapshots.length ?? 0}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Persistent Save Indicator (visible even while typing) ── */}
+      <AnimatePresence>
+        {!showUI && saveState !== "idle" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-elevated/80 backdrop-blur-sm border border-border/30 text-[10px]"
+          >
+            {saveState === "saving" && (
+              <>
+                <div className="w-2 h-2 border border-text-ghost border-t-amber rounded-full animate-spin" />
+                <span className="text-text-ghost">Saving</span>
+              </>
+            )}
+            {saveState === "saved" && (
+              <>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" className="text-sage"><path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <span className="text-sage/70">Saved</span>
+              </>
+            )}
+            {saveState === "error" && (
+              <>
+                <div className="w-2 h-2 rounded-full bg-rose" />
+                <span className="text-rose/70">Save failed</span>
+              </>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
 

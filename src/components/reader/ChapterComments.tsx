@@ -158,7 +158,7 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
       ) : (
         <div className="mb-8 bg-surface/60 border border-border-subtle rounded-xl p-5 text-center">
           <p className="text-text-secondary text-[13px]">
-            Sign in to leave a comment.
+            <a href="/login" className="text-amber hover:underline">Sign in</a> to leave a comment.
           </p>
         </div>
       )}
