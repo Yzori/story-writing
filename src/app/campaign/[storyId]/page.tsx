@@ -8,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { ApiStoryData } from "@/types/api";
+import Navbar from "@/components/shared/Navbar";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ interface CampaignSession {
   turnCount: number;
   epilogue?: string | null;
   closingMood?: string | null;
+  chapterId?: string | null;
 }
 
 interface SessionPoll {
@@ -130,6 +132,7 @@ export default function CampaignPage() {
   const [sessionOpening, setSessionOpening] = useState("");
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
   const [beginningSessionId, setBeginningSessionId] = useState<string | null>(null);
+  const [compilingSessionId, setCompilingSessionId] = useState<string | null>(null);
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
@@ -306,6 +309,29 @@ export default function CampaignPage() {
       alert(err instanceof Error ? err.message : "Error beginning session");
     } finally {
       setBeginningSessionId(null);
+    }
+  };
+
+  const handleCompileSession = async (sessionId: string) => {
+    setCompilingSessionId(sessionId);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/compile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message ?? "Failed to compile session");
+      }
+      const chapterId = json.data?.chapterId;
+      // Update local state so button changes to "View Chapter"
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, chapterId } : s))
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error compiling session");
+    } finally {
+      setCompilingSessionId(null);
     }
   };
 
@@ -509,7 +535,8 @@ export default function CampaignPage() {
 
   return (
     <div className="min-h-screen bg-void">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <Navbar />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-24 pb-10 space-y-8">
         {/* ── Header ─────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -1367,6 +1394,42 @@ export default function CampaignPage() {
                         {s.epilogue.length > 150 ? s.epilogue.slice(0, 150).trimEnd() + "..." : s.epilogue}
                         <span className="text-amber/30 ml-0.5">&rdquo;</span>
                       </p>
+                    </div>
+                  )}
+
+                  {/* Compile to chapter / View chapter button (GM only, completed sessions) */}
+                  {isCompleted && isGM && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      {s.chapterId ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/write/${storyId}?chapter=${s.chapterId}`);
+                          }}
+                          className="flex items-center gap-2 text-xs text-sage hover:text-sage/80 transition-colors cursor-pointer"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2 3l6 2.5L14 3v10l-6 2.5L2 13V3z" />
+                            <path d="M8 5.5v10" />
+                          </svg>
+                          View compiled chapter
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCompileSession(s.id);
+                          }}
+                          disabled={compilingSessionId === s.id}
+                          className="flex items-center gap-2 text-xs text-amber hover:text-amber/80 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2 3l6 2.5L14 3v10l-6 2.5L2 13V3z" />
+                            <path d="M8 5.5v10" />
+                          </svg>
+                          {compilingSessionId === s.id ? "Compiling..." : "Compile to chapter"}
+                        </button>
+                      )}
                     </div>
                   )}
                 </motion.div>
