@@ -10,6 +10,8 @@ import GenrePill from "@/components/shared/GenrePill";
 import StoryCard from "@/components/shared/StoryCard";
 import ReportModal from "@/components/shared/ReportModal";
 import CircleCard from "@/components/circle/CircleCard";
+import DonationButton from "@/components/story/DonationButton";
+import CrossroadsPanel from "@/components/story/CrossroadsPanel";
 import { compressImage } from "@/client/images";
 import { useToast } from "@/components/shared/Toast";
 import type { ApiStoryData, ApiUpdate, ApiCollaborator } from "@/types/api";
@@ -664,6 +666,15 @@ export default function StoryPage() {
               {sparkCount > 0 ? sparkCount : "Spark"}
             </button>
 
+            {/* Leave a Gift (only for logged-in non-owners) */}
+            {!isOwner && session?.user && story.author && (
+              <DonationButton
+                storyId={story.id}
+                authorName={story.author.displayName || "the author"}
+                storyTitle={story.title}
+              />
+            )}
+
             {/* Share */}
             <button
               onClick={() => {
@@ -914,6 +925,11 @@ export default function StoryPage() {
                   </p>
                 </div>
               )}
+
+              {/* Crossroads */}
+              <div className="mt-10">
+                <CrossroadsPanel storyId={story.id} isOwner={isOwner} />
+              </div>
             </motion.div>
           )}
 

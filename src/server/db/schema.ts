@@ -2066,3 +2066,123 @@ export const commissionTestimonialsRelations = relations(commissionTestimonials,
     references: [users.id],
   }),
 }));
+
+// ── Story Donations — general-purpose tips ──────────────────
+
+export const storyDonations = pgTable(
+  "story_donations",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    fromUserId: uuid("from_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    toUserId: uuid("to_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id").references(() => stories.id, { onDelete: "set null" }), // optional — can donate from profile too
+    amount: integer("amount").notNull(), // drops
+    message: text("message"), // max 300 chars
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_donations_to_user").on(table.toUserId),
+    index("idx_donations_story").on(table.storyId),
+  ]
+);
+
+export const storyDonationsRelations = relations(storyDonations, ({ one }) => ({
+  from: one(users, {
+    fields: [storyDonations.fromUserId],
+    references: [users.id],
+    relationName: "sentDonations",
+  }),
+  to: one(users, {
+    fields: [storyDonations.toUserId],
+    references: [users.id],
+    relationName: "receivedDonations",
+  }),
+  story: one(stories, {
+    fields: [storyDonations.storyId],
+    references: [stories.id],
+  }),
+}));
+
+// ── Crossroads — influence polls with weighted voting ────────
+
+export const crossroads = pgTable(
+  "crossroads",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    creatorId: uuid("creator_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    options: text("options").notNull().default("[]"), // JSON array of { label: string }
+    status: text("status").notNull().default("open"), // 'open' | 'closed' | 'resolved'
+    resolvedOption: integer("resolved_option"), // index of the option the writer chose
+    closesAt: timestamp("closes_at", { withTimezone: true }), // auto-close deadline
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_crossroads_story_status").on(table.storyId, table.status),
+    index("idx_crossroads_creator").on(table.creatorId),
+  ]
+);
+
+export const crossroadsRelations = relations(crossroads, ({ one, many }) => ({
+  story: one(stories, {
+    fields: [crossroads.storyId],
+    references: [stories.id],
+  }),
+  creator: one(users, {
+    fields: [crossroads.creatorId],
+    references: [users.id],
+  }),
+  votes: many(crossroadsVotes),
+}));
+
+export const crossroadsVotes = pgTable(
+  "crossroads_votes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    crossroadId: uuid("crossroad_id")
+      .notNull()
+      .references(() => crossroads.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    optionIndex: integer("option_index").notNull(), // which option they voted for
+    dropsSpent: integer("drops_spent").notNull(), // weight = drops spent
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_crossroads_votes_crossroad").on(table.crossroadId),
+    index("idx_crossroads_votes_user").on(table.userId),
+  ]
+);
+
+export const crossroadsVotesRelations = relations(crossroadsVotes, ({ one }) => ({
+  crossroad: one(crossroads, {
+    fields: [crossroadsVotes.crossroadId],
+    references: [crossroads.id],
+  }),
+  user: one(users, {
+    fields: [crossroadsVotes.userId],
+    references: [users.id],
+  }),
+}));
