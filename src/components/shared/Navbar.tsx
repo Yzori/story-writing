@@ -13,6 +13,7 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [inkDropBalance, setInkDropBalance] = useState<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session, status: sessionStatus } = useSession();
   const isLoading = sessionStatus === "loading";
@@ -45,6 +46,26 @@ export default function Navbar() {
     }
     fetchUnread();
     const interval = setInterval(fetchUnread, 60000);
+    return () => { controller.abort(); clearInterval(interval); };
+  }, [session?.user?.id]);
+
+  // Fetch Ink Drop balance
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const controller = new AbortController();
+    async function fetchBalance() {
+      try {
+        const res = await fetch("/api/user/ink-drops", { signal: controller.signal });
+        if (res.ok) {
+          const json = await res.json();
+          setInkDropBalance(json?.balance ?? null);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 60000);
     return () => { controller.abort(); clearInterval(interval); };
   }, [session?.user?.id]);
 
@@ -156,6 +177,12 @@ export default function Navbar() {
           >
             Writers
           </Link>
+          <Link
+            href="/scriptorium"
+            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+          >
+            Scriptorium
+          </Link>
           {isLoading ? (
             <div className="w-8 h-8 rounded-full bg-elevated/40 border border-border animate-pulse" />
           ) : session ? (
@@ -192,6 +219,20 @@ export default function Navbar() {
                   <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-gold to-copper shadow-[0_0_6px_rgba(200,150,60,0.5)] animate-pulse" />
                 )}
               </Link>
+
+              {/* Ink Drop balance */}
+              {inkDropBalance !== null && (
+                <Link
+                  href="/settings/ink-drops"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-text-ghost hover:text-gold hover:bg-gold/10 transition-all duration-300"
+                  title="Ink Drops"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold/60">
+                    <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
+                  </svg>
+                  <span className="text-[11px] tabular-nums font-medium">{inkDropBalance}</span>
+                </Link>
+              )}
 
               {/* User menu — wax seal button */}
               <div className="relative ml-1.5" ref={userMenuRef}>
@@ -245,6 +286,27 @@ export default function Navbar() {
                               <path d="M8 5v6M5 8h6" />
                             </svg>
                             Edit Profile
+                          </Link>
+                          <Link
+                            href="/creator/circle"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <circle cx="8" cy="8" r="6" />
+                              <circle cx="8" cy="8" r="2.5" />
+                            </svg>
+                            My Circle
+                          </Link>
+                          <Link
+                            href="/creator/earnings"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
+                            </svg>
+                            Earnings
                           </Link>
                           <Link
                             href="/settings"
@@ -366,6 +428,13 @@ export default function Navbar() {
               >
                 Writers
               </Link>
+              <Link
+                href="/scriptorium"
+                className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 font-body"
+                onClick={() => setMobileOpen(false)}
+              >
+                Scriptorium
+              </Link>
               {session ? (
                 <>
                   <Link
@@ -381,6 +450,13 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                   >
                     My Sanctum
+                  </Link>
+                  <Link
+                    href="/creator/circle"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    My Circle
                   </Link>
                   <Link
                     href="/notifications"
