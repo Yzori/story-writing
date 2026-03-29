@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle"])
+          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission"])
         )
       );
 
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle"]),
+          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission"]),
           gte(inkDropTransactions.createdAt, monthStart)
         )
       );
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle"])
+          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission"])
         )
       )
       .groupBy(inkDropTransactions.fromUserId, users.displayName, users.name)
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle"])
+          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission"])
         )
       )
       .orderBy(desc(inkDropTransactions.createdAt))

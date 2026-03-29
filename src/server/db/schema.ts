@@ -1882,3 +1882,187 @@ export const contentUnlocksRelations = relations(contentUnlocks, ({ one }) => ({
     relationName: "giftedUnlocks",
   }),
 }));
+
+// ── The Scriptorium — Commissions Marketplace ───────────────
+
+export const offerings = pgTable(
+  "offerings",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    artisanId: uuid("artisan_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    craft: text("craft").notNull(), // 'custom-chapter' | 'cover-art' | 'character-art' | 'editing' | 'poetry' | 'worldbuilding' | 'gm-for-hire' | 'webtoon-panels' | 'screenplay-coverage' | 'scene-illustration' | 'ghostwriting' | 'story-bible'
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    priceMin: integer("price_min").notNull(), // drops
+    priceMax: integer("price_max").notNull(), // drops
+    deliveryDays: integer("delivery_days").notNull().default(7),
+    revisionRounds: integer("revision_rounds").notNull().default(1),
+    isActive: boolean("is_active").notNull().default(true),
+    portfolioUrls: text("portfolio_urls").default("[]"), // JSON array of image/link URLs
+    completedCount: integer("completed_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_offerings_artisan").on(table.artisanId),
+    index("idx_offerings_craft_active").on(table.craft, table.isActive),
+  ]
+);
+
+export const offeringsRelations = relations(offerings, ({ one, many }) => ({
+  artisan: one(users, {
+    fields: [offerings.artisanId],
+    references: [users.id],
+  }),
+  commissions: many(commissions),
+}));
+
+export const commissions = pgTable(
+  "commissions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    offeringId: uuid("offering_id")
+      .notNull()
+      .references(() => offerings.id, { onDelete: "cascade" }),
+    patronId: uuid("patron_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    artisanId: uuid("artisan_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id").references(() => stories.id, { onDelete: "set null" }), // optional linked story
+    status: text("status").notNull().default("requested"), // 'requested' | 'quoted' | 'accepted' | 'in-progress' | 'delivered' | 'revision' | 'completed' | 'cancelled' | 'disputed'
+    brief: text("brief").notNull(), // patron's request description
+    quotedPrice: integer("quoted_price"), // artisan's quote in drops
+    agreedPrice: integer("agreed_price"), // final agreed price in drops (locked in vault)
+    revisionsUsed: integer("revisions_used").notNull().default(0),
+    maxRevisions: integer("max_revisions").notNull().default(1),
+    deliveryDeadline: timestamp("delivery_deadline", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_commissions_patron").on(table.patronId),
+    index("idx_commissions_artisan_status").on(table.artisanId, table.status),
+    index("idx_commissions_offering").on(table.offeringId),
+  ]
+);
+
+export const commissionsRelations = relations(commissions, ({ one, many }) => ({
+  offering: one(offerings, {
+    fields: [commissions.offeringId],
+    references: [offerings.id],
+  }),
+  patron: one(users, {
+    fields: [commissions.patronId],
+    references: [users.id],
+    relationName: "commissionsAsPatron",
+  }),
+  artisan: one(users, {
+    fields: [commissions.artisanId],
+    references: [users.id],
+    relationName: "commissionsAsArtisan",
+  }),
+  story: one(stories, {
+    fields: [commissions.storyId],
+    references: [stories.id],
+  }),
+  messages: many(commissionMessages),
+}));
+
+export const commissionMessages = pgTable(
+  "commission_messages",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    commissionId: uuid("commission_id")
+      .notNull()
+      .references(() => commissions.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    attachmentUrl: text("attachment_url"), // for deliveries
+    isDelivery: boolean("is_delivery").notNull().default(false), // marks delivery submissions
+    isSystemMessage: boolean("is_system_message").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_commission_messages_commission").on(table.commissionId),
+  ]
+);
+
+export const commissionMessagesRelations = relations(commissionMessages, ({ one }) => ({
+  commission: one(commissions, {
+    fields: [commissionMessages.commissionId],
+    references: [commissions.id],
+  }),
+  sender: one(users, {
+    fields: [commissionMessages.senderId],
+    references: [users.id],
+  }),
+}));
+
+export const commissionTestimonials = pgTable(
+  "commission_testimonials",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    commissionId: uuid("commission_id")
+      .notNull()
+      .references(() => commissions.id, { onDelete: "cascade" }),
+    reviewerId: uuid("reviewer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    artisanId: uuid("artisan_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(), // 1-5
+    comment: text("comment"),
+    tags: text("tags").default("[]"), // JSON array: ['fast-delivery', 'exceeded-expectations', 'great-communication', 'true-to-brief']
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("testimonials_commission_unique").on(table.commissionId),
+    index("idx_testimonials_artisan").on(table.artisanId),
+  ]
+);
+
+export const commissionTestimonialsRelations = relations(commissionTestimonials, ({ one }) => ({
+  commission: one(commissions, {
+    fields: [commissionTestimonials.commissionId],
+    references: [commissions.id],
+  }),
+  reviewer: one(users, {
+    fields: [commissionTestimonials.reviewerId],
+    references: [users.id],
+  }),
+  artisan: one(users, {
+    fields: [commissionTestimonials.artisanId],
+    references: [users.id],
+  }),
+}));
