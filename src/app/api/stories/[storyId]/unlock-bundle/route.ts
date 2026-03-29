@@ -10,13 +10,7 @@ import {
 import { eq, and, sql, ne, notInArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
-
-const TIER_PRICES: Record<string, number> = {
-  free: 0,
-  standard: 15,
-  extended: 30,
-  premium: 50,
-};
+import { TIER_PRICES } from "@/lib/constants";
 
 // GET — calculate bundle price for a story
 export async function GET(

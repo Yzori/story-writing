@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { formatTimeAgo } from "@/lib/format";
 import type { NotifType, ApiNotification } from "@/types/api";
 
 const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> = {
@@ -77,19 +78,33 @@ const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> =
       </svg>
     ),
   },
+  tip: {
+    color: "text-gold bg-gold/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
+      </svg>
+    ),
+  },
+  jam: {
+    color: "text-rose bg-rose/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+      </svg>
+    ),
+  },
+  annotation: {
+    color: "text-lavender bg-lavender/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M3 3h10v10H3V3z" />
+        <path d="M6 7h4M6 9h2" />
+      </svg>
+    ),
+  },
 };
 
-function formatTimeAgo(ts: string): string {
-  const diff = Date.now() - new Date(ts).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
 
 export default function NotificationsPage() {
   const { data: session } = useSession();
@@ -148,6 +163,9 @@ export default function NotificationsPage() {
     { key: "collaboration", label: "Collabs" },
     { key: "suggestion", label: "Suggestions" },
     { key: "open-call", label: "Open Calls" },
+    { key: "tip", label: "Tips" },
+    { key: "jam", label: "Jams" },
+    { key: "annotation", label: "Notes" },
   ];
 
   return (

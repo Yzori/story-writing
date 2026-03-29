@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { formatTimeAgo, formatNumber } from "@/lib/format";
+import { SOURCE_LABELS } from "@/lib/constants";
 
 interface EarningsData {
   totalEarned: number;
@@ -21,14 +23,6 @@ interface EarningsData {
   }[];
 }
 
-const SOURCE_LABELS: Record<string, { label: string; accent: string }> = {
-  tip: { label: "Live Tips", accent: "bg-rose" },
-  donation: { label: "Gifts", accent: "bg-gold" },
-  unlock: { label: "Chapter Unlocks", accent: "bg-teal" },
-  circle: { label: "Subscriptions", accent: "bg-amber" },
-  commission: { label: "Commissions", accent: "bg-amethyst" },
-  crossroads: { label: "Crossroads", accent: "bg-sage" },
-};
 
 const STAT_CARDS = [
   { key: "totalEarned" as const, label: "Total Earned", icon: "drop", accent: "text-gold" },
@@ -36,22 +30,6 @@ const STAT_CARDS = [
   { key: "tipCount" as const, label: "Tips Received", icon: "heart", accent: "text-rose" },
 ] as const;
 
-function formatNumber(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
-
-function formatTimeAgo(ts: string): string {
-  const diff = Date.now() - new Date(ts).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
 
 export default function CreatorEarningsPage() {
   const { data: session } = useSession();

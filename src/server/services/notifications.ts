@@ -3,20 +3,7 @@ import { db } from "@/server/db";
 import { notifications, users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "./email";
-
-type NotifType =
-  | "chapter"
-  | "spark"
-  | "follow"
-  | "comment"
-  | "update"
-  | "collaboration"
-  | "suggestion"
-  | "open-call"
-  | "tip"
-  | "jam"
-  | "annotation"
-  | "circle";
+import type { NotifType } from "@/types/api";
 
 // Notification types that trigger emails when user has emailNotifications enabled
 const EMAIL_ENABLED_TYPES = new Set<NotifType>([

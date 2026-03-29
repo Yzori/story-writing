@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { formatNumber } from "@/lib/format";
 
 interface ColophonProps {
   storyCount: number;
@@ -10,11 +11,6 @@ interface ColophonProps {
   memberSince: string;
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`.replace(".0k", "k");
-  return String(n);
-}
 
 export default function Colophon({
   storyCount,

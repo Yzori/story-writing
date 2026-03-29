@@ -9,16 +9,7 @@ import type { ApiStory, ApiReadingProgress, ApiNotification } from "@/types/api"
 
 // ── Helpers ─────────────────────────────────────────────────
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
+import { formatTimeAgo, formatNumber } from "@/lib/format";
 
 function getTimeOfDay(): { greeting: string; backdrop: string } {
   const hour = new Date().getHours();
@@ -29,11 +20,6 @@ function getTimeOfDay(): { greeting: string; backdrop: string } {
   return { greeting: "Burning the midnight oil", backdrop: "/dashboard/study-night.png" };
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return n.toLocaleString();
-}
 
 // ── Creator Hub data shapes ─────────────────────────────────
 

@@ -1,0 +1,84 @@
+/**
+ * Shared constants used across API routes, pages, and components.
+ */
+
+// ── Chapter gating tier prices (in Ink Drops) ───────────────
+
+export const TIER_PRICES: Record<string, number> = {
+  free: 0,
+  standard: 15,
+  extended: 30,
+  premium: 50,
+};
+
+// ── Scriptorium craft types ─────────────────────────────────
+
+export const VALID_CRAFTS = [
+  "custom-chapter",
+  "cover-art",
+  "character-art",
+  "editing",
+  "poetry",
+  "worldbuilding",
+  "gm-for-hire",
+  "webtoon-panels",
+  "screenplay-coverage",
+  "scene-illustration",
+  "ghostwriting",
+  "story-bible",
+] as const;
+
+export const CRAFT_LABELS: Record<string, string> = {
+  "custom-chapter": "Custom Chapter",
+  "cover-art": "Cover Art",
+  "character-art": "Character Art",
+  editing: "Editing",
+  poetry: "Poetry",
+  worldbuilding: "Worldbuilding",
+  "gm-for-hire": "GM for Hire",
+  "webtoon-panels": "Webtoon Panels",
+  "screenplay-coverage": "Screenplay Coverage",
+  "scene-illustration": "Scene Illustration",
+  ghostwriting: "Ghostwriting",
+  "story-bible": "Story Bible",
+};
+
+export type CraftColorGroup = "writing" | "visual" | "services";
+
+const WRITING_CRAFTS = new Set([
+  "custom-chapter",
+  "ghostwriting",
+  "poetry",
+  "screenplay-coverage",
+  "editing",
+]);
+const VISUAL_CRAFTS = new Set([
+  "cover-art",
+  "character-art",
+  "webtoon-panels",
+  "scene-illustration",
+]);
+
+export function getCraftColorGroup(craft: string): CraftColorGroup {
+  if (WRITING_CRAFTS.has(craft)) return "writing";
+  if (VISUAL_CRAFTS.has(craft)) return "visual";
+  return "services";
+}
+
+export function getCraftAccent(craft: string): string {
+  const group = getCraftColorGroup(craft);
+  if (group === "writing") return "text-gold";
+  if (group === "visual") return "text-amethyst";
+  return "text-teal";
+}
+
+// ── Earnings source labels ──────────────────────────────────
+
+export const SOURCE_LABELS: Record<string, { label: string; accent: string }> = {
+  tip: { label: "Live Tips", accent: "bg-rose" },
+  donation: { label: "Gifts", accent: "bg-gold" },
+  unlock: { label: "Chapter Unlocks", accent: "bg-teal" },
+  circle: { label: "Subscriptions", accent: "bg-amber" },
+  commission: { label: "Commissions", accent: "bg-amethyst" },
+  crossroads: { label: "Crossroads", accent: "bg-sage" },
+};

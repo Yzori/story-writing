@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useSession } from "next-auth/react";
+import { formatNumber } from "@/lib/format";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -154,11 +155,6 @@ const DUMMY_MEMBERS: RosterMember[] = [
   },
 ];
 
-function formatNumber(n: number) {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(0)}k`;
-  return n.toString();
-}
 
 // ── Character Card (3D Tilt Portrait) ───────────────────────
 

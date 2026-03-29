@@ -4,13 +4,7 @@ import { stories, chapters, contentUnlocks } from "@/server/db/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
-
-const TIER_PRICES: Record<string, number> = {
-  free: 0,
-  standard: 15,
-  extended: 30,
-  premium: 50,
-};
+import { TIER_PRICES } from "@/lib/constants";
 
 // GET — get story monetization settings + chapter gating overview
 export async function GET(
