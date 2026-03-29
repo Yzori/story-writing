@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 
 // ── Types ──
 
@@ -596,6 +597,19 @@ export default function ScriptoriumPage() {
           <p className="text-text-secondary text-base md:text-lg max-w-xl mx-auto leading-relaxed">
             Commission original work from fellow storytellers
           </p>
+          {session && (
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <Link
+                href="/scriptorium/offerings"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gold/25 bg-gold/10 text-gold text-[13px] font-medium hover:bg-gold/20 transition-all"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                My Offerings
+              </Link>
+            </div>
+          )}
         </motion.div>
 
         {/* Decorative rule */}
