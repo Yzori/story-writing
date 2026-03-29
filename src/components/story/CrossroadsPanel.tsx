@@ -448,6 +448,8 @@ export default function CrossroadsPanel({
         <CrossroadCard
           key={cr.id}
           crossroad={cr}
+          storyId={storyId}
+          isOwner={isOwner}
           isVoting={votingId === cr.id}
           votingOptionIndex={
             votingId === cr.id ? votingOptionIndex : null
@@ -464,6 +466,7 @@ export default function CrossroadsPanel({
             setVoteAmount(null);
           }}
           onVoteSubmit={handleVoteSubmit}
+          onResolved={fetchCrossroads}
         />
       ))}
 
@@ -479,6 +482,8 @@ export default function CrossroadsPanel({
             <CrossroadCard
               key={cr.id}
               crossroad={cr}
+              storyId={storyId}
+              isOwner={isOwner}
               isClosed
               isVoting={false}
               votingOptionIndex={null}
@@ -491,6 +496,7 @@ export default function CrossroadsPanel({
               onPresetSelect={() => {}}
               onCustomChange={() => {}}
               onVoteSubmit={() => {}}
+              onResolved={fetchCrossroads}
             />
           ))}
         </div>
@@ -503,6 +509,8 @@ export default function CrossroadsPanel({
 
 interface CrossroadCardProps {
   crossroad: Crossroad;
+  storyId: string;
+  isOwner: boolean;
   isClosed?: boolean;
   isVoting: boolean;
   votingOptionIndex: number | null;
@@ -515,10 +523,13 @@ interface CrossroadCardProps {
   onPresetSelect: (amount: number) => void;
   onCustomChange: (value: string) => void;
   onVoteSubmit: () => void;
+  onResolved: () => void;
 }
 
 function CrossroadCard({
   crossroad,
+  storyId,
+  isOwner,
   isClosed,
   isVoting,
   votingOptionIndex,
@@ -531,9 +542,49 @@ function CrossroadCard({
   onPresetSelect,
   onCustomChange,
   onVoteSubmit,
+  onResolved,
 }: CrossroadCardProps) {
   const maxDrops = Math.max(...crossroad.options.map((o) => o.totalDrops), 1);
   const isResolved = crossroad.resolvedOptionIndex !== undefined;
+
+  const [showResolveUI, setShowResolveUI] = useState(false);
+  const [selectedResolveIndex, setSelectedResolveIndex] = useState<number | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const canResolve = isOwner && !isResolved && (crossroad.status === "active" || isClosed);
+
+  const handleResolve = async () => {
+    if (selectedResolveIndex === null || resolving) return;
+    setResolving(true);
+    setResolveError(null);
+
+    try {
+      const res = await fetch(
+        `/api/stories/${storyId}/crossroads/${crossroad.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "resolve",
+            resolvedOption: selectedResolveIndex,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        setShowResolveUI(false);
+        onResolved();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setResolveError(json?.error?.message || "Failed to resolve crossroad.");
+      }
+    } catch {
+      setResolveError("Network error. Check your connection.");
+    } finally {
+      setResolving(false);
+    }
+  };
 
   const timeLeft = crossroad.closesAt
     ? getTimeLeft(crossroad.closesAt)
@@ -742,6 +793,83 @@ function CrossroadCard({
           );
         })}
       </div>
+
+      {/* ── Resolve UI (owner only) ── */}
+      {canResolve && (
+        <div className="mt-3 pt-3 border-t border-border-subtle">
+          {!showResolveUI ? (
+            <button
+              onClick={() => setShowResolveUI(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-amber/10 border border-amber/20 text-amber hover:bg-amber/15 transition-all cursor-pointer"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 8l3 3 7-7" />
+              </svg>
+              Resolve
+            </button>
+          ) : (
+            <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden space-y-3"
+              >
+                <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold">
+                  Which option did you choose?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {crossroad.options.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedResolveIndex(i)}
+                      className={`px-3 py-1.5 rounded-full border text-[12px] font-medium transition-all cursor-pointer ${
+                        selectedResolveIndex === i
+                          ? "bg-amber/15 border-amber/40 text-amber"
+                          : "bg-void/50 border-border text-text-secondary hover:border-amber/25"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {resolveError && (
+                  <p className="text-rose text-[11px]">{resolveError}</p>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleResolve}
+                    disabled={selectedResolveIndex === null || resolving}
+                    className="px-4 py-1.5 bg-amber text-void font-semibold text-[12px] rounded-full hover:bg-amber-light transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {resolving ? "Resolving..." : "Confirm Resolution"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowResolveUI(false);
+                      setSelectedResolveIndex(null);
+                      setResolveError(null);
+                    }}
+                    disabled={resolving}
+                    className="px-3 py-1.5 text-text-secondary hover:text-paper text-[12px] transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

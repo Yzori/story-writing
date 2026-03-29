@@ -49,6 +49,13 @@ interface CommissionMessage {
   sender: Sender;
 }
 
+interface Testimonial {
+  rating: number;
+  comment: string | null;
+  tags: string[];
+  createdAt: string;
+}
+
 interface Commission {
   id: string;
   offeringId: string;
@@ -68,6 +75,7 @@ interface Commission {
   cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
+  testimonial?: Testimonial | null;
 }
 
 interface Offering {
@@ -167,6 +175,23 @@ function ArrowLeftIcon() {
   );
 }
 
+function QuillIcon({ filled, className = "" }: { filled: boolean; className?: string }) {
+  return (
+    <svg
+      className={`${filled ? "text-gold" : "text-text-ghost/40"} transition-colors ${className}`}
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 2c-2 0-6 2-8 6-1 2-1.5 4-1.8 5.5L7 17l-3 5h2l2.5-3.5c1.5.2 3-.2 5-1.2 4-2 6-6 6-8V2z" />
+      <path d="M10.2 13.5L7 17" stroke="currentColor" strokeWidth="1.5" fill="none" />
+    </svg>
+  );
+}
+
 // ── Helpers ──
 
 function Spinner({ className = "" }: { className?: string }) {
@@ -245,6 +270,13 @@ function ActionBar({
   const [deliveryUrl, setDeliveryUrl] = useState("");
   const [revisionFeedback, setRevisionFeedback] = useState("");
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+
+  // Testimonial state
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false);
+  const [testimonialRating, setTestimonialRating] = useState(0);
+  const [testimonialComment, setTestimonialComment] = useState("");
+  const [testimonialTags, setTestimonialTags] = useState<string[]>([]);
+  const [testimonialSubmitted, setTestimonialSubmitted] = useState(false);
 
   const revisionsRemaining = commission.maxRevisions - commission.revisionsUsed;
 
@@ -452,19 +484,220 @@ function ActionBar({
 
   // ── Completed ──
   if (commission.status === "completed") {
+    const hasTestimonial = !!commission.testimonial;
+    const canLeaveTestimonial = role === "patron" && !hasTestimonial && !testimonialSubmitted;
+
+    const TESTIMONIAL_TAG_OPTIONS = [
+      "Fast Delivery",
+      "Exceeded Expectations",
+      "Great Communication",
+      "True to Brief",
+    ];
+
+    const toggleTag = (tag: string) => {
+      setTestimonialTags((prev) =>
+        prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      );
+    };
+
     return (
-      <div className="rounded-xl border border-sage/30 bg-sage/5 p-5 text-center">
-        <div className="flex items-center justify-center gap-2 text-sage">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 8l3 3 7-7" />
-          </svg>
-          <span className="font-display text-sm">Commission Complete</span>
+      <div className="space-y-4">
+        <div className="rounded-xl border border-sage/30 bg-sage/5 p-5 text-center">
+          <div className="flex items-center justify-center gap-2 text-sage">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 8l3 3 7-7" />
+            </svg>
+            <span className="font-display text-sm">Commission Complete</span>
+          </div>
+          {commission.completedAt && (
+            <p className="text-text-ghost text-xs mt-1">
+              Completed on {formatDate(commission.completedAt)}
+            </p>
+          )}
         </div>
-        {commission.completedAt && (
-          <p className="text-text-ghost text-xs mt-1">
-            Completed on {formatDate(commission.completedAt)}
-          </p>
+
+        {/* Existing testimonial display */}
+        {hasTestimonial && commission.testimonial && (
+          <div className="rounded-xl border border-gold/20 bg-gold/5 p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <QuillIcon
+                    key={i}
+                    filled={i < commission.testimonial!.rating}
+                    className="w-4 h-4"
+                  />
+                ))}
+              </div>
+              <span className="text-text-ghost text-[10px]">
+                {formatDate(commission.testimonial.createdAt)}
+              </span>
+            </div>
+            {commission.testimonial.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {commission.testimonial.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-[10px] font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {commission.testimonial.comment && (
+              <p className="text-text-secondary text-sm leading-relaxed">
+                {commission.testimonial.comment}
+              </p>
+            )}
+          </div>
         )}
+
+        {/* Testimonial submitted confirmation */}
+        {testimonialSubmitted && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-gold/30 bg-gold/5 p-5 text-center"
+          >
+            <div className="flex items-center justify-center gap-2 text-gold mb-1">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 8l3 3 7-7" />
+              </svg>
+              <span className="font-display text-sm">Testimonial Submitted</span>
+            </div>
+            <p className="text-text-ghost text-xs">Thank you for your feedback.</p>
+          </motion.div>
+        )}
+
+        {/* Leave testimonial toggle */}
+        {canLeaveTestimonial && !showTestimonialForm && (
+          <button
+            onClick={() => setShowTestimonialForm(true)}
+            className="w-full px-4 py-3 rounded-xl border border-gold/20 bg-gold/5 text-gold text-sm font-medium hover:bg-gold/10 hover:border-gold/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <QuillIcon filled={false} className="w-4 h-4" />
+            Leave a Testimonial
+          </button>
+        )}
+
+        {/* Testimonial form */}
+        <AnimatePresence>
+          {canLeaveTestimonial && showTestimonialForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="rounded-xl border border-gold/20 bg-ink/50 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-display text-sm text-gold">Leave a Testimonial</h4>
+                  <button
+                    onClick={() => setShowTestimonialForm(false)}
+                    className="text-text-ghost hover:text-text-secondary transition-colors cursor-pointer p-1"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 4l8 8M12 4l-8 8" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Star rating with quill icons */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold">
+                    Rating
+                  </label>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setTestimonialRating(i + 1)}
+                        className="cursor-pointer p-0.5 transition-transform hover:scale-110"
+                      >
+                        <QuillIcon
+                          filled={i < testimonialRating}
+                          className="w-6 h-6"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold">
+                    Tags (optional)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {TESTIMONIAL_TAG_OPTIONS.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        className={`px-3 py-1.5 rounded-full border text-[12px] font-medium transition-all cursor-pointer ${
+                          testimonialTags.includes(tag)
+                            ? "bg-gold/15 border-gold/40 text-gold"
+                            : "bg-void/50 border-border text-text-secondary hover:border-gold/25"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Comment */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost font-semibold">
+                    Comment (optional)
+                  </label>
+                  <textarea
+                    value={testimonialComment}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 500)
+                        setTestimonialComment(e.target.value);
+                    }}
+                    rows={3}
+                    placeholder="Share your experience working with this artisan..."
+                    className="w-full rounded-lg border border-border bg-surface/50 px-4 py-3 text-text text-sm placeholder:text-text-ghost focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20 resize-none transition-colors"
+                  />
+                  <div className="flex justify-end">
+                    <span className="text-[11px] text-text-ghost">
+                      {testimonialComment.length}/500
+                    </span>
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={async () => {
+                      if (testimonialRating < 1) return;
+                      await onAction("testimonial", {
+                        rating: testimonialRating,
+                        ...(testimonialComment.trim() && { comment: testimonialComment.trim() }),
+                        ...(testimonialTags.length > 0 && { tags: testimonialTags.join(",") }),
+                      });
+                      setTestimonialSubmitted(true);
+                      setShowTestimonialForm(false);
+                    }}
+                    disabled={acting || testimonialRating < 1}
+                    className="px-5 py-2 rounded-lg bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
+                  >
+                    {acting ? <><Spinner /> Submitting...</> : "Submit Testimonial"}
+                  </button>
+                  <button
+                    onClick={() => setShowTestimonialForm(false)}
+                    disabled={acting}
+                    className="px-4 py-2 text-text-secondary hover:text-paper text-sm transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

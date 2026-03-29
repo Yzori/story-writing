@@ -728,12 +728,29 @@ export default function ScriptoriumPage() {
                     }}
                     transition={{ duration: 0.35 }}
                   >
-                    {/* Craft badge */}
-                    <span
-                      className={`inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.1em] font-semibold mb-3 border ${colors.text} ${colors.bg} ${colors.border}`}
-                    >
-                      {craftLabel(offering.craft)}
-                    </span>
+                    {/* Craft badge + trust badge */}
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.1em] font-semibold border ${colors.text} ${colors.bg} ${colors.border}`}
+                      >
+                        {craftLabel(offering.craft)}
+                      </span>
+                      {offering.completedCount >= 10 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gold/10 text-gold border border-gold/25">
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                            <path d="M8 1l2.2 4.5L15 6.3l-3.5 3.4.8 4.8L8 12.2 3.7 14.5l.8-4.8L1 6.3l4.8-.8z" />
+                          </svg>
+                          Master Artisan
+                        </span>
+                      ) : offering.completedCount >= 5 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber/8 text-amber border border-amber/20">
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                            <path d="M8 1l2.2 4.5L15 6.3l-3.5 3.4.8 4.8L8 12.2 3.7 14.5l.8-4.8L1 6.3l4.8-.8z" />
+                          </svg>
+                          Trusted Artisan
+                        </span>
+                      ) : null}
+                    </div>
 
                     {/* Title */}
                     <h3 className="font-display text-paper text-base mb-2 leading-snug">
@@ -764,9 +781,11 @@ export default function ScriptoriumPage() {
                         <span className="text-text-secondary">{offering.revisionRounds} rounds</span>
                       </span>
                       {offering.completedCount > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <CheckIcon />
-                          <span className="text-text-secondary">{offering.completedCount} completed</span>
+                        <span className="inline-flex items-center gap-1 text-sage">
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M3 8l3 3 7-7" />
+                          </svg>
+                          <span className="font-medium">{offering.completedCount} completed</span>
                         </span>
                       )}
                     </div>

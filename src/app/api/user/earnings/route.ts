@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
         fromName: users.name,
         amount: inkDropTransactions.amount,
         message: inkDropTransactions.message,
+        type: inkDropTransactions.type,
         createdAt: inkDropTransactions.createdAt,
       })
       .from(inkDropTransactions)
@@ -97,10 +98,32 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(inkDropTransactions.createdAt))
       .limit(30);
 
+    // Breakdown by source
+    const breakdownRows = await db
+      .select({
+        type: inkDropTransactions.type,
+        total: sql<number>`coalesce(sum(${inkDropTransactions.amount}), 0)`,
+        count: sql<number>`count(*)`,
+      })
+      .from(inkDropTransactions)
+      .where(
+        and(
+          eq(inkDropTransactions.toUserId, userId),
+          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission", "donation", "crossroads"])
+        )
+      )
+      .groupBy(inkDropTransactions.type);
+
+    const breakdown: Record<string, { total: number; count: number }> = {};
+    for (const row of breakdownRows) {
+      breakdown[row.type] = { total: Number(row.total), count: Number(row.count) };
+    }
+
     return NextResponse.json({
       totalEarned: Number(stats.totalEarned),
       tipCount: Number(stats.tipCount),
       tipsThisMonth: Number(monthStats.tipsThisMonth),
+      breakdown,
       topSupporter: topSupporter?.userId
         ? {
             name: topSupporter.displayName || topSupporter.name || "Anonymous",
@@ -112,6 +135,7 @@ export async function GET(request: NextRequest) {
         from: t.fromDisplayName || t.fromName || "Anonymous",
         amount: t.amount,
         message: t.message,
+        type: (t as any).type,
         createdAt: t.createdAt,
       })),
     });

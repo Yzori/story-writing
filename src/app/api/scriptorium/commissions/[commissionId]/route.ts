@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import {
   commissions,
   commissionMessages,
+  commissionTestimonials,
   offerings,
   users,
   inkDropTransactions,
@@ -363,6 +364,50 @@ export async function PATCH(
 
         const otherId = isPatron ? commission.artisanId : commission.patronId;
         createNotification(otherId, "circle", "A commission has been cancelled", `/scriptorium?tab=commissions`);
+        break;
+      }
+
+      // Patron leaves a testimonial
+      case "testimonial": {
+        if (!isPatron || commission.status !== "completed") {
+          return NextResponse.json(
+            { error: { code: "INVALID_ACTION", message: "Can only leave testimonials on completed commissions" } },
+            { status: 400 }
+          );
+        }
+
+        const { rating, comment: reviewComment, tags: reviewTags } = body;
+
+        if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
+          return NextResponse.json(
+            { error: { code: "VALIDATION_ERROR", message: "Rating must be 1-5" } },
+            { status: 400 }
+          );
+        }
+
+        // Check if testimonial already exists
+        const [existing] = await db
+          .select({ id: commissionTestimonials.id })
+          .from(commissionTestimonials)
+          .where(eq(commissionTestimonials.commissionId, commissionId));
+
+        if (existing) {
+          return NextResponse.json(
+            { error: { code: "ALREADY_EXISTS", message: "Testimonial already submitted" } },
+            { status: 409 }
+          );
+        }
+
+        await db.insert(commissionTestimonials).values({
+          commissionId,
+          reviewerId: session.user.id,
+          artisanId: commission.artisanId,
+          rating,
+          comment: reviewComment || null,
+          tags: JSON.stringify(reviewTags || []),
+        });
+
+        createNotification(commission.artisanId, "circle", `You received a ${rating}-star testimonial!`, `/scriptorium`);
         break;
       }
 

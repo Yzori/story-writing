@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { motion } from "framer-motion";
+import Link from "next/link";
 import GenreAtmosphere from "@/components/profile/GenreAtmosphere";
 import HalfTitle from "@/components/profile/HalfTitle";
 import Frontispiece from "@/components/profile/Frontispiece";
@@ -20,6 +22,51 @@ interface UserProfile {
   role: string;
   createdAt: string;
   stories: ApiStory[];
+}
+
+interface ProfileOffering {
+  id: string;
+  craft: string;
+  title: string;
+  description: string;
+  priceMin: number;
+  priceMax: number;
+  deliveryDays: number;
+  completedCount: number;
+}
+
+const CRAFT_LABELS: Record<string, string> = {
+  "custom-chapter": "Custom Chapter",
+  ghostwriting: "Ghostwriting",
+  poetry: "Poetry",
+  "screenplay-coverage": "Screenplay Coverage",
+  editing: "Editing",
+  "cover-art": "Cover Art",
+  "character-art": "Character Art",
+  "webtoon-panels": "Webtoon Panels",
+  "scene-illustration": "Scene Illustration",
+  worldbuilding: "Worldbuilding",
+  "gm-for-hire": "GM for Hire",
+  "story-bible": "Story Bible",
+};
+
+const CRAFT_COLORS: Record<string, { text: string; bg: string; border: string }> = {
+  "custom-chapter": { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
+  ghostwriting: { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
+  poetry: { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
+  "screenplay-coverage": { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
+  editing: { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
+  "cover-art": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
+  "character-art": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
+  "webtoon-panels": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
+  "scene-illustration": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
+  worldbuilding: { text: "text-teal", bg: "bg-teal/10", border: "border-teal/30" },
+  "gm-for-hire": { text: "text-teal", bg: "bg-teal/10", border: "border-teal/30" },
+  "story-bible": { text: "text-teal", bg: "bg-teal/10", border: "border-teal/30" },
+};
+
+function getCraftColor(craft: string) {
+  return CRAFT_COLORS[craft] ?? { text: "text-text-secondary", bg: "bg-surface/50", border: "border-border" };
 }
 
 interface FollowedStory {
@@ -75,6 +122,8 @@ export default function ProfilePage() {
   const [followedStories, setFollowedStories] = useState<FollowedStory[]>([]);
   const [followedLoaded, setFollowedLoaded] = useState(false);
   const [hasRosterProfile, setHasRosterProfile] = useState<boolean | null>(null);
+  const [studioOfferings, setStudioOfferings] = useState<ProfileOffering[]>([]);
+  const [studioLoaded, setStudioLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -103,6 +152,18 @@ export default function ProfilePage() {
       .then((json) => setHasRosterProfile(!!json.data))
       .catch(() => {});
   }, [isOwnProfile]);
+
+  // Fetch studio offerings
+  useEffect(() => {
+    if (!profile || studioLoaded) return;
+    fetch(`/api/scriptorium/offerings?artisanId=${userId}&limit=50`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.offerings) setStudioOfferings(json.offerings);
+        setStudioLoaded(true);
+      })
+      .catch(() => setStudioLoaded(true));
+  }, [profile, userId, studioLoaded]);
 
   // Fetch reading list for owner
   useEffect(() => {
@@ -226,6 +287,130 @@ export default function ProfilePage() {
           emptyLink={{ text: "Browse stories", href: "/browse" }}
           variant="nightstand"
         />
+      )}
+
+      {/* 7. Studio — Scriptorium Offerings */}
+      {(studioOfferings.length > 0 || isOwnProfile) && studioLoaded && (
+        <section className="px-6 pb-10 max-w-4xl mx-auto">
+          {/* Section header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="h-px w-8 bg-gradient-to-r from-transparent to-border" />
+              <h2 className="font-display text-lg text-paper tracking-tight">
+                Studio
+              </h2>
+              <div className="h-px w-8 bg-gradient-to-l from-transparent to-border" />
+            </div>
+            {isOwnProfile && studioOfferings.length > 0 && (
+              <Link
+                href="/scriptorium/offerings"
+                className="text-[12px] text-text-ghost hover:text-text-secondary transition-colors"
+              >
+                Manage offerings
+              </Link>
+            )}
+          </div>
+
+          {studioOfferings.length === 0 ? (
+            /* Empty state */
+            <div className="rounded-xl border border-border/60 bg-ink/30 p-8 text-center">
+              <p className="text-text-ghost text-[13px] mb-3">
+                {isOwnProfile
+                  ? "You haven't listed any offerings yet."
+                  : `This writer hasn't listed any offerings yet.`}
+              </p>
+              {isOwnProfile && (
+                <Link
+                  href="/scriptorium/offerings"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gold/10 text-gold border border-gold/25 text-[12px] font-medium hover:bg-gold/20 transition-colors"
+                >
+                  List your first offering
+                </Link>
+              )}
+            </div>
+          ) : (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-40px" }}
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.06 } },
+              }}
+            >
+              {studioOfferings.map((offering) => {
+                const colors = getCraftColor(offering.craft);
+                return (
+                  <motion.div
+                    key={offering.id}
+                    variants={{
+                      hidden: { opacity: 0, y: 10 },
+                      visible: { opacity: 1, y: 0 },
+                    }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Link
+                      href="/scriptorium"
+                      className="block rounded-xl border border-border bg-ink/50 p-5 hover:border-text-ghost/30 transition-colors group"
+                    >
+                      {/* Craft badge + trust badge */}
+                      <div className="flex items-center gap-2 flex-wrap mb-2.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-[0.1em] font-semibold border ${colors.text} ${colors.bg} ${colors.border}`}
+                        >
+                          {CRAFT_LABELS[offering.craft] ?? offering.craft}
+                        </span>
+                        {offering.completedCount >= 10 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gold/10 text-gold border border-gold/25">
+                            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                              <path d="M8 1l2.2 4.5L15 6.3l-3.5 3.4.8 4.8L8 12.2 3.7 14.5l.8-4.8L1 6.3l4.8-.8z" />
+                            </svg>
+                            Master Artisan
+                          </span>
+                        ) : offering.completedCount >= 5 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber/8 text-amber border border-amber/20">
+                            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                              <path d="M8 1l2.2 4.5L15 6.3l-3.5 3.4.8 4.8L8 12.2 3.7 14.5l.8-4.8L1 6.3l4.8-.8z" />
+                            </svg>
+                            Trusted Artisan
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="font-display text-paper text-[15px] mb-1.5 leading-snug group-hover:text-gold/90 transition-colors">
+                        {offering.title}
+                      </h3>
+
+                      {/* Meta row */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-ghost">
+                        <span>
+                          {offering.priceMin === offering.priceMax
+                            ? `${offering.priceMin} drops`
+                            : `${offering.priceMin}--${offering.priceMax} drops`}
+                        </span>
+                        <span className="text-border">|</span>
+                        <span>~{offering.deliveryDays} days</span>
+                        {offering.completedCount > 0 && (
+                          <>
+                            <span className="text-border">|</span>
+                            <span className="text-sage font-medium inline-flex items-center gap-0.5">
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M3 8l3 3 7-7" />
+                              </svg>
+                              {offering.completedCount} completed
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+        </section>
       )}
 
       {/* Roster nudge for own profile */}
