@@ -44,7 +44,15 @@ const SORT_OPTIONS = [
   { value: "rising", label: "Rising" },
 ];
 
-const FORMAT_OPTIONS = ["All", "Novel", "Webtoon", "Poetry", "Screenplay"];
+const FORMAT_OPTIONS = [
+  { value: "All", label: "All Formats", icon: null },
+  { value: "novel", label: "Novels", icon: "M2 3l6 2.5L14 3v10l-6 2.5L2 13V3zM8 5.5V14" },
+  { value: "webtoon", label: "Webtoons", icon: "M3 2h10v12H3zM5 5h6M5 8h6M5 11h3" },
+  { value: "poetry", label: "Poetry", icon: "M4 2v12M8 4v8M12 3v10M6 14h4" },
+  { value: "screenplay", label: "Scripts", icon: "M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zM5 5h6M5 7h4M5 9h5" },
+  { value: "illustrated", label: "Illustrated", icon: "M2 3h12v10H2zM5 9l2-2 2 2 3-3M10 6a1 1 0 11-2 0 1 1 0 012 0z" },
+  { value: "campaign", label: "Adventures", icon: "M8 2L3 5v6l5 3 5-3V5L8 2z" },
+];
 
 // ── Seeded random for stable hydration ──
 function seededRandom(seed: number) {
@@ -112,6 +120,8 @@ function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
   const [campaignStories, setCampaignStories] = useState<ApiStory[]>([]);
+  const [boostedStories, setBoostedStories] = useState<(ApiStory & { boostExpiresAt: string })[]>([]);
+  const [activeJams, setActiveJams] = useState<{ id: string; title: string; theme: string; liveStatus: string; entryCount: number; submissionEndsAt: string; votingEndsAt: string }[]>([]);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [searchFocused, setSearchFocused] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -167,6 +177,57 @@ function BrowsePage() {
   }, []);
 
   useEffect(() => {
+    async function fetchBoosts() {
+      try {
+        const res = await fetch("/api/boosts");
+        if (res.ok) {
+          const json = await res.json();
+          setBoostedStories(
+            (json.data || []).map((b: Record<string, unknown>) => ({
+              id: b.storyId,
+              title: b.title,
+              slug: b.slug,
+              synopsis: b.synopsis,
+              coverImageUrl: b.coverImageUrl,
+              genres: b.genres,
+              format: b.format,
+              writingMode: b.writingMode,
+              contentRating: b.contentRating,
+              authorName: b.authorName,
+              chapterCount: b.chapterCount,
+              sparkCount: b.sparkCount,
+              totalWords: b.totalWords,
+              boostExpiresAt: b.boostExpiresAt,
+            }))
+          );
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchBoosts();
+  }, []);
+
+  useEffect(() => {
+    async function fetchActiveJams() {
+      try {
+        const res = await fetch("/api/jams?status=open");
+        if (res.ok) {
+          const json = await res.json();
+          const open = json.data || [];
+          // Also fetch voting jams
+          const votingRes = await fetch("/api/jams?status=voting");
+          const voting = votingRes.ok ? (await votingRes.json()).data || [] : [];
+          setActiveJams([...open, ...voting].slice(0, 3));
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchActiveJams();
+  }, []);
+
+  useEffect(() => {
     async function fetchCampaigns() {
       try {
         const res = await fetch("/api/stories?public=true&writingMode=campaign&limit=6");
@@ -185,7 +246,13 @@ function BrowsePage() {
 
   const filtered = stories.filter((story) => {
     if (selectedGenre && !story.genres.includes(selectedGenre)) return false;
-    if (formatFilter !== "All" && story.format !== formatFilter.toLowerCase()) return false;
+    if (formatFilter !== "All") {
+      if (formatFilter === "campaign") {
+        if (story.writingMode !== "campaign") return false;
+      } else {
+        if (story.format !== formatFilter || story.writingMode === "campaign") return false;
+      }
+    }
     if (maxRating !== "all") {
       const maxLevel = RATING_LEVELS[maxRating];
       const storyLevel = RATING_LEVELS[story.contentRating] ?? 0;
@@ -560,6 +627,110 @@ function BrowsePage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════
+            ACTIVE JAMS — community creative events
+            ══════════════════════════════════════════════════════════ */}
+        {showCuratedSections && !selectedGenre && activeJams.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.38 }}
+            className="mb-14"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose">
+                    <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="font-display text-lg text-paper font-bold">Active Jams</h2>
+                  <p className="text-[11px] text-text-ghost">Write, submit, vote</p>
+                </div>
+              </div>
+              <Link href="/jams" className="text-xs text-amber hover:text-amber/80 transition-colors">
+                View all &rarr;
+              </Link>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {activeJams.map((jam) => (
+                <Link
+                  key={jam.id}
+                  href={`/jams/${jam.id}`}
+                  className="flex-shrink-0 w-64 card-page p-4 hover:border-rose/20 transition-all group"
+                >
+                  <h3 className="font-display text-sm text-paper font-semibold group-hover:text-rose transition-colors mb-1 truncate">
+                    {jam.title}
+                  </h3>
+                  <p className="text-xs text-text-secondary italic mb-3 truncate">
+                    {jam.theme}
+                  </p>
+                  <div className="flex items-center justify-between text-[10px] text-text-ghost">
+                    <span className={`px-1.5 py-0.5 rounded-full border ${
+                      jam.liveStatus === "open"
+                        ? "text-sage border-sage/20 bg-sage/10"
+                        : "text-amber border-amber/20 bg-amber/10"
+                    }`}>
+                      {jam.liveStatus === "open" ? "Open" : "Voting"}
+                    </span>
+                    <span>{jam.entryCount} {jam.entryCount === 1 ? "entry" : "entries"}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            SPOTLIGHT — boosted stories (paid Ink Drop placement)
+            ══════════════════════════════════════════════════════════ */}
+        {showCuratedSections && !selectedGenre && boostedStories.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-14"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-7 h-7 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
+                  <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-display text-lg text-paper font-bold">
+                  In the Spotlight
+                </h2>
+                <p className="text-[11px] text-text-ghost">
+                  Featured by their creators
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
+              {boostedStories.map((story) => (
+                <div key={story.id} className="flex-shrink-0">
+                  <StoryCard
+                    title={story.title}
+                    author={story.authorName || undefined}
+                    coverUrl={story.coverImageUrl || undefined}
+                    genres={story.genres || []}
+                    wordCount={story.totalWords || 0}
+                    chapterCount={story.chapterCount || 0}
+                    sparkCount={story.sparkCount}
+                    contentRating={story.contentRating}
+                    slug={story.slug || story.id}
+                    variant="featured"
+                    excerpt={story.synopsis || undefined}
+                    writingMode={story.writingMode}
+                    isBoosted
+                  />
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
             STAFF PICKS — the librarian's recommendations
             ══════════════════════════════════════════════════════════ */}
         {showCuratedSections && !selectedGenre && staffPicks.length > 0 && (
@@ -740,18 +911,23 @@ function BrowsePage() {
             </div>
 
             {/* Format pills */}
-            <div className="flex items-center gap-1 bg-surface/60 rounded-xl p-1 border border-border/50">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide bg-surface/60 rounded-xl p-1 border border-border/50">
               {FORMAT_OPTIONS.map((opt) => (
                 <button
-                  key={opt}
-                  onClick={() => setFormatFilter(opt)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 ${
-                    formatFilter === opt
+                  key={opt.value}
+                  onClick={() => setFormatFilter(opt.value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
+                    formatFilter === opt.value
                       ? "bg-elevated text-paper shadow-sm"
                       : "text-text-ghost hover:text-text-secondary"
                   }`}
                 >
-                  {opt}
+                  {opt.icon && (
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className="opacity-70">
+                      <path d={opt.icon} />
+                    </svg>
+                  )}
+                  {opt.label}
                 </button>
               ))}
             </div>

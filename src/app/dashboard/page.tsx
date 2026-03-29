@@ -420,7 +420,7 @@ export default function DashboardPage() {
           <img
             src={backdrop}
             alt=""
-            className="w-full h-full object-cover opacity-[0.12] dark:opacity-[0.18] mix-blend-luminosity"
+            className="w-full h-full object-cover opacity-[0.55] dark:opacity-[0.6]"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-void" />
