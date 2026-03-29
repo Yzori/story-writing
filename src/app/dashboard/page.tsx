@@ -5,7 +5,9 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import StoryCard from "@/components/shared/StoryCard";
-import type { ApiStory, ApiReadingProgress } from "@/types/api";
+import type { ApiStory, ApiReadingProgress, ApiNotification } from "@/types/api";
+
+// ── Helpers ─────────────────────────────────────────────────
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -27,7 +29,19 @@ function getTimeOfDay(): { greeting: string; backdrop: string } {
   return { greeting: "Burning the midnight oil", backdrop: "/dashboard/study-night.png" };
 }
 
-// ── Animated stat counter ────────────────────────────────────
+// ── Creator Hub data shapes ─────────────────────────────────
+
+interface CreatorHubData {
+  subscriberCount: number;
+  monthlyIncome: number;
+  totalEarned: number;
+  tipsThisMonth: number;
+  activeCommissions: number;
+  loaded: boolean;
+}
+
+// ── Animated stat counter ───────────────────────────────────
+
 function AnimatedStat({ value, label, accent }: { value: string | number; label: string; accent: string }) {
   return (
     <div className="flex flex-col items-center gap-1">
@@ -41,9 +55,143 @@ function AnimatedStat({ value, label, accent }: { value: string | number; label:
   );
 }
 
-// ── Active story — the featured "tome on the easel" ──────────
+// ── Creator Hub Card ────────────────────────────────────────
+
+function CreatorHubCard({
+  icon,
+  value,
+  label,
+  sublabel,
+  href,
+  accentColor,
+  accentGlow,
+  delay,
+}: {
+  icon: React.ReactNode;
+  value: string | number;
+  label: string;
+  sublabel?: string;
+  href: string;
+  accentColor: string;
+  accentGlow: string;
+  delay: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+    >
+      <Link href={href} className="group block">
+        <div className="relative rounded-xl border border-border bg-ink/50 p-5 transition-all duration-300 hover:border-border/80 hover:bg-ink/70 overflow-hidden">
+          {/* Subtle ambient glow */}
+          <div className={`absolute -top-8 -right-8 w-24 h-24 rounded-full ${accentGlow} blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className={`flex items-center justify-center w-9 h-9 rounded-lg bg-surface border border-border/50 ${accentColor}`}>
+                {icon}
+              </div>
+              <div>
+                <div className={`font-display text-xl font-bold ${accentColor}`}>
+                  {value}
+                </div>
+                <div className="text-[11px] text-text-ghost leading-tight">{label}</div>
+                {sublabel && (
+                  <div className="text-[10px] text-text-ghost/60 mt-0.5">{sublabel}</div>
+                )}
+              </div>
+            </div>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="text-text-ghost/40 group-hover:text-text-ghost group-hover:translate-x-0.5 transition-all duration-300"
+            >
+              <path d="M6 3l5 5-5 5" />
+            </svg>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
+// ── Quick Action Pill ───────────────────────────────────────
+
+function QuickActionPill({
+  href,
+  label,
+  icon,
+  accent = "text-text-secondary",
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  accent?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border/60 bg-ink/30 text-[12px] font-medium ${accent} hover:bg-ink/60 hover:border-border transition-all duration-200`}
+    >
+      {icon}
+      {label}
+    </Link>
+  );
+}
+
+// ── Notification icon by type ───────────────────────────────
+
+function NotificationIcon({ type }: { type: string }) {
+  const cls = "w-3.5 h-3.5 flex-shrink-0";
+  switch (type) {
+    case "spark":
+      return (
+        <svg className={`${cls} text-amber`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+        </svg>
+      );
+    case "follow":
+      return (
+        <svg className={`${cls} text-lavender`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4" />
+        </svg>
+      );
+    case "comment":
+      return (
+        <svg className={`${cls} text-teal`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M2 3h12v8H5l-3 3V3z" />
+        </svg>
+      );
+    case "tip":
+      return (
+        <svg className={`${cls} text-gold`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="8" r="6" />
+          <path d="M8 5v6M5.5 8h5" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className={`${cls} text-text-ghost`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="8" r="6" />
+          <path d="M8 5v3M8 10.5v.5" />
+        </svg>
+      );
+  }
+}
+
+// ── Active story — the featured "tome on the easel" ─────────
+
 function ActiveStorySpotlight({ story }: { story: ApiStory }) {
-  const href = story.writingMode === "campaign" ? `/campaign/${story.id}` : story.writingMode === "co-op" ? `/write/${story.id}/co-op` : `/write/${story.id}`;
+  const href = story.writingMode === "campaign"
+    ? `/campaign/${story.id}`
+    : story.writingMode === "co-op"
+      ? `/write/${story.id}/co-op`
+      : `/write/${story.id}`;
 
   return (
     <Link href={href} className="block group">
@@ -53,7 +201,7 @@ function ActiveStorySpotlight({ story }: { story: ApiStory }) {
         transition={{ delay: 0.3 }}
         className="relative rounded-2xl overflow-hidden transition-all duration-300"
       >
-        {/* Background — cover image or gradient */}
+        {/* Background -- cover image or gradient */}
         <div className="absolute inset-0">
           {story.coverImageUrl ? (
             <img
@@ -122,6 +270,8 @@ function ActiveStorySpotlight({ story }: { story: ApiStory }) {
   );
 }
 
+// ── Main Dashboard ──────────────────────────────────────────
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [stories, setStories] = useState<ApiStory[]>([]);
@@ -131,6 +281,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [followedLoading, setFollowedLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
+  const [creatorHub, setCreatorHub] = useState<CreatorHubData>({
+    subscriberCount: 0,
+    monthlyIncome: 0,
+    totalEarned: 0,
+    tipsThisMonth: 0,
+    activeCommissions: 0,
+    loaded: false,
+  });
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -146,7 +305,7 @@ export default function DashboardPage() {
         .catch(() => setError("Failed to load stories"))
         .finally(() => setLoading(false));
 
-      // Following + reading progress need auth
+      // Following + reading progress + creator data need auth
       if (userId) {
         const followingPromise = fetch(`/api/users/${userId}/following`)
           .then((r) => r.json())
@@ -162,10 +321,44 @@ export default function DashboardPage() {
           .catch(() => {})
           .finally(() => setContinueLoading(false));
 
-        await Promise.all([storiesPromise, followingPromise, progressPromise]);
+        const notificationsPromise = fetch("/api/notifications?limit=3")
+          .then((r) => r.json())
+          .then((json) => {
+            if (json.data?.notifications) setNotifications(json.data.notifications);
+          })
+          .catch(() => {});
+
+        // Creator Hub: fetch subscriber count, earnings, commissions in parallel
+        const creatorPromise = Promise.allSettled([
+          fetch("/api/creator/circle").then((r) => r.ok ? r.json() : null),
+          fetch("/api/user/earnings").then((r) => r.ok ? r.json() : null),
+          fetch("/api/scriptorium/commissions?role=artisan").then((r) => r.ok ? r.json() : null),
+        ]).then(([circleResult, earningsResult, commissionsResult]) => {
+          const circle = circleResult.status === "fulfilled" ? circleResult.value : null;
+          const earnings = earningsResult.status === "fulfilled" ? earningsResult.value : null;
+          const commissions = commissionsResult.status === "fulfilled" ? commissionsResult.value : null;
+
+          const activeCount = commissions?.data?.commissions
+            ? commissions.data.commissions.filter(
+                (c: { status: string }) => c.status !== "completed" && c.status !== "cancelled"
+              ).length
+            : 0;
+
+          setCreatorHub({
+            subscriberCount: circle?.data?.subscriberCount || 0,
+            monthlyIncome: circle?.data?.monthlyIncome || 0,
+            totalEarned: earnings?.data?.totalEarned || 0,
+            tipsThisMonth: earnings?.data?.tipsThisMonth || 0,
+            activeCommissions: activeCount,
+            loaded: true,
+          });
+        });
+
+        await Promise.all([storiesPromise, followingPromise, progressPromise, notificationsPromise, creatorPromise]);
       } else {
         setFollowedLoading(false);
         setContinueLoading(false);
+        setCreatorHub((prev) => ({ ...prev, loaded: true }));
         await storiesPromise;
       }
     }
@@ -192,6 +385,12 @@ export default function DashboardPage() {
 
   const { greeting, backdrop } = getTimeOfDay();
   const firstName = session?.user?.name?.split(" ")[0] || "Writer";
+  const isLoggedIn = !!session?.user?.id;
+
+  // Show creator hub row only if there is any activity
+  const showCreatorHub =
+    creatorHub.loaded &&
+    (creatorHub.subscriberCount > 0 || creatorHub.tipsThisMonth > 0 || creatorHub.activeCommissions > 0);
 
   if (loading) {
     return (
@@ -199,7 +398,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-center py-32">
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
-            <p className="text-text-ghost text-[12px] uppercase tracking-[0.15em]">Opening your sanctum...</p>
+            <p className="text-text-ghost text-[12px] uppercase tracking-[0.15em]">Loading your dashboard...</p>
           </div>
         </div>
       </div>
@@ -224,53 +423,78 @@ export default function DashboardPage() {
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 pt-12 pb-8">
-          {/* Greeting + New Story */}
+          {/* Greeting */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start justify-between mb-10"
+            className="mb-4"
           >
-            <div>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 }}
-                className="text-text-ghost text-[12px] uppercase tracking-[0.18em] font-display mb-2"
-              >
-                {greeting}
-              </motion.p>
-              <motion.h1
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="font-display text-3xl md:text-4xl text-paper font-semibold"
-              >
-                {firstName}&apos;s <span className="text-gold italic">Sanctum</span>
-              </motion.h1>
-            </div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
+            <motion.h1
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="font-display text-3xl md:text-4xl text-paper font-semibold"
             >
-              <Link
-                href="/create"
-                className="group relative bg-amber text-void font-semibold px-6 py-2.5 rounded-full hover:bg-amber-light transition-all duration-200 text-[13px] flex items-center gap-2 hover:shadow-lg hover:shadow-amber/15"
-              >
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M8 3v10M3 8h10" />
-                </svg>
-                New Story
-              </Link>
-            </motion.div>
+              {greeting}, <span className="text-gold italic">{firstName}</span>
+            </motion.h1>
           </motion.div>
 
-          {/* Stats bar — elegant inline */}
+          {/* ── Quick Actions ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="flex flex-wrap items-center gap-2 mb-10"
+          >
+            <QuickActionPill
+              href="/create"
+              label="New Story"
+              accent="text-gold"
+              icon={
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+              }
+            />
+            {isLoggedIn && (
+              <>
+                <QuickActionPill
+                  href="/creator/circle"
+                  label="My Subscribers"
+                  icon={
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4" />
+                    </svg>
+                  }
+                />
+                <QuickActionPill
+                  href="/scriptorium"
+                  label="Commissions"
+                  icon={
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 3h12v10H2zM5 7h6M5 10h3" />
+                    </svg>
+                  }
+                />
+                <QuickActionPill
+                  href="/settings/ink-drops"
+                  label="Ink Drops"
+                  icon={
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z" />
+                    </svg>
+                  }
+                />
+              </>
+            )}
+          </motion.div>
+
+          {/* ── Stats bar ── */}
           {stories.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
+              transition={{ delay: 0.2 }}
               className="flex items-center justify-center gap-8 md:gap-12 py-6 mb-8 border-y border-border/50"
             >
               <AnimatedStat value={stories.length} label="Stories" accent="text-amber" />
@@ -303,6 +527,66 @@ export default function DashboardPage() {
       )}
 
       <div className="max-w-6xl mx-auto px-6 pb-16">
+        {/* ── Creator Hub ── */}
+        {showCreatorHub && (
+          <div className="mb-12">
+            <div className="flourish mb-6">
+              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
+                Creator Hub
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {creatorHub.subscriberCount > 0 && (
+                <CreatorHubCard
+                  icon={
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4" />
+                    </svg>
+                  }
+                  value={creatorHub.subscriberCount}
+                  label="Subscribers"
+                  sublabel={creatorHub.monthlyIncome > 0 ? `$${creatorHub.monthlyIncome.toFixed(0)} this month` : undefined}
+                  href="/creator/circle"
+                  accentColor="text-gold"
+                  accentGlow="bg-gold/10"
+                  delay={0.25}
+                />
+              )}
+              {creatorHub.tipsThisMonth > 0 && (
+                <CreatorHubCard
+                  icon={
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z" />
+                    </svg>
+                  }
+                  value={creatorHub.tipsThisMonth}
+                  label="Ink Drops This Month"
+                  sublabel={creatorHub.totalEarned > 0 ? `$${creatorHub.totalEarned.toFixed(0)} total` : undefined}
+                  href="/creator/earnings"
+                  accentColor="text-teal"
+                  accentGlow="bg-teal/10"
+                  delay={0.3}
+                />
+              )}
+              {creatorHub.activeCommissions > 0 && (
+                <CreatorHubCard
+                  icon={
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 3h12v10H2zM5 7h6M5 10h3" />
+                    </svg>
+                  }
+                  value={creatorHub.activeCommissions}
+                  label="Active Commissions"
+                  href="/scriptorium"
+                  accentColor="text-amethyst"
+                  accentGlow="bg-amethyst/10"
+                  delay={0.35}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Active Story Spotlight ── */}
         {activeStory && (
           <div className="mb-12">
@@ -424,7 +708,7 @@ export default function DashboardPage() {
             )}
           </>
         ) : (
-          /* ── Empty state — no stories yet ── */
+          /* ── Empty state -- no stories yet ── */
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -457,7 +741,7 @@ export default function DashboardPage() {
               The ink awaits
             </h2>
             <p className="text-text-secondary text-[14px] max-w-sm mb-8 leading-relaxed">
-              Your sanctum is ready. Every great tale starts with a single word —
+              Your workshop is ready. Every great tale starts with a single word --
               open a blank page and let the magic flow.
             </p>
             <Link
@@ -476,7 +760,7 @@ export default function DashboardPage() {
           transition={{ delay: 0.5 }}
           className="flourish my-8"
         >
-          <span className="text-text-ghost text-sm font-display">❧</span>
+          <span className="text-text-ghost text-sm font-display">&loz;</span>
         </motion.div>
 
         {/* ── Reading List ── */}
@@ -497,7 +781,7 @@ export default function DashboardPage() {
             <div className="w-5 h-5 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
           </div>
         ) : followedStories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
             {followedStories.map((story, i) => (
               <motion.div
                 key={story.id}
@@ -526,7 +810,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="flex flex-col items-center justify-center text-center py-14"
+            className="flex flex-col items-center justify-center text-center py-14 mb-12"
           >
             <div className="relative w-20 h-20 mb-5">
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-lavender/10 to-lavender/[0.02] border border-lavender/10" />
@@ -555,6 +839,63 @@ export default function DashboardPage() {
             >
               Browse stories &rarr;
             </Link>
+          </motion.div>
+        )}
+
+        {/* ── Recent Notifications ── */}
+        {notifications.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+          >
+            <div className="flourish mb-6">
+              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
+                Recent Activity
+              </span>
+            </div>
+            <div className="rounded-xl border border-border bg-ink/50 overflow-hidden">
+              {notifications.map((notif, i) => (
+                <Link
+                  key={notif.id}
+                  href={notif.href}
+                  className={`flex items-center gap-3 px-5 py-3.5 hover:bg-surface/50 transition-colors duration-200 group ${
+                    i < notifications.length - 1 ? "border-b border-border/50" : ""
+                  }`}
+                >
+                  <NotificationIcon type={notif.type} />
+                  <span
+                    className={`flex-1 text-[13px] leading-snug truncate ${
+                      notif.read ? "text-text-secondary" : "text-text"
+                    }`}
+                  >
+                    {notif.message}
+                  </span>
+                  <span className="text-[10px] text-text-ghost flex-shrink-0">
+                    {formatTimeAgo(notif.createdAt)}
+                  </span>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-text-ghost/30 group-hover:text-text-ghost group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0"
+                  >
+                    <path d="M6 3l5 5-5 5" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+            <div className="mt-3 text-center">
+              <Link
+                href="/notifications"
+                className="text-[12px] text-text-ghost hover:text-amber transition-colors duration-200"
+              >
+                View all notifications &rarr;
+              </Link>
+            </div>
           </motion.div>
         )}
       </div>
