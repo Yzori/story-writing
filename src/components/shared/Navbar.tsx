@@ -181,7 +181,7 @@ export default function Navbar() {
             href="/scriptorium"
             className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
           >
-            Scriptorium
+            Commissions
           </Link>
           {isLoading ? (
             <div className="w-8 h-8 rounded-full bg-elevated/40 border border-border animate-pulse" />
@@ -197,7 +197,7 @@ export default function Navbar() {
                 href="/dashboard"
                 className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
               >
-                My Sanctum
+                Dashboard
               </Link>
 
               {/* Theme toggle */}
@@ -296,7 +296,7 @@ export default function Navbar() {
                               <circle cx="8" cy="8" r="6" />
                               <circle cx="8" cy="8" r="2.5" />
                             </svg>
-                            My Circle
+                            Subscribers
                           </Link>
                           <Link
                             href="/creator/earnings"
@@ -433,7 +433,7 @@ export default function Navbar() {
                 className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 font-body"
                 onClick={() => setMobileOpen(false)}
               >
-                Scriptorium
+                Commissions
               </Link>
               {session ? (
                 <>
@@ -449,14 +449,14 @@ export default function Navbar() {
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
-                    My Sanctum
+                    Dashboard
                   </Link>
                   <Link
                     href="/creator/circle"
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
-                    My Circle
+                    Subscribers
                   </Link>
                   <Link
                     href="/notifications"
