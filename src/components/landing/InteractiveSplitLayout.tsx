@@ -173,7 +173,11 @@ type InkParticle = {
   left: number;
   lineY: number;
   offsetY: number;
+  offsetX: number;
   size: number;
+  hue: "dark" | "mid" | "light";
+  elongated: boolean;
+  fadeSpeed: number;
 };
 
 // ── Auth-aware "Begin Writing" CTA ──────────────────────────
@@ -213,6 +217,7 @@ function HeroSection() {
   const [writingDone, setWritingDone] = useState(false);
   const [inkParticles, setInkParticles] = useState<InkParticle[]>([]);
   const hasTriggered = useRef(false);
+  const [shimmer, setShimmer] = useState(false);
 
   // Clip-path reveals for 3 text lines
   const line1Progress = useTransform(progress, [0, 33], [0, 100]);
@@ -247,6 +252,14 @@ function HeroSection() {
   const tiltR = useTransform(progress, (p) =>
     Math.cos(p * 5) * 5 + Math.sin(p * 20) * 2
   );
+
+  // Ink trail widths — glowing line that follows the quill on each text line
+  const trail1Width = useTransform(progress, [0, 33], ["0%", "100%"]);
+  const trail1Opacity = useTransform(progress, [0, 2, 33], [0, 0.6, 0.3]);
+  const trail2Width = useTransform(progress, [33, 66], ["0%", "100%"]);
+  const trail2Opacity = useTransform(progress, [33, 35, 66], [0, 0.6, 0.3]);
+  const trail3Width = useTransform(progress, [66, 100], ["0%", "100%"]);
+  const trail3Opacity = useTransform(progress, [66, 68, 100], [0, 0.6, 0.3]);
   const quillOpacity = useTransform(progress, (p) =>
     p > 0 && p < 99 ? 1 : 0
   );
@@ -267,18 +280,35 @@ function HeroSection() {
           else if (p < 66) { lineY = 37; activeX = ((p - 33) / 33) * 100; }
           else { lineY = 70; activeX = ((p - 66) / 34) * 100; }
 
-          setInkParticles((prev) =>
-            [
-              ...prev,
-              {
-                id: Date.now() + Math.random(),
-                left: activeX,
-                lineY,
-                offsetY: (Math.random() - 0.5) * 30,
-                size: Math.random() * 3 + 1,
-              },
-            ].slice(-50)
-          );
+          const hues: Array<"dark" | "mid" | "light"> = ["dark", "mid", "light"];
+          const newParticles: InkParticle[] = [
+            {
+              id: Date.now() + Math.random(),
+              left: activeX,
+              lineY,
+              offsetY: (Math.random() - 0.5) * 35,
+              offsetX: (Math.random() - 0.5) * 25,
+              size: Math.random() * 4 + 1,
+              hue: hues[Math.floor(Math.random() * 3)],
+              elongated: Math.random() > 0.65,
+              fadeSpeed: 0.8 + Math.random() * 0.8,
+            },
+          ];
+          // Occasional mist particle — very small, drifts further
+          if (Math.random() > 0.5) {
+            newParticles.push({
+              id: Date.now() + Math.random() + 0.5,
+              left: activeX + (Math.random() - 0.5) * 8,
+              lineY,
+              offsetY: (Math.random() - 0.5) * 50,
+              offsetX: (Math.random() - 0.5) * 40,
+              size: Math.random() * 2 + 0.5,
+              hue: "light",
+              elongated: false,
+              fadeSpeed: 1.5 + Math.random() * 0.5,
+            });
+          }
+          setInkParticles((prev) => [...prev, ...newParticles].slice(-60));
         }
         lastEmit = time;
       }
@@ -302,12 +332,14 @@ function HeroSection() {
           setTimeout(() => {
             setWriting(true);
             animate(progress, 100, {
-              duration: 4,
-              ease: "linear",
+              duration: 4.5,
+              ease: [0.22, 0.1, 0.36, 1],
               onComplete: () => {
                 setWriting(false);
                 setWritingDone(true);
-                setTimeout(() => setInkParticles([]), 1500);
+                setShimmer(true);
+                setTimeout(() => setInkParticles([]), 1200);
+                setTimeout(() => setShimmer(false), 2000);
               },
             });
           }, 800);
@@ -384,27 +416,59 @@ function HeroSection() {
 
           {/* Ink particles & quill overlay */}
           <div className="absolute inset-0 pointer-events-none z-30">
+            {/* Ink trails — glowing lines beneath each text line */}
+            {[
+              { width: trail1Width, opacity: trail1Opacity, top: "30%" },
+              { width: trail2Width, opacity: trail2Opacity, top: "64%" },
+              { width: trail3Width, opacity: trail3Opacity, top: "97%" },
+            ].map((trail, i) => (
+              <motion.div
+                key={`trail-${i}`}
+                className="absolute left-0 h-[2px] rounded-full"
+                style={{
+                  top: trail.top,
+                  width: trail.width,
+                  opacity: trail.opacity,
+                  background:
+                    "linear-gradient(90deg, rgba(200,150,60,0.05), rgba(200,150,60,0.5), rgba(240,210,140,0.8))",
+                  boxShadow:
+                    "0 0 12px rgba(200,150,60,0.3), 0 1px 4px rgba(200,150,60,0.2)",
+                  filter: "blur(0.5px)",
+                }}
+              />
+            ))}
+
             {/* Ink particles */}
             <AnimatePresence>
               {inkParticles.map((particle) => (
                 <motion.div
                   key={particle.id}
-                  initial={{ opacity: 1, scale: 0 }}
+                  initial={{ opacity: 0.9, scale: 0 }}
                   animate={{
                     opacity: 0,
-                    scale: 1.5,
-                    y: particle.offsetY + 20 + Math.random() * 20,
-                    x: (Math.random() - 0.5) * 30,
+                    scale: particle.elongated ? [0, 1.8, 2.2] : [0, 1.4, 1.6],
+                    y: particle.offsetY + 15,
+                    x: particle.offsetX,
                   }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 1.2 + Math.random() * 0.5, ease: "easeOut" }}
-                  className="absolute rounded-full bg-gold shadow-[0_0_8px_var(--t-gold)]"
+                  transition={{ duration: particle.fadeSpeed, ease: "easeOut" }}
+                  className={`absolute ${particle.elongated ? "rounded-[40%]" : "rounded-full"}`}
                   style={{
                     left: `${particle.left}%`,
                     top: `${particle.lineY}%`,
-                    width: particle.size,
+                    width: particle.elongated ? particle.size * 2.5 : particle.size,
                     height: particle.size,
                     marginTop: "1.5em",
+                    background:
+                      particle.hue === "dark"
+                        ? "rgba(140, 100, 30, 0.8)"
+                        : particle.hue === "mid"
+                          ? "var(--t-gold)"
+                          : "rgba(240, 210, 140, 0.6)",
+                    boxShadow:
+                      particle.hue === "light"
+                        ? "0 0 12px rgba(240, 210, 140, 0.4)"
+                        : "0 0 6px rgba(200, 150, 60, 0.3)",
                   }}
                 />
               ))}
@@ -423,11 +487,31 @@ function HeroSection() {
               }}
             >
               <div className="relative -left-1 -top-[60px] origin-bottom-left w-[70px] h-[70px] md:w-[90px] md:h-[90px]">
-                {/* Spark at tip */}
+                {/* Spark at tip — soft organic glow */}
                 <motion.div
-                  className="absolute bottom-0 left-0 w-2.5 h-2.5 rounded-full bg-paper shadow-[0_0_12px_var(--t-paper),0_0_25px_var(--t-gold),0_0_40px_var(--t-gold)]"
-                  animate={{ scale: [1, 1.6, 1], opacity: [0.8, 1, 0.8] }}
-                  transition={{ repeat: Infinity, duration: 0.15 }}
+                  className="absolute bottom-0 left-0 w-3 h-3 rounded-full bg-paper"
+                  style={{
+                    boxShadow:
+                      "0 0 8px var(--t-paper), 0 0 20px var(--t-gold), 0 0 40px rgba(200,150,60,0.3)",
+                  }}
+                  animate={{
+                    scale: [1, 1.3, 1.1, 1.4, 1],
+                    opacity: [0.7, 0.95, 0.8, 1, 0.7],
+                  }}
+                  transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
+                />
+                {/* Secondary warm halo */}
+                <motion.div
+                  className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(200,150,60,0.3) 0%, transparent 70%)",
+                  }}
+                  animate={{
+                    scale: [1, 1.5, 1.2, 1.6, 1],
+                    opacity: [0.4, 0.7, 0.5, 0.8, 0.4],
+                  }}
+                  transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
                 />
                 {/* Feather SVG */}
                 <svg
@@ -457,6 +541,31 @@ function HeroSection() {
               </div>
             </motion.div>
           </div>
+
+          {/* Completion shimmer — golden light sweeps across finished text */}
+          <AnimatePresence>
+            {shimmer && (
+              <motion.div
+                className="absolute inset-0 pointer-events-none z-50 overflow-hidden rounded-lg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                <motion.div
+                  className="absolute top-0 h-full w-[30%]"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(240,210,140,0.15), rgba(255,255,255,0.08), transparent)",
+                    filter: "blur(16px)",
+                  }}
+                  initial={{ left: "-30%" }}
+                  animate={{ left: "130%" }}
+                  transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </h1>
 
         {/* Subheadline — visible immediately with subtle delay */}
@@ -712,31 +821,55 @@ function VideoShowcase() {
 }
 
 // ── Format Carousel ─────────────────────────────────────────
+const FORMAT_COLORS: Record<string, string> = {
+  novels: "200, 150, 60",
+  webtoon: "45, 212, 191",
+  poetry: "168, 85, 247",
+  illustrated: "194, 120, 62",
+  screenplay: "225, 29, 72",
+};
+
 function FormatShowcase() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [timerKey, setTimerKey] = useState(0);
 
-  // Pause rotation for 15s after a manual tab click, then resume
   const handleTabClick = useCallback((i: number) => {
     setActiveIdx(i);
     setPaused(true);
+    setTimerKey((k) => k + 1);
     if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
-    pauseTimeoutRef.current = setTimeout(() => setPaused(false), 15000);
+    pauseTimeoutRef.current = setTimeout(() => {
+      setPaused(false);
+      setTimerKey((k) => k + 1);
+    }, 15000);
   }, []);
 
   useEffect(() => {
     if (paused) return;
     const timer = setInterval(() => {
       setActiveIdx((prev) => (prev + 1) % FORMATS.length);
+      setTimerKey((k) => k + 1);
     }, 7000);
     return () => clearInterval(timer);
   }, [paused]);
 
   const fmt = FORMATS[activeIdx];
+  const rgb = FORMAT_COLORS[fmt.id] || FORMAT_COLORS.novels;
 
   return (
-    <section className="relative py-24 md:py-32 px-6">
+    <section className="relative py-24 md:py-32 px-6 overflow-hidden">
+      {/* Ambient background orb — shifts color per format */}
+      <motion.div
+        className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] pointer-events-none rounded-full"
+        animate={{
+          background: `radial-gradient(ellipse at center, rgba(${rgb}, 0.08) 0%, transparent 70%)`,
+        }}
+        transition={{ duration: 1.2, ease: "easeInOut" }}
+        aria-hidden
+      />
+
       <div className="max-w-5xl mx-auto">
         {/* Section label */}
         <motion.div
@@ -758,19 +891,27 @@ function FormatShowcase() {
           onMouseLeave={() => {
             if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
             setPaused(false);
+            setTimerKey((k) => k + 1);
           }}
         >
-          {/* Left: big format name */}
+          {/* Left: format showcase */}
           <motion.div
             className="flex-1 min-w-0"
             key={fmt.id}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            initial={{ opacity: 0, y: 20, filter: "blur(6px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <span className={`text-sm font-display uppercase tracking-[0.15em] ${fmt.accent} opacity-70`}>
-              {fmt.icon}
-            </span>
+            {/* Large format icon with ambient glow */}
+            <div className="relative inline-block mb-4">
+              <span className={`text-4xl md:text-5xl ${fmt.accent}`}>
+                {fmt.icon}
+              </span>
+              <div
+                className="absolute inset-0 -m-4 rounded-full blur-2xl pointer-events-none"
+                style={{ background: `rgba(${rgb}, 0.25)` }}
+              />
+            </div>
             <h2 className={`font-display text-4xl sm:text-5xl md:text-6xl font-medium leading-[1.1] mt-3 ${fmt.accent}`}>
               {fmt.label}
             </h2>
@@ -781,40 +922,89 @@ function FormatShowcase() {
 
           {/* Right: format cards as tabs */}
           <div className="flex flex-col gap-2.5 lg:w-72 w-full">
-            {FORMATS.map((f, i) => (
-              <button
-                key={f.id}
-                onClick={() => setActiveIdx(i)}
-                className={`card-page text-left px-5 py-4 transition-all duration-300 group
-                  ${i === activeIdx ? `${f.borderAccent} ${f.bgAccent}` : "opacity-50 hover:opacity-80"}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`text-base ${f.accent}`}>{f.icon}</span>
-                  <span className={`font-body text-sm font-medium ${i === activeIdx ? "text-paper" : "text-text-secondary"}`}>
-                    {f.label}
-                  </span>
-                </div>
-              </button>
-            ))}
+            {FORMATS.map((f, i) => {
+              const fRgb = FORMAT_COLORS[f.id] || FORMAT_COLORS.novels;
+              const isActive = i === activeIdx;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => handleTabClick(i)}
+                  className={`relative text-left px-5 py-4 rounded-xl border transition-all duration-300 group overflow-hidden
+                    ${isActive
+                      ? `${f.borderAccent} ${f.bgAccent}`
+                      : "border-border bg-surface/30 opacity-50 hover:opacity-80 hover:bg-surface/50"
+                    }`}
+                >
+                  {/* Active glow */}
+                  {isActive && (
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: `radial-gradient(ellipse at left center, rgba(${fRgb}, 0.1) 0%, transparent 70%)`,
+                      }}
+                    />
+                  )}
+                  <div className="flex items-center gap-3 relative z-10">
+                    <span
+                      className={`text-lg transition-transform duration-300 ${f.accent} ${isActive ? "scale-125" : "group-hover:scale-110"}`}
+                    >
+                      {f.icon}
+                    </span>
+                    <span className={`font-body text-sm font-medium transition-colors duration-300 ${isActive ? "text-paper" : "text-text-secondary"}`}>
+                      {f.label}
+                    </span>
+                  </div>
+                  {/* Active edge indicator */}
+                  {isActive && (
+                    <motion.div
+                      className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full"
+                      style={{ background: `rgb(${fRgb})` }}
+                      layoutId="formatEdge"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Progress indicators */}
-        <div className="flex gap-2 mt-10 lg:mt-14">
-          {FORMATS.map((f, i) => (
-            <button
-              key={f.id}
-              onClick={() => setActiveIdx(i)}
-              className="py-2 group"
-              aria-label={`Show ${f.label}`}
-            >
-              <div
-                className={`h-[2px] rounded-full transition-all duration-500 ${
-                  i === activeIdx ? `w-8 bg-gold` : "w-3 bg-walnut"
-                }`}
-              />
-            </button>
-          ))}
+        {/* Progress bars with timer fill */}
+        <div className="flex gap-2 mt-10 lg:mt-14 items-center">
+          {FORMATS.map((f, i) => {
+            const isActive = i === activeIdx;
+            return (
+              <button
+                key={f.id}
+                onClick={() => handleTabClick(i)}
+                className="py-2 group"
+                aria-label={`Show ${f.label}`}
+              >
+                <div
+                  className={`h-[2px] rounded-full transition-all duration-500 overflow-hidden ${
+                    isActive ? "w-10 bg-elevated" : "w-3 bg-walnut"
+                  }`}
+                >
+                  {isActive && !paused && (
+                    <motion.div
+                      key={timerKey}
+                      className="h-full rounded-full"
+                      style={{ background: `rgb(${FORMAT_COLORS[f.id] || FORMAT_COLORS.novels})` }}
+                      initial={{ width: "0%" }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 7, ease: "linear" }}
+                    />
+                  )}
+                  {isActive && paused && (
+                    <div
+                      className="h-full rounded-full w-full"
+                      style={{ background: `rgb(${FORMAT_COLORS[f.id] || FORMAT_COLORS.novels})` }}
+                    />
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -822,6 +1012,25 @@ function FormatShowcase() {
 }
 
 // ── Genre Shelves ───────────────────────────────────────────
+const GENRE_COLORS: Record<string, string> = {
+  fantasy: "168, 85, 247",
+  scifi: "45, 212, 191",
+  romance: "225, 29, 72",
+  mystery: "168, 85, 247",
+  thriller: "225, 29, 72",
+  horror: "200, 40, 40",
+  historical: "194, 120, 62",
+  litfic: "160, 160, 170",
+  adventure: "16, 185, 129",
+  cyberpunk: "45, 212, 191",
+  darkfantasy: "130, 60, 200",
+  sliceoflife: "194, 140, 80",
+  wuxia: "225, 29, 72",
+  isekai: "16, 185, 129",
+  litrpg: "16, 185, 129",
+  mythology: "200, 150, 60",
+};
+
 function GenreShelves() {
   const [hoveredGenre, setHoveredGenre] = useState<string | null>(null);
 
@@ -843,31 +1052,78 @@ function GenreShelves() {
 
         {/* Genre grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {GENRES.map((genre, i) => (
-            <motion.div
-              key={genre.id}
-              className="card-page group cursor-pointer px-5 py-4 flex items-center gap-3 transition-all duration-300"
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, delay: i * 0.04 }}
-              onMouseEnter={() => setHoveredGenre(genre.id)}
-              onMouseLeave={() => setHoveredGenre(null)}
-            >
-              <div
-                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  hoveredGenre === genre.id ? "bg-gold scale-150" : "bg-walnut"
-                }`}
-              />
-              <span
-                className={`font-body text-sm transition-colors duration-300 ${
-                  hoveredGenre === genre.id ? genre.accent : "text-text-secondary"
-                }`}
+          {GENRES.map((genre, i) => {
+            const rgb = GENRE_COLORS[genre.id] || "200, 150, 60";
+            const isHovered = hoveredGenre === genre.id;
+
+            return (
+              <motion.div
+                key={genre.id}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.4, delay: i * 0.04 }}
               >
-                {genre.label}
-              </span>
-            </motion.div>
-          ))}
+                <Link
+                  href={`/browse?genre=${genre.id}`}
+                  className="group relative block overflow-hidden rounded-xl border border-border bg-surface/30 px-5 py-5 transition-all duration-300 hover:bg-surface/50"
+                  onMouseEnter={() => setHoveredGenre(genre.id)}
+                  onMouseLeave={() => setHoveredGenre(null)}
+                  style={{
+                    transform: isHovered ? "translateY(-3px)" : "translateY(0)",
+                    boxShadow: isHovered
+                      ? `0 8px 30px rgba(${rgb}, 0.15), 0 0 0 1px rgba(${rgb}, 0.15)`
+                      : "none",
+                    borderColor: isHovered ? `rgba(${rgb}, 0.3)` : undefined,
+                  }}
+                >
+                  {/* Ambient gradient on hover */}
+                  <div
+                    className="absolute inset-0 pointer-events-none transition-opacity duration-500"
+                    style={{
+                      opacity: isHovered ? 1 : 0,
+                      background: `radial-gradient(ellipse at bottom right, rgba(${rgb}, 0.1) 0%, transparent 70%)`,
+                    }}
+                  />
+
+                  <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full transition-all duration-300 bg-walnut"
+                        style={isHovered ? {
+                          background: `rgb(${rgb})`,
+                          transform: "scale(1.8)",
+                          boxShadow: `0 0 10px rgba(${rgb}, 0.5)`,
+                        } : undefined}
+                      />
+                      <span
+                        className={`font-body text-sm transition-colors duration-300 ${
+                          isHovered ? genre.accent : "text-text-secondary"
+                        }`}
+                      >
+                        {genre.label}
+                      </span>
+                    </div>
+
+                    {/* Explore arrow — slides in on hover */}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      className={`transition-all duration-300 ${
+                        isHovered ? `${genre.accent} opacity-100 translate-x-0` : "opacity-0 -translate-x-1"
+                      }`}
+                    >
+                      <path d="M3 8h10M9 4l4 4-4 4" />
+                    </svg>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>
