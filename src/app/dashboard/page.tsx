@@ -29,6 +29,12 @@ function getTimeOfDay(): { greeting: string; backdrop: string } {
   return { greeting: "Burning the midnight oil", backdrop: "/dashboard/study-night.png" };
 }
 
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return n.toLocaleString();
+}
+
 // ── Creator Hub data shapes ─────────────────────────────────
 
 interface CreatorHubData {
@@ -42,13 +48,13 @@ interface CreatorHubData {
 
 // ── Animated stat counter ───────────────────────────────────
 
-function AnimatedStat({ value, label, accent }: { value: string | number; label: string; accent: string }) {
+function StatCard({ value, label, accent }: { value: string | number; label: string; accent: string }) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className={`font-display text-2xl md:text-3xl font-bold ${accent}`}>
+    <div className="rounded-xl border border-border bg-ink/40 px-5 py-4 flex flex-col items-center gap-1.5 min-w-0">
+      <span className={`font-display text-xl md:text-2xl font-bold tabular-nums ${accent}`}>
         {value}
       </span>
-      <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost font-medium">
         {label}
       </span>
     </div>
@@ -366,9 +372,9 @@ export default function DashboardPage() {
     fetchAll();
   }, [session?.user?.id]);
 
-  const totalWords = stories.reduce((sum, s) => sum + (s.totalWords || 0), 0);
-  const totalChapters = stories.reduce((sum, s) => sum + (s.chapterCount || 0), 0);
-  const totalSparks = stories.reduce((sum, s) => sum + (s.sparkCount || 0), 0);
+  const totalWords = stories.reduce((sum, s) => sum + Number(s.totalWords || 0), 0);
+  const totalChapters = stories.reduce((sum, s) => sum + Number(s.chapterCount || 0), 0);
+  const totalSparks = stories.reduce((sum, s) => sum + Number(s.sparkCount || 0), 0);
 
   // Most recently edited story = the active one
   const activeStory = useMemo(() => {
@@ -409,20 +415,20 @@ export default function DashboardPage() {
     <div className="relative">
       {/* ── Hero area with backdrop ── */}
       <div className="relative overflow-hidden">
-        {/* Time-of-day backdrop */}
+        {/* Backdrop image — subtle, blended into page */}
         <div className="absolute inset-0 pointer-events-none">
           <img
             src={backdrop}
             alt=""
-            className="w-full h-full object-cover"
-            style={{ opacity: "var(--t-backdrop-opacity)" }}
+            className="w-full h-full object-cover opacity-[0.12] dark:opacity-[0.18] mix-blend-luminosity"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-          {/* Gradient overlays to blend edges into void */}
-          <div className="absolute inset-0 bg-gradient-to-b from-void/30 via-transparent to-void" />
-          <div className="absolute inset-0 bg-gradient-to-r from-void/40 via-transparent to-void/40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-void" />
+          <div className="absolute inset-0 bg-gradient-to-r from-void/30 via-transparent to-void/30" />
+          <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-void to-transparent" />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-12 pb-8">
+        <div className="relative max-w-6xl mx-auto px-6 pt-10 pb-6">
           {/* Greeting */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -489,33 +495,24 @@ export default function DashboardPage() {
             )}
           </motion.div>
 
-          {/* ── Stats bar ── */}
+          {/* ── Stats grid ── */}
           {stories.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="flex items-center justify-center gap-8 md:gap-12 py-6 mb-8 border-y border-border/50"
+              className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8"
             >
-              <AnimatedStat value={stories.length} label="Stories" accent="text-amber" />
-              <div className="w-px h-8 bg-border/50" />
-              <AnimatedStat
-                value={totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : totalWords}
-                label="Words Written"
-                accent="text-teal"
-              />
-              <div className="w-px h-8 bg-border/50" />
-              <AnimatedStat value={totalChapters} label="Chapters" accent="text-lavender" />
-              <div className="w-px h-8 bg-border/50 hidden sm:block" />
-              <div className="hidden sm:block">
-                <AnimatedStat value={totalSparks} label="Sparks" accent="text-rose" />
-              </div>
+              <StatCard value={stories.length} label="Stories" accent="text-amber" />
+              <StatCard value={formatNumber(totalWords)} label="Words Written" accent="text-teal" />
+              <StatCard value={formatNumber(totalChapters)} label="Chapters" accent="text-lavender" />
+              <StatCard value={formatNumber(totalSparks)} label="Sparks" accent="text-rose" />
             </motion.div>
           )}
         </div>
 
-        {/* Fade to void at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-void to-transparent pointer-events-none" />
+        {/* Fade backdrop to page bg */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-void to-transparent pointer-events-none" />
       </div>
 
       {error && (
@@ -543,9 +540,9 @@ export default function DashboardPage() {
                       <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4" />
                     </svg>
                   }
-                  value={creatorHub.subscriberCount}
+                  value={formatNumber(creatorHub.subscriberCount)}
                   label="Subscribers"
-                  sublabel={creatorHub.monthlyIncome > 0 ? `$${creatorHub.monthlyIncome.toFixed(0)} this month` : undefined}
+                  sublabel={creatorHub.monthlyIncome > 0 ? `${formatNumber(creatorHub.monthlyIncome)} drops this month` : undefined}
                   href="/creator/circle"
                   accentColor="text-gold"
                   accentGlow="bg-gold/10"
@@ -559,9 +556,9 @@ export default function DashboardPage() {
                       <path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z" />
                     </svg>
                   }
-                  value={creatorHub.tipsThisMonth}
-                  label="Ink Drops This Month"
-                  sublabel={creatorHub.totalEarned > 0 ? `$${creatorHub.totalEarned.toFixed(0)} total` : undefined}
+                  value={formatNumber(creatorHub.tipsThisMonth)}
+                  label="Earned This Month"
+                  sublabel={creatorHub.totalEarned > 0 ? `${formatNumber(creatorHub.totalEarned)} drops total` : undefined}
                   href="/creator/earnings"
                   accentColor="text-teal"
                   accentGlow="bg-teal/10"
@@ -575,7 +572,7 @@ export default function DashboardPage() {
                       <path d="M2 3h12v10H2zM5 7h6M5 10h3" />
                     </svg>
                   }
-                  value={creatorHub.activeCommissions}
+                  value={formatNumber(creatorHub.activeCommissions)}
                   label="Active Commissions"
                   href="/scriptorium"
                   accentColor="text-amethyst"
