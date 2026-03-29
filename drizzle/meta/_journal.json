@@ -50,6 +50,13 @@
       "when": 1774797196527,
       "tag": "0006_shocking_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774798832686,
+      "tag": "0007_majestic_bedlam",
+      "breakpoints": true
     }
   ]
 }

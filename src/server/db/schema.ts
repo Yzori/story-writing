@@ -82,6 +82,9 @@ export const stories = pgTable("stories", {
   sceneBreakStyle: text("scene_break_style").notNull().default("asterism"),
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
   writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'
+  monetizationModel: text("monetization_model").notNull().default("free"), // 'free' | 'freemium' | 'gated'
+  freeChapterCount: integer("free_chapter_count").notNull().default(3), // min free chapters for freemium
+  defaultGatingTier: text("default_gating_tier").notNull().default("standard"), // default tier for new gated chapters
   isPublic: boolean("is_public").notNull().default(false),
   slug: text("slug").unique(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -131,6 +134,8 @@ export const chapters = pgTable("chapters", {
   outline: text("outline").default(""),
   version: integer("version").notNull().default(1),
   sessionId: uuid("session_id").references(() => campaignSessions.id, { onDelete: "set null" }),
+  gatingTier: text("gating_tier").notNull().default("free"), // 'free' | 'standard' (15) | 'extended' (30) | 'premium' (50)
+  earlyAccessDays: integer("early_access_days").notNull().default(0), // 0 = no early access, 3/5/7
   earlyAccessUntil: timestamp("early_access_until", { withTimezone: true }), // null = no early access gate
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -1825,5 +1830,55 @@ export const circleSubscriptionsRelations = relations(circleSubscriptions, ({ on
     fields: [circleSubscriptions.creatorId],
     references: [users.id],
     relationName: "circleSubscriptionsAsCreator",
+  }),
+}));
+
+// ── Content Unlocks — Pay-per-chapter gating ────────────────
+
+export const contentUnlocks = pgTable(
+  "content_unlocks",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chapterId: uuid("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    dropsSpent: integer("drops_spent").notNull(),
+    giftedBy: uuid("gifted_by").references(() => users.id, { onDelete: "set null" }),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("content_unlocks_user_chapter_unique").on(table.userId, table.chapterId),
+    index("idx_content_unlocks_user_story").on(table.userId, table.storyId),
+    index("idx_content_unlocks_chapter").on(table.chapterId),
+  ]
+);
+
+export const contentUnlocksRelations = relations(contentUnlocks, ({ one }) => ({
+  user: one(users, {
+    fields: [contentUnlocks.userId],
+    references: [users.id],
+  }),
+  chapter: one(chapters, {
+    fields: [contentUnlocks.chapterId],
+    references: [chapters.id],
+  }),
+  story: one(stories, {
+    fields: [contentUnlocks.storyId],
+    references: [stories.id],
+  }),
+  gifter: one(users, {
+    fields: [contentUnlocks.giftedBy],
+    references: [users.id],
+    relationName: "giftedUnlocks",
   }),
 }));
