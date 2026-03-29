@@ -211,12 +211,12 @@ export default function ChapterLockScreen({
           const balData = await balRes.json();
           setBalance(balData.balance);
         }
-        toast({ title: "Not enough Ink Drops", variant: "error" });
+        toast("Not enough Ink Drops", "error");
       } else {
-        toast({ title: data.error?.message || "Failed to unlock bundle", variant: "error" });
+        toast(data.error?.message || "Failed to unlock bundle", "error");
       }
     } catch {
-      toast({ title: "Something went wrong", variant: "error" });
+      toast("Something went wrong", "error");
     } finally {
       setUnlocking(false);
       setConfirmStep("idle");

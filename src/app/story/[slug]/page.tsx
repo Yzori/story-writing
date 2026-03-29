@@ -9,6 +9,7 @@ import Link from "next/link";
 import GenrePill from "@/components/shared/GenrePill";
 import StoryCard from "@/components/shared/StoryCard";
 import ReportModal from "@/components/shared/ReportModal";
+import CircleCard from "@/components/circle/CircleCard";
 import { compressImage } from "@/client/images";
 import { useToast } from "@/components/shared/Toast";
 import type { ApiStoryData, ApiUpdate, ApiCollaborator } from "@/types/api";
@@ -1035,6 +1036,16 @@ export default function StoryPage() {
                       </div>
                     </Link>
                   </div>
+                </div>
+              )}
+
+              {/* Creator's Circle */}
+              {story.author && (
+                <div className="mt-8">
+                  <CircleCard
+                    creatorId={story.author.id}
+                    creatorName={story.author.displayName || "This creator"}
+                  />
                 </div>
               )}
             </motion.div>

@@ -13,7 +13,9 @@ import ChapterReactions from "@/components/reader/ChapterReactions";
 import WebtoonReader from "@/components/reader/WebtoonReader";
 import PoetryReader from "@/components/reader/PoetryReader";
 import ScreenplayReader from "@/components/reader/ScreenplayReader";
+import AnnotationLayer from "@/components/reader/AnnotationLayer";
 import IllustratedReader from "@/components/reader/IllustratedReader";
+import ChapterLockScreen from "@/components/reader/ChapterLockScreen";
 
 const READER_PREFS_KEY = "quiloria-reader-prefs";
 const READING_FONT_KEY = "quiloria-reading-font";
@@ -123,7 +125,19 @@ export default function ChapterReadPage() {
   const [fontClass, setFontClass] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [gatingInfo, setGatingInfo] = useState<{ unlocked: boolean; price: number; tier: string; isEarlyAccess?: boolean; earlyAccessUntil?: string } | null>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
+  const annotationContentRef = useRef<HTMLDivElement>(null);
+
+  // Find the prose-reader div for annotations after content renders
+  useEffect(() => {
+    if (storyFormat !== "novel" || !activeChapter) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(".prose-reader") as HTMLDivElement | null;
+      if (el) annotationContentRef.current = el;
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [activeChapter, storyFormat, mode]);
   const [initialScrollPercent, setInitialScrollPercent] = useState<number | null>(null);
   const [initialPageNumber, setInitialPageNumber] = useState<number | null>(null);
   const lastSaveRef = useRef<number>(0);
@@ -178,6 +192,13 @@ export default function ChapterReadPage() {
         setChapters((prev) =>
           prev.map((ch) => (ch.id === fullChapter.id ? fullChapter : ch))
         );
+
+        // Check chapter gating
+        const gateRes = await fetch(`/api/stories/${story.id}/chapters/${chapterId}/unlock`);
+        if (gateRes.ok) {
+          const gateJson = await gateRes.json();
+          setGatingInfo(gateJson);
+        }
       } catch {
         setError("Failed to load chapter");
       } finally {
@@ -381,6 +402,46 @@ export default function ChapterReadPage() {
     );
   }
 
+  // Gating guard: show lock screen for locked chapters
+  if (gatingInfo && !gatingInfo.unlocked) {
+    return (
+      <div className="min-h-screen w-screen flex flex-col bg-void">
+        <ReaderToolbar
+          storyTitle={storyTitle}
+          chapter={activeChapter}
+          chapterIndex={activeChapterIndex}
+          totalChapters={chapters.length}
+          mode={mode}
+          onModeChange={handleModeChange}
+          fontSize={fontSize}
+          onFontSizeChange={handleFontSizeChange}
+          onPrevChapter={handlePrevChapter}
+          onNextChapter={handleNextChapter}
+          onBack={handleBack}
+          onSelectChapter={navigateToChapter}
+          chapters={chapters}
+          wordCount={activeChapter.wordCount}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <ChapterLockScreen
+            storyId={storyId!}
+            chapterId={chapterId}
+            chapterTitle={activeChapter.title}
+            wordCount={activeChapter.wordCount}
+            authorName={storyTitle}
+            tier={gatingInfo.tier as "standard" | "extended" | "premium"}
+            price={gatingInfo.price}
+            isEarlyAccess={gatingInfo.isEarlyAccess}
+            earlyAccessUntil={gatingInfo.earlyAccessUntil}
+            onUnlocked={() => {
+              setGatingInfo({ ...gatingInfo, unlocked: true });
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-screen flex flex-col bg-void relative">
       <div className="h-screen w-screen flex flex-col overflow-hidden relative flex-shrink-0">
@@ -537,6 +598,15 @@ export default function ChapterReadPage() {
           />
         )}
       </div>
+
+      {/* Annotation layer for marginalia */}
+      {storyId && storyFormat === "novel" && (
+        <AnnotationLayer
+          storyId={storyId}
+          chapterId={chapterId}
+          contentRef={annotationContentRef}
+        />
+      )}
 
       {/* Reactions section below the reader */}
       {storyId && (

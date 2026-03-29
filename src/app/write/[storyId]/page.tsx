@@ -2152,6 +2152,8 @@ export default function WriteStoryPage() {
             <MetadataPanel
               metadata={project.metadata}
               storyTitle={project.title}
+              storyId={storyId}
+              isPublic={isPublic}
               onUpdate={handleUpdateMetadata}
               onClose={handleClosePanel}
             />
