@@ -31,6 +31,8 @@ export const users = pgTable("users", {
   readingMode: text("reading_mode").notNull().default("paginated"),
   readingFont: text("reading_font").notNull().default("default"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  inkDropBalance: integer("ink_drop_balance").notNull().default(100),
+  emailNotifications: boolean("email_notifications").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -46,6 +48,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   follows: many(follows),
   collaborators: many(collaborators),
   guildProfile: one(guildProfiles),
+  sentTips: many(inkDropTransactions, { relationName: "sentTips" }),
+  receivedTips: many(inkDropTransactions, { relationName: "receivedTips" }),
 }));
 
 // ── Stories ──────────────────────────────────────────────────
@@ -127,6 +131,7 @@ export const chapters = pgTable("chapters", {
   outline: text("outline").default(""),
   version: integer("version").notNull().default(1),
   sessionId: uuid("session_id").references(() => campaignSessions.id, { onDelete: "set null" }),
+  earlyAccessUntil: timestamp("early_access_until", { withTimezone: true }), // null = no early access gate
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -364,6 +369,7 @@ export const comments = pgTable("comments", {
     .references(() => stories.id, { onDelete: "cascade" }),
   parentId: uuid("parent_id").references((): any => comments.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  circleOnly: boolean("circle_only").notNull().default(false), // visible only to Circle subscribers
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -1457,5 +1463,367 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
   user: one(users, {
     fields: [passwordResetTokens.userId],
     references: [users.id],
+  }),
+}));
+
+// ── Spectator Reactions ────────────────────────────────────
+
+export const spectatorReactions = pgTable(
+  "spectator_reactions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // gasped | cried | laughed | need-more | saw-it-coming | heartbroken | inspired | terrified
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_spectator_reactions_session_created").on(table.sessionId, table.createdAt),
+  ]
+);
+
+export const spectatorReactionsRelations = relations(spectatorReactions, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [spectatorReactions.sessionId],
+    references: [campaignSessions.id],
+  }),
+  user: one(users, {
+    fields: [spectatorReactions.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Ink Drop Transactions ──────────────────────────────────
+
+export const inkDropTransactions = pgTable(
+  "ink_drop_transactions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    fromUserId: uuid("from_user_id").references(() => users.id, { onDelete: "cascade" }),
+    toUserId: uuid("to_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => campaignSessions.id, { onDelete: "set null" }),
+    amount: integer("amount").notNull(),
+    type: text("type").notNull(), // tip | grant | purchase
+    message: text("message"),
+    stripeSessionId: text("stripe_session_id").unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_ink_drop_tx_to_user").on(table.toUserId, table.createdAt),
+    index("idx_ink_drop_tx_session").on(table.sessionId, table.createdAt),
+  ]
+);
+
+export const inkDropTransactionsRelations = relations(inkDropTransactions, ({ one }) => ({
+  fromUser: one(users, {
+    fields: [inkDropTransactions.fromUserId],
+    references: [users.id],
+    relationName: "sentTips",
+  }),
+  toUser: one(users, {
+    fields: [inkDropTransactions.toUserId],
+    references: [users.id],
+    relationName: "receivedTips",
+  }),
+  session: one(campaignSessions, {
+    fields: [inkDropTransactions.sessionId],
+    references: [campaignSessions.id],
+  }),
+}));
+
+// ── Story Boosts ───────────────────────────────────────────
+
+export const storyBoosts = pgTable(
+  "story_boosts",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    inkDropsCost: integer("ink_drops_cost").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_story_boosts_expires").on(table.expiresAt),
+    index("idx_story_boosts_story").on(table.storyId),
+  ]
+);
+
+export const storyBoostsRelations = relations(storyBoosts, ({ one }) => ({
+  story: one(stories, {
+    fields: [storyBoosts.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [storyBoosts.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Annotations (Marginalia) ───────────────────────────────
+
+export const annotations = pgTable(
+  "annotations",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    chapterId: uuid("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    startOffset: integer("start_offset").notNull(),
+    endOffset: integer("end_offset").notNull(),
+    content: text("content").notNull(),
+    visibility: text("visibility").notNull().default("private"), // private | public
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_annotations_chapter").on(table.chapterId),
+    index("idx_annotations_user_chapter").on(table.userId, table.chapterId),
+  ]
+);
+
+export const annotationsRelations = relations(annotations, ({ one }) => ({
+  chapter: one(chapters, {
+    fields: [annotations.chapterId],
+    references: [chapters.id],
+  }),
+  user: one(users, {
+    fields: [annotations.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Story Jams ─────────────────────────────────────────────
+
+export const storyJams = pgTable(
+  "story_jams",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    theme: text("theme").notNull(),
+    bannerUrl: text("banner_url"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    submissionStartsAt: timestamp("submission_starts_at", { withTimezone: true }).notNull(),
+    submissionEndsAt: timestamp("submission_ends_at", { withTimezone: true }).notNull(),
+    votingStartsAt: timestamp("voting_starts_at", { withTimezone: true }).notNull(),
+    votingEndsAt: timestamp("voting_ends_at", { withTimezone: true }).notNull(),
+    wordCountMin: integer("word_count_min"),
+    wordCountMax: integer("word_count_max"),
+    maxEntries: integer("max_entries"),
+    status: text("status").notNull().default("upcoming"), // upcoming | open | voting | ended
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_story_jams_status").on(table.status),
+  ]
+);
+
+export const storyJamsRelations = relations(storyJams, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [storyJams.createdBy],
+    references: [users.id],
+  }),
+  entries: many(jamEntries),
+}));
+
+export const jamEntries = pgTable(
+  "jam_entries",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    jamId: uuid("jam_id")
+      .notNull()
+      .references(() => storyJams.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("jam_entries_jam_story_unique").on(table.jamId, table.storyId),
+    index("idx_jam_entries_jam").on(table.jamId),
+  ]
+);
+
+export const jamEntriesRelations = relations(jamEntries, ({ one, many }) => ({
+  jam: one(storyJams, {
+    fields: [jamEntries.jamId],
+    references: [storyJams.id],
+  }),
+  story: one(stories, {
+    fields: [jamEntries.storyId],
+    references: [stories.id],
+  }),
+  user: one(users, {
+    fields: [jamEntries.userId],
+    references: [users.id],
+  }),
+  votes: many(jamVotes),
+}));
+
+export const jamVotes = pgTable(
+  "jam_votes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    jamId: uuid("jam_id")
+      .notNull()
+      .references(() => storyJams.id, { onDelete: "cascade" }),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => jamEntries.id, { onDelete: "cascade" }),
+    voterId: uuid("voter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(), // 1-5
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("jam_votes_entry_voter_unique").on(table.entryId, table.voterId),
+    index("idx_jam_votes_entry").on(table.entryId),
+    index("idx_jam_votes_jam").on(table.jamId),
+  ]
+);
+
+export const jamVotesRelations = relations(jamVotes, ({ one }) => ({
+  jam: one(storyJams, {
+    fields: [jamVotes.jamId],
+    references: [storyJams.id],
+  }),
+  entry: one(jamEntries, {
+    fields: [jamVotes.entryId],
+    references: [jamEntries.id],
+  }),
+  voter: one(users, {
+    fields: [jamVotes.voterId],
+    references: [users.id],
+  }),
+}));
+
+// ── The Circle — Creator Subscriptions ──────────────────────
+
+export const creatorCircles = pgTable(
+  "creator_circles",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    creatorId: uuid("creator_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    isActive: boolean("is_active").notNull().default(false),
+    confidantPrice: integer("confidant_price").notNull().default(500), // drops/month
+    confidantDescription: text("confidant_description"),
+    earlyAccessDays: integer("early_access_days").notNull().default(3), // 1-7
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("creator_circles_creator_unique").on(table.creatorId),
+    index("idx_creator_circles_active").on(table.isActive),
+  ]
+);
+
+export const creatorCirclesRelations = relations(creatorCircles, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [creatorCircles.creatorId],
+    references: [users.id],
+  }),
+  subscriptions: many(circleSubscriptions),
+}));
+
+export const circleSubscriptions = pgTable(
+  "circle_subscriptions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    readerId: uuid("reader_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    creatorId: uuid("creator_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tier: text("tier").notNull().default("confidant"), // 'confidant' | 'muse' | 'patron'
+    status: text("status").notNull().default("active"), // 'active' | 'lapsed' | 'cancelled'
+    priceAtSubscription: integer("price_at_subscription").notNull(), // drops/month locked in
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    renewalDate: timestamp("renewal_date", { withTimezone: true }).notNull(), // next billing date
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("circle_subs_reader_creator_unique").on(table.readerId, table.creatorId),
+    index("idx_circle_subs_creator_status").on(table.creatorId, table.status),
+    index("idx_circle_subs_reader").on(table.readerId),
+    index("idx_circle_subs_renewal").on(table.renewalDate),
+  ]
+);
+
+export const circleSubscriptionsRelations = relations(circleSubscriptions, ({ one }) => ({
+  reader: one(users, {
+    fields: [circleSubscriptions.readerId],
+    references: [users.id],
+    relationName: "circleSubscriptionsAsReader",
+  }),
+  creator: one(users, {
+    fields: [circleSubscriptions.creatorId],
+    references: [users.id],
+    relationName: "circleSubscriptionsAsCreator",
   }),
 }));

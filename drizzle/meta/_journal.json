@@ -29,6 +29,27 @@
       "when": 1774721992504,
       "tag": "0003_graceful_blacklash",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774791725757,
+      "tag": "0004_productive_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774794186097,
+      "tag": "0005_modern_beyonder",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774797196527,
+      "tag": "0006_shocking_silverclaw",
+      "breakpoints": true
     }
   ]
 }

@@ -109,7 +109,11 @@ export type NotifType =
   | "update"
   | "collaboration"
   | "suggestion"
-  | "open-call";
+  | "open-call"
+  | "tip"
+  | "jam"
+  | "annotation"
+  | "circle";
 
 export interface ApiNotification {
   id: string;
