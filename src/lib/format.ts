@@ -19,6 +19,14 @@ export function formatTimeAgo(dateOrTimestamp: string | number): string {
   return date.toLocaleDateString();
 }
 
+export function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
 export function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;

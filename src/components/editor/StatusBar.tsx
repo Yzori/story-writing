@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { formatNumber, WritingGoals } from "@/types/editor";
+import { WritingGoals } from "@/types/editor";
+import { formatNumber } from "@/lib/format";
 import { getTodaySession } from "@/client/goals";
 
 type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";

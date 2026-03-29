@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Chapter, formatNumber } from "@/types/editor";
+import { Chapter } from "@/types/editor";
+import { formatNumber } from "@/lib/format";
 
 interface OutlineViewProps {
   chapters: Chapter[];

@@ -3,7 +3,7 @@
 import type { KeyboardEvent } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Chapter } from "@/types/editor";
-import { formatNumber } from "@/types/editor";
+import { formatNumber } from "@/lib/format";
 
 // Format-aware vocabulary — "chapter" for novels, "poem" for poetry, etc.
 const FORMAT_LABELS: Record<string, { singular: string; plural: string; newLabel: string }> = {

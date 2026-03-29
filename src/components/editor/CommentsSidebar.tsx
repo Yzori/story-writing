@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CommentThread, addReply, formatTimeAgo } from "@/client/comments";
+import { CommentThread, addReply } from "@/client/comments";
+import { formatTimeAgo } from "@/lib/format";
 
 interface CommentsSidebarProps {
   threads: CommentThread[];
