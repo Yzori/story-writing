@@ -108,7 +108,46 @@ interface PulseCounts {
   online: number;
 }
 
+type ContinueItem =
+  | {
+      kind: "read";
+      title: string;
+      subtitle: string;
+      href: string;
+      coverImageUrl: string | null;
+      scrollPercent: number;
+      updatedAt: string;
+    }
+  | {
+      kind: "draft";
+      title: string;
+      subtitle: string;
+      href: string;
+      coverImageUrl: string | null;
+      updatedAt: string;
+      wordCount: number;
+    }
+  | {
+      kind: "play";
+      title: string;
+      subtitle: string;
+      href: string;
+      coverImageUrl: string | null;
+      updatedAt: string;
+      isLive: boolean;
+      asGm: boolean;
+    };
+
+interface TodayStats {
+  unreadNotifications: number;
+  dropsEarned24h: number;
+  newComments24h: number;
+  jamDeadlinesEntered: number;
+}
+
 interface HomeData {
+  continue: ContinueItem[];
+  today: TodayStats;
   hero: HeroSlide[];
   sponsored: StoryCard[];
   trending: TrendingCard[];
@@ -192,49 +231,41 @@ export default function TrendingHome() {
     <main className="min-h-screen bg-void">
       <Navbar />
       <div className="pt-14">
-        {/* Live activity ticker — sits just beneath the navbar as the
-            platform's pulse, seen before anything else. */}
+        {/* Live activity ticker — platform pulse, sits just beneath navbar */}
         {data && data.activity.length > 0 && (
           <ActivityTicker events={data.activity} />
         )}
 
-        <div className="max-w-7xl mx-auto px-6 pt-8">
+        {/* ── PERSONAL ZONE — the first thing a returning user sees ── */}
+        <div className="max-w-7xl mx-auto px-6 pt-10">
+          <ContinueZone
+            items={data?.continue ?? []}
+            loading={loading}
+          />
+          {data && hasAnyTodaySignal(data.today) && (
+            <TodayStrip today={data.today} />
+          )}
+        </div>
+
+        {/* ── DISCOVERY ZONE ── */}
+        <div className="max-w-7xl mx-auto px-6 pt-6">
           {/* Hero triple slider */}
           <HeroCarousel slides={data?.hero ?? []} loading={loading} />
         </div>
 
         <div className="max-w-7xl mx-auto px-6">
-          {/* Live adventures — the best section */}
-          {data && data.liveAdventures.length > 0 && (
+          {/* Live adventures */}
+          {loading ? (
+            <LiveAdventuresSkeleton />
+          ) : data && data.liveAdventures.length > 0 ? (
             <LiveAdventuresSection sessions={data.liveAdventures} />
-          )}
+          ) : null}
 
-          {/* Trending this week with hero-of-row */}
-          {data && data.trending.length > 0 && (
-            <TrendingSection items={data.trending} />
-          )}
-        </div>
-
-        {/* Sponsored strip — dark inset band, set apart from organic rows */}
-        {data && data.sponsored.length > 0 && (
-          <SponsoredSection items={data.sponsored} />
-        )}
-
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Adventures looking for players (call-to-play) */}
-          {data && data.adventures.length > 0 && (
-            <AdventuresLookingSection items={data.adventures} />
-          )}
-
-          {/* Jams closing soon — with live countdown */}
-          {data && data.jams.length > 0 && (
-            <JamsSection items={data.jams} />
-          )}
-
-          {/* Following */}
+          {/* Follows FIRST — your people before the algorithm's picks */}
           {data && data.following.length > 0 && (
             <Row
               label="New from authors you follow"
+              hint="Caught up on the writers you're reading"
               cards={data.following.map((s) => ({
                 id: s.id,
                 href: storyHref(s),
@@ -244,6 +275,30 @@ export default function TrendingHome() {
                 tag: "New",
               }))}
             />
+          )}
+
+          {/* Trending — algorithmic discovery */}
+          {loading ? (
+            <TrendingSkeleton />
+          ) : data && data.trending.length > 0 ? (
+            <TrendingSection items={data.trending} />
+          ) : null}
+        </div>
+
+        {/* Sponsored strip */}
+        {data && data.sponsored.length > 0 && (
+          <SponsoredSection items={data.sponsored} />
+        )}
+
+        <div className="max-w-7xl mx-auto px-6">
+          {/* Adventures looking for players */}
+          {data && data.adventures.length > 0 && (
+            <AdventuresLookingSection items={data.adventures} />
+          )}
+
+          {/* Jams closing soon */}
+          {data && data.jams.length > 0 && (
+            <JamsSection items={data.jams} />
           )}
 
           {/* Staff picks */}
@@ -261,49 +316,327 @@ export default function TrendingHome() {
               }))}
             />
           )}
-
-          {/* Candlelit reader card */}
-          <div className="my-16">
-            <Link
-              href="/read"
-              className="group relative block overflow-hidden rounded-lg border border-gold/20 bg-gradient-to-br from-gold/5 via-void to-copper/5 p-10 md:p-14 transition-all hover:border-gold/40"
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(200,150,60,0.08)_0%,transparent_60%)] pointer-events-none" />
-              <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div>
-                  <p className="text-gold/70 text-[11px] tracking-[0.3em] uppercase mb-3">
-                    A different way to read
-                  </p>
-                  <h2 className="font-display text-paper text-3xl md:text-4xl mb-2">
-                    Enter the candlelit room
-                  </h2>
-                  <p className="text-text-secondary text-[14px] max-w-md">
-                    No grids, no decisions. Open the reader and a story is
-                    already waiting — picked for you, paced for you.
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-2 text-gold font-display text-[14px] tracking-wide border border-gold/30 rounded-full px-6 py-2.5 group-hover:bg-gold/10 transition-all">
-                  Open the reader
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path d="M3 8h10M9 4l4 4-4 4" />
-                  </svg>
-                </span>
-              </div>
-            </Link>
-          </div>
         </div>
 
-        {/* Platform pulse ribbon at the very bottom */}
+        {/* Platform pulse ribbon */}
         {data && <PulseRibbon pulse={data.pulse} />}
       </div>
     </main>
+  );
+}
+
+function hasAnyTodaySignal(t: TodayStats): boolean {
+  return (
+    t.unreadNotifications > 0 ||
+    t.dropsEarned24h > 0 ||
+    t.newComments24h > 0 ||
+    t.jamDeadlinesEntered > 0
+  );
+}
+
+// ── Continue Zone — resume cards + candlelit slot ─────────────
+
+function ContinueZone({
+  items,
+  loading,
+}: {
+  items: ContinueItem[];
+  loading: boolean;
+}) {
+  return (
+    <section className="mb-10">
+      <div className="flex items-baseline justify-between mb-5">
+        <div>
+          <p className="text-gold/60 text-[11px] tracking-[0.3em] uppercase mb-1">
+            Welcome back
+          </p>
+          <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
+            Pick up where you left off
+          </h2>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="aspect-[16/10] rounded-xl border border-border bg-elevated/20 animate-pulse"
+            />
+          ))
+        ) : (
+          <>
+            {items.map((item) => (
+              <ContinueCard key={`${item.kind}-${item.href}`} item={item} />
+            ))}
+            <CandlelitCard />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ContinueCard({ item }: { item: ContinueItem }) {
+  const accentByKind: Record<
+    ContinueItem["kind"],
+    { label: string; icon: React.ReactNode; color: string }
+  > = {
+    read: {
+      label: "Continue reading",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
+          <path d="M5 5h6M5 8h4" />
+        </svg>
+      ),
+      color: "text-gold",
+    },
+    draft: {
+      label: "Resume draft",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M11 2l3 3-8 8H3v-3z" />
+          <path d="M9 4l3 3" />
+        </svg>
+      ),
+      color: "text-amber",
+    },
+    play: {
+      label: item.kind === "play" && item.asGm ? "Return to GM seat" : "Rejoin session",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="8" r="6" />
+          <path d="M6 5l5 3-5 3z" fill="currentColor" />
+        </svg>
+      ),
+      color: "text-sage",
+    },
+  };
+  const accent = accentByKind[item.kind];
+  const isLivePlay = item.kind === "play" && item.isLive;
+
+  return (
+    <Link
+      href={item.href}
+      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
+    >
+      <div className="relative aspect-[16/10]">
+        {item.coverImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.coverImageUrl}
+            alt={item.title}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
+
+        {/* Top label */}
+        <div className={`absolute top-3 left-3 inline-flex items-center gap-1.5 bg-void/70 backdrop-blur-sm border border-border px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase ${accent.color}`}>
+          {accent.icon}
+          {accent.label}
+        </div>
+
+        {/* Live badge for play */}
+        {isLivePlay && (
+          <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-rose/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] tracking-[0.15em] uppercase text-paper font-semibold">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-paper opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-paper" />
+            </span>
+            Live
+          </div>
+        )}
+
+        {/* Title block */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <h3 className="font-display text-paper text-[15px] leading-tight line-clamp-2 group-hover:text-gold transition-colors">
+            {item.title}
+          </h3>
+          <p className="text-text-ghost text-[11px] mt-1 truncate">
+            {item.subtitle}
+          </p>
+
+          {/* Scroll progress for reading */}
+          {item.kind === "read" && (
+            <div className="mt-2 h-[2px] rounded-full bg-border overflow-hidden">
+              <div
+                className="h-full bg-gold/70"
+                style={{ width: `${item.scrollPercent}%` }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function CandlelitCard() {
+  return (
+    <Link
+      href="/read"
+      className="group relative block overflow-hidden rounded-xl border border-gold/25 bg-gradient-to-br from-gold/8 via-void to-copper/8 hover:border-gold/50 transition-all"
+    >
+      <div className="relative aspect-[16/10] flex flex-col justify-between p-5">
+        {/* Ambient glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(200,150,60,0.12)_0%,transparent_60%)] pointer-events-none" />
+        <div className="relative">
+          <div className="inline-flex items-center gap-1.5 bg-void/60 backdrop-blur-sm border border-gold/30 text-gold px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1C8 1 3 4 3 9a5 5 0 0010 0c0-5-5-8-5-8z" />
+            </svg>
+            Tonight&apos;s reading
+          </div>
+        </div>
+        <div className="relative">
+          <h3 className="font-display text-paper text-xl leading-tight mb-1">
+            The candlelit room
+          </h3>
+          <p className="text-text-secondary text-[12px] mb-2 line-clamp-2">
+            Open the reader and a story is already waiting — picked for you,
+            paced for you.
+          </p>
+          <span className="inline-flex items-center gap-1.5 text-gold text-[11px] tracking-wide group-hover:gap-2 transition-all">
+            Enter the room
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 8h10M9 4l4 4-4 4" />
+            </svg>
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ── Today strip — writer / GM signal row ──────────────────────
+
+function TodayStrip({ today }: { today: TodayStats }) {
+  const items: {
+    key: string;
+    value: number;
+    label: string;
+    href: string;
+    color: string;
+    icon: React.ReactNode;
+  }[] = [];
+  if (today.newComments24h > 0) {
+    items.push({
+      key: "comments",
+      value: today.newComments24h,
+      label: today.newComments24h === 1 ? "new comment on your work" : "new comments on your work",
+      href: "/notifications",
+      color: "text-teal",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M2 3h12v9H6l-4 3z" />
+        </svg>
+      ),
+    });
+  }
+  if (today.dropsEarned24h > 0) {
+    items.push({
+      key: "drops",
+      value: today.dropsEarned24h,
+      label: "drops earned today",
+      href: "/creator/earnings",
+      color: "text-gold",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
+        </svg>
+      ),
+    });
+  }
+  if (today.jamDeadlinesEntered > 0) {
+    items.push({
+      key: "jams",
+      value: today.jamDeadlinesEntered,
+      label: today.jamDeadlinesEntered === 1 ? "jam deadline you're in" : "jam deadlines you're in",
+      href: "/jams",
+      color: "text-lavender",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
+        </svg>
+      ),
+    });
+  }
+  if (today.unreadNotifications > 0) {
+    items.push({
+      key: "notifs",
+      value: today.unreadNotifications,
+      label: today.unreadNotifications === 1 ? "unread notification" : "unread notifications",
+      href: "/notifications",
+      color: "text-rose",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M4 6a4 4 0 018 0c0 4 2 5 2 5H2s2-1 2-5z" />
+        </svg>
+      ),
+    });
+  }
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mb-2 rounded-xl border border-border bg-gradient-to-r from-elevated/30 via-void to-elevated/30 px-5 py-3">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <span className="text-text-ghost text-[10px] tracking-[0.25em] uppercase">
+          Your today
+        </span>
+        <div className="w-px h-4 bg-border hidden md:block" />
+        {items.map((it) => (
+          <Link
+            key={it.key}
+            href={it.href}
+            className="inline-flex items-center gap-2 text-[12px] hover:opacity-80 transition-opacity"
+          >
+            <span className={it.color}>{it.icon}</span>
+            <span className={`font-display tabular-nums text-base ${it.color}`}>
+              {it.value.toLocaleString()}
+            </span>
+            <span className="text-text-secondary">{it.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Skeletons ─────────────────────────────────────────────────
+
+function TrendingSkeleton() {
+  return (
+    <section className="my-16">
+      <div className="mb-6 h-8 w-52 rounded bg-elevated/40 animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto md:min-h-[320px] rounded-xl bg-elevated/20 animate-pulse" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="aspect-[3/4] rounded-xl bg-elevated/20 animate-pulse"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LiveAdventuresSkeleton() {
+  return (
+    <section className="my-16">
+      <div className="mb-6 h-8 w-64 rounded bg-elevated/40 animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="aspect-[16/10] rounded-xl bg-elevated/20 animate-pulse"
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -698,7 +1031,7 @@ function SponsoredSection({ items }: { items: StoryCard[] }) {
               <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="text-gold/70">
                 <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
               </svg>
-              <h2 className="font-display text-text-secondary text-lg tracking-tight">
+              <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
                 Sponsored
               </h2>
             </div>
@@ -772,10 +1105,7 @@ function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {items.slice(0, 8).map((a) => {
-          const maxSeats = 6;
           const filled = Number(a.playerCount);
-          const openSeats = Math.max(0, maxSeats - filled);
-          const urgent = openSeats === 1;
           return (
             <Link
               key={a.sessionId}
@@ -794,6 +1124,14 @@ function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
                   <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
+                {/* Seeking more pill */}
+                <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-sage/15 backdrop-blur border border-sage/40 text-sage text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sage opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sage" />
+                  </span>
+                  Seeking
+                </div>
               </div>
               <div className="p-4">
                 <p className="text-text-ghost text-[10px] tracking-wide uppercase mb-1 truncate">
@@ -802,25 +1140,19 @@ function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
                 <h3 className="font-display text-paper text-[15px] leading-tight group-hover:text-gold transition-colors line-clamp-2 mb-3">
                   {a.sessionTitle}
                 </h3>
-                <div className="flex items-center justify-between text-[11px] mb-1.5">
-                  <span className="text-text-secondary">
-                    {filled} / {maxSeats} at the table
+                <div className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+                  {/* Tiny avatar dots */}
+                  <div className="flex -space-x-1">
+                    {Array.from({ length: Math.min(filled, 5) }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-4 h-4 rounded-full border border-void bg-gradient-to-br from-gold/30 to-copper/20"
+                      />
+                    ))}
+                  </div>
+                  <span>
+                    {filled} at the table
                   </span>
-                  <span
-                    className={urgent ? "text-rose" : "text-text-ghost"}
-                  >
-                    {openSeats > 0 ? `${openSeats} open` : "full"}
-                  </span>
-                </div>
-                <div className="h-1 rounded-full bg-border overflow-hidden">
-                  <div
-                    className={`h-full transition-all ${
-                      urgent ? "bg-rose" : "bg-gold/60"
-                    }`}
-                    style={{
-                      width: `${Math.min(100, (filled / maxSeats) * 100)}%`,
-                    }}
-                  />
                 </div>
               </div>
             </Link>
@@ -1269,12 +1601,6 @@ function HeroCarousel({
                               <path d="M3 8h10M9 4l4 4-4 4" />
                             </svg>
                           </Link>
-                          <Link
-                            href={storyHref(s)}
-                            className="text-text-secondary hover:text-paper text-[12px] tracking-wide transition-colors hidden sm:inline"
-                          >
-                            Details
-                          </Link>
                         </div>
                       </motion.div>
                     </AnimatePresence>
@@ -1333,26 +1659,18 @@ function Row({
   hint,
   cards,
   loading,
-  sponsored,
-  subtle,
 }: {
   label: string;
   hint?: string;
   cards: RowCard[];
   loading?: boolean;
-  sponsored?: boolean;
-  subtle?: boolean;
 }) {
   if (!loading && cards.length === 0) return null;
   return (
     <section className="my-14">
       <div className="flex items-baseline justify-between mb-5">
         <div>
-          <h2
-            className={`font-display tracking-tight ${
-              subtle ? "text-text-secondary text-lg" : "text-paper text-2xl"
-            }`}
-          >
+          <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
             {label}
           </h2>
           {hint && (
@@ -1375,9 +1693,9 @@ function Row({
           <Link
             key={c.id}
             href={c.href}
-            className="flex-shrink-0 w-48 group snap-start"
+            className="flex-shrink-0 w-56 group snap-start"
           >
-            <div className="relative aspect-[2/3] rounded-sm overflow-hidden border border-border group-hover:border-gold/30 transition-all bg-elevated/40">
+            <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-border group-hover:border-gold/40 transition-all bg-elevated/40">
               {c.cover ? (
                 <div
                   className="absolute inset-0 bg-cover bg-center group-hover:scale-[1.03] transition-transform duration-700"
@@ -1390,7 +1708,7 @@ function Row({
               {c.tag && (
                 <span
                   className={`absolute top-2 right-2 text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full backdrop-blur ${
-                    sponsored || c.tag === "Sponsored"
+                    c.tag === "Sponsored"
                       ? "bg-void/70 text-gold/80 border border-gold/30"
                       : "bg-void/60 text-text-secondary border border-border"
                   }`}

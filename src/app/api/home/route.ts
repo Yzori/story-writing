@@ -16,6 +16,9 @@ import {
   users,
   storyDonations,
   playerCharacters,
+  readingProgress,
+  notifications,
+  comments,
 } from "@/server/db/schema";
 import { and, eq, gt, isNull, sql, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -257,6 +260,245 @@ export async function GET() {
       )
       .orderBy(storyJams.submissionEndsAt)
       .limit(6);
+
+    // ── 6a. Personal surfaces (Continue + Today) ────────────
+    type ContinueItem =
+      | {
+          kind: "read";
+          title: string;
+          subtitle: string;
+          href: string;
+          coverImageUrl: string | null;
+          scrollPercent: number;
+          updatedAt: string;
+        }
+      | {
+          kind: "draft";
+          title: string;
+          subtitle: string;
+          href: string;
+          coverImageUrl: string | null;
+          updatedAt: string;
+          wordCount: number;
+        }
+      | {
+          kind: "play";
+          title: string;
+          subtitle: string;
+          href: string;
+          coverImageUrl: string | null;
+          updatedAt: string;
+          isLive: boolean;
+          asGm: boolean;
+        };
+
+    const continueItems: ContinueItem[] = [];
+    const today = {
+      unreadNotifications: 0,
+      dropsEarned24h: 0,
+      newComments24h: 0,
+      jamDeadlinesEntered: 0,
+    };
+
+    if (userId) {
+      const dayAgoIso = new Date(
+        now.getTime() - 24 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const [
+        lastReadRows,
+        lastDraftRows,
+        lastSessionRows,
+        unreadRow,
+        dropsRow,
+        commentsRow,
+        jamDeadlinesRow,
+      ] = await Promise.all([
+        // Last read (join story + chapter)
+        db
+          .select({
+            storyId: readingProgress.storyId,
+            chapterId: readingProgress.chapterId,
+            scrollPercent: readingProgress.scrollPercent,
+            updatedAt: readingProgress.updatedAt,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            coverImageUrl: stories.coverImageUrl,
+            chapterTitle: chapters.title,
+            authorName: users.displayName,
+          })
+          .from(readingProgress)
+          .innerJoin(
+            stories,
+            and(eq(readingProgress.storyId, stories.id), isNull(stories.deletedAt)),
+          )
+          .innerJoin(chapters, eq(readingProgress.chapterId, chapters.id))
+          .leftJoin(users, eq(stories.userId, users.id))
+          .where(eq(readingProgress.userId, userId))
+          .orderBy(desc(readingProgress.updatedAt))
+          .limit(1),
+        // Last draft owned by the user
+        db
+          .select({
+            id: stories.id,
+            title: stories.title,
+            slug: stories.slug,
+            coverImageUrl: stories.coverImageUrl,
+            updatedAt: stories.updatedAt,
+            format: stories.format,
+          })
+          .from(stories)
+          .where(
+            and(
+              eq(stories.userId, userId),
+              eq(stories.status, "draft"),
+              isNull(stories.deletedAt),
+            ),
+          )
+          .orderBy(desc(stories.updatedAt))
+          .limit(1),
+        // Last active session — either user is in roster OR user owns the story (GM)
+        db
+          .select({
+            sessionId: campaignSessions.id,
+            sessionTitle: campaignSessions.title,
+            updatedAt: campaignSessions.updatedAt,
+            storyId: stories.id,
+            storyUserId: stories.userId,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            coverImageUrl: stories.coverImageUrl,
+            latestTurnAt: sql<Date | null>`(
+              select max(${campaignTurns.createdAt}) from ${campaignTurns}
+              where ${campaignTurns.sessionId} = ${campaignSessions.id}
+            )`,
+            inRoster: sql<boolean>`exists(
+              select 1 from ${sessionRoster}
+              where ${sessionRoster.sessionId} = ${campaignSessions.id}
+                and ${sessionRoster.userId} = ${userId}
+            )`,
+          })
+          .from(campaignSessions)
+          .innerJoin(
+            stories,
+            and(
+              eq(campaignSessions.storyId, stories.id),
+              isNull(stories.deletedAt),
+            ),
+          )
+          .where(
+            and(
+              eq(campaignSessions.status, "active"),
+              sql`(
+                ${stories.userId} = ${userId}
+                or exists(
+                  select 1 from ${sessionRoster}
+                  where ${sessionRoster.sessionId} = ${campaignSessions.id}
+                    and ${sessionRoster.userId} = ${userId}
+                )
+              )`,
+            ),
+          )
+          .orderBy(desc(campaignSessions.updatedAt))
+          .limit(1),
+        // Unread notifications count
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, userId),
+              eq(notifications.read, false),
+            ),
+          ),
+        // Drops earned in last 24h
+        db
+          .select({
+            total: sql<number>`coalesce(sum(${storyDonations.amount}), 0)::int`,
+          })
+          .from(storyDonations)
+          .where(
+            and(
+              eq(storyDonations.toUserId, userId),
+              sql`${storyDonations.createdAt} > ${dayAgoIso}::timestamptz`,
+            ),
+          ),
+        // New comments in last 24h on stories owned by the user (not own comments)
+        db
+          .select({
+            count: sql<number>`count(*)::int`,
+          })
+          .from(comments)
+          .innerJoin(stories, eq(comments.storyId, stories.id))
+          .where(
+            and(
+              eq(stories.userId, userId),
+              isNull(comments.deletedAt),
+              sql`${comments.userId} != ${userId}`,
+              sql`${comments.createdAt} > ${dayAgoIso}::timestamptz`,
+            ),
+          ),
+        // Jam deadlines the user has entered (jam still open)
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(jamEntries)
+          .innerJoin(storyJams, eq(jamEntries.jamId, storyJams.id))
+          .where(
+            and(
+              eq(jamEntries.userId, userId),
+              sql`${storyJams.status} IN ('open','voting')`,
+            ),
+          ),
+      ]);
+
+      today.unreadNotifications = Number(unreadRow[0]?.count ?? 0);
+      today.dropsEarned24h = Number(dropsRow[0]?.total ?? 0);
+      today.newComments24h = Number(commentsRow[0]?.count ?? 0);
+      today.jamDeadlinesEntered = Number(jamDeadlinesRow[0]?.count ?? 0);
+
+      if (lastReadRows[0]) {
+        const r = lastReadRows[0];
+        continueItems.push({
+          kind: "read",
+          title: r.storyTitle,
+          subtitle: `${r.chapterTitle} · ${r.scrollPercent}%`,
+          href: `/story/${r.storySlug ?? r.storyId}/read/${r.chapterId}`,
+          coverImageUrl: r.coverImageUrl,
+          scrollPercent: r.scrollPercent,
+          updatedAt: new Date(r.updatedAt).toISOString(),
+        });
+      }
+      if (lastDraftRows[0]) {
+        const d = lastDraftRows[0];
+        continueItems.push({
+          kind: "draft",
+          title: d.title,
+          subtitle: "Draft in progress",
+          href: `/write/${d.id}`,
+          coverImageUrl: d.coverImageUrl,
+          updatedAt: new Date(d.updatedAt).toISOString(),
+          wordCount: 0,
+        });
+      }
+      if (lastSessionRows[0]) {
+        const s = lastSessionRows[0];
+        const isLive =
+          !!s.latestTurnAt &&
+          new Date(s.latestTurnAt).getTime() > now.getTime() - 10 * 60 * 1000;
+        continueItems.push({
+          kind: "play",
+          title: s.sessionTitle,
+          subtitle: s.storyUserId === userId
+            ? `You're the GM · ${s.storyTitle}`
+            : s.storyTitle,
+          href: `/story/${s.storySlug ?? s.storyId}`,
+          coverImageUrl: s.coverImageUrl,
+          updatedAt: new Date(s.updatedAt).toISOString(),
+          isLive,
+          asGm: s.storyUserId === userId,
+        });
+      }
+    }
 
     // ── 6. Following row (signed-in only) ───────────────────
     let following: typeof trending = [];
@@ -735,6 +977,8 @@ export async function GET() {
 
     return NextResponse.json({
       data: {
+        continue: continueItems,
+        today,
         hero,
         sponsored,
         trending,

@@ -17,6 +17,9 @@ import {
   storyJams,
   jamEntries,
   creatorUpdates,
+  readingProgress,
+  notifications,
+  comments,
 } from "@/server/db/schema";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
@@ -105,6 +108,13 @@ export async function POST() {
       await db
         .delete(storyJams)
         .where(inArray(storyJams.createdBy, demoAuthorIds));
+      // Per-user surfaces that don't cascade from story delete
+      await db
+        .delete(notifications)
+        .where(inArray(notifications.userId, demoAuthorIds));
+      await db
+        .delete(readingProgress)
+        .where(inArray(readingProgress.userId, demoAuthorIds));
     }
 
     // ── Story definitions ────────────────────────────────────
@@ -707,6 +717,79 @@ export async function POST() {
         createdAt: new Date(now.getTime() - 20 * 60 * 60 * 1000),
       });
     }
+
+    // ── Personal surfaces for Mira (demo "current user") ───
+    // So the Continue zone + Today strip light up on her signed-in home.
+    const mira = authorIds["mira@demo.quiloria"];
+    const cartographer = created.find(
+      (c) => c.title === "The Cartographer's Apology",
+    );
+    const fox = created.find((c) => c.title === "The Fox Who Counted Stars");
+
+    // Mira has reading progress on "The Fox Who Counted Stars"
+    if (fox) {
+      const foxChapters = await db
+        .select({ id: chapters.id })
+        .from(chapters)
+        .where(eq(chapters.storyId, fox.id))
+        .orderBy(chapters.sortOrder)
+        .limit(1);
+      if (foxChapters[0]) {
+        await db
+          .insert(readingProgress)
+          .values({
+            userId: mira,
+            storyId: fox.id,
+            chapterId: foxChapters[0].id,
+            scrollPercent: 64,
+            pageNumber: 2,
+            updatedAt: new Date(now.getTime() - 8 * 60 * 60 * 1000),
+          })
+          .onConflictDoNothing();
+      }
+    }
+
+    // Mira has a draft-in-progress
+    await db.insert(stories).values({
+      userId: mira,
+      title: "Untitled — the bone garden",
+      slug: generateSlug("Untitled the bone garden"),
+      synopsis: "",
+      format: "novel",
+      status: "draft",
+      isPublic: false,
+      updatedAt: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+    });
+
+    // A reader comment on Mira's Cartographer story (last 24h)
+    if (cartographer) {
+      const cartoChapters = await db
+        .select({ id: chapters.id })
+        .from(chapters)
+        .where(eq(chapters.storyId, cartographer.id))
+        .orderBy(chapters.sortOrder)
+        .limit(1);
+      if (cartoChapters[0]) {
+        await db.insert(comments).values({
+          userId: readerIds["reader-ada@demo.quiloria"],
+          chapterId: cartoChapters[0].id,
+          storyId: cartographer.id,
+          content:
+            "I read this three times and still can't tell if Aude is real.",
+          createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+        });
+      }
+    }
+
+    // An unread notification for Mira
+    await db.insert(notifications).values({
+      userId: mira,
+      type: "comment",
+      message: "Ada left a comment on The Cartographer's Apology",
+      href: cartographer ? `/story/${cartographer.id}` : "/",
+      read: false,
+      createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+    });
 
     // A jam that's open + closes in 2 days
     const jamSubmissionEnds = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
