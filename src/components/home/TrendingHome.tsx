@@ -231,26 +231,25 @@ export default function TrendingHome() {
     <main className="min-h-screen bg-void">
       <Navbar />
       <div className="pt-14">
-        {/* Live activity ticker — platform pulse, sits just beneath navbar */}
+        {/* Live activity ticker — platform pulse, static, no motion */}
         {data && data.activity.length > 0 && (
           <ActivityTicker events={data.activity} />
         )}
 
-        {/* ── PERSONAL ZONE — the first thing a returning user sees ── */}
+        {/* Hero triple slider */}
         <div className="max-w-7xl mx-auto px-6 pt-10">
-          <ContinueZone
+          <HeroCarousel slides={data?.hero ?? []} loading={loading} />
+        </div>
+
+        {/* ── PERSONAL ZONE — bento directly beneath the hero ── */}
+        <div className="max-w-7xl mx-auto px-6">
+          <ContinueBento
             items={data?.continue ?? []}
             loading={loading}
           />
           {data && hasAnyTodaySignal(data.today) && (
             <TodayStrip today={data.today} />
           )}
-        </div>
-
-        {/* ── DISCOVERY ZONE ── */}
-        <div className="max-w-7xl mx-auto px-6 pt-6">
-          {/* Hero triple slider */}
-          <HeroCarousel slides={data?.hero ?? []} loading={loading} />
         </div>
 
         <div className="max-w-7xl mx-auto px-6">
@@ -261,7 +260,7 @@ export default function TrendingHome() {
             <LiveAdventuresSection sessions={data.liveAdventures} />
           ) : null}
 
-          {/* Follows FIRST — your people before the algorithm's picks */}
+          {/* Follows — your people before the algorithm's picks */}
           {data && data.following.length > 0 && (
             <Row
               label="New from authors you follow"
@@ -277,20 +276,17 @@ export default function TrendingHome() {
             />
           )}
 
-          {/* Trending — algorithmic discovery */}
+          {/* Discover — consolidated trending + staff picks + sponsored */}
           {loading ? (
             <TrendingSkeleton />
-          ) : data && data.trending.length > 0 ? (
-            <TrendingSection items={data.trending} />
+          ) : data && (data.trending.length > 0 || data.staffPicks.length > 0) ? (
+            <DiscoverSection
+              trending={data.trending}
+              staffPicks={data.staffPicks}
+              sponsored={data.sponsored}
+            />
           ) : null}
-        </div>
 
-        {/* Sponsored strip */}
-        {data && data.sponsored.length > 0 && (
-          <SponsoredSection items={data.sponsored} />
-        )}
-
-        <div className="max-w-7xl mx-auto px-6">
           {/* Adventures looking for players */}
           {data && data.adventures.length > 0 && (
             <AdventuresLookingSection items={data.adventures} />
@@ -299,22 +295,6 @@ export default function TrendingHome() {
           {/* Jams closing soon */}
           {data && data.jams.length > 0 && (
             <JamsSection items={data.jams} />
-          )}
-
-          {/* Staff picks */}
-          {data && data.staffPicks.length > 0 && (
-            <Row
-              label="Staff picks"
-              hint="Hand-curated by the editors"
-              cards={data.staffPicks.map((s) => ({
-                id: s.id,
-                href: storyHref(s),
-                title: s.title,
-                subtitle: s.authorName ?? "",
-                cover: s.coverImageUrl,
-                tag: "Staff pick",
-              }))}
-            />
           )}
         </div>
 
@@ -334,18 +314,32 @@ function hasAnyTodaySignal(t: TodayStats): boolean {
   );
 }
 
-// ── Continue Zone — resume cards + candlelit slot ─────────────
+// ── Continue Bento — resume surfaces in a distinctive container ──
 
-function ContinueZone({
+function ContinueBento({
   items,
   loading,
 }: {
   items: ContinueItem[];
   loading: boolean;
 }) {
+  // Map kinds to their item for deterministic slot placement.
+  const byKind: Record<string, ContinueItem | undefined> = {
+    read: items.find((i) => i.kind === "read"),
+    draft: items.find((i) => i.kind === "draft"),
+    play: items.find((i) => i.kind === "play"),
+  };
+
+  // Primary slot = reading (most users' highest-intent resume), falls back
+  // to Candlelit as the promo hero if there's nothing to resume.
+  const primary = byKind.read ?? null;
+  const secondaries = [byKind.draft, byKind.play].filter(
+    (x): x is ContinueItem => !!x,
+  );
+
   return (
-    <section className="mb-10">
-      <div className="flex items-baseline justify-between mb-5">
+    <section className="my-10">
+      <div className="mb-5 flex items-baseline justify-between">
         <div>
           <p className="text-gold/60 text-[11px] tracking-[0.3em] uppercase mb-1">
             Welcome back
@@ -355,28 +349,81 @@ function ContinueZone({
           </h2>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-[16/10] rounded-xl border border-border bg-elevated/20 animate-pulse"
-            />
-          ))
-        ) : (
-          <>
-            {items.map((item) => (
-              <ContinueCard key={`${item.kind}-${item.href}`} item={item} />
-            ))}
-            <CandlelitCard />
-          </>
-        )}
+
+      {/* Distinctive bento container with warm tint and gold edge. */}
+      <div className="relative rounded-2xl border border-gold/15 bg-gradient-to-br from-elevated/40 via-void to-elevated/20 p-4 md:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_top_left,rgba(200,150,60,0.05)_0%,transparent_50%)] pointer-events-none" />
+        <div className="relative grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-5 md:auto-rows-[minmax(120px,auto)]">
+          {loading ? (
+            <>
+              <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto rounded-xl bg-elevated/30 animate-pulse" />
+              <div className="rounded-xl bg-elevated/30 animate-pulse aspect-[16/10] md:aspect-auto" />
+              <div className="rounded-xl bg-elevated/30 animate-pulse aspect-[16/10] md:aspect-auto" />
+            </>
+          ) : (
+            <>
+              {/* Primary cell: 2x2 */}
+              {primary ? (
+                <ContinueCard item={primary} variant="primary" />
+              ) : (
+                <CandlelitBentoCard variant="primary" />
+              )}
+
+              {/* Secondary cells (top-right, middle-right) */}
+              {secondaries.slice(0, 2).map((item, idx) => (
+                <ContinueCard
+                  key={`${item.kind}-${idx}`}
+                  item={item}
+                  variant="secondary"
+                />
+              ))}
+              {/* Fill empty secondary slots if fewer than 2 */}
+              {secondaries.length < 2 &&
+                Array.from({ length: 2 - secondaries.length }).map((_, i) => (
+                  <EmptySecondaryCell key={`empty-${i}`} />
+                ))}
+
+              {/* Bottom-right wide cell: Candlelit promo (unless primary is already candlelit) */}
+              {primary && (
+                <div className="md:col-span-2">
+                  <CandlelitBentoCard variant="wide" />
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-function ContinueCard({ item }: { item: ContinueItem }) {
+function EmptySecondaryCell() {
+  return (
+    <Link
+      href="/create"
+      className="group rounded-xl border border-dashed border-border hover:border-gold/30 bg-elevated/10 hover:bg-elevated/30 transition-all flex items-center justify-center p-5 min-h-[120px]"
+    >
+      <div className="text-center">
+        <div className="w-8 h-8 mx-auto mb-2 rounded-full border border-border group-hover:border-gold/40 flex items-center justify-center text-text-ghost group-hover:text-gold transition-all">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M8 3v10M3 8h10" />
+          </svg>
+        </div>
+        <p className="text-text-ghost text-[11px] tracking-wide group-hover:text-gold/80 transition-colors">
+          Start something new
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function ContinueCard({
+  item,
+  variant,
+}: {
+  item: ContinueItem;
+  variant: "primary" | "secondary";
+}) {
   const accentByKind: Record<
     ContinueItem["kind"],
     { label: string; icon: React.ReactNode; color: string }
@@ -415,12 +462,22 @@ function ContinueCard({ item }: { item: ContinueItem }) {
   const accent = accentByKind[item.kind];
   const isLivePlay = item.kind === "play" && item.isLive;
 
+  const isPrimary = variant === "primary";
+
   return (
     <Link
       href={item.href}
-      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
+      className={`group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)] ${
+        isPrimary ? "md:col-span-2 md:row-span-2" : ""
+      }`}
     >
-      <div className="relative aspect-[16/10]">
+      <div
+        className={`relative ${
+          isPrimary
+            ? "aspect-[16/10] md:aspect-auto md:h-full md:min-h-[260px]"
+            : "aspect-[16/10] md:aspect-auto md:h-full md:min-h-[120px]"
+        }`}
+      >
         {item.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -451,8 +508,12 @@ function ContinueCard({ item }: { item: ContinueItem }) {
         )}
 
         {/* Title block */}
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <h3 className="font-display text-paper text-[15px] leading-tight line-clamp-2 group-hover:text-gold transition-colors">
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
+          <h3
+            className={`font-display text-paper leading-tight line-clamp-2 group-hover:text-gold transition-colors ${
+              isPrimary ? "text-xl md:text-2xl" : "text-[14px]"
+            }`}
+          >
             {item.title}
           </h3>
           <p className="text-text-ghost text-[11px] mt-1 truncate">
@@ -474,14 +535,24 @@ function ContinueCard({ item }: { item: ContinueItem }) {
   );
 }
 
-function CandlelitCard() {
+function CandlelitBentoCard({
+  variant,
+}: {
+  variant: "primary" | "wide";
+}) {
+  const isPrimary = variant === "primary";
   return (
     <Link
       href="/read"
-      className="group relative block overflow-hidden rounded-xl border border-gold/25 bg-gradient-to-br from-gold/8 via-void to-copper/8 hover:border-gold/50 transition-all"
+      className={`group relative block overflow-hidden rounded-xl border border-gold/25 bg-gradient-to-br from-gold/10 via-void to-copper/10 hover:border-gold/50 transition-all ${
+        isPrimary ? "md:col-span-2 md:row-span-2" : ""
+      }`}
     >
-      <div className="relative aspect-[16/10] flex flex-col justify-between p-5">
-        {/* Ambient glow */}
+      <div
+        className={`relative flex flex-col justify-between p-5 md:p-6 ${
+          isPrimary ? "md:h-full md:min-h-[260px]" : "md:h-full md:min-h-[120px]"
+        }`}
+      >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(200,150,60,0.12)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 bg-void/60 backdrop-blur-sm border border-gold/30 text-gold px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase">
@@ -491,13 +562,16 @@ function CandlelitCard() {
             Tonight&apos;s reading
           </div>
         </div>
-        <div className="relative">
-          <h3 className="font-display text-paper text-xl leading-tight mb-1">
+        <div className="relative mt-4 md:mt-0">
+          <h3
+            className={`font-display text-paper leading-tight mb-1 ${
+              isPrimary ? "text-2xl md:text-3xl" : "text-base md:text-lg"
+            }`}
+          >
             The candlelit room
           </h3>
-          <p className="text-text-secondary text-[12px] mb-2 line-clamp-2">
-            Open the reader and a story is already waiting — picked for you,
-            paced for you.
+          <p className="text-text-secondary text-[12px] mb-2 line-clamp-2 max-w-md">
+            A story is already waiting — picked for you, paced for you.
           </p>
           <span className="inline-flex items-center gap-1.5 text-gold text-[11px] tracking-wide group-hover:gap-2 transition-all">
             Enter the room
@@ -642,92 +716,80 @@ function LiveAdventuresSkeleton() {
 
 // ── Activity Ticker ───────────────────────────────────────────
 
-function ActivityTicker({ events }: { events: ActivityEvent[] }) {
-  // Duplicate the list for a seamless CSS marquee loop.
-  const doubled = [...events, ...events];
-  const iconFor = (kind: ActivityEvent["kind"]) => {
-    switch (kind) {
-      case "chapter":
-        return (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold/60">
-            <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
-            <path d="M5 5h6M5 8h4" />
-          </svg>
-        );
-      case "gift":
-        return (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="text-gold">
-            <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
-          </svg>
-        );
-      case "follow":
-        return (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose">
-            <path d="M8 14s-5-3-5-7a3 3 0 015-2 3 3 0 015 2c0 4-5 7-5 7z" />
-          </svg>
-        );
-      case "join":
-        return (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage">
-            <circle cx="8" cy="6" r="3" />
-            <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-          </svg>
-        );
-      case "jam":
-        return (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-lavender">
-            <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
-          </svg>
-        );
-    }
-  };
+function iconForEvent(kind: ActivityEvent["kind"]) {
+  switch (kind) {
+    case "chapter":
+      return (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold/70">
+          <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
+          <path d="M5 5h6M5 8h4" />
+        </svg>
+      );
+    case "gift":
+      return (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="text-gold">
+          <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
+        </svg>
+      );
+    case "follow":
+      return (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose">
+          <path d="M8 14s-5-3-5-7a3 3 0 015-2 3 3 0 015 2c0 4-5 7-5 7z" />
+        </svg>
+      );
+    case "join":
+      return (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage">
+          <circle cx="8" cy="6" r="3" />
+          <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+        </svg>
+      );
+    case "jam":
+      return (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-lavender">
+          <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
+        </svg>
+      );
+  }
+}
 
+function ActivityTicker({ events }: { events: ActivityEvent[] }) {
+  // Static — no scroll, no motion. Show the 3 most recent events in full,
+  // refreshed by the parent's 60s polling. Accessible per WCAG 2.2.2.
+  const visible = events.slice(0, 3);
   return (
-    <div className="relative w-full py-3 border-b border-border bg-gradient-to-r from-void via-elevated/30 to-void overflow-hidden">
-      {/* Edge fade masks */}
-      <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-void to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-void to-transparent z-10 pointer-events-none" />
-      {/* Live dot label */}
-      <div className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2 bg-void/90 backdrop-blur px-3 py-1 rounded-full border border-border">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose" />
-        </span>
-        <span className="text-[10px] tracking-[0.2em] uppercase text-text-secondary">
-          Live
-        </span>
+    <div className="relative w-full py-3 border-b border-border bg-gradient-to-r from-void via-elevated/20 to-void">
+      <div className="max-w-7xl mx-auto px-6 flex items-center gap-4 md:gap-6">
+        {/* Live label */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose" />
+          </span>
+          <span className="text-[10px] tracking-[0.2em] uppercase text-text-secondary">
+            Live
+          </span>
+        </div>
+        <div className="w-px h-5 bg-border flex-shrink-0 hidden md:block" />
+        {/* 3 static pills */}
+        <div className="flex-1 flex items-center gap-3 md:gap-6 overflow-hidden">
+          {visible.map((e, i) => (
+            <Link
+              key={`${e.at}-${i}`}
+              href={e.href}
+              className={`inline-flex items-center gap-2 text-[12px] text-text-secondary hover:text-paper transition-colors min-w-0 ${
+                i === 0 ? "flex" : "hidden md:flex"
+              } ${i === 2 ? "lg:flex hidden" : ""}`}
+            >
+              {iconForEvent(e.kind)}
+              <span className="truncate">{e.text}</span>
+              <span className="text-text-ghost text-[10px] flex-shrink-0">
+                · {formatTimeAgo(e.at)}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
-      {/* Scrolling strip */}
-      <div
-        className="flex items-center gap-10 whitespace-nowrap pl-32 md:pl-40"
-        style={{
-          animation: "ticker-scroll 90s linear infinite",
-        }}
-      >
-        {doubled.map((e, i) => (
-          <Link
-            key={`${e.at}-${i}`}
-            href={e.href}
-            className="inline-flex items-center gap-2 text-[12px] text-text-secondary hover:text-paper transition-colors flex-shrink-0"
-          >
-            {iconFor(e.kind)}
-            <span>{e.text}</span>
-            <span className="text-text-ghost text-[10px]">
-              · {formatTimeAgo(e.at)}
-            </span>
-          </Link>
-        ))}
-      </div>
-      <style jsx>{`
-        @keyframes ticker-scroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
     </div>
   );
 }
@@ -887,130 +949,186 @@ function LiveAdventureTile({ session: s }: { session: LiveAdventure }) {
   );
 }
 
-// ── Trending section with hero-of-row ─────────────────────────
+// ── Discover section — trending + staff picks + sponsored ──────
 
-function TrendingSection({ items }: { items: TrendingCard[] }) {
-  if (items.length === 0) return null;
-  const hero = items[0];
-  const rest = items.slice(1, 9);
+type DiscoverTab = "rising" | "staff" | "all";
+
+type DiscoverItem =
+  | { kind: "trending"; data: TrendingCard }
+  | { kind: "staff"; data: StaffPickRow }
+  | { kind: "sponsored"; data: StoryCard };
+
+function DiscoverSection({
+  trending,
+  staffPicks,
+  sponsored,
+}: {
+  trending: TrendingCard[];
+  staffPicks: StaffPickRow[];
+  sponsored: StoryCard[];
+}) {
+  const [tab, setTab] = useState<DiscoverTab>("rising");
+
+  // Build the item list for the active tab, with sponsored slots inlined at
+  // positions 5 and 10 (Reddit-style inline ad placement). Skip inlining
+  // sponsored in the Staff tab since that's curated editorial content.
+  const items: DiscoverItem[] = (() => {
+    let base: DiscoverItem[] = [];
+    if (tab === "rising") {
+      base = trending.map((t) => ({ kind: "trending", data: t }));
+    } else if (tab === "staff") {
+      base = staffPicks.map((s) => ({ kind: "staff", data: s }));
+    } else {
+      // Interleave trending + staff picks
+      const tr = trending.map(
+        (t) => ({ kind: "trending", data: t }) as DiscoverItem,
+      );
+      const sp = staffPicks.map(
+        (s) => ({ kind: "staff", data: s }) as DiscoverItem,
+      );
+      base = [];
+      const maxLen = Math.max(tr.length, sp.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (tr[i]) base.push(tr[i]);
+        if (sp[i]) base.push(sp[i]);
+      }
+    }
+    if (tab === "staff") return base;
+
+    // Inline sponsored slots at positions 5 and 10
+    const withSponsored: DiscoverItem[] = [];
+    let sponsoredIdx = 0;
+    for (let i = 0; i < base.length; i++) {
+      withSponsored.push(base[i]);
+      if ((i === 4 || i === 9) && sponsored[sponsoredIdx]) {
+        withSponsored.push({
+          kind: "sponsored",
+          data: sponsored[sponsoredIdx++],
+        });
+      }
+    }
+    return withSponsored;
+  })();
+
+  // Hero-of-row: first trending item in Rising/All tab only
+  const firstItem = items[0];
+  const restItems = items.slice(1);
+  const showHero =
+    (tab === "rising" || tab === "all") &&
+    firstItem?.kind === "trending";
+
   return (
     <section className="my-16">
-      <div className="mb-6">
-        <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
-          Trending this week
-        </h2>
-        <p className="text-text-ghost text-[12px] mt-1">
-          What readers are sparking right now
-        </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Hero-of-row: large card spanning 2 columns */}
-        <Link
-          href={storyHref(hero)}
-          className="group md:col-span-2 md:row-span-2 relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
-        >
-          <div className="relative aspect-[16/10] md:aspect-auto md:h-full min-h-[320px]">
-            {hero.coverImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={hero.coverImageUrl}
-                alt={hero.title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
-
-            {/* Rank */}
-            <div className="absolute top-4 left-4 inline-flex items-center gap-2 bg-gold/15 backdrop-blur-sm border border-gold/40 px-3 py-1 rounded-full text-[10px] tracking-[0.2em] uppercase text-gold">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
-              </svg>
-              #1 Rising
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-              <p className="text-text-ghost text-[10px] tracking-[0.2em] uppercase mb-2">
-                by {hero.authorName ?? "Unknown"}
-              </p>
-              <h3 className="font-display text-paper text-2xl md:text-3xl mb-3 group-hover:text-gold transition-colors leading-tight">
-                {hero.title}
-              </h3>
-              {hero.synopsis && (
-                <p className="text-text-secondary text-[13px] line-clamp-2 max-w-md mb-4">
-                  {hero.synopsis}
-                </p>
-              )}
-              {formatInteractions(hero.weeklyInteractions) && (
-                <p className="text-gold/70 text-[11px] tracking-wide">
-                  {formatInteractions(hero.weeklyInteractions)} this week
-                </p>
-              )}
-            </div>
-          </div>
-        </Link>
-
-        {/* Rest of the row */}
-        {rest.slice(0, 4).map((s) => (
-          <TrendingCardTile key={s.id} item={s} />
-        ))}
-      </div>
-      {/* Secondary row */}
-      {rest.length > 4 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-5">
-          {rest.slice(4, 8).map((s) => (
-            <TrendingCardTile key={s.id} item={s} compact />
+      {/* Header + tabs */}
+      <div className="flex flex-wrap items-baseline justify-between gap-4 mb-6">
+        <div>
+          <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
+            Discover
+          </h2>
+          <p className="text-text-ghost text-[12px] mt-1">
+            What readers are sparking this week, curated picks, and more
+          </p>
+        </div>
+        <div className="flex items-center gap-1 bg-elevated/30 border border-border rounded-full p-1">
+          {(
+            [
+              { id: "rising" as DiscoverTab, label: "Rising" },
+              { id: "staff" as DiscoverTab, label: "Staff picks" },
+              { id: "all" as DiscoverTab, label: "All" },
+            ]
+          ).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-1.5 text-[12px] tracking-wide rounded-full transition-all ${
+                tab === t.id
+                  ? "bg-gold text-void font-semibold"
+                  : "text-text-secondary hover:text-paper"
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-text-ghost text-[13px] py-10 text-center">
+          Nothing here yet. Check back soon.
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            {/* Hero-of-row: first trending card spans 2 cols x 2 rows */}
+            {showHero && firstItem?.kind === "trending" && (
+              <DiscoverHeroCard item={firstItem.data} />
+            )}
+
+            {/* Rest of the grid */}
+            {(showHero ? restItems : items).slice(0, 10).map((item, i) => (
+              <DiscoverTile key={`${item.kind}-${i}`} item={item} />
+            ))}
+          </div>
+
+          <div className="mt-8 flex items-center justify-center">
+            <Link
+              href="/browse"
+              className="inline-flex items-center gap-2 text-text-secondary hover:text-gold text-[12px] tracking-wide transition-colors"
+            >
+              Browse more
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M3 8h10M9 4l4 4-4 4" />
+              </svg>
+            </Link>
+          </div>
+        </>
       )}
     </section>
   );
 }
 
-function TrendingCardTile({
-  item: s,
-  compact = false,
-}: {
-  item: TrendingCard;
-  compact?: boolean;
-}) {
-  const interactions = formatInteractions(s.weeklyInteractions);
+function DiscoverHeroCard({ item }: { item: TrendingCard }) {
   return (
     <Link
-      href={storyHref(s)}
-      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
+      href={storyHref(item)}
+      className="group md:col-span-2 md:row-span-2 relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
     >
-      <div className={`relative ${compact ? "aspect-[2/3]" : "aspect-[3/4]"}`}>
-        {s.coverImageUrl ? (
+      <div className="relative aspect-[16/10] md:aspect-auto md:h-full min-h-[360px]">
+        {item.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={s.coverImageUrl}
-            alt={s.title}
+            src={item.coverImageUrl}
+            alt={item.title}
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
 
-        {s.writingMode === "campaign" && (
-          <div className="absolute top-2.5 right-2.5 bg-sage/20 backdrop-blur border border-sage/40 text-sage text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
-            Adventure
-          </div>
-        )}
+        <div className="absolute top-4 left-4 inline-flex items-center gap-2 bg-gold/15 backdrop-blur-sm border border-gold/40 px-3 py-1 rounded-full text-[10px] tracking-[0.2em] uppercase text-gold">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
+          </svg>
+          #1 Rising
+        </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <p className="text-text-ghost text-[10px] tracking-wide mb-1 truncate">
-            by {s.authorName ?? "Unknown"}
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+          <p className="text-text-ghost text-[10px] tracking-[0.2em] uppercase mb-2">
+            by {item.authorName ?? "Unknown"}
           </p>
-          <h3 className="font-display text-paper text-[15px] leading-tight group-hover:text-gold transition-colors line-clamp-2">
-            {s.title}
+          <h3 className="font-display text-paper text-2xl md:text-3xl mb-3 group-hover:text-gold transition-colors leading-tight">
+            {item.title}
           </h3>
-          {interactions && (
-            <p className="text-gold/60 text-[10px] tracking-wide mt-2">
-              {interactions}
+          {item.synopsis && (
+            <p className="text-text-secondary text-[13px] line-clamp-2 max-w-md mb-4">
+              {item.synopsis}
+            </p>
+          )}
+          {formatInteractions(item.weeklyInteractions) && (
+            <p className="text-gold/70 text-[11px] tracking-wide">
+              {formatInteractions(item.weeklyInteractions)} this week
             </p>
           )}
         </div>
@@ -1019,74 +1137,83 @@ function TrendingCardTile({
   );
 }
 
-// ── Sponsored Section (inset dark band) ───────────────────────
+function DiscoverTile({ item }: { item: DiscoverItem }) {
+  const story =
+    item.kind === "trending" || item.kind === "staff" || item.kind === "sponsored"
+      ? item.data
+      : null;
+  if (!story) return null;
 
-function SponsoredSection({ items }: { items: StoryCard[] }) {
+  const isSponsored = item.kind === "sponsored";
+  const isStaff = item.kind === "staff";
+  const interactions =
+    item.kind === "trending"
+      ? formatInteractions(item.data.weeklyInteractions)
+      : null;
+  const curatorNote = item.kind === "staff" ? item.data.curatorNote : null;
+
   return (
-    <section className="my-16 py-10 border-y border-border bg-gradient-to-b from-void via-elevated/20 to-void">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-baseline justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="text-gold/70">
-                <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
-              </svg>
-              <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
-                Sponsored
-              </h2>
-            </div>
-            <p className="text-text-ghost text-[11px]">
-              Creators paid to be here. Quiloria stays honest about it.
-            </p>
+    <Link
+      href={storyHref(story)}
+      className={`group relative block overflow-hidden rounded-xl border transition-all ${
+        isSponsored
+          ? "border-gold/20 hover:border-gold/50 bg-gradient-to-br from-gold/5 to-void"
+          : "border-border hover:border-gold/40 bg-elevated/30"
+      }`}
+    >
+      <div className="relative aspect-[3/4]">
+        {story.coverImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={story.coverImageUrl}
+            alt={story.title}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
+
+        {/* Tag (top-right) */}
+        {isSponsored && (
+          <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-gold/15 backdrop-blur border border-gold/40 text-gold text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
+            </svg>
+            Sponsored
           </div>
-          <Link
-            href="/creator/boost"
-            className="text-gold/70 hover:text-gold text-[11px] tracking-wide transition-colors"
-          >
-            Boost your work →
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.slice(0, 6).map((s) => (
-            <Link
-              key={s.id}
-              href={storyHref(s)}
-              className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-void transition-all"
-            >
-              <div className="relative aspect-[16/9]">
-                {s.coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={s.coverImageUrl}
-                    alt={s.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
-                <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-gold/15 backdrop-blur border border-gold/40 text-gold text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
-                  Sponsored
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <p className="text-text-ghost text-[10px] tracking-wide mb-1 truncate">
-                    by {s.authorName ?? "Unknown"}
-                  </p>
-                  <h3 className="font-display text-paper text-[16px] leading-tight group-hover:text-gold transition-colors line-clamp-1">
-                    {s.title}
-                  </h3>
-                  {s.synopsis && (
-                    <p className="text-text-secondary text-[11px] mt-1 line-clamp-1">
-                      {s.synopsis}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Link>
-          ))}
+        )}
+        {isStaff && (
+          <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-lavender/15 backdrop-blur border border-lavender/40 text-lavender text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
+            Staff pick
+          </div>
+        )}
+        {story.writingMode === "campaign" && !isSponsored && !isStaff && (
+          <div className="absolute top-2.5 right-2.5 bg-sage/20 backdrop-blur border border-sage/40 text-sage text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
+            Adventure
+          </div>
+        )}
+
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <p className="text-text-ghost text-[10px] tracking-wide mb-1 truncate">
+            by {story.authorName ?? "Unknown"}
+          </p>
+          <h3 className="font-display text-paper text-[15px] leading-tight group-hover:text-gold transition-colors line-clamp-2">
+            {story.title}
+          </h3>
+          {interactions && (
+            <p className="text-gold/60 text-[10px] tracking-wide mt-2">
+              {interactions}
+            </p>
+          )}
+          {curatorNote && (
+            <p className="text-lavender/70 text-[10px] tracking-wide mt-2 italic line-clamp-1">
+              &ldquo;{curatorNote}&rdquo;
+            </p>
+          )}
         </div>
       </div>
-    </section>
+    </Link>
   );
 }
 
