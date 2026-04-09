@@ -2,15 +2,20 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import {
   stories,
+  chapters,
   sparks,
   follows,
   storyBoosts,
   staffPicks,
   campaignSessions,
+  campaignTurns,
   sessionRoster,
+  spectatorPresence,
   storyJams,
+  jamEntries,
   users,
   storyDonations,
+  playerCharacters,
 } from "@/server/db/schema";
 import { and, eq, gt, isNull, sql, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -122,11 +127,20 @@ export async function GET() {
 
     const trendingScored = trendingRows
       .map((r) => {
+        const sparkScore = Number(r.sparkScore);
+        const followScore = Number(r.followScore);
+        const donationScore = Number(r.donationScore);
         const score =
-          Number(r.sparkScore) * 3 +
-          Number(r.followScore) * 5 +
-          Number(r.donationScore) * 0.5;
-        return { ...r, score };
+          sparkScore * 3 + followScore * 5 + donationScore * 0.5;
+        return {
+          ...r,
+          score,
+          weeklyInteractions: {
+            sparks: sparkScore,
+            follows: followScore,
+            donationDrops: donationScore,
+          },
+        };
       })
       .sort((a, b) => b.score - a.score);
 
@@ -167,6 +181,7 @@ export async function GET() {
         authorName: t.authorName,
         authorAvatar: t.authorAvatar,
         score: t.score,
+        weeklyInteractions: t.weeklyInteractions,
       }));
 
     // ── 3. Sponsored strip — standard-tier active boosts ────
@@ -280,9 +295,424 @@ export async function GET() {
           authorName: r.authorName,
           authorAvatar: r.authorAvatar,
           score: 0,
+          weeklyInteractions: { sparks: 0, follows: 0, donationDrops: 0 },
         }));
       }
     }
+
+    // ── 6b. Live adventures ─────────────────────────────────
+    // A session is "live" if it has a turn written in the last 10 minutes.
+    // Pull the sessions, then fetch roster + latest turn + spectator count.
+    const tenMinAgoIso = new Date(
+      now.getTime() - 10 * 60 * 1000,
+    ).toISOString();
+    const thirtyMinAgoIso = new Date(
+      now.getTime() - 30 * 60 * 1000,
+    ).toISOString();
+
+    const activeSessions = await db
+      .select({
+        sessionId: campaignSessions.id,
+        sessionTitle: campaignSessions.title,
+        sessionSummary: campaignSessions.summary,
+        storyId: stories.id,
+        storySlug: stories.slug,
+        storyTitle: stories.title,
+        coverImageUrl: stories.coverImageUrl,
+        authorName: users.displayName,
+        latestTurnAt: sql<Date | null>`(
+          select max(${campaignTurns.createdAt}) from ${campaignTurns}
+          where ${campaignTurns.sessionId} = ${campaignSessions.id}
+        )`,
+      })
+      .from(campaignSessions)
+      .innerJoin(
+        stories,
+        and(
+          eq(campaignSessions.storyId, stories.id),
+          eq(stories.isPublic, true),
+          isNull(stories.deletedAt),
+        ),
+      )
+      .leftJoin(users, eq(stories.userId, users.id))
+      .where(eq(campaignSessions.status, "active"))
+      .orderBy(desc(campaignSessions.updatedAt))
+      .limit(20);
+
+    type LiveSession = {
+      sessionId: string;
+      sessionTitle: string;
+      sessionSummary: string | null;
+      storyId: string;
+      storySlug: string | null;
+      storyTitle: string;
+      coverImageUrl: string | null;
+      authorName: string | null;
+      isLive: boolean;
+      latestTurnAt: Date | null;
+      latestTurnSnippet: string | null;
+      latestTurnAuthor: string | null;
+      spectatorCount: number;
+      roster: {
+        userId: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        characterName: string | null;
+      }[];
+    };
+
+    const liveSessionRows: LiveSession[] = [];
+    const liveSessionIds = activeSessions
+      .filter((s) => {
+        if (!s.latestTurnAt) return false;
+        return new Date(s.latestTurnAt).getTime() > now.getTime() - 10 * 60 * 1000;
+      })
+      .map((s) => s.sessionId);
+    const recentSessionIds = activeSessions
+      .filter((s) => !liveSessionIds.includes(s.sessionId))
+      .slice(0, 6)
+      .map((s) => s.sessionId);
+
+    const displaySessionIds = [...liveSessionIds, ...recentSessionIds].slice(0, 6);
+
+    if (displaySessionIds.length > 0) {
+      // Roster for each displayed session
+      const rosterRows = await db
+        .select({
+          sessionId: sessionRoster.sessionId,
+          userId: sessionRoster.userId,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+          characterName: playerCharacters.name,
+        })
+        .from(sessionRoster)
+        .leftJoin(users, eq(sessionRoster.userId, users.id))
+        .leftJoin(
+          playerCharacters,
+          eq(sessionRoster.characterId, playerCharacters.id),
+        )
+        .where(inArray(sessionRoster.sessionId, displaySessionIds));
+
+      const rosterBySession = new Map<string, LiveSession["roster"]>();
+      for (const r of rosterRows) {
+        if (!rosterBySession.has(r.sessionId)) {
+          rosterBySession.set(r.sessionId, []);
+        }
+        rosterBySession.get(r.sessionId)!.push({
+          userId: r.userId,
+          displayName: r.displayName,
+          avatarUrl: r.avatarUrl,
+          characterName: r.characterName,
+        });
+      }
+
+      // Latest turn content for each session
+      const latestTurnRows = await db
+        .select({
+          sessionId: campaignTurns.sessionId,
+          content: campaignTurns.content,
+          createdAt: campaignTurns.createdAt,
+          authorName: users.displayName,
+        })
+        .from(campaignTurns)
+        .leftJoin(users, eq(campaignTurns.userId, users.id))
+        .where(
+          and(
+            inArray(campaignTurns.sessionId, displaySessionIds),
+            sql`${campaignTurns.type} IN ('narration','action','dialogue','description')`,
+          ),
+        )
+        .orderBy(desc(campaignTurns.createdAt))
+        .limit(displaySessionIds.length * 5);
+
+      const latestTurnBySession = new Map<
+        string,
+        { content: string; authorName: string | null }
+      >();
+      for (const t of latestTurnRows) {
+        if (!latestTurnBySession.has(t.sessionId)) {
+          latestTurnBySession.set(t.sessionId, {
+            content: t.content,
+            authorName: t.authorName,
+          });
+        }
+      }
+
+      // Spectator counts (heartbeat in last 30s considered online)
+      const spectatorWindow = new Date(
+        now.getTime() - 30 * 1000,
+      ).toISOString();
+      const spectatorRows = await db
+        .select({
+          sessionId: spectatorPresence.sessionId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(spectatorPresence)
+        .where(
+          and(
+            inArray(spectatorPresence.sessionId, displaySessionIds),
+            sql`${spectatorPresence.lastHeartbeat} > ${spectatorWindow}::timestamptz`,
+          ),
+        )
+        .groupBy(spectatorPresence.sessionId);
+
+      const spectatorBySession = new Map<string, number>();
+      for (const s of spectatorRows) {
+        spectatorBySession.set(s.sessionId, Number(s.count));
+      }
+
+      for (const s of activeSessions) {
+        if (!displaySessionIds.includes(s.sessionId)) continue;
+        const rawSnippet = latestTurnBySession.get(s.sessionId)?.content ?? null;
+        const snippet = rawSnippet
+          ? rawSnippet
+              .replace(/<[^>]*>/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 140)
+          : null;
+        liveSessionRows.push({
+          sessionId: s.sessionId,
+          sessionTitle: s.sessionTitle,
+          sessionSummary: s.sessionSummary,
+          storyId: s.storyId,
+          storySlug: s.storySlug,
+          storyTitle: s.storyTitle,
+          coverImageUrl: s.coverImageUrl,
+          authorName: s.authorName,
+          isLive: liveSessionIds.includes(s.sessionId),
+          latestTurnAt: s.latestTurnAt,
+          latestTurnSnippet: snippet,
+          latestTurnAuthor:
+            latestTurnBySession.get(s.sessionId)?.authorName ?? null,
+          spectatorCount: spectatorBySession.get(s.sessionId) ?? 0,
+          roster: rosterBySession.get(s.sessionId) ?? [],
+        });
+      }
+    }
+
+    // ── 6c. Activity feed (live pulse) ──────────────────────
+    // Union events across tables and limit. Each event is { kind, at, text, href }.
+    const actorCol = users.displayName;
+    const [chapterEvents, donationEvents, followEvents, rosterEvents, jamEvents] =
+      await Promise.all([
+        // Recently published chapters
+        db
+          .select({
+            at: chapters.createdAt,
+            actor: actorCol,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            storyId: stories.id,
+            chapterTitle: chapters.title,
+          })
+          .from(chapters)
+          .innerJoin(stories, eq(chapters.storyId, stories.id))
+          .leftJoin(users, eq(stories.userId, users.id))
+          .where(
+            and(
+              eq(chapters.status, "published"),
+              isNull(chapters.deletedAt),
+              eq(stories.isPublic, true),
+              isNull(stories.deletedAt),
+              gt(chapters.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(chapters.createdAt))
+          .limit(15),
+        // Recent gift donations
+        db
+          .select({
+            at: storyDonations.createdAt,
+            amount: storyDonations.amount,
+            actor: actorCol,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            storyId: stories.id,
+          })
+          .from(storyDonations)
+          .innerJoin(stories, eq(storyDonations.storyId, stories.id))
+          .leftJoin(users, eq(storyDonations.fromUserId, users.id))
+          .where(
+            and(
+              eq(stories.isPublic, true),
+              gt(storyDonations.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(storyDonations.createdAt))
+          .limit(15),
+        // Recent follows
+        db
+          .select({
+            at: follows.createdAt,
+            actor: actorCol,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            storyId: stories.id,
+          })
+          .from(follows)
+          .innerJoin(stories, eq(follows.storyId, stories.id))
+          .leftJoin(users, eq(follows.userId, users.id))
+          .where(
+            and(
+              eq(stories.isPublic, true),
+              gt(follows.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(follows.createdAt))
+          .limit(15),
+        // Recent session joins
+        db
+          .select({
+            at: sessionRoster.createdAt,
+            actor: actorCol,
+            sessionId: sessionRoster.sessionId,
+            sessionTitle: campaignSessions.title,
+            storyId: campaignSessions.storyId,
+            storySlug: stories.slug,
+          })
+          .from(sessionRoster)
+          .innerJoin(
+            campaignSessions,
+            eq(sessionRoster.sessionId, campaignSessions.id),
+          )
+          .innerJoin(stories, eq(campaignSessions.storyId, stories.id))
+          .leftJoin(users, eq(sessionRoster.userId, users.id))
+          .where(
+            and(
+              eq(stories.isPublic, true),
+              gt(sessionRoster.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(sessionRoster.createdAt))
+          .limit(10),
+        // Recent jam entries
+        db
+          .select({
+            at: jamEntries.createdAt,
+            actor: actorCol,
+            jamId: jamEntries.jamId,
+            jamTitle: storyJams.title,
+          })
+          .from(jamEntries)
+          .innerJoin(storyJams, eq(jamEntries.jamId, storyJams.id))
+          .leftJoin(users, eq(jamEntries.userId, users.id))
+          .where(gt(jamEntries.createdAt, new Date(sevenDaysAgoIso)))
+          .orderBy(desc(jamEntries.createdAt))
+          .limit(10),
+      ]);
+
+    type ActivityEvent = {
+      kind: "chapter" | "gift" | "follow" | "join" | "jam";
+      at: string;
+      text: string;
+      href: string;
+      actor: string | null;
+      amount?: number;
+    };
+
+    const activity: ActivityEvent[] = [];
+    for (const e of chapterEvents) {
+      activity.push({
+        kind: "chapter",
+        at: new Date(e.at).toISOString(),
+        actor: e.actor,
+        text: `${e.actor ?? "Someone"} published a new chapter in ${e.storyTitle}`,
+        href: `/story/${e.storySlug ?? e.storyId}`,
+      });
+    }
+    for (const e of donationEvents) {
+      activity.push({
+        kind: "gift",
+        at: new Date(e.at).toISOString(),
+        actor: e.actor,
+        amount: e.amount,
+        text: `${e.actor ?? "Someone"} gifted ${e.amount} drops to ${e.storyTitle}`,
+        href: `/story/${e.storySlug ?? e.storyId}`,
+      });
+    }
+    for (const e of followEvents) {
+      activity.push({
+        kind: "follow",
+        at: new Date(e.at).toISOString(),
+        actor: e.actor,
+        text: `${e.actor ?? "Someone"} started reading ${e.storyTitle}`,
+        href: `/story/${e.storySlug ?? e.storyId}`,
+      });
+    }
+    for (const e of rosterEvents) {
+      activity.push({
+        kind: "join",
+        at: new Date(e.at).toISOString(),
+        actor: e.actor,
+        text: `${e.actor ?? "Someone"} joined the adventure ${e.sessionTitle}`,
+        href: `/story/${e.storySlug ?? e.storyId}`,
+      });
+    }
+    for (const e of jamEvents) {
+      activity.push({
+        kind: "jam",
+        at: new Date(e.at).toISOString(),
+        actor: e.actor,
+        text: `${e.actor ?? "Someone"} entered the jam ${e.jamTitle}`,
+        href: `/jams/${e.jamId}`,
+      });
+    }
+    activity.sort(
+      (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+    );
+    const activityLimited = activity.slice(0, 30);
+
+    // ── 6d. Pulse counts ────────────────────────────────────
+    const [
+      liveSessionCountRow,
+      openJamsCountRow,
+      weeklyStoriesCountRow,
+      onlineReadersRow,
+    ] = await Promise.all([
+      db
+        .select({
+          count: sql<number>`count(distinct ${campaignTurns.sessionId})::int`,
+        })
+        .from(campaignTurns)
+        .where(
+          sql`${campaignTurns.createdAt} > ${tenMinAgoIso}::timestamptz`,
+        ),
+      db
+        .select({
+          count: sql<number>`count(*)::int`,
+        })
+        .from(storyJams)
+        .where(sql`${storyJams.status} IN ('open','voting')`),
+      db
+        .select({
+          count: sql<number>`count(*)::int`,
+        })
+        .from(stories)
+        .where(
+          and(
+            eq(stories.isPublic, true),
+            eq(stories.status, "published"),
+            isNull(stories.deletedAt),
+            gt(stories.publishedAt, new Date(sevenDaysAgoIso)),
+          ),
+        ),
+      db
+        .select({
+          count: sql<number>`count(distinct ${spectatorPresence.token})::int`,
+        })
+        .from(spectatorPresence)
+        .where(
+          sql`${spectatorPresence.lastHeartbeat} > ${thirtyMinAgoIso}::timestamptz`,
+        ),
+    ]);
+
+    const pulse = {
+      liveSessions: Number(liveSessionCountRow[0]?.count ?? 0),
+      openJams: Number(openJamsCountRow[0]?.count ?? 0),
+      weeklyStories: Number(weeklyStoriesCountRow[0]?.count ?? 0),
+      online: Number(onlineReadersRow[0]?.count ?? 0),
+    };
 
     // ── 7. Staff picks ──────────────────────────────────────
     const staffPickRows = await db
@@ -308,10 +738,13 @@ export async function GET() {
         hero,
         sponsored,
         trending,
+        liveAdventures: liveSessionRows,
         adventures,
         jams,
         following,
         staffPicks: staffPickRows,
+        activity: activityLimited,
+        pulse,
       },
     });
   } catch (error) {

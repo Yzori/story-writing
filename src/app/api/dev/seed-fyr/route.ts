@@ -6,6 +6,17 @@ import {
   chapters,
   staffPicks,
   storyBoosts,
+  campaignSessions,
+  campaignTurns,
+  sessionRoster,
+  playerCharacters,
+  spectatorPresence,
+  storyDonations,
+  follows,
+  sparks,
+  storyJams,
+  jamEntries,
+  creatorUpdates,
 } from "@/server/db/schema";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
@@ -86,7 +97,14 @@ export async function POST() {
       await db
         .delete(stories)
         .where(inArray(stories.userId, demoAuthorIds));
-      // chapters + staff_picks cascade via onDelete
+      // chapters + staff_picks + boosts + sessions + turns + roster +
+      // characters + spectators + donations + follows + sparks + jamEntries
+      // all cascade via story_id onDelete.
+      // Jams have a FK to the creator user, not to a story, so clean them
+      // explicitly here.
+      await db
+        .delete(storyJams)
+        .where(inArray(storyJams.createdBy, demoAuthorIds));
     }
 
     // ── Story definitions ────────────────────────────────────
@@ -406,12 +424,330 @@ export async function POST() {
       });
     }
 
+    // ── Extra readers for donations, follows, spectators ────
+    const readerDefs: { email: string; display: string }[] = [
+      { email: "reader-ada@demo.quiloria", display: "Ada" },
+      { email: "reader-bram@demo.quiloria", display: "Bram" },
+      { email: "reader-cora@demo.quiloria", display: "Cora" },
+      { email: "reader-dima@demo.quiloria", display: "Dima" },
+      { email: "reader-eir@demo.quiloria", display: "Eir" },
+    ];
+    const readerIds: Record<string, string> = {};
+    for (const r of readerDefs) {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.email, r.email),
+      });
+      if (existing) {
+        readerIds[r.email] = existing.id;
+      } else {
+        const [row] = await db
+          .insert(users)
+          .values({
+            email: r.email,
+            name: r.display,
+            displayName: r.display,
+            password: passwordHash,
+            inkDropBalance: 500,
+          })
+          .returning({ id: users.id });
+        readerIds[r.email] = row.id;
+      }
+    }
+
+    // Shared "now" for all time-based inserts below
+    const now = new Date();
+
+    // ── Adventure story + live session ──────────────────────
+    // We build this as a dedicated campaign story by Jules so the hero,
+    // trending, and live-adventures sections all have something to render.
+    const adventureSlug = generateSlug("The Hollow King");
+    const [adventureStory] = await db
+      .insert(stories)
+      .values({
+        userId: authorIds["jules@demo.quiloria"],
+        title: "The Hollow King",
+        slug: adventureSlug,
+        synopsis:
+          "Four strangers wake inside a keep that should not exist, holding memories that are not theirs.",
+        coverImageUrl:
+          "https://images.unsplash.com/photo-1572177215152-32f247303126?w=1200",
+        genres: ["dark-fantasy", "mystery"],
+        format: "novel",
+        writingMode: "campaign",
+        status: "published",
+        isPublic: true,
+        publishedAt: new Date(),
+      })
+      .returning({ id: stories.id });
+    created.push({ id: adventureStory.id, title: "The Hollow King", chapters: 0 });
+
+    // Characters for the live session
+    const characterDefs = [
+      {
+        userId: authorIds["mira@demo.quiloria"],
+        name: "Kestrel the Scholar",
+      },
+      {
+        userId: authorIds["caleb@demo.quiloria"],
+        name: "Brand the Silent",
+      },
+      {
+        userId: readerIds["reader-ada@demo.quiloria"],
+        name: "Yewen Dalgarro",
+      },
+      {
+        userId: readerIds["reader-bram@demo.quiloria"],
+        name: "Old Mother Ivy",
+      },
+    ];
+    const characterRows = [];
+    for (const c of characterDefs) {
+      const [row] = await db
+        .insert(playerCharacters)
+        .values({
+          storyId: adventureStory.id,
+          userId: c.userId,
+          name: c.name,
+          status: "active",
+        })
+        .returning({ id: playerCharacters.id, userId: playerCharacters.userId });
+      characterRows.push(row);
+    }
+
+    // Live session — one that has a recent turn (within last 2 minutes)
+    const [liveSession] = await db
+      .insert(campaignSessions)
+      .values({
+        storyId: adventureStory.id,
+        title: "Into the Hollow",
+        summary:
+          "The party crosses the outer gate and finds the first of the sleeping watchers.",
+        opening:
+          "The keep of the Hollow King is older than any kingdom that remembers its name.",
+        status: "active",
+      })
+      .returning({ id: campaignSessions.id });
+
+    for (const char of characterRows) {
+      await db.insert(sessionRoster).values({
+        sessionId: liveSession.id,
+        characterId: char.id,
+        userId: char.userId,
+        status: "present",
+      });
+    }
+
+    // A few turns, most recent within the last minute
+    const turns = [
+      {
+        at: new Date(now.getTime() - 8 * 60 * 1000),
+        userId: authorIds["jules@demo.quiloria"],
+        type: "narration",
+        content:
+          "You cross the threshold together. The air inside the keep is colder than the winter outside — a dry cold, like a held breath.",
+      },
+      {
+        at: new Date(now.getTime() - 6 * 60 * 1000),
+        userId: characterRows[0].userId,
+        characterId: characterRows[0].id,
+        type: "action",
+        content: "Kestrel lifts her lantern and sweeps it slowly across the threshold stones.",
+      },
+      {
+        at: new Date(now.getTime() - 4 * 60 * 1000),
+        userId: characterRows[1].userId,
+        characterId: characterRows[1].id,
+        type: "dialogue",
+        content: "\"Someone has been here recently. The dust is wrong.\"",
+      },
+      {
+        at: new Date(now.getTime() - 90 * 1000),
+        userId: authorIds["jules@demo.quiloria"],
+        type: "narration",
+        content:
+          "The door at the far end of the hall gives way with a breath — not a sound, but an exhalation, as if the keep itself had been holding its breath for centuries and chose, now, to let it go.",
+      },
+    ];
+    for (let i = 0; i < turns.length; i++) {
+      const t = turns[i];
+      await db.insert(campaignTurns).values({
+        sessionId: liveSession.id,
+        userId: t.userId,
+        characterId: (t as { characterId?: string }).characterId ?? null,
+        type: t.type,
+        content: t.content,
+        sortOrder: i,
+        createdAt: t.at,
+      });
+    }
+
+    // A handful of live spectators
+    const spectatorUserIds = [
+      readerIds["reader-cora@demo.quiloria"],
+      readerIds["reader-dima@demo.quiloria"],
+      readerIds["reader-eir@demo.quiloria"],
+    ];
+    for (let i = 0; i < spectatorUserIds.length; i++) {
+      await db.insert(spectatorPresence).values({
+        sessionId: liveSession.id,
+        token: `seed-spectator-${i}-${Date.now()}`,
+        userId: spectatorUserIds[i],
+        lastHeartbeat: new Date(now.getTime() - i * 5 * 1000),
+      });
+    }
+
+    // A second, recently-active (but not-live) session
+    const [recentSession] = await db
+      .insert(campaignSessions)
+      .values({
+        storyId: adventureStory.id,
+        title: "The Long Dusk",
+        summary:
+          "After the first watch, the party must decide who carries the lantern through the descent.",
+        status: "active",
+      })
+      .returning({ id: campaignSessions.id });
+    for (const char of characterRows.slice(0, 3)) {
+      await db.insert(sessionRoster).values({
+        sessionId: recentSession.id,
+        characterId: char.id,
+        userId: char.userId,
+        status: "present",
+      });
+    }
+    await db.insert(campaignTurns).values({
+      sessionId: recentSession.id,
+      userId: authorIds["jules@demo.quiloria"],
+      type: "narration",
+      content:
+        "The descent takes longer than any of you expected, as if the stair were unfolding itself beneath your feet.",
+      sortOrder: 0,
+      createdAt: new Date(now.getTime() - 45 * 60 * 1000),
+    });
+
+    // ── Follows, sparks, donations, jams, updates ───────────
+    const allStoryIds = created.map((c) => c.id);
+    const readerIdList = Object.values(readerIds);
+
+    // Each reader follows 3 random stories
+    for (const rId of readerIdList) {
+      const shuffled = [...allStoryIds].sort(() => Math.random() - 0.5);
+      for (const sId of shuffled.slice(0, 3)) {
+        await db
+          .insert(follows)
+          .values({
+            userId: rId,
+            storyId: sId,
+            createdAt: new Date(
+              now.getTime() - Math.random() * 6 * 24 * 60 * 60 * 1000,
+            ),
+          })
+          .onConflictDoNothing();
+      }
+    }
+
+    // Sparks
+    for (const rId of readerIdList) {
+      const shuffled = [...allStoryIds].sort(() => Math.random() - 0.5);
+      for (const sId of shuffled.slice(0, 4)) {
+        await db
+          .insert(sparks)
+          .values({
+            userId: rId,
+            storyId: sId,
+            createdAt: new Date(
+              now.getTime() - Math.random() * 6 * 24 * 60 * 60 * 1000,
+            ),
+          })
+          .onConflictDoNothing();
+      }
+    }
+
+    // Donations — a few across different stories. Each donation needs the
+    // recipient user id, which is the story's author.
+    const storyAuthor: Record<string, string> = {
+      "The Cartographer's Apology": authorIds["mira@demo.quiloria"],
+      "Small Weather": authorIds["caleb@demo.quiloria"],
+      "Letters to a Drowned Brother": authorIds["mira@demo.quiloria"],
+      "Machine Season": authorIds["caleb@demo.quiloria"],
+      "The Fox Who Counted Stars": authorIds["jules@demo.quiloria"],
+      "The Gardener of Small Hours": authorIds["jules@demo.quiloria"],
+      "The Hollow King": authorIds["jules@demo.quiloria"],
+    };
+    const donationPlan: { reader: string; story: string; amount: number; msg: string }[] = [
+      { reader: "reader-ada@demo.quiloria", story: "The Cartographer's Apology", amount: 50, msg: "This gave me chills." },
+      { reader: "reader-bram@demo.quiloria", story: "Small Weather", amount: 25, msg: "So quiet and so loud." },
+      { reader: "reader-cora@demo.quiloria", story: "Letters to a Drowned Brother", amount: 100, msg: "" },
+      { reader: "reader-dima@demo.quiloria", story: "Machine Season", amount: 10, msg: "Haunted." },
+      { reader: "reader-eir@demo.quiloria", story: "The Fox Who Counted Stars", amount: 75, msg: "Read this to my kid. Twice." },
+    ];
+    for (const d of donationPlan) {
+      const story = created.find((c) => c.title === d.story);
+      const authorId = storyAuthor[d.story];
+      if (!story || !authorId) continue;
+      await db.insert(storyDonations).values({
+        storyId: story.id,
+        fromUserId: readerIds[d.reader],
+        toUserId: authorId,
+        amount: d.amount,
+        message: d.msg,
+        createdAt: new Date(
+          now.getTime() - Math.random() * 3 * 24 * 60 * 60 * 1000,
+        ),
+      });
+    }
+
+    // Creator updates
+    const letters = created.find((c) => c.title === "Letters to a Drowned Brother");
+    if (letters) {
+      await db.insert(creatorUpdates).values({
+        storyId: letters.id,
+        userId: authorIds["mira@demo.quiloria"],
+        content: "Chapter three is almost done. It took me by surprise.",
+        createdAt: new Date(now.getTime() - 20 * 60 * 60 * 1000),
+      });
+    }
+
+    // A jam that's open + closes in 2 days
+    const jamSubmissionEnds = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const jamVotingEnds = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+    const [jam] = await db
+      .insert(storyJams)
+      .values({
+        title: "The Hollow Jam",
+        description:
+          "Write a flash piece of under 1000 words about a place that should not exist.",
+        theme: "Impossible Places",
+        bannerUrl:
+          "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=1200",
+        createdBy: authorIds["jules@demo.quiloria"],
+        submissionStartsAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+        submissionEndsAt: jamSubmissionEnds,
+        votingStartsAt: jamSubmissionEnds,
+        votingEndsAt: jamVotingEnds,
+        wordCountMin: 100,
+        wordCountMax: 1000,
+        status: "open",
+      })
+      .returning({ id: storyJams.id });
+
+    // A jam entry
+    const smallWeather = created.find((c) => c.title === "Small Weather");
+    if (smallWeather) {
+      await db.insert(jamEntries).values({
+        jamId: jam.id,
+        storyId: smallWeather.id,
+        userId: authorIds["caleb@demo.quiloria"],
+        submittedAt: new Date(now.getTime() - 18 * 60 * 60 * 1000),
+        createdAt: new Date(now.getTime() - 18 * 60 * 60 * 1000),
+      });
+    }
+
     // ── Demo boosts ──────────────────────────────────────────
     // Seed one hero boost and one standard boost so the home page shows
     // the Sponsored pill + sponsored strip working end-to-end.
     const heroPick = created.find((c) => c.title === "The Cartographer's Apology");
     const standardPick = created.find((c) => c.title === "Machine Season");
-    const now = new Date();
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     if (heroPick) {
       await db
