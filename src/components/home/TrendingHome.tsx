@@ -191,16 +191,17 @@ export default function TrendingHome() {
   return (
     <main className="min-h-screen bg-void">
       <Navbar />
-      <div className="pt-20">
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Hero triple slider */}
-          <HeroCarousel slides={data?.hero ?? []} loading={loading} />
-        </div>
-
-        {/* Live activity ticker — the platform's pulse */}
+      <div className="pt-14">
+        {/* Live activity ticker — sits just beneath the navbar as the
+            platform's pulse, seen before anything else. */}
         {data && data.activity.length > 0 && (
           <ActivityTicker events={data.activity} />
         )}
+
+        <div className="max-w-7xl mx-auto px-6 pt-8">
+          {/* Hero triple slider */}
+          <HeroCarousel slides={data?.hero ?? []} loading={loading} />
+        </div>
 
         <div className="max-w-7xl mx-auto px-6">
           {/* Live adventures — the best section */}
@@ -349,7 +350,7 @@ function ActivityTicker({ events }: { events: ActivityEvent[] }) {
   };
 
   return (
-    <div className="relative w-full my-10 py-4 border-y border-border bg-gradient-to-r from-void via-elevated/30 to-void overflow-hidden">
+    <div className="relative w-full py-3 border-b border-border bg-gradient-to-r from-void via-elevated/30 to-void overflow-hidden">
       {/* Edge fade masks */}
       <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-void to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-void to-transparent z-10 pointer-events-none" />
