@@ -845,17 +845,18 @@ export async function GET() {
       ]);
 
     type ActivityEvent = {
-      kind: "chapter" | "gift" | "follow" | "join" | "jam";
+      kind: "chapter" | "gift" | "follow" | "join" | "jam" | "comment";
       at: string;
       text: string;
       href: string;
       actor: string | null;
       amount?: number;
+      personal?: boolean;
     };
 
-    const activity: ActivityEvent[] = [];
+    const globalActivity: ActivityEvent[] = [];
     for (const e of chapterEvents) {
-      activity.push({
+      globalActivity.push({
         kind: "chapter",
         at: new Date(e.at).toISOString(),
         actor: e.actor,
@@ -864,7 +865,7 @@ export async function GET() {
       });
     }
     for (const e of donationEvents) {
-      activity.push({
+      globalActivity.push({
         kind: "gift",
         at: new Date(e.at).toISOString(),
         actor: e.actor,
@@ -874,7 +875,7 @@ export async function GET() {
       });
     }
     for (const e of followEvents) {
-      activity.push({
+      globalActivity.push({
         kind: "follow",
         at: new Date(e.at).toISOString(),
         actor: e.actor,
@@ -883,7 +884,7 @@ export async function GET() {
       });
     }
     for (const e of rosterEvents) {
-      activity.push({
+      globalActivity.push({
         kind: "join",
         at: new Date(e.at).toISOString(),
         actor: e.actor,
@@ -892,7 +893,7 @@ export async function GET() {
       });
     }
     for (const e of jamEvents) {
-      activity.push({
+      globalActivity.push({
         kind: "jam",
         at: new Date(e.at).toISOString(),
         actor: e.actor,
@@ -900,10 +901,253 @@ export async function GET() {
         href: `/jams/${e.jamId}`,
       });
     }
-    activity.sort(
+    globalActivity.sort(
       (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
     );
-    const activityLimited = activity.slice(0, 30);
+
+    // ── Personal activity (signed-in only) ─────────────────
+    // Events where the user is the *target* of the action: someone gave them
+    // a gift, started reading their story, commented on their work, joined
+    // a session they're GMing, published a chapter on a story they follow.
+    // Plus entries on jams they created. If < 3 personal events, we pad
+    // with global activity so the ticker is never empty for new users.
+    const personalActivity: ActivityEvent[] = [];
+    if (userId) {
+      const followedStoryRows = await db
+        .select({ storyId: follows.storyId })
+        .from(follows)
+        .where(eq(follows.userId, userId));
+      const followedStoryIds = followedStoryRows.map((r) => r.storyId);
+
+      const [
+        pGifts,
+        pFollows,
+        pComments,
+        pSessionJoins,
+        pJamEntries,
+        pNewChaptersInFollowed,
+      ] = await Promise.all([
+        // Gifts received on my stories
+        db
+          .select({
+            at: storyDonations.createdAt,
+            amount: storyDonations.amount,
+            actor: actorCol,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            storyId: stories.id,
+          })
+          .from(storyDonations)
+          .innerJoin(stories, eq(storyDonations.storyId, stories.id))
+          .leftJoin(users, eq(storyDonations.fromUserId, users.id))
+          .where(
+            and(
+              eq(storyDonations.toUserId, userId),
+              sql`${storyDonations.fromUserId} != ${userId}`,
+              gt(storyDonations.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(storyDonations.createdAt))
+          .limit(10),
+        // Follows on my stories
+        db
+          .select({
+            at: follows.createdAt,
+            actor: actorCol,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            storyId: stories.id,
+          })
+          .from(follows)
+          .innerJoin(stories, eq(follows.storyId, stories.id))
+          .leftJoin(users, eq(follows.userId, users.id))
+          .where(
+            and(
+              eq(stories.userId, userId),
+              sql`${follows.userId} != ${userId}`,
+              gt(follows.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(follows.createdAt))
+          .limit(10),
+        // Comments on my stories
+        db
+          .select({
+            at: comments.createdAt,
+            actor: actorCol,
+            storyTitle: stories.title,
+            storySlug: stories.slug,
+            storyId: stories.id,
+          })
+          .from(comments)
+          .innerJoin(stories, eq(comments.storyId, stories.id))
+          .leftJoin(users, eq(comments.userId, users.id))
+          .where(
+            and(
+              eq(stories.userId, userId),
+              isNull(comments.deletedAt),
+              sql`${comments.userId} != ${userId}`,
+              gt(comments.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(comments.createdAt))
+          .limit(10),
+        // Players joining sessions on stories I own (GM events)
+        db
+          .select({
+            at: sessionRoster.createdAt,
+            actor: actorCol,
+            sessionTitle: campaignSessions.title,
+            storyId: campaignSessions.storyId,
+            storySlug: stories.slug,
+          })
+          .from(sessionRoster)
+          .innerJoin(
+            campaignSessions,
+            eq(sessionRoster.sessionId, campaignSessions.id),
+          )
+          .innerJoin(stories, eq(campaignSessions.storyId, stories.id))
+          .leftJoin(users, eq(sessionRoster.userId, users.id))
+          .where(
+            and(
+              eq(stories.userId, userId),
+              sql`${sessionRoster.userId} != ${userId}`,
+              gt(sessionRoster.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(sessionRoster.createdAt))
+          .limit(10),
+        // Entries on jams I created
+        db
+          .select({
+            at: jamEntries.createdAt,
+            actor: actorCol,
+            jamId: jamEntries.jamId,
+            jamTitle: storyJams.title,
+          })
+          .from(jamEntries)
+          .innerJoin(storyJams, eq(jamEntries.jamId, storyJams.id))
+          .leftJoin(users, eq(jamEntries.userId, users.id))
+          .where(
+            and(
+              eq(storyJams.createdBy, userId),
+              sql`${jamEntries.userId} != ${userId}`,
+              gt(jamEntries.createdAt, new Date(sevenDaysAgoIso)),
+            ),
+          )
+          .orderBy(desc(jamEntries.createdAt))
+          .limit(10),
+        // New chapters in stories I follow
+        followedStoryIds.length > 0
+          ? db
+              .select({
+                at: chapters.createdAt,
+                actor: actorCol,
+                storyTitle: stories.title,
+                storySlug: stories.slug,
+                storyId: stories.id,
+                chapterTitle: chapters.title,
+              })
+              .from(chapters)
+              .innerJoin(stories, eq(chapters.storyId, stories.id))
+              .leftJoin(users, eq(stories.userId, users.id))
+              .where(
+                and(
+                  inArray(chapters.storyId, followedStoryIds),
+                  eq(chapters.status, "published"),
+                  isNull(chapters.deletedAt),
+                  eq(stories.isPublic, true),
+                  isNull(stories.deletedAt),
+                  gt(chapters.createdAt, new Date(sevenDaysAgoIso)),
+                ),
+              )
+              .orderBy(desc(chapters.createdAt))
+              .limit(10)
+          : Promise.resolve([]),
+      ]);
+
+      for (const e of pGifts) {
+        personalActivity.push({
+          kind: "gift",
+          at: new Date(e.at).toISOString(),
+          actor: e.actor,
+          amount: e.amount,
+          text: `${e.actor ?? "Someone"} gifted ${e.amount} drops to your ${e.storyTitle}`,
+          href: `/story/${e.storySlug ?? e.storyId}`,
+          personal: true,
+        });
+      }
+      for (const e of pFollows) {
+        personalActivity.push({
+          kind: "follow",
+          at: new Date(e.at).toISOString(),
+          actor: e.actor,
+          text: `${e.actor ?? "Someone"} started reading your ${e.storyTitle}`,
+          href: `/story/${e.storySlug ?? e.storyId}`,
+          personal: true,
+        });
+      }
+      for (const e of pComments) {
+        personalActivity.push({
+          kind: "comment",
+          at: new Date(e.at).toISOString(),
+          actor: e.actor,
+          text: `${e.actor ?? "Someone"} left a comment on your ${e.storyTitle}`,
+          href: `/story/${e.storySlug ?? e.storyId}`,
+          personal: true,
+        });
+      }
+      for (const e of pSessionJoins) {
+        personalActivity.push({
+          kind: "join",
+          at: new Date(e.at).toISOString(),
+          actor: e.actor,
+          text: `${e.actor ?? "Someone"} joined your adventure ${e.sessionTitle}`,
+          href: `/story/${e.storySlug ?? e.storyId}`,
+          personal: true,
+        });
+      }
+      for (const e of pJamEntries) {
+        personalActivity.push({
+          kind: "jam",
+          at: new Date(e.at).toISOString(),
+          actor: e.actor,
+          text: `${e.actor ?? "Someone"} entered your jam ${e.jamTitle}`,
+          href: `/jams/${e.jamId}`,
+          personal: true,
+        });
+      }
+      for (const e of pNewChaptersInFollowed) {
+        personalActivity.push({
+          kind: "chapter",
+          at: new Date(e.at).toISOString(),
+          actor: e.actor,
+          text: `New chapter in ${e.storyTitle} — ${e.chapterTitle}`,
+          href: `/story/${e.storySlug ?? e.storyId}`,
+          personal: true,
+        });
+      }
+      personalActivity.sort(
+        (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+      );
+    }
+
+    // Prefer personal when we have enough signal (≥ 3 events). Otherwise
+    // pad with global so the ticker isn't empty for new users.
+    let activityLimited: ActivityEvent[];
+    if (userId && personalActivity.length >= 3) {
+      activityLimited = personalActivity.slice(0, 30);
+    } else if (userId && personalActivity.length > 0) {
+      const padded = [
+        ...personalActivity,
+        ...globalActivity.filter(
+          (g) => !personalActivity.some((p) => p.href === g.href && p.at === g.at),
+        ),
+      ];
+      activityLimited = padded.slice(0, 30);
+    } else {
+      activityLimited = globalActivity.slice(0, 30);
+    }
 
     // ── 6d. Pulse counts ────────────────────────────────────
     const [

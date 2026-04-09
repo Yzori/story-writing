@@ -93,12 +93,13 @@ interface StaffPickRow extends StoryCard {
 }
 
 interface ActivityEvent {
-  kind: "chapter" | "gift" | "follow" | "join" | "jam";
+  kind: "chapter" | "gift" | "follow" | "join" | "jam" | "comment";
   at: string;
   text: string;
   href: string;
   actor: string | null;
   amount?: number;
+  personal?: boolean;
 }
 
 interface PulseCounts {
@@ -766,6 +767,12 @@ function iconForEvent(kind: ActivityEvent["kind"]) {
           <path d="M8 14s-5-3-5-7a3 3 0 015-2 3 3 0 015 2c0 4-5 7-5 7z" />
         </svg>
       );
+    case "comment":
+      return (
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal">
+          <path d="M2 3h12v9H6l-4 3z" />
+        </svg>
+      );
     case "join":
       return (
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage">
@@ -786,17 +793,21 @@ function ActivityTicker({ events }: { events: ActivityEvent[] }) {
   // Static — no scroll, no motion. Show the 3 most recent events in full,
   // refreshed by the parent's 60s polling. Accessible per WCAG 2.2.2.
   const visible = events.slice(0, 3);
+  // Label shifts between personal and global depending on what we have.
+  const isPersonal = visible.some((e) => e.personal);
+  const label = isPersonal ? "While you were away" : "Live";
+  const dotColor = isPersonal ? "bg-gold" : "bg-rose";
   return (
     <div className="relative w-full py-3 border-b border-border bg-gradient-to-r from-void via-elevated/20 to-void">
       <div className="max-w-7xl mx-auto px-6 flex items-center gap-4 md:gap-6">
-        {/* Live label */}
+        {/* Dynamic label */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose" />
+            <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${dotColor} opacity-75`} />
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`} />
           </span>
           <span className="text-[10px] tracking-[0.2em] uppercase text-text-secondary">
-            Live
+            {label}
           </span>
         </div>
         <div className="w-px h-5 bg-border flex-shrink-0 hidden md:block" />
