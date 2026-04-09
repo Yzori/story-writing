@@ -165,24 +165,28 @@ export default function Navbar() {
         {/* Right: Nav links + user */}
         <div className="hidden md:flex items-center gap-0.5">
           {/* Nav links — lantern-lit hover */}
+          {session && (
+            <Link
+              href="/read"
+              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+            >
+              Read
+            </Link>
+          )}
           <Link
             href="/browse"
             className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
           >
             Browse
           </Link>
-          <Link
-            href="/roster"
-            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
-          >
-            Writers
-          </Link>
-          <Link
-            href="/scriptorium"
-            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
-          >
-            Commissions
-          </Link>
+          {session && (
+            <Link
+              href="/library"
+              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+            >
+              Library
+            </Link>
+          )}
           {isLoading ? (
             <div className="w-8 h-8 rounded-full bg-elevated/40 border border-border animate-pulse" />
           ) : session ? (
@@ -191,13 +195,7 @@ export default function Navbar() {
                 href="/create"
                 className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
               >
-                Create
-              </Link>
-              <Link
-                href="/dashboard"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
-              >
-                Dashboard
+                Write
               </Link>
 
               {/* Theme toggle */}
@@ -288,6 +286,42 @@ export default function Navbar() {
                             Edit Profile
                           </Link>
                           <Link
+                            href="/dashboard"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <rect x="2" y="2" width="5" height="5" />
+                              <rect x="9" y="2" width="5" height="5" />
+                              <rect x="2" y="9" width="5" height="5" />
+                              <rect x="9" y="9" width="5" height="5" />
+                            </svg>
+                            Dashboard
+                          </Link>
+                          <Link
+                            href="/roster"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <circle cx="5" cy="6" r="2.5" />
+                              <circle cx="11" cy="6" r="2.5" />
+                              <path d="M1 14c0-2.2 1.8-4 4-4M9 10c2.2 0 4 1.8 4 4" />
+                            </svg>
+                            Writers
+                          </Link>
+                          <Link
+                            href="/scriptorium"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <path d="M3 3h10v10H3z" />
+                              <path d="M3 7h10M7 3v10" />
+                            </svg>
+                            Commissions
+                          </Link>
+                          <Link
                             href="/creator/circle"
                             onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
@@ -297,6 +331,16 @@ export default function Navbar() {
                               <circle cx="8" cy="8" r="2.5" />
                             </svg>
                             Subscribers
+                          </Link>
+                          <Link
+                            href="/creator/boost"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <path d="M8 2l2 4 4 .5-3 3 1 4-4-2-4 2 1-4-3-3 4-.5z" />
+                            </svg>
+                            Boost
                           </Link>
                           <Link
                             href="/creator/earnings"

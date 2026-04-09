@@ -81,6 +81,7 @@ export const stories = pgTable("stories", {
   dropCaps: boolean("drop_caps").notNull().default(false),
   sceneBreakStyle: text("scene_break_style").notNull().default("asterism"),
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
+  feedImpressions: integer("feed_impressions").notNull().default(0),
   writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'
   monetizationModel: text("monetization_model").notNull().default("free"), // 'free' | 'freemium' | 'gated'
   freeChapterCount: integer("free_chapter_count").notNull().default(3), // min free chapters for freemium
@@ -1564,6 +1565,8 @@ export const storyBoosts = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     inkDropsCost: integer("ink_drops_cost").notNull(),
+    tier: text("tier").notNull().default("standard"), // 'standard' | 'hero'
+    status: text("status").notNull().default("active"), // 'pending' | 'active' | 'expired'
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -1573,6 +1576,7 @@ export const storyBoosts = pgTable(
   (table) => [
     index("idx_story_boosts_expires").on(table.expiresAt),
     index("idx_story_boosts_story").on(table.storyId),
+    index("idx_story_boosts_tier_status").on(table.tier, table.status, table.startsAt),
   ]
 );
 

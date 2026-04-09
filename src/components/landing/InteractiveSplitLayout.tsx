@@ -186,15 +186,23 @@ function BeginWritingCTA() {
   const href = session?.user ? "/create" : "/register?callbackUrl=/create";
 
   return (
-    <Link
-      href={href}
-      className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-void font-body font-semibold text-sm tracking-wide
-        hover:bg-gold-light transition-all duration-300
-        shadow-[0_0_30px_rgba(200,150,60,0.2),0_0_60px_rgba(200,150,60,0.08)]
-        hover:shadow-[0_0_40px_rgba(200,150,60,0.3),0_0_80px_rgba(200,150,60,0.12)]"
-    >
-      Begin Writing
-    </Link>
+    <div className="inline-flex flex-col items-center gap-3">
+      <Link
+        href={href}
+        className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-void font-body font-semibold text-sm tracking-wide
+          hover:bg-gold-light transition-all duration-300
+          shadow-[0_0_30px_rgba(200,150,60,0.2),0_0_60px_rgba(200,150,60,0.08)]
+          hover:shadow-[0_0_40px_rgba(200,150,60,0.3),0_0_80px_rgba(200,150,60,0.12)]"
+      >
+        Begin Writing
+      </Link>
+      <Link
+        href="/read"
+        className="text-text-ghost hover:text-gold text-[12px] tracking-[0.15em] uppercase transition-colors"
+      >
+        Start reading — no account needed
+      </Link>
+    </div>
   );
 }
 
