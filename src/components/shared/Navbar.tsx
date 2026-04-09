@@ -458,53 +458,90 @@ export default function Navbar() {
                 />
               </form>
 
+              {/* Primary nav — matches desktop: Read · Browse · Library · Write */}
+              {session && (
+                <Link
+                  href="/read"
+                  className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Read
+                </Link>
+              )}
               <Link
                 href="/browse"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 font-body"
+                className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
                 onClick={() => setMobileOpen(false)}
               >
                 Browse
               </Link>
-              <Link
-                href="/roster"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 font-body"
-                onClick={() => setMobileOpen(false)}
-              >
-                Writers
-              </Link>
-              <Link
-                href="/scriptorium"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 font-body"
-                onClick={() => setMobileOpen(false)}
-              >
-                Commissions
-              </Link>
+              {session && (
+                <Link
+                  href="/library"
+                  className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Library
+                </Link>
+              )}
+              {session && (
+                <Link
+                  href="/create"
+                  className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Write
+                </Link>
+              )}
               {session ? (
                 <>
-                  <Link
-                    href="/create"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Create
-                  </Link>
+                  <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
+                  {/* Secondary links — utilities, matching desktop user menu */}
                   <Link
                     href="/dashboard"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
                     Dashboard
                   </Link>
                   <Link
+                    href="/roster"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Writers
+                  </Link>
+                  <Link
+                    href="/scriptorium"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Commissions
+                  </Link>
+                  <Link
+                    href="/creator/boost"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Boost
+                  </Link>
+                  <Link
                     href="/creator/circle"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
                     Subscribers
                   </Link>
                   <Link
+                    href="/creator/earnings"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Earnings
+                  </Link>
+                  <Link
                     href="/notifications"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1 flex items-center gap-2"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1 flex items-center gap-2"
                     onClick={() => setMobileOpen(false)}
                   >
                     Notifications
@@ -514,18 +551,17 @@ export default function Navbar() {
                       </span>
                     )}
                   </Link>
-                  {/* Ornamental divider */}
                   <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   <Link
                     href={profileHref}
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
                     Profile
                   </Link>
                   <Link
                     href="/settings"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
                     Settings
@@ -533,7 +569,7 @@ export default function Navbar() {
                   <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   <button
                     onClick={() => { setMobileOpen(false); signOut({ callbackUrl: "/" }); }}
-                    className="text-ruby/60 hover:text-ruby transition-all duration-300 text-[14px] py-2.5 text-left hover:pl-1"
+                    className="text-ruby/60 hover:text-ruby transition-all duration-300 text-[13px] py-2 text-left hover:pl-1"
                   >
                     Sign out
                   </button>

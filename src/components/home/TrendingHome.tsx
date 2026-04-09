@@ -212,18 +212,47 @@ export default function TrendingHome() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/home")
-      .then((r) => r.json())
-      .then((json) => {
+
+    // Stale-while-revalidate: first fetch shows skeletons, subsequent polls
+    // swap data in without flashing loading state.
+    const fetchHome = async (isInitial: boolean) => {
+      try {
+        const res = await fetch("/api/home");
+        if (!res.ok) throw new Error(`${res.status}`);
+        const json = await res.json();
         if (cancelled) return;
         setData(json?.data ?? null);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
+      } catch {
+        // On poll failure, keep the previous data visible — stale is better
+        // than an error flash.
+      } finally {
+        if (isInitial && !cancelled) setLoading(false);
+      }
+    };
+
+    fetchHome(true);
+
+    // Refetch every 60s. Pause polling when the tab is hidden so we don't
+    // burn requests for users who minimized the window.
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchHome(false);
+      }
+    }, 60_000);
+
+    // Also refetch immediately when the tab regains focus — a user returning
+    // after 20 minutes should see fresh data without waiting for the timer.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchHome(false);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -1362,7 +1391,7 @@ function JamsSection({ items }: { items: JamRow[] }) {
 
 function PulseRibbon({ pulse }: { pulse: PulseCounts }) {
   return (
-    <div className="border-t border-border bg-gradient-to-b from-void to-ink py-8">
+    <div className="border-t border-border bg-elevated/10 py-8 mt-16">
       <div className="max-w-5xl mx-auto px-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
         <Pulse
           icon={
