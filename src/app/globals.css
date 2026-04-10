@@ -110,6 +110,12 @@ html, html.theme-dark {
   --t-shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 24px 48px rgba(0, 0, 0, 0.4);
 
   --t-vignette: rgba(8, 7, 12, 0.35);
+  --t-card-bg: rgba(39, 38, 54, 0.3);
+  --t-card-bg-fallback: linear-gradient(135deg, #1E1D2A, #171621);
+  --t-veil: #0F0E13;
+  --t-veil-50: rgba(15, 14, 19, 0.5);
+  --t-veil-40: rgba(15, 14, 19, 0.4);
+  --t-veil-90: rgba(15, 14, 19, 0.9);
 
   color-scheme: dark;
 }
@@ -165,6 +171,12 @@ html.theme-light {
   --t-shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.04);
 
   --t-vignette: rgba(200, 190, 170, 0.15);
+  --t-card-bg: rgba(0, 0, 0, 0.02);
+  --t-card-bg-fallback: linear-gradient(135deg, #E8E2D6, #DDD6C8);
+  --t-veil: #1C1917;
+  --t-veil-50: rgba(28, 25, 23, 0.50);
+  --t-veil-40: rgba(28, 25, 23, 0.40);
+  --t-veil-90: rgba(28, 25, 23, 0.90);
 
   color-scheme: light;
 }

@@ -455,14 +455,14 @@ function ContinueBento({
       </div>
 
       {/* Distinctive bento container with warm tint and gold edge. */}
-      <div className="relative rounded-2xl border border-gold/15 bg-gradient-to-br from-elevated/40 via-void to-elevated/20 p-4 md:p-5 shadow-[var(--t-shadow-elevated)]">
+      <div className="relative rounded-2xl border border-gold/15 bg-surface p-4 md:p-5 shadow-[var(--t-shadow-elevated)]">
         <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_top_left,var(--t-gold-glow)_0%,transparent_50%)] pointer-events-none" />
         <div className="relative grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-5 md:auto-rows-[minmax(120px,auto)]">
           {loading ? (
             <>
-              <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto rounded-xl bg-elevated/30 animate-pulse" />
-              <div className="rounded-xl bg-elevated/30 animate-pulse aspect-[16/10] md:aspect-auto" />
-              <div className="rounded-xl bg-elevated/30 animate-pulse aspect-[16/10] md:aspect-auto" />
+              <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto rounded-xl bg-[var(--t-card-bg)] animate-pulse" />
+              <div className="rounded-xl bg-[var(--t-card-bg)] animate-pulse aspect-[16/10] md:aspect-auto" />
+              <div className="rounded-xl bg-[var(--t-card-bg)] animate-pulse aspect-[16/10] md:aspect-auto" />
             </>
           ) : (
             <>
@@ -505,7 +505,7 @@ function EmptySecondaryCell() {
   return (
     <Link
       href="/create"
-      className="group rounded-xl border border-dashed border-border hover:border-gold/30 bg-elevated/10 hover:bg-elevated/30 transition-all flex items-center justify-center p-5 min-h-[120px]"
+      className="group rounded-xl border border-dashed border-border hover:border-gold/30 bg-elevated/10 hover:bg-[var(--t-card-bg)] transition-all flex items-center justify-center p-5 min-h-[120px]"
     >
       <div className="text-center">
         <div className="w-8 h-8 mx-auto mb-2 rounded-full border border-border group-hover:border-gold/40 flex items-center justify-center text-text-ghost group-hover:text-gold transition-all">
@@ -571,7 +571,7 @@ function ContinueCard({
   return (
     <Link
       href={item.href}
-      className={`group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)] ${
+      className={`group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-[var(--t-card-bg)] transition-all hover:shadow-[var(--t-shadow-card-hover)] ${
         isPrimary ? "md:col-span-2 md:row-span-2" : ""
       }`}
     >
@@ -590,22 +590,22 @@ function ContinueCard({
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+          <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-50),transparent)]" />
 
         {/* Top label */}
-        <div className={`absolute top-3 left-3 inline-flex items-center gap-1.5 bg-void/70 backdrop-blur-sm border border-border px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase ${accent.color}`}>
+        <div className={`absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase ${accent.color}`}>
           {accent.icon}
           {accent.label}
         </div>
 
         {/* Live badge for play */}
         {isLivePlay && (
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-rose/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] tracking-[0.15em] uppercase text-paper font-semibold">
+          <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-rose/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] tracking-[0.15em] uppercase text-white font-semibold">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-paper opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-paper" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
             </span>
             Live
           </div>
@@ -614,13 +614,13 @@ function ContinueCard({
         {/* Title block */}
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
           <h3
-            className={`font-display text-paper leading-tight line-clamp-2 group-hover:text-gold transition-colors ${
+            className={`font-display text-white leading-tight line-clamp-2 group-hover:text-gold transition-colors ${
               isPrimary ? "text-xl md:text-2xl" : "text-[14px]"
             }`}
           >
             {item.title}
           </h3>
-          <p className="text-text-ghost text-[11px] mt-1 truncate">
+          <p className="text-white/50 text-[11px] mt-1 truncate">
             {item.subtitle}
           </p>
 
@@ -659,7 +659,7 @@ function CandlelitBentoCard({
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--t-gold-soft)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
-          <div className="inline-flex items-center gap-1.5 bg-void/60 backdrop-blur-sm border border-gold/30 text-gold px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase">
+          <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-gold/30 text-gold px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 1C8 1 3 4 3 9a5 5 0 0010 0c0-5-5-8-5-8z" />
             </svg>
@@ -788,13 +788,13 @@ function TodayStrip({ today }: { today: TodayStats }) {
 function TrendingSkeleton() {
   return (
     <section className="my-16">
-      <div className="mb-6 h-8 w-52 rounded bg-elevated/40 animate-pulse" />
+      <div className="mb-6 h-8 w-52 rounded bg-[var(--t-card-bg)] animate-pulse" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto md:min-h-[320px] rounded-xl bg-elevated/20 animate-pulse" />
+        <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto md:min-h-[320px] rounded-xl bg-[var(--t-card-bg)] animate-pulse" />
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-[3/4] rounded-xl bg-elevated/20 animate-pulse"
+            className="aspect-[3/4] rounded-xl bg-[var(--t-card-bg)] animate-pulse"
           />
         ))}
       </div>
@@ -805,12 +805,12 @@ function TrendingSkeleton() {
 function LiveAdventuresSkeleton() {
   return (
     <section className="my-16">
-      <div className="mb-6 h-8 w-64 rounded bg-elevated/40 animate-pulse" />
+      <div className="mb-6 h-8 w-64 rounded bg-[var(--t-card-bg)] animate-pulse" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-[16/10] rounded-xl bg-elevated/20 animate-pulse"
+            className="aspect-[16/10] rounded-xl bg-[var(--t-card-bg)] animate-pulse"
           />
         ))}
       </div>
@@ -989,7 +989,7 @@ function LiveAdventureTile({ session: s }: { session: LiveAdventure }) {
   return (
     <Link
       href={`/story/${s.storySlug ?? s.storyId}`}
-      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[var(--t-shadow-card-hover)]"
+      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-[var(--t-card-bg)] transition-all hover:shadow-[var(--t-shadow-card-hover)]"
     >
       {/* Cover backdrop */}
       <div className="relative aspect-[16/10]">
@@ -1001,16 +1001,16 @@ function LiveAdventureTile({ session: s }: { session: LiveAdventure }) {
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+          <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-40),transparent)]" />
 
         {/* Live badge */}
         {s.isLive && (
-          <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-rose/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-[10px] tracking-[0.2em] uppercase text-paper font-semibold">
+          <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-rose/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-[10px] tracking-[0.2em] uppercase text-white font-semibold">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-paper opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-paper" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
             </span>
             Live
           </div>
@@ -1018,7 +1018,7 @@ function LiveAdventureTile({ session: s }: { session: LiveAdventure }) {
 
         {/* Spectator count */}
         {s.spectatorCount > 0 && (
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-void/70 backdrop-blur-sm border border-border px-2.5 py-1 rounded-full text-[10px] text-text-secondary">
+          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-full text-[10px] text-white/70">
             <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" />
               <circle cx="8" cy="8" r="2" />
@@ -1029,10 +1029,10 @@ function LiveAdventureTile({ session: s }: { session: LiveAdventure }) {
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
-          <p className="text-text-ghost text-[10px] tracking-[0.2em] uppercase mb-1">
+          <p className="text-white/50 text-[10px] tracking-[0.2em] uppercase mb-1">
             {s.storyTitle}
           </p>
-          <h3 className="font-display text-paper text-lg md:text-xl leading-tight group-hover:text-gold transition-colors">
+          <h3 className="font-display text-white text-lg md:text-xl leading-tight group-hover:text-gold transition-colors">
             {s.sessionTitle}
           </h3>
         </div>
@@ -1278,7 +1278,7 @@ function DiscoverHeroCard({ item }: { item: TrendingCard }) {
   return (
     <Link
       href={storyHref(item)}
-      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
+      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-[var(--t-card-bg)] transition-all"
     >
       <div className="relative aspect-[16/10] md:aspect-auto md:h-full min-h-[360px]">
         {item.coverImageUrl ? (
@@ -1289,10 +1289,10 @@ function DiscoverHeroCard({ item }: { item: TrendingCard }) {
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+          <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-50),transparent)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--t-veil-50),transparent,transparent)]" />
 
         <div className="absolute top-4 left-4 inline-flex items-center gap-2 bg-gold/15 backdrop-blur-sm border border-gold/40 px-3 py-1 rounded-full text-[10px] tracking-[0.2em] uppercase text-gold">
           <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
@@ -1302,14 +1302,14 @@ function DiscoverHeroCard({ item }: { item: TrendingCard }) {
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-          <p className="text-text-ghost text-[10px] tracking-[0.2em] uppercase mb-2">
+          <p className="text-white/50 text-[10px] tracking-[0.2em] uppercase mb-2">
             by {item.authorName ?? "Unknown"}
           </p>
-          <h3 className="font-display text-paper text-2xl md:text-3xl mb-3 group-hover:text-gold transition-colors leading-tight">
+          <h3 className="font-display text-white text-2xl md:text-3xl mb-3 group-hover:text-gold transition-colors leading-tight">
             {item.title}
           </h3>
           {item.synopsis && (
-            <p className="text-text-secondary text-[13px] line-clamp-2 max-w-md mb-4">
+            <p className="text-white/60 text-[13px] line-clamp-2 max-w-md mb-4">
               {item.synopsis}
             </p>
           )}
@@ -1345,7 +1345,7 @@ function DiscoverTile({ item }: { item: DiscoverItem }) {
       className={`group relative block overflow-hidden rounded-xl border transition-all ${
         isSponsored
           ? "border-gold/20 hover:border-gold/50 bg-gradient-to-br from-gold/5 to-void"
-          : "border-border hover:border-gold/40 bg-elevated/30"
+          : "border-border hover:border-gold/40 bg-[var(--t-card-bg)]"
       }`}
     >
       <div className="relative aspect-[3/4]">
@@ -1357,9 +1357,9 @@ function DiscoverTile({ item }: { item: DiscoverItem }) {
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+          <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-40),transparent)]" />
 
         {/* Tag (top-right) */}
         {isSponsored && (
@@ -1382,10 +1382,10 @@ function DiscoverTile({ item }: { item: DiscoverItem }) {
         )}
 
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          <p className="text-text-ghost text-[10px] tracking-wide mb-1 truncate">
+          <p className="text-white/50 text-[10px] tracking-wide mb-1 truncate">
             by {story.authorName ?? "Unknown"}
           </p>
-          <h3 className="font-display text-paper text-[15px] leading-tight group-hover:text-gold transition-colors line-clamp-2">
+          <h3 className="font-display text-white text-[15px] leading-tight group-hover:text-gold transition-colors line-clamp-2">
             {story.title}
           </h3>
           {interactions && (
@@ -1432,7 +1432,7 @@ function RankedRow({
       className={`group flex items-center gap-4 md:gap-5 rounded-xl border transition-all p-2 pr-5 ${
         isSponsored
           ? "border-gold/20 hover:border-gold/50 bg-gradient-to-r from-gold/5 to-void"
-          : "border-border/50 hover:border-gold/30 bg-elevated/20 hover:bg-elevated/40"
+          : "border-border/50 hover:border-gold/30 bg-[var(--t-card-bg)] hover:bg-surface/80"
       }`}
     >
       {/* Rank number */}
@@ -1457,7 +1457,7 @@ function RankedRow({
       )}
 
       {/* Cover thumbnail */}
-      <div className="flex-shrink-0 w-14 h-20 md:w-16 md:h-[88px] rounded-lg overflow-hidden border border-border/50 bg-elevated/30">
+      <div className="flex-shrink-0 w-14 h-20 md:w-16 md:h-[88px] rounded-lg overflow-hidden border border-border/50 bg-[var(--t-card-bg)]">
         {story.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -1466,7 +1466,7 @@ function RankedRow({
             className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-elevated to-ink" />
+          <div className="w-full h-full bg-[var(--t-card-bg-fallback)]" />
         )}
       </div>
 
@@ -1543,7 +1543,7 @@ function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
             <motion.div key={a.sessionId} variants={revealChild}>
             <Link
               href={`/story/${a.storySlug ?? a.storyId}`}
-              className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
+              className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-[var(--t-card-bg)] transition-all"
             >
               <div className="relative aspect-[4/3]">
                 {a.coverImageUrl ? (
@@ -1554,9 +1554,9 @@ function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+                  <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/50 to-transparent" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-50),transparent)]" />
                 {/* Seeking more pill */}
                 <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-sage/15 backdrop-blur border border-sage/40 text-sage text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
                   <span className="relative flex h-1.5 w-1.5">
@@ -1625,7 +1625,7 @@ function JamsSection({ items }: { items: JamRow[] }) {
             <motion.div key={j.id} variants={revealChild}>
             <Link
               href={`/jams/${j.id}`}
-              className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
+              className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-[var(--t-card-bg)] transition-all"
             >
               <div className="relative aspect-[21/9]">
                 {j.bannerUrl ? (
@@ -1638,7 +1638,7 @@ function JamsSection({ items }: { items: JamRow[] }) {
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-lavender/20 via-void to-teal/10" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/30 to-transparent" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-40),transparent)]" />
                 <div className="absolute top-3 left-3 inline-flex items-center gap-1 bg-lavender/20 backdrop-blur border border-lavender/40 text-lavender text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
                   Jam
                 </div>
@@ -1807,7 +1807,7 @@ function HeroCarousel({
 
   if (loading && slides.length === 0) {
     return (
-      <div className="relative aspect-[21/9] rounded-2xl overflow-hidden bg-elevated/20 animate-pulse" />
+      <div className="relative aspect-[21/9] rounded-2xl overflow-hidden bg-[var(--t-card-bg)] animate-pulse" />
     );
   }
   if (slides.length === 0) {
@@ -1890,8 +1890,8 @@ function HeroCarousel({
                 className={`relative h-full w-full rounded-2xl overflow-hidden border ${
                   isMain
                     ? "border-gold/20 shadow-[var(--t-shadow-modal)]"
-                    : "border-border shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
-                } bg-gradient-to-br from-elevated via-void to-ink cursor-${
+                    : "border-border shadow-[var(--t-shadow-elevated)]"
+                } bg-[var(--t-card-bg-fallback)] cursor-${
                   isPeek ? "pointer" : "default"
                 }`}
                 onClick={() => {
@@ -1908,16 +1908,16 @@ function HeroCarousel({
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+                  <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
                 )}
 
                 {/* Dual gradient veil */}
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/30 to-transparent pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-r from-void/70 via-transparent to-void/40 pointer-events-none" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil),var(--t-veil-40),transparent)] pointer-events-none" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--t-veil-50),transparent,var(--t-veil-40))] pointer-events-none" />
 
                 {/* Peek darken — pushed further into shadow */}
                 {!isMain && (
-                  <div className="absolute inset-0 bg-void/75 pointer-events-none" />
+                  <div className="absolute inset-0 bg-[var(--t-veil)] opacity-75 pointer-events-none" />
                 )}
 
                 {/* Main-slide content */}
@@ -1925,7 +1925,7 @@ function HeroCarousel({
                   <>
                     {/* Top-left: category + sponsored */}
                     <div className="absolute top-5 left-5 z-10 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 bg-void/60 backdrop-blur-md border border-border rounded-full px-3 py-1 text-[10px] tracking-[0.2em] uppercase text-text-secondary">
+                      <span className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 text-[10px] tracking-[0.2em] uppercase text-white/70">
                         {s.writingMode === "campaign"
                           ? "Adventure"
                           : s.format === "poetry"
@@ -1956,7 +1956,7 @@ function HeroCarousel({
                           e.stopPropagation();
                           setPlaying((p) => !p);
                         }}
-                        className="absolute top-5 right-5 z-10 size-9 rounded-full bg-void/60 backdrop-blur-md border border-border flex items-center justify-center text-text-secondary hover:text-gold hover:border-gold/40 transition-all"
+                        className="absolute top-5 right-5 z-10 size-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-gold hover:border-gold/40 transition-all"
                         aria-label={playing ? "Pause" : "Play"}
                       >
                         {playing ? (
@@ -2008,21 +2008,21 @@ function HeroCarousel({
                         }}
                         className="absolute bottom-0 left-0 right-0 p-6 md:p-10 z-10"
                       >
-                        <p className="text-text-ghost text-[11px] tracking-[0.2em] uppercase mb-2">
+                        <p className="text-white/50 text-[11px] tracking-[0.2em] uppercase mb-2">
                           by {s.authorName ?? "Unknown"}
                         </p>
-                        <h1 className="font-display text-paper text-2xl md:text-4xl lg:text-5xl leading-[1.05] mb-3 max-w-3xl">
+                        <h1 className="font-display text-white text-2xl md:text-4xl lg:text-5xl leading-[1.05] mb-3 max-w-3xl">
                           {s.title}
                         </h1>
                         {s.synopsis && (
-                          <p className="text-text-secondary text-[13px] md:text-[15px] mb-5 max-w-2xl line-clamp-2 leading-relaxed">
+                          <p className="text-white/70 text-[13px] md:text-[15px] mb-5 max-w-2xl line-clamp-2 leading-relaxed">
                             {s.synopsis}
                           </p>
                         )}
                         <div className="flex items-center gap-4">
                           <Link
                             href={storyHref(s)}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gold text-void font-body font-semibold text-[12px] tracking-wide hover:bg-gold-light transition-all shadow-[var(--t-shadow-card-hover)]"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gold text-black font-body font-semibold text-[12px] tracking-wide hover:bg-gold-light transition-all shadow-[var(--t-shadow-card-hover)]"
                           >
                             {primaryAction(s)}
                             <svg
@@ -2042,7 +2042,7 @@ function HeroCarousel({
 
                     {/* Progress bar along the bottom of the main slide */}
                     {total > 1 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-void/60 z-20">
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/40 z-20">
                         <div
                           className="h-full bg-gradient-to-r from-gold/60 via-gold to-gold/60 transition-none"
                           style={{ width: `${playing ? progress : 0}%` }}
@@ -2130,22 +2130,22 @@ function Row({
             href={c.href}
             className="group block"
           >
-            <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-border group-hover:border-gold/40 transition-all bg-elevated/40">
+            <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-border group-hover:border-gold/40 transition-all bg-[var(--t-card-bg)]">
               {c.cover ? (
                 <div
                   className="absolute inset-0 bg-cover bg-center group-hover:scale-[1.03] transition-transform duration-700"
                   style={{ backgroundImage: `url(${c.cover})` }}
                 />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-elevated to-ink" />
+                <div className="absolute inset-0 bg-[var(--t-card-bg-fallback)]" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-void/90 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--t-veil-90),transparent,transparent)]" />
               {c.tag && (
                 <span
                   className={`absolute top-2 right-2 text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full backdrop-blur ${
                     c.tag === "Sponsored"
-                      ? "bg-void/70 text-gold/80 border border-gold/30"
-                      : "bg-void/60 text-text-secondary border border-border"
+                      ? "bg-black/50 text-gold/80 border border-gold/30"
+                      : "bg-black/50 text-white/60 border border-white/10"
                   }`}
                 >
                   {c.tag}
