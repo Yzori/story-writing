@@ -501,7 +501,7 @@ function BrowsePage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
-          className="sticky top-14 z-30 bg-void/90 backdrop-blur-sm -mx-6 px-6 py-3 mb-6"
+          className="sticky top-14 z-30 bg-void/95 backdrop-blur-sm -mx-6 px-6 py-3 mb-6"
         >
           <div className="flex flex-wrap items-center gap-3">
             {/* Sort pills */}
@@ -754,7 +754,7 @@ function BrowsePage() {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/50 to-transparent" />
                         {/* Staff pick badge */}
-                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
                           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
                             <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
                           </svg>
@@ -889,7 +889,7 @@ function BrowsePage() {
                         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/50 to-transparent" />
 
                         {/* Adventure badge */}
-                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
                           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
                             <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
                           </svg>

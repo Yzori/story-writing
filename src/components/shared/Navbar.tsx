@@ -86,7 +86,7 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50">
       {/* Background — blends with page */}
-      <div className="absolute inset-0 bg-void/90 backdrop-blur-2xl" />
+      <div className="absolute inset-0 bg-void/95 backdrop-blur-2xl" />
       {/* Bottom border */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
 
@@ -134,8 +134,8 @@ export default function Navbar() {
           <div
             className={`w-full flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all duration-300 border ${
               searchFocused
-                ? "border-gold/20 bg-void/80 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]"
-                : "border-border bg-void/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]"
+                ? "border-gold/20 bg-surface/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]"
+                : "border-border bg-surface/50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)]"
             }`}
           >
             <svg
@@ -188,7 +188,7 @@ export default function Navbar() {
             </Link>
           )}
           {isLoading ? (
-            <div className="w-8 h-8 rounded-full bg-elevated/40 border border-border animate-pulse" />
+            <div className="w-8 h-8 rounded-full bg-[var(--t-card-bg)] border border-border animate-pulse" />
           ) : session ? (
             <>
               <Link
@@ -443,7 +443,7 @@ export default function Navbar() {
               {/* Mobile search — inset brass frame */}
               <form
                 onSubmit={handleSearch}
-                className="flex items-center gap-2 rounded-lg px-3.5 py-2.5 mb-4 border border-border bg-void/60 shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]"
+                className="flex items-center gap-2 rounded-lg px-3.5 py-2.5 mb-4 border border-border bg-surface/60 shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)]"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold/40">
                   <circle cx="7" cy="7" r="4.5" />

@@ -189,10 +189,10 @@ function BeginWritingCTA() {
     <div className="inline-flex flex-col items-center gap-3">
       <Link
         href={href}
-        className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-void font-body font-semibold text-sm tracking-wide
+        className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-black font-body font-semibold text-sm tracking-wide
           hover:bg-gold-light transition-all duration-300
-          shadow-[0_0_30px_rgba(200,150,60,0.2),0_0_60px_rgba(200,150,60,0.08)]
-          hover:shadow-[0_0_40px_rgba(200,150,60,0.3),0_0_80px_rgba(200,150,60,0.12)]"
+          shadow-[var(--t-shadow-card-hover)]
+          hover:shadow-[var(--t-shadow-elevated)]"
       >
         Begin Writing
       </Link>
@@ -497,10 +497,10 @@ function HeroSection() {
               <div className="relative -left-1 -top-[60px] origin-bottom-left w-[70px] h-[70px] md:w-[90px] md:h-[90px]">
                 {/* Spark at tip — soft organic glow */}
                 <motion.div
-                  className="absolute bottom-0 left-0 w-3 h-3 rounded-full bg-paper"
+                  className="absolute bottom-0 left-0 w-3 h-3 rounded-full bg-gold-light"
                   style={{
                     boxShadow:
-                      "0 0 8px var(--t-paper), 0 0 20px var(--t-gold), 0 0 40px rgba(200,150,60,0.3)",
+                      "0 0 8px var(--t-gold-light), 0 0 20px var(--t-gold), 0 0 40px var(--t-gold-soft)",
                   }}
                   animate={{
                     scale: [1, 1.3, 1.1, 1.4, 1],
@@ -764,9 +764,9 @@ function VideoShowcase() {
                   isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"
                 }`}
               >
-                <div className="absolute inset-0 bg-void/30" />
+                <div className="absolute inset-0 bg-black/30" />
                 <motion.div
-                  className="relative z-10 w-20 h-20 rounded-full bg-void/60 backdrop-blur-sm border border-gold/25 flex items-center justify-center"
+                  className="relative z-10 w-20 h-20 rounded-full bg-black/50 backdrop-blur-sm border border-gold/25 flex items-center justify-center"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -786,7 +786,7 @@ function VideoShowcase() {
               {/* Mute/unmute button */}
               <button
                 onClick={handleMute}
-                className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-void/60 backdrop-blur-sm border border-gold/25 flex items-center justify-center hover:bg-void/80 transition-all duration-300"
+                className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-gold/25 flex items-center justify-center hover:bg-black/70 transition-all duration-300"
                 aria-label={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? (
@@ -805,7 +805,7 @@ function VideoShowcase() {
               </button>
 
               {/* Inner shadow for depth */}
-              <div className="absolute inset-0 pointer-events-none rounded-2xl shadow-[inset_0_2px_20px_rgba(0,0,0,0.4),inset_0_-2px_20px_rgba(0,0,0,0.2)]" />
+              <div className="absolute inset-0 pointer-events-none rounded-2xl shadow-[inset_0_2px_12px_rgba(0,0,0,0.15),inset_0_-2px_12px_rgba(0,0,0,0.1)]" />
 
               {/* Film grain */}
               <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%20256%20256%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cfilter%20id%3D%22n%22%3E%3CfeTurbulence%20baseFrequency%3D%220.8%22%20numOctaves%3D%224%22%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20filter%3D%22url(%23n)%22%2F%3E%3C%2Fsvg%3E')] bg-repeat bg-[length:128px_128px]" />
