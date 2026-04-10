@@ -1861,7 +1861,7 @@ function HeroCarousel({
           const translateX = off === 0 ? "0%" : off < 0 ? "-48%" : "48%";
           const rotateY = off === 0 ? 0 : off < 0 ? 24 : -24;
           const scale = off === 0 ? 1 : 0.7;
-          const opacity = off === 0 ? 1 : visible ? 0.35 : 0;
+          const opacity = off === 0 ? 1 : visible ? 0.65 : 0;
           const zIndex = off === 0 ? 30 : visible ? 20 : 10;
 
           return (
@@ -1917,7 +1917,7 @@ function HeroCarousel({
 
                 {/* Peek darken — pushed further into shadow */}
                 {!isMain && (
-                  <div className="absolute inset-0 bg-[var(--t-veil)] opacity-75 pointer-events-none" />
+                  <div className="absolute inset-0 bg-[var(--t-veil)] opacity-30 pointer-events-none" />
                 )}
 
                 {/* Main-slide content */}
