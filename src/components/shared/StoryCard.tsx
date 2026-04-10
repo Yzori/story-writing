@@ -28,6 +28,7 @@ interface StoryCardProps {
   variant?: "default" | "featured";
   excerpt?: string;
   writingMode?: string;
+  isBoosted?: boolean;
 }
 
 const STATUS_STYLES: Record<string, { label: string; dot: string; className: string }> = {
@@ -75,6 +76,7 @@ export default function StoryCard({
   variant = "default",
   excerpt,
   writingMode,
+  isBoosted,
 }: StoryCardProps) {
   const linkHref = href || `/story/${slug}`;
   const statusInfo = status ? STATUS_STYLES[status] : null;
@@ -85,7 +87,7 @@ export default function StoryCard({
         <motion.div
           whileHover={{ y: -4 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="card-page relative overflow-hidden min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group hover:shadow-xl hover:shadow-amber/5 transition-all duration-300"
+          className="card-page relative overflow-hidden min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group hover:shadow-[var(--t-shadow-card-hover)] transition-all duration-300"
         >
           <div
             className={`h-44 bg-gradient-to-br ${getGradient(genres)} relative overflow-hidden`}
@@ -110,6 +112,15 @@ export default function StoryCard({
                   <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
                 </svg>
                 Adventure
+              </span>
+            )}
+            {/* Spotlight badge */}
+            {isBoosted && (
+              <span className="absolute top-3 right-3 text-[10px] font-medium tracking-wider text-gold bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-[0_0_6px_var(--t-gold-glow)]">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
+                  <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+                </svg>
+                Spotlight
               </span>
             )}
           </div>
@@ -196,6 +207,15 @@ export default function StoryCard({
                 <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
               </svg>
               Adventure
+            </span>
+          )}
+          {/* Spotlight badge */}
+          {isBoosted && !statusInfo && (
+            <span className="absolute top-3 right-3 text-[10px] font-medium tracking-wider text-gold bg-void/70 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-[0_0_6px_var(--t-gold-glow)]">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
+                <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+              </svg>
+              Spotlight
             </span>
           )}
         </div>

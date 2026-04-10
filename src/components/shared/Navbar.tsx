@@ -95,7 +95,7 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
           <div className="relative">
             <svg
-              className="w-6 h-6 text-gold transition-all duration-500 group-hover:rotate-[-12deg] group-hover:scale-110 drop-shadow-[0_0_3px_rgba(200,150,60,0.2)]"
+              className="w-6 h-6 text-gold transition-all duration-500 group-hover:rotate-[-12deg] group-hover:scale-110 drop-shadow-[0_0_3px_var(--t-gold-glow)]"
               viewBox="0 0 32 32"
               fill="none"
             >
@@ -118,7 +118,7 @@ export default function Navbar() {
             <div className="absolute -inset-3 bg-gold/8 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
           <span
-            className="font-display text-lg font-bold tracking-wide transition-all duration-500 group-hover:drop-shadow-[0_0_6px_rgba(200,150,60,0.3)]"
+            className="font-display text-lg font-bold tracking-wide transition-all duration-500 group-hover:drop-shadow-[0_0_6px_var(--t-gold-glow)]"
             style={{
               background: "linear-gradient(180deg, var(--t-paper) 0%, var(--t-gold) 100%)",
               WebkitBackgroundClip: "text",
@@ -134,8 +134,8 @@ export default function Navbar() {
           <div
             className={`w-full flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all duration-300 border ${
               searchFocused
-                ? "border-gold/20 bg-void/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4),0_0_8px_rgba(200,150,60,0.06)]"
-                : "border-border bg-void/50 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
+                ? "border-gold/20 bg-void/80 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]"
+                : "border-border bg-void/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]"
             }`}
           >
             <svg
@@ -168,21 +168,21 @@ export default function Navbar() {
           {session && (
             <Link
               href="/read"
-              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
             >
               Read
             </Link>
           )}
           <Link
             href="/browse"
-            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+            className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
           >
             Browse
           </Link>
           {session && (
             <Link
               href="/library"
-              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
             >
               Library
             </Link>
@@ -193,7 +193,7 @@ export default function Navbar() {
             <>
               <Link
                 href="/create"
-                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-[0_0_12px_rgba(200,150,60,0.06)]"
+                className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
               >
                 Write
               </Link>
@@ -214,7 +214,7 @@ export default function Navbar() {
                   <path d="M6.5 13a1.5 1.5 0 003 0" />
                 </svg>
                 {unreadCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-gold to-copper shadow-[0_0_6px_rgba(200,150,60,0.5)] animate-pulse" />
+                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-gold to-copper shadow-[0_0_4px_var(--t-gold-soft)] animate-pulse" />
                 )}
               </Link>
 
@@ -236,7 +236,7 @@ export default function Navbar() {
               <div className="relative ml-1.5" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="w-8 h-8 rounded-full border transition-all duration-300 flex items-center justify-center text-[12px] font-display font-bold bg-gradient-to-br from-gold/20 via-gold/10 to-copper/10 border-gold/20 text-gold hover:border-gold/40 hover:shadow-[0_0_10px_rgba(200,150,60,0.15)] hover:from-gold/25 hover:to-copper/15"
+                  className="w-8 h-8 rounded-full border transition-all duration-300 flex items-center justify-center text-[12px] font-display font-bold bg-gradient-to-br from-gold/20 via-gold/10 to-copper/10 border-gold/20 text-gold hover:border-gold/40 hover:shadow-none hover:from-gold/25 hover:to-copper/15"
                 >
                   {initial}
                 </button>
@@ -248,7 +248,7 @@ export default function Navbar() {
                       exit={{ opacity: 0, y: 8, scaleY: 0.92 }}
                       transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
                       style={{ transformOrigin: "top center" }}
-                      className="absolute right-0 top-11 w-52 overflow-hidden z-50 rounded-lg border border-border-active shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_1px_rgba(200,150,60,0.15)]"
+                      className="absolute right-0 top-11 w-52 overflow-hidden z-50 rounded-lg border border-border-active shadow-[var(--t-shadow-modal)]"
                     >
                       <div className="bg-elevated">
 
@@ -397,7 +397,7 @@ export default function Navbar() {
               {/* Gold-leaf invitation button */}
               <Link
                 href="/register"
-                className="relative font-display font-semibold px-5 py-1.5 rounded-md text-[13px] ml-1.5 transition-all duration-300 border border-gold/30 text-gold bg-gradient-to-b from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10 hover:border-gold/50 hover:shadow-[0_0_16px_rgba(200,150,60,0.12)] hover:text-paper"
+                className="relative font-display font-semibold px-5 py-1.5 rounded-md text-[13px] ml-1.5 transition-all duration-300 border border-gold/30 text-gold bg-gradient-to-b from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10 hover:border-gold/50 hover:shadow-none hover:text-paper"
               >
                 Sign up
               </Link>
@@ -443,7 +443,7 @@ export default function Navbar() {
               {/* Mobile search — inset brass frame */}
               <form
                 onSubmit={handleSearch}
-                className="flex items-center gap-2 rounded-lg px-3.5 py-2.5 mb-4 border border-border bg-void/60 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
+                className="flex items-center gap-2 rounded-lg px-3.5 py-2.5 mb-4 border border-border bg-void/60 shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold/40">
                   <circle cx="7" cy="7" r="4.5" />
@@ -546,7 +546,7 @@ export default function Navbar() {
                   >
                     Notifications
                     {unreadCount > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-gold to-copper text-void text-[10px] font-bold flex items-center justify-center shadow-[0_0_6px_rgba(200,150,60,0.4)]">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-gold to-copper text-void text-[10px] font-bold flex items-center justify-center shadow-[0_0_4px_var(--t-gold-soft)]">
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}

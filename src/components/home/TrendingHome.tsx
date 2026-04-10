@@ -455,8 +455,8 @@ function ContinueBento({
       </div>
 
       {/* Distinctive bento container with warm tint and gold edge. */}
-      <div className="relative rounded-2xl border border-gold/15 bg-gradient-to-br from-elevated/40 via-void to-elevated/20 p-4 md:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
-        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_top_left,rgba(200,150,60,0.05)_0%,transparent_50%)] pointer-events-none" />
+      <div className="relative rounded-2xl border border-gold/15 bg-gradient-to-br from-elevated/40 via-void to-elevated/20 p-4 md:p-5 shadow-[var(--t-shadow-elevated)]">
+        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_top_left,var(--t-gold-glow)_0%,transparent_50%)] pointer-events-none" />
         <div className="relative grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-5 md:auto-rows-[minmax(120px,auto)]">
           {loading ? (
             <>
@@ -657,7 +657,7 @@ function CandlelitBentoCard({
           isPrimary ? "md:h-full md:min-h-[260px]" : "md:h-full md:min-h-[120px]"
         }`}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(200,150,60,0.12)_0%,transparent_60%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--t-gold-soft)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 bg-void/60 backdrop-blur-sm border border-gold/30 text-gold px-2.5 py-1 rounded-full text-[10px] tracking-[0.15em] uppercase">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
@@ -989,7 +989,7 @@ function LiveAdventureTile({ session: s }: { session: LiveAdventure }) {
   return (
     <Link
       href={`/story/${s.storySlug ?? s.storyId}`}
-      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
+      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all hover:shadow-[var(--t-shadow-card-hover)]"
     >
       {/* Cover backdrop */}
       <div className="relative aspect-[16/10]">
@@ -1889,7 +1889,7 @@ function HeroCarousel({
               <div
                 className={`relative h-full w-full rounded-2xl overflow-hidden border ${
                   isMain
-                    ? "border-gold/20 shadow-[0_20px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(200,150,60,0.1)]"
+                    ? "border-gold/20 shadow-[var(--t-shadow-modal)]"
                     : "border-border shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
                 } bg-gradient-to-br from-elevated via-void to-ink cursor-${
                   isPeek ? "pointer" : "default"
@@ -2022,7 +2022,7 @@ function HeroCarousel({
                         <div className="flex items-center gap-4">
                           <Link
                             href={storyHref(s)}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gold text-void font-body font-semibold text-[12px] tracking-wide hover:bg-gold-light transition-all shadow-[0_0_20px_rgba(200,150,60,0.25)]"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gold text-void font-body font-semibold text-[12px] tracking-wide hover:bg-gold-light transition-all shadow-[var(--t-shadow-card-hover)]"
                           >
                             {primaryAction(s)}
                             <svg

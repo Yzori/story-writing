@@ -45,6 +45,11 @@
   --color-border-subtle: var(--t-border-subtle);
   --color-border-active: var(--t-border-active);
 
+  --shadow-card: var(--t-shadow-card);
+  --shadow-card-hover: var(--t-shadow-card-hover);
+  --shadow-elevated: var(--t-shadow-elevated);
+  --shadow-modal: var(--t-shadow-modal);
+
   --font-display: var(--font-fraunces);
   --font-body: var(--font-jakarta);
   --font-reading: var(--font-literata);
@@ -54,94 +59,112 @@
 }
 
 /* ─── Lamplight — The Magical Library ─────────────────────── */
-/*   Deep mahogany shadows, firelit gold, aged parchment.      */
-/*   You've stepped through the door. The air smells of        */
-/*   old paper and cedar. Lanterns flicker.                    */
+/*   Warm-neutral darks with violet undertone. Gold candlelight */
+/*   pops against the restrained base. Elevation via lightness  */
+/*   steps and border-light, not shadows.                       */
 
 html, html.theme-dark {
-  --t-void: #1A1510;
-  --t-ink: #231D15;
-  --t-surface: #2E271E;
-  --t-elevated: #3A3228;
-  --t-subtle: #46392E;
+  --t-void: #0F0E13;
+  --t-ink: #171621;
+  --t-surface: #1E1D2A;
+  --t-elevated: #272636;
+  --t-subtle: #302F40;
 
-  --t-paper: #F2E8D0;
-  --t-text: #D4C4A8;
-  --t-text-secondary: #B8A888;
-  --t-text-tertiary: #9A8A6A;
-  --t-text-ghost: #7A6C56;
+  --t-paper: #EDE8D8;
+  --t-text: #B8B2A0;
+  --t-text-secondary: #918B7E;
+  --t-text-tertiary: #6E6962;
+  --t-text-ghost: #524E48;
 
-  /* Firelight gold — warm, alive, not corporate */
-  --t-gold: #C8963C;
-  --t-gold-soft: #C8963C25;
-  --t-gold-glow: #C8963C12;
-  --t-gold-light: #E0B260;
-  --t-gold-dark: #9A7028;
+  /* Candlelight gold — brighter, pops against neutral bg */
+  --t-gold: #D4A843;
+  --t-gold-soft: #D4A84325;
+  --t-gold-glow: #D4A84312;
+  --t-gold-light: #E8BE5E;
+  --t-gold-dark: #A88030;
 
-  /* Accents — aged, rich, belonging to a fantasy world */
-  --t-ruby: #9E3B42;
-  --t-emerald: #3B7A5C;
-  --t-amethyst: #7E5E9E;
-  --t-copper: #9E6B42;
-  --t-teal: #3B6E7A;
+  /* Accents — lifted for dark-bg readability */
+  --t-ruby: #B8697A;
+  --t-emerald: #7BA28A;
+  --t-amethyst: #9B8EC4;
+  --t-copper: #B8917A;
+  --t-teal: #6BA5A5;
 
-  --t-charcoal: #1E1914;
-  --t-espresso: #332A1E;
-  --t-walnut: #544434;
-  --t-linen: #F2E8D0;
-  --t-cream: #F8F0DC;
-  --t-parchment: #D4C4A0;
+  --t-charcoal: #13121A;
+  --t-espresso: #1C1B28;
+  --t-walnut: #3A3850;
+  --t-linen: #EDE8D8;
+  --t-cream: #F5F0E0;
+  --t-parchment: #C8C0AC;
 
-  /* Borders — warm bronze tinted, visible enough to define edges */
-  --t-border: #C8963C1C;
-  --t-border-subtle: #C8963C12;
-  --t-border-active: #C8963C30;
+  /* Borders — white-light system (Linear/Raycast style) */
+  --t-border: rgba(255, 255, 255, 0.06);
+  --t-border-subtle: rgba(255, 255, 255, 0.04);
+  --t-border-active: rgba(255, 255, 255, 0.12);
   --t-backdrop-opacity: 0.20;
+
+  /* Theme-aware shadow system */
+  --t-shadow-card: none;
+  --t-shadow-card-hover: 0 0 24px rgba(212, 168, 67, 0.08);
+  --t-shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --t-shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 24px 48px rgba(0, 0, 0, 0.4);
+
+  --t-vignette: rgba(8, 7, 12, 0.35);
 
   color-scheme: dark;
 }
 
 /* ─── Morning Paper (light) ────────────────────────────────── */
-/*   Warm cream paper, walnut ink, a café table by the window.  */
-/*   Soft daylight, not sterile white. Still feels like home.   */
+/*   Warm cream base, white cards for clear elevation, gold     */
+/*   that reads as gold. Soft single-layer shadows. A sunlit    */
+/*   writing desk with warm tea.                                */
 
 html.theme-light {
-  --t-void: #F8F3E8;
-  --t-ink: #F0EAD8;
-  --t-surface: #EFEAD8;
-  --t-elevated: #F5F0E2;
-  --t-subtle: #D8D0BA;
+  --t-void: #FAF6EE;
+  --t-ink: #F3EDE2;
+  --t-surface: #FFFFFF;
+  --t-elevated: #FFFFFF;
+  --t-subtle: #EDE7DC;
 
-  --t-paper: #1C1810;
-  --t-text: #3A3228;
-  --t-text-secondary: #50453A;
-  --t-text-tertiary: #6E6050;
-  --t-text-ghost: #857660;
+  --t-paper: #1C1917;
+  --t-text: #57534E;
+  --t-text-secondary: #78716C;
+  --t-text-tertiary: #A8A29E;
+  --t-text-ghost: #C4BFB8;
 
-  /* Warm brass — deeper than dark theme gold, grounded */
-  --t-gold: #7C5A22;
-  --t-gold-soft: #7C5A2220;
-  --t-gold-glow: #7C5A220A;
-  --t-gold-light: #A07430;
-  --t-gold-dark: #5C4218;
+  /* Warm gold — recognizably gold, not brown */
+  --t-gold: #B08A2E;
+  --t-gold-soft: #B08A2E18;
+  --t-gold-glow: #B08A2E0A;
+  --t-gold-light: #C8A040;
+  --t-gold-dark: #8A6A1E;
 
-  --t-ruby: #8A3038;
-  --t-emerald: #2E6448;
-  --t-amethyst: #5E4480;
-  --t-copper: #7A5028;
-  --t-teal: #2A5A64;
+  --t-ruby: #9E4B5C;
+  --t-emerald: #3D7A5A;
+  --t-amethyst: #6E5FA8;
+  --t-copper: #8A6840;
+  --t-teal: #3A7A84;
 
-  --t-charcoal: #DCD4C0;
-  --t-espresso: #D0C6B0;
-  --t-walnut: #B0A488;
-  --t-linen: #1C1810;
-  --t-cream: #2A2218;
-  --t-parchment: #4A4030;
+  --t-charcoal: #EDE7DC;
+  --t-espresso: #E3DDD2;
+  --t-walnut: #C8C0B2;
+  --t-linen: #1C1917;
+  --t-cream: #2A2520;
+  --t-parchment: #504A42;
 
-  --t-border: #8A7A5C30;
-  --t-border-subtle: #8A7A5C1C;
-  --t-border-active: #8A7A5C40;
+  /* Borders — clean, modern, warm-neutral */
+  --t-border: rgba(0, 0, 0, 0.06);
+  --t-border-subtle: rgba(0, 0, 0, 0.04);
+  --t-border-active: rgba(0, 0, 0, 0.12);
   --t-backdrop-opacity: 0.55;
+
+  /* Theme-aware shadow system — soft, single-layer */
+  --t-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --t-shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --t-shadow-elevated: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --t-shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.04);
+
+  --t-vignette: rgba(200, 190, 170, 0.15);
 
   color-scheme: light;
 }
@@ -160,7 +183,7 @@ body {
   position: relative;
 }
 
-/* Warm vignette — the edges of lantern light */
+/* Warm vignette — the edges of lantern light (theme-aware) */
 body::before {
   content: "";
   position: fixed;
@@ -170,7 +193,7 @@ body::before {
   background: radial-gradient(
     ellipse at 50% 40%,
     transparent 50%,
-    rgba(10, 8, 5, 0.4) 100%
+    var(--t-vignette) 100%
   );
 }
 
@@ -263,31 +286,23 @@ body::after {
   background: linear-gradient(to left, var(--t-gold-soft), transparent);
 }
 
-/* Firelight glow effect for key elements */
+/* Firelight glow — theme-aware, subtle accent bloom */
 .firelight {
-  box-shadow:
-    0 0 30px rgba(200, 150, 60, 0.06),
-    0 0 60px rgba(200, 150, 60, 0.03),
-    inset 0 1px 0 rgba(200, 150, 60, 0.05);
+  box-shadow: var(--t-shadow-card-hover);
 }
 
-/* Card style — feels like a page or manuscript leaf */
+/* Card style — elevation via border-light + theme shadow */
 .card-page {
-  background: linear-gradient(165deg, var(--t-surface) 0%, var(--t-ink) 100%);
+  background: var(--t-surface);
   border: 1px solid var(--t-border);
   border-radius: 12px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.15),
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(200, 150, 60, 0.04);
+  box-shadow: var(--t-shadow-card);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .card-page:hover {
   border-color: var(--t-border-active);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.2),
-    0 8px 24px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(200, 150, 60, 0.08);
+  box-shadow: var(--t-shadow-card-hover);
 }
 
 /* ─── Tiptap Editor ─────────────────────────────────────────── */
@@ -359,7 +374,7 @@ body::after {
   backdrop-filter: blur(16px);
   border: 1px solid var(--t-border);
   border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--t-shadow-modal);
 }
 
 .scene-break-picker-btn {
@@ -447,7 +462,7 @@ body::after {
   color: var(--t-gold);
   margin-right: 0.08em;
   margin-top: 0.06em;
-  text-shadow: 0 2px 8px rgba(200, 150, 60, 0.2);
+  text-shadow: 0 2px 8px var(--t-gold-soft);
 }
 
 .tiptap-editor em {
