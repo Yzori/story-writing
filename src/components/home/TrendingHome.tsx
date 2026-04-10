@@ -13,6 +13,60 @@ import Navbar from "@/components/shared/Navbar";
  * follows, and staff picks.
  */
 
+// ── Scroll reveal animation variants ─────────────────────────
+
+const revealContainer = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.04 },
+  },
+};
+
+const revealChild = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+  },
+};
+
+/** Wraps a section with fade-up-on-scroll + staggered children */
+function RevealSection({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <motion.section
+      variants={revealContainer}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.1 }}
+      className={className}
+    >
+      {children}
+    </motion.section>
+  );
+}
+
+/** Ornamental divider between depth-layer sections */
+function SectionDivider() {
+  return (
+    <div className="flex items-center justify-center py-2">
+      <div className="flex items-center gap-3 text-text-ghost/30">
+        <div className="w-12 h-px bg-gradient-to-r from-transparent to-border" />
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="text-gold/20">
+          <path d="M8 2c.6 0 1.1.2 1.5.6l.5.5c.3.3.5.7.5 1.1V6l2.5 1.3c.3.2.5.5.5.9v.6c0 .3-.3.6-.6.5L10 8.5l-.2 1.8 1.5 1c.2.2.3.5.1.7l-.3.5c-.2.3-.5.3-.8.2L8 11.5l-2.3 1.2c-.3.1-.6.1-.8-.2l-.3-.5c-.1-.2-.1-.5.1-.7l1.5-1L6 8.5l-2.9.8c-.3.1-.6-.2-.6-.5v-.6c0-.4.2-.7.5-.9L5.5 6V4.2c0-.4.2-.8.5-1.1l.5-.5C6.9 2.2 7.4 2 8 2z" />
+        </svg>
+        <div className="w-12 h-px bg-gradient-to-l from-transparent to-border" />
+      </div>
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────
 
 interface StoryCard {
@@ -282,6 +336,7 @@ export default function TrendingHome() {
           )}
         </div>
 
+        {/* ── DEPTH LAYER 1 — contained, void bg ── */}
         <div className="max-w-7xl mx-auto px-6">
           {/* Live adventures */}
           {loading ? (
@@ -305,28 +360,47 @@ export default function TrendingHome() {
               }))}
             />
           )}
+        </div>
 
-          {/* Discover — consolidated trending + staff picks + sponsored */}
-          {loading ? (
-            <TrendingSkeleton />
-          ) : data && (data.trending.length > 0 || data.staffPicks.length > 0) ? (
-            <DiscoverSection
-              trending={data.trending}
-              staffPicks={data.staffPicks}
-              sponsored={data.sponsored}
-            />
-          ) : null}
+        <SectionDivider />
 
+        {/* ── DEPTH LAYER 2 — full-bleed elevated bg ── */}
+        <div className="bg-elevated/[0.06] border-y border-border/30 py-4">
+          <div className="max-w-7xl mx-auto px-6">
+            {/* Discover — consolidated trending + staff picks + sponsored */}
+            {loading ? (
+              <TrendingSkeleton />
+            ) : data && (data.trending.length > 0 || data.staffPicks.length > 0) ? (
+              <DiscoverSection
+                trending={data.trending}
+                staffPicks={data.staffPicks}
+                sponsored={data.sponsored}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <SectionDivider />
+
+        {/* ── DEPTH LAYER 3 — contained, void bg ── */}
+        <div className="max-w-7xl mx-auto px-6">
           {/* Adventures looking for players */}
           {data && data.adventures.length > 0 && (
             <AdventuresLookingSection items={data.adventures} />
           )}
-
-          {/* Jams closing soon */}
-          {data && data.jams.length > 0 && (
-            <JamsSection items={data.jams} />
-          )}
         </div>
+
+        {/* ── DEPTH LAYER 4 — full-bleed tinted bg ── */}
+        {data && data.jams.length > 0 && (
+          <>
+            <SectionDivider />
+            <div className="bg-lavender/[0.03] border-y border-border/30 py-4">
+              <div className="max-w-7xl mx-auto px-6">
+                <JamsSection items={data.jams} />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Platform pulse ribbon */}
         {data && <PulseRibbon pulse={data.pulse} />}
@@ -790,17 +864,52 @@ function iconForEvent(kind: ActivityEvent["kind"]) {
 }
 
 function ActivityTicker({ events }: { events: ActivityEvent[] }) {
-  // Static — no scroll, no motion. Show the 3 most recent events in full,
-  // refreshed by the parent's 60s polling. Accessible per WCAG 2.2.2.
-  const visible = events.slice(0, 3);
-  // Label shifts between personal and global depending on what we have.
-  const isPersonal = visible.some((e) => e.personal);
+  const isPersonal = events.some((e) => e.personal);
   const label = isPersonal ? "While you were away" : "Live";
   const dotColor = isPersonal ? "bg-gold" : "bg-rose";
+
+  // Typewriter state — cycles through events, typing each letter-by-letter
+  const [eventIdx, setEventIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const [phase, setPhase] = useState<"typing" | "hold" | "fade">("typing");
+  const prefersReduced = useRef(false);
+  const current = events[eventIdx % events.length];
+
+  useEffect(() => {
+    prefersReduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  useEffect(() => {
+    if (!current || prefersReduced.current) return;
+    if (phase === "typing") {
+      if (charIdx < current.text.length) {
+        const id = setTimeout(() => setCharIdx((c) => c + 1), 28);
+        return () => clearTimeout(id);
+      }
+      // Done typing — hold for a beat
+      setPhase("hold");
+    } else if (phase === "hold") {
+      const id = setTimeout(() => setPhase("fade"), 2400);
+      return () => clearTimeout(id);
+    } else if (phase === "fade") {
+      const id = setTimeout(() => {
+        setEventIdx((i) => (i + 1) % events.length);
+        setCharIdx(0);
+        setPhase("typing");
+      }, 500);
+      return () => clearTimeout(id);
+    }
+  }, [phase, charIdx, current, events.length]);
+
+  // Reduced-motion fallback: static display of first event
+  const displayText = prefersReduced.current
+    ? (current?.text ?? "")
+    : (current?.text.slice(0, charIdx) ?? "");
+
   return (
     <div className="relative w-full py-3 border-b border-border bg-gradient-to-r from-void via-elevated/20 to-void">
       <div className="max-w-7xl mx-auto px-6 flex items-center gap-4 md:gap-6">
-        {/* Dynamic label */}
+        {/* Pulse dot + label */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="relative flex h-2 w-2">
             <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${dotColor} opacity-75`} />
@@ -811,24 +920,28 @@ function ActivityTicker({ events }: { events: ActivityEvent[] }) {
           </span>
         </div>
         <div className="w-px h-5 bg-border flex-shrink-0 hidden md:block" />
-        {/* 3 static pills */}
-        <div className="flex-1 flex items-center gap-3 md:gap-6 overflow-hidden">
-          {visible.map((e, i) => (
-            <Link
-              key={`${e.at}-${i}`}
-              href={e.href}
-              className={`inline-flex items-center gap-2 text-[12px] text-text-secondary hover:text-paper transition-colors min-w-0 ${
-                i === 0 ? "flex" : "hidden md:flex"
-              } ${i === 2 ? "lg:flex hidden" : ""}`}
-            >
-              {iconForEvent(e.kind)}
-              <span className="truncate">{e.text}</span>
+        {/* Typewriter event */}
+        {current && (
+          <Link
+            href={current.href}
+            className={`flex-1 inline-flex items-center gap-2 text-[12px] text-text-secondary hover:text-paper transition-colors min-w-0 ${
+              phase === "fade" ? "opacity-0" : "opacity-100"
+            } transition-opacity duration-500`}
+          >
+            {iconForEvent(current.kind)}
+            <span className="truncate">
+              {displayText}
+              {!prefersReduced.current && phase === "typing" && charIdx < (current?.text.length ?? 0) && (
+                <span className="inline-block w-[1px] h-[13px] bg-gold/80 ml-0.5 animate-pulse align-middle" />
+              )}
+            </span>
+            {(phase === "hold" || prefersReduced.current) && (
               <span className="text-text-ghost text-[10px] flex-shrink-0">
-                · {formatTimeAgo(e.at)}
+                · {formatTimeAgo(current.at)}
               </span>
-            </Link>
-          ))}
-        </div>
+            )}
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -840,8 +953,8 @@ function LiveAdventuresSection({ sessions }: { sessions: LiveAdventure[] }) {
   const live = sessions.filter((s) => s.isLive);
   const recent = sessions.filter((s) => !s.isLive).slice(0, 3);
   return (
-    <section className="my-16">
-      <div className="flex items-baseline justify-between mb-6">
+    <RevealSection className="my-16">
+      <motion.div variants={revealChild} className="flex items-baseline justify-between mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             {live.length > 0 && (
@@ -860,13 +973,15 @@ function LiveAdventuresSection({ sessions }: { sessions: LiveAdventure[] }) {
               : "Catch these sessions between turns."}
           </p>
         </div>
-      </div>
+      </motion.div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {[...live, ...recent].slice(0, 3).map((s) => (
-          <LiveAdventureTile key={s.sessionId} session={s} />
+          <motion.div key={s.sessionId} variants={revealChild}>
+            <LiveAdventureTile session={s} />
+          </motion.div>
         ))}
       </div>
-    </section>
+    </RevealSection>
   );
 }
 
@@ -1058,9 +1173,9 @@ function DiscoverSection({
     firstItem?.kind === "trending";
 
   return (
-    <section className="my-16">
+    <RevealSection className="my-16">
       {/* Header + tabs */}
-      <div className="flex flex-wrap items-baseline justify-between gap-4 mb-6">
+      <motion.div variants={revealChild} className="flex flex-wrap items-baseline justify-between gap-4 mb-6">
         <div>
           <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
             Discover
@@ -1090,7 +1205,7 @@ function DiscoverSection({
             </button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {items.length === 0 ? (
         <p className="text-text-ghost text-[13px] py-10 text-center">
@@ -1098,19 +1213,51 @@ function DiscoverSection({
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-            {/* Hero-of-row: first trending card spans 2 cols x 2 rows */}
-            {showHero && firstItem?.kind === "trending" && (
-              <DiscoverHeroCard item={firstItem.data} />
-            )}
+          {/* Rising tab: ranked stack layout */}
+          {tab === "rising" ? (
+            <div className="space-y-3">
+              {/* #1 hero keeps the big treatment */}
+              {showHero && firstItem?.kind === "trending" && (
+                <motion.div variants={revealChild}>
+                  <DiscoverHeroCard item={firstItem.data} />
+                </motion.div>
+              )}
+              {/* Ranked list for #2–#10 */}
+              {(showHero ? restItems : items)
+                .filter((item) => item.kind !== "sponsored")
+                .slice(0, 9)
+                .map((item, i) => (
+                  <motion.div key={`${item.kind}-${i}`} variants={revealChild}>
+                    <RankedRow
+                      rank={showHero ? i + 2 : i + 1}
+                      item={item}
+                    />
+                  </motion.div>
+                ))}
+              {/* Sponsored inline after rank 5 */}
+              {sponsored.length > 0 && (
+                <motion.div variants={revealChild}>
+                  <RankedRow rank={null} item={{ kind: "sponsored", data: sponsored[0] }} />
+                </motion.div>
+              )}
+            </div>
+          ) : (
+            /* Staff / All tabs: magazine grid */
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+              {showHero && firstItem?.kind === "trending" && (
+                <motion.div variants={revealChild} className="md:col-span-2 md:row-span-2">
+                  <DiscoverHeroCard item={firstItem.data} />
+                </motion.div>
+              )}
+              {(showHero ? restItems : items).slice(0, 10).map((item, i) => (
+                <motion.div key={`${item.kind}-${i}`} variants={revealChild}>
+                  <DiscoverTile item={item} />
+                </motion.div>
+              ))}
+            </div>
+          )}
 
-            {/* Rest of the grid */}
-            {(showHero ? restItems : items).slice(0, 10).map((item, i) => (
-              <DiscoverTile key={`${item.kind}-${i}`} item={item} />
-            ))}
-          </div>
-
-          <div className="mt-8 flex items-center justify-center">
+          <motion.div variants={revealChild} className="mt-8 flex items-center justify-center">
             <Link
               href="/browse"
               className="inline-flex items-center gap-2 text-text-secondary hover:text-gold text-[12px] tracking-wide transition-colors"
@@ -1120,10 +1267,10 @@ function DiscoverSection({
                 <path d="M3 8h10M9 4l4 4-4 4" />
               </svg>
             </Link>
-          </div>
+          </motion.div>
         </>
       )}
-    </section>
+    </RevealSection>
   );
 }
 
@@ -1131,7 +1278,7 @@ function DiscoverHeroCard({ item }: { item: TrendingCard }) {
   return (
     <Link
       href={storyHref(item)}
-      className="group md:col-span-2 md:row-span-2 relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
+      className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
     >
       <div className="relative aspect-[16/10] md:aspect-auto md:h-full min-h-[360px]">
         {item.coverImageUrl ? (
@@ -1257,25 +1404,144 @@ function DiscoverTile({ item }: { item: DiscoverItem }) {
   );
 }
 
+// ── Ranked row — horizontal card for the Rising chart ────────
+
+function RankedRow({
+  rank,
+  item,
+}: {
+  rank: number | null;
+  item: DiscoverItem;
+}) {
+  const story =
+    item.kind === "trending" || item.kind === "staff" || item.kind === "sponsored"
+      ? item.data
+      : null;
+  if (!story) return null;
+
+  const isSponsored = item.kind === "sponsored";
+  const interactions =
+    item.kind === "trending"
+      ? formatInteractions(item.data.weeklyInteractions)
+      : null;
+  const curatorNote = item.kind === "staff" ? item.data.curatorNote : null;
+
+  return (
+    <Link
+      href={storyHref(story)}
+      className={`group flex items-center gap-4 md:gap-5 rounded-xl border transition-all p-2 pr-5 ${
+        isSponsored
+          ? "border-gold/20 hover:border-gold/50 bg-gradient-to-r from-gold/5 to-void"
+          : "border-border/50 hover:border-gold/30 bg-elevated/20 hover:bg-elevated/40"
+      }`}
+    >
+      {/* Rank number */}
+      {rank !== null ? (
+        <div className="flex-shrink-0 w-10 md:w-14 text-center">
+          <span
+            className={`font-display tabular-nums leading-none ${
+              rank <= 3
+                ? "text-3xl md:text-4xl text-gold"
+                : "text-2xl md:text-3xl text-text-ghost/40"
+            }`}
+          >
+            {rank}
+          </span>
+        </div>
+      ) : (
+        <div className="flex-shrink-0 w-10 md:w-14 flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="text-gold/60">
+            <path d="M8 1l2 5 5 .5-4 3.5 1 5-4-2.5-4 2.5 1-5-4-3.5 5-.5z" />
+          </svg>
+        </div>
+      )}
+
+      {/* Cover thumbnail */}
+      <div className="flex-shrink-0 w-14 h-20 md:w-16 md:h-[88px] rounded-lg overflow-hidden border border-border/50 bg-elevated/30">
+        {story.coverImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={story.coverImageUrl}
+            alt={story.title}
+            className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-elevated to-ink" />
+        )}
+      </div>
+
+      {/* Text content */}
+      <div className="flex-1 min-w-0 py-1">
+        <h3 className="font-display text-paper text-[15px] md:text-base leading-tight group-hover:text-gold transition-colors truncate">
+          {story.title}
+        </h3>
+        <p className="text-text-ghost text-[11px] tracking-wide mt-0.5 truncate">
+          by {story.authorName ?? "Unknown"}
+          {story.genres.length > 0 && (
+            <span className="text-text-ghost/50"> · {story.genres[0]}</span>
+          )}
+        </p>
+        {curatorNote && (
+          <p className="text-lavender/60 text-[10px] mt-1 italic truncate">
+            &ldquo;{curatorNote}&rdquo;
+          </p>
+        )}
+      </div>
+
+      {/* Right side — stats or badge */}
+      <div className="flex-shrink-0 hidden sm:flex flex-col items-end gap-1">
+        {isSponsored && (
+          <span className="inline-flex items-center gap-1 bg-gold/15 border border-gold/30 text-gold text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded-full">
+            Sponsored
+          </span>
+        )}
+        {interactions && (
+          <span className="text-gold/60 text-[11px] tracking-wide whitespace-nowrap">
+            {interactions}
+          </span>
+        )}
+        {story.writingMode === "campaign" && (
+          <span className="text-sage text-[9px] tracking-[0.15em] uppercase">
+            Adventure
+          </span>
+        )}
+      </div>
+
+      {/* Arrow */}
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="flex-shrink-0 text-text-ghost/30 group-hover:text-gold/60 transition-colors hidden md:block"
+      >
+        <path d="M6 4l4 4-4 4" />
+      </svg>
+    </Link>
+  );
+}
+
 // ── Adventures looking for players (call-to-play) ─────────────
 
 function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
   return (
-    <section className="my-16">
-      <div className="mb-6">
+    <RevealSection className="my-16">
+      <motion.div variants={revealChild} className="mb-6">
         <h2 className="font-display text-paper text-2xl tracking-tight">
           Adventures looking for players
         </h2>
         <p className="text-text-ghost text-[12px] mt-1">
           Active campaign sessions with open seats
         </p>
-      </div>
+      </motion.div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {items.slice(0, 8).map((a) => {
           const filled = Number(a.playerCount);
           return (
+            <motion.div key={a.sessionId} variants={revealChild}>
             <Link
-              key={a.sessionId}
               href={`/story/${a.storySlug ?? a.storyId}`}
               className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
             >
@@ -1323,10 +1589,11 @@ function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
                 </div>
               </div>
             </Link>
+            </motion.div>
           );
         })}
       </div>
-    </section>
+    </RevealSection>
   );
 }
 
@@ -1340,23 +1607,23 @@ function JamsSection({ items }: { items: JamRow[] }) {
   }, []);
 
   return (
-    <section className="my-16">
-      <div className="mb-6">
+    <RevealSection className="my-16">
+      <motion.div variants={revealChild} className="mb-6">
         <h2 className="font-display text-paper text-2xl tracking-tight">
           Jams closing soon
         </h2>
         <p className="text-text-ghost text-[12px] mt-1">
           Short-form prompts with a deadline
         </p>
-      </div>
+      </motion.div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((j) => {
           const target =
             j.status === "voting" ? j.votingEndsAt : j.submissionEndsAt;
           const phase = j.status === "voting" ? "Voting ends" : "Submissions end";
           return (
+            <motion.div key={j.id} variants={revealChild}>
             <Link
-              key={j.id}
               href={`/jams/${j.id}`}
               className="group relative block overflow-hidden rounded-xl border border-border hover:border-gold/40 bg-elevated/30 transition-all"
             >
@@ -1391,10 +1658,11 @@ function JamsSection({ items }: { items: JamRow[] }) {
                 </div>
               </div>
             </Link>
+            </motion.div>
           );
         })}
       </div>
-    </section>
+    </RevealSection>
   );
 }
 
@@ -1834,8 +2102,8 @@ function Row({
 }) {
   if (!loading && cards.length === 0) return null;
   return (
-    <section className="my-14">
-      <div className="flex items-baseline justify-between mb-5">
+    <RevealSection className="my-14">
+      <motion.div variants={revealChild} className="flex items-baseline justify-between mb-5">
         <div>
           <h2 className="font-display text-paper text-2xl md:text-3xl tracking-tight">
             {label}
@@ -1844,7 +2112,7 @@ function Row({
             <p className="text-text-ghost text-[12px] mt-1">{hint}</p>
           )}
         </div>
-      </div>
+      </motion.div>
       <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 snap-x snap-mandatory scrollbar-none">
         {(loading && cards.length === 0
           ? Array.from({ length: 6 }).map((_, i) => ({
@@ -1857,10 +2125,10 @@ function Row({
             }))
           : cards
         ).map((c) => (
+          <motion.div key={c.id} variants={revealChild} className="flex-shrink-0 w-56 snap-start">
           <Link
-            key={c.id}
             href={c.href}
-            className="flex-shrink-0 w-56 group snap-start"
+            className="group block"
           >
             <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-border group-hover:border-gold/40 transition-all bg-elevated/40">
               {c.cover ? (
@@ -1891,8 +2159,9 @@ function Row({
               {c.subtitle || "\u00a0"}
             </p>
           </Link>
+          </motion.div>
         ))}
       </div>
-    </section>
+    </RevealSection>
   );
 }
