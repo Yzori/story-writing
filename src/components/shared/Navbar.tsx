@@ -85,8 +85,8 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50">
-      {/* Background — blends with page */}
-      <div className="absolute inset-0 bg-void/95 backdrop-blur-2xl" />
+      {/* Background — frosted glass (Apple-style: translucent + blur + saturate) */}
+      <div className="absolute inset-0 bg-void/75 backdrop-blur-2xl backdrop-saturate-150" />
       {/* Bottom border */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
 

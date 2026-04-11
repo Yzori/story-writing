@@ -830,11 +830,11 @@ function ModeSelection({
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-6 relative overflow-hidden bg-void">
-      {/* Dynamic Ambient Background */}
+      {/* Dynamic Ambient Background — blurs with enough weight to register in light mode */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-violet/5 blur-[120px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-amber/5 blur-[120px]" />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-teal/5 blur-[120px]" />
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-violet/8 blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-amber/10 blur-[120px]" />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-teal/8 blur-[120px]" />
       </div>
 
       <motion.div
@@ -882,26 +882,25 @@ function ModeSelection({
               onMouseLeave={() => !selectedMode && setHoveredMode(null)}
               onClick={() => !selectedMode && handleSelect(mode.id)}
               disabled={!!selectedMode}
-              className={`relative rounded-3xl overflow-hidden group border border-border-subtle/30 bg-ink focus:outline-none transition-shadow duration-500 cursor-pointer shadow-xl ${
-                isHovered && !selectedMode ? `shadow-${mode.color}/10 ` + mode.borderColor : ""
-              } ${isSelected ? `shadow-2xl shadow-${mode.color}/20 ` + mode.borderColor : ""}`}
+              className={`relative rounded-3xl overflow-hidden group border border-border bg-surface focus:outline-none transition-all duration-500 cursor-pointer shadow-card ${
+                isHovered && !selectedMode ? `shadow-card-hover ` + mode.borderColor : ""
+              } ${isSelected ? `shadow-card-hover ` + mode.borderColor : ""}`}
             >
               {/* Background Image Container */}
               <div className="absolute inset-0 w-full h-full overflow-hidden">
                 <motion.img
                   src={mode.image}
                   alt={mode.title}
-                  animate={{
-                    scale: isHovered || isSelected ? 1.05 : 1,
-                    filter: isHovered || isSelected ? "brightness(0.9)" : "brightness(0.5) saturate(0.8)",
-                  }}
+                  animate={{ scale: isHovered || isSelected ? 1.05 : 1 }}
                   transition={{ duration: 0.7, ease: "easeOut" }}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover ${
+                    isHovered || isSelected ? "card-image-active" : "card-image-dim"
+                  }`}
                 />
 
-                {/* Vignette & Gradients */}
-                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent opacity-90" />
-                <div className="absolute inset-0 bg-gradient-to-b from-void/50 via-transparent to-transparent opacity-80" />
+                {/* Vignette & Gradients — fade into the card's own surface color so light mode looks clean */}
+                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent opacity-95" />
+                <div className="absolute inset-0 bg-gradient-to-b from-surface/40 via-transparent to-transparent opacity-60" />
 
                 {/* Selection Glow Flash */}
                 <AnimatePresence>
@@ -922,7 +921,7 @@ function ModeSelection({
                 {/* Top Badge Overlay */}
                 <div className="absolute top-6 left-6 flex justify-between w-[calc(100%-3rem)]">
                   {mode.badge && (
-                    <span className={`px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] font-bold rounded-full bg-void/50 backdrop-blur-md border border-${mode.color}/30 ${mode.textColor}`}>
+                    <span className={`px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] font-bold rounded-full bg-surface/80 backdrop-blur-md border border-${mode.color}/30 ${mode.textColor} shadow-sm`}>
                       {mode.badge}
                     </span>
                   )}
@@ -954,7 +953,7 @@ function ModeSelection({
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         className="w-full overflow-hidden"
                       >
-                        <div className="pt-4 border-t border-white/10 mt-2">
+                        <div className="pt-4 border-t border-border mt-2">
                           <p className="text-text-secondary text-[14px] leading-relaxed mb-6 font-body">
                             {mode.description}
                           </p>
