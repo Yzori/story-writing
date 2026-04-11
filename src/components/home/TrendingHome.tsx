@@ -314,96 +314,169 @@ export default function TrendingHome() {
   return (
     <main className="min-h-screen bg-void">
       <Navbar />
-      <div className="pt-14">
-        {/* Live activity ticker — platform pulse, static, no motion */}
+      <div className="pt-14 pb-20">
+        {/* Live activity ticker */}
         {data && data.activity.length > 0 && (
           <ActivityTicker events={data.activity} />
         )}
 
-        {/* Hero triple slider */}
-        <div className="max-w-7xl mx-auto px-6 pt-10">
+        {/* Hero Section */}
+        <div className="max-w-7xl mx-auto px-6 pt-10 mb-12">
           <HeroCarousel slides={data?.hero ?? []} loading={loading} />
         </div>
 
-        {/* ── PERSONAL ZONE — bento directly beneath the hero ── */}
-        <div className="max-w-7xl mx-auto px-6">
-          <ContinueBento
-            items={data?.continue ?? []}
-            loading={loading}
-          />
-          {data && hasAnyTodaySignal(data.today) && (
-            <TodayStrip today={data.today} />
-          )}
-        </div>
-
-        {/* ── DEPTH LAYER 1 — contained, void bg ── */}
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Live adventures */}
-          {loading ? (
-            <LiveAdventuresSkeleton />
-          ) : data && data.liveAdventures.length > 0 ? (
-            <LiveAdventuresSection sessions={data.liveAdventures} />
-          ) : null}
-
-          {/* Follows — your people before the algorithm's picks */}
-          {data && data.following.length > 0 && (
-            <Row
-              label="New from authors you follow"
-              hint="Caught up on the writers you're reading"
-              cards={data.following.map((s) => ({
-                id: s.id,
-                href: storyHref(s),
-                title: s.title,
-                subtitle: s.authorName ?? "",
-                cover: s.coverImageUrl,
-                tag: "New",
-              }))}
-            />
-          )}
-        </div>
-
-        <SectionDivider />
-
-        {/* ── DEPTH LAYER 2 — full-bleed elevated bg ── */}
-        <div className="bg-elevated/[0.06] border-y border-border/30 py-4">
-          <div className="max-w-7xl mx-auto px-6">
-            {/* Discover — consolidated trending + staff picks + sponsored */}
-            {loading ? (
-              <TrendingSkeleton />
-            ) : data && (data.trending.length > 0 || data.staffPicks.length > 0) ? (
-              <DiscoverSection
-                trending={data.trending}
-                staffPicks={data.staffPicks}
-                sponsored={data.sponsored}
-              />
-            ) : null}
-          </div>
-        </div>
-
-        <SectionDivider />
-
-        {/* ── DEPTH LAYER 3 — contained, void bg ── */}
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Adventures looking for players */}
-          {data && data.adventures.length > 0 && (
-            <AdventuresLookingSection items={data.adventures} />
-          )}
-        </div>
-
-        {/* ── DEPTH LAYER 4 — full-bleed tinted bg ── */}
-        {data && data.jams.length > 0 && (
-          <>
-            <SectionDivider />
-            <div className="bg-lavender/[0.03] border-y border-border/30 py-4">
-              <div className="max-w-7xl mx-auto px-6">
-                <JamsSection items={data.jams} />
-              </div>
+        {/* Mobile-only Today Hub — personal signals above the content fold on small viewports.
+            On lg+ the Today card lives inside the sticky right sidebar instead. */}
+        {data && hasAnyTodaySignal(data.today) && (
+          <div className="lg:hidden max-w-7xl mx-auto px-6 mb-10">
+            <div className="rounded-2xl border border-border bg-ink/40 p-6 shadow-xl backdrop-blur-md">
+              <h3 className="font-display text-lg text-paper mb-4 flex items-center gap-2 text-gold">
+                Your Today
+              </h3>
+              <TodayStrip today={data.today} />
             </div>
-          </>
+          </div>
         )}
 
-        {/* Platform pulse ribbon */}
-        {data && <PulseRibbon pulse={data.pulse} />}
+        {/* ── ATELIER BENTO GRID ── */}
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+            
+            {/* ── LEFT COLUMN: CREATIVE FLOW ── */}
+            <div className="lg:col-span-8 flex flex-col gap-12">
+              
+              <ContinueBento items={data?.continue ?? []} loading={loading} />
+
+              {/* Follows */}
+              {data && data.following.length > 0 && (
+                <div className="pt-8 border-t border-border-subtle/50">
+                  <Row
+                    label="From the Guild"
+                    hint="Caught up on the writers you're reading"
+                    cards={data.following.map((s) => ({
+                      id: s.id,
+                      href: storyHref(s),
+                      title: s.title,
+                      subtitle: s.authorName ?? "",
+                      cover: s.coverImageUrl,
+                      tag: "New",
+                    }))}
+                  />
+                </div>
+              )}
+
+              {/* Discover: trending + staff picks */}
+              {loading ? (
+                <TrendingSkeleton />
+              ) : data && (data.trending.length > 0 || data.staffPicks.length > 0) ? (
+                <div className="pt-8 border-t border-border-subtle/50">
+                  <DiscoverSection
+                    trending={data.trending}
+                    staffPicks={data.staffPicks}
+                    sponsored={data.sponsored}
+                  />
+                </div>
+              ) : null}
+
+              {/* Live adventures */}
+              {loading ? (
+                <LiveAdventuresSkeleton />
+              ) : data && data.liveAdventures.length > 0 ? (
+                <div className="pt-8 border-t border-border-subtle/50">
+                   <LiveAdventuresSection sessions={data.liveAdventures} />
+                </div>
+              ) : null}
+
+            </div>
+
+            {/* ── RIGHT COLUMN: SIGNALS & PULSE HUB ── */}
+            {/* Sticky on desktop so the sidebar follows scroll instead of bottoming out
+                before the left-column rows finish. */}
+            <div className="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
+
+              {/* Today Hub — desktop only; mobile renders it above the grid */}
+              {data && hasAnyTodaySignal(data.today) && (
+                <div className="hidden lg:block rounded-2xl border border-border bg-ink/40 p-6 shadow-xl backdrop-blur-md">
+                   <h3 className="font-display text-lg text-paper mb-4 flex items-center gap-2 text-gold">
+                      Your Today
+                   </h3>
+                   <TodayStrip today={data.today} />
+                </div>
+              )}
+
+              {/* Jams Compact */}
+              {data && data.jams.length > 0 && (
+                <div className="rounded-2xl border border-border bg-ink/30 p-5 shadow-lg backdrop-blur-md">
+                  <h3 className="font-display text-lg text-paper mb-4">Active Jams</h3>
+                  <div className="flex flex-col gap-4">
+                    {data.jams.map(jam => (
+                      <Link key={jam.id} href={`/jams/${jam.id}`} className="group relative block rounded-xl border border-border bg-ink/50 overflow-hidden hover:border-border-active transition-all">
+                        {jam.bannerUrl && (
+                          <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={jam.bannerUrl} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-void to-transparent" />
+                          </div>
+                        )}
+                        <div className="relative p-4">
+                          <p className="text-[10px] tracking-[0.16em] uppercase text-lavender mb-1">Theme: {jam.theme}</p>
+                          <h4 className="font-display text-base text-paper group-hover:text-lavender transition-colors truncate">{jam.title}</h4>
+                          <p className="text-[12px] text-text-ghost mt-2">Closes in {formatCountdown(jam.submissionEndsAt)}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* LFG / Seeking Players */}
+              {data && data.adventures.length > 0 && (
+                <div className="rounded-2xl border border-border bg-ink/30 p-5 shadow-lg">
+                  <h3 className="font-display text-lg text-paper mb-4">Seeking Players</h3>
+                  <div className="flex flex-col gap-3">
+                    {data.adventures.map(adv => (
+                      <Link key={adv.sessionId} href={`/story/${adv.storySlug ?? adv.storyId}`} className="group flex items-start gap-4 p-3 rounded-xl hover:bg-surface/50 border border-transparent hover:border-gold/20 transition-all">
+                        <div className="w-10 h-14 bg-[var(--t-card-bg-fallback)] rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {adv.coverImageUrl ? <img src={adv.coverImageUrl} alt="" className="w-full h-full object-cover" /> : <svg className="w-4 h-4 text-gold/20"><circle cx="8" cy="8" r="4"/></svg>}
+                        </div>
+                        <div className="flex-1 min-w-0 py-0.5">
+                          <h4 className="font-display text-[14px] text-paper group-hover:text-gold truncate leading-tight">{adv.sessionTitle}</h4>
+                          <p className="text-[11px] text-text-ghost mt-1 truncate">{adv.playerCount} at table</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Platform Pulse */}
+              {data && (
+                <div className="rounded-2xl border border-border bg-ink/30 p-5 shadow-lg overflow-hidden">
+                  <h3 className="font-display text-lg text-paper mb-4">Platform Pulse</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="p-3 rounded-lg border border-border/50 bg-void/30 flex flex-col items-center">
+                       <span className="font-display text-xl text-teal">{data.pulse.online.toLocaleString()}</span>
+                       <span className="text-[10px] uppercase text-text-ghost tracking-widest mt-1">Online</span>
+                     </div>
+                     <div className="p-3 rounded-lg border border-border/50 bg-void/30 flex flex-col items-center">
+                       <span className="font-display text-xl text-rose">{data.pulse.liveSessions.toLocaleString()}</span>
+                       <span className="text-[10px] uppercase text-text-ghost tracking-widest mt-1">Live Tales</span>
+                     </div>
+                     <div className="p-3 rounded-lg border border-border/50 bg-void/30 flex flex-col items-center">
+                       <span className="font-display text-xl text-gold">{data.pulse.weeklyStories.toLocaleString()}</span>
+                       <span className="text-[10px] uppercase text-text-ghost tracking-widest mt-1">Weekly</span>
+                     </div>
+                     <div className="p-3 rounded-lg border border-border/50 bg-void/30 flex flex-col items-center">
+                       <span className="font-display text-xl text-lavender">{data.pulse.openJams.toLocaleString()}</span>
+                       <span className="text-[10px] uppercase text-text-ghost tracking-widest mt-1">Jams</span>
+                     </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
@@ -442,7 +515,7 @@ function ContinueBento({
   );
 
   return (
-    <section className="my-10">
+    <section>
       <div className="mb-5 flex items-baseline justify-between">
         <div>
           <p className="text-gold/60 text-[11px] tracking-[0.3em] uppercase mb-1">
@@ -787,7 +860,7 @@ function TodayStrip({ today }: { today: TodayStats }) {
 
 function TrendingSkeleton() {
   return (
-    <section className="my-16">
+    <section>
       <div className="mb-6 h-8 w-52 rounded bg-[var(--t-card-bg)] animate-pulse" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="md:col-span-2 md:row-span-2 aspect-[16/10] md:aspect-auto md:min-h-[320px] rounded-xl bg-[var(--t-card-bg)] animate-pulse" />
@@ -804,7 +877,7 @@ function TrendingSkeleton() {
 
 function LiveAdventuresSkeleton() {
   return (
-    <section className="my-16">
+    <section>
       <div className="mb-6 h-8 w-64 rounded bg-[var(--t-card-bg)] animate-pulse" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -953,7 +1026,7 @@ function LiveAdventuresSection({ sessions }: { sessions: LiveAdventure[] }) {
   const live = sessions.filter((s) => s.isLive);
   const recent = sessions.filter((s) => !s.isLive).slice(0, 3);
   return (
-    <RevealSection className="my-16">
+    <RevealSection>
       <motion.div variants={revealChild} className="flex items-baseline justify-between mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -1173,7 +1246,7 @@ function DiscoverSection({
     firstItem?.kind === "trending";
 
   return (
-    <RevealSection className="my-16">
+    <RevealSection>
       {/* Header + tabs */}
       <motion.div variants={revealChild} className="flex flex-wrap items-baseline justify-between gap-4 mb-6">
         <div>
@@ -1527,7 +1600,7 @@ function RankedRow({
 
 function AdventuresLookingSection({ items }: { items: AdventureRow[] }) {
   return (
-    <RevealSection className="my-16">
+    <RevealSection>
       <motion.div variants={revealChild} className="mb-6">
         <h2 className="font-display text-paper text-2xl tracking-tight">
           Adventures looking for players
@@ -1607,7 +1680,7 @@ function JamsSection({ items }: { items: JamRow[] }) {
   }, []);
 
   return (
-    <RevealSection className="my-16">
+    <RevealSection>
       <motion.div variants={revealChild} className="mb-6">
         <h2 className="font-display text-paper text-2xl tracking-tight">
           Jams closing soon
