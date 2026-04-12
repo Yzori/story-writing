@@ -4,10 +4,9 @@ import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { GENRES } from "@/config/genres";
 import StoryCard from "@/components/shared/StoryCard";
-import BookCard from "@/components/shared/BookCard";
 import GenrePill from "@/components/shared/GenrePill";
 import type { ApiStory } from "@/types/api";
 
@@ -72,6 +71,211 @@ const DUST_MOTES = Array.from({ length: 20 }, (_, i) => ({
   opacity: 0.1 + DUST_SEED() * 0.25,
 }));
 
+// ── Hero Particles for featured sections ──
+const HeroParticles = () => {
+  // Generate random stable particles
+  const particles = useMemo(() => Array.from({ length: 30 }).map((_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    duration: 10 + Math.random() * 20,
+    delay: Math.random() * -20,
+    size: 2 + Math.random() * 3
+  })), []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none mix-blend-screen z-10">
+      {particles.map(p => (
+        <motion.div
+          key={p.id}
+          initial={{ y: `${p.y + 20}%`, x: `${p.x}%`, opacity: 0 }}
+          animate={{ y: [`${p.y}%`, `${p.y - 30}%`], x: [`${p.x}%`, `${p.x + (Math.random() > 0.5 ? 10 : -10)}%`], opacity: [0, 0.6, 0] }}
+          transition={{ duration: p.duration, repeat: Infinity, ease: "linear", delay: p.delay }}
+          className="absolute rounded-full bg-violet-300 shadow-[0_0_10px_#a78bfa]"
+          style={{ width: p.size, height: p.size }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ── Skeleton loading card ──
+const SkeletonCard = () => (
+  <motion.div
+    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="relative w-full aspect-[2/3] max-w-[280px] mx-auto rounded-xl overflow-hidden bg-white/[0.02] border border-white/5"
+  >
+    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.05] to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
+    <div className="absolute bottom-6 left-6 right-6 flex flex-col gap-3">
+      <div className="w-16 h-4 bg-white/5 rounded-full" />
+      <div className="w-full h-6 bg-white/5 rounded-full" />
+      <div className="w-2/3 h-6 bg-white/5 rounded-full" />
+    </div>
+  </motion.div>
+);
+
+// ── Enhanced 3D BookCard with flip animation ──
+interface BookCardProps {
+  title: string;
+  author?: string;
+  genres: string[];
+  synopsis?: string;
+  wordCount: number;
+  chapterCount: number;
+  sparkCount: number;
+  slug: string;
+  coverUrl?: string;
+}
+
+function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterCount, sparkCount, slug, coverUrl }: BookCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // 3D Tilt Logic
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const mouseXSpring = useSpring(x, { stiffness: 150, damping: 20 });
+  const mouseYSpring = useSpring(y, { stiffness: 150, damping: 20 });
+
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const xPct = mouseX / width - 0.5;
+    const yPct = mouseY / height - 0.5;
+    x.set(xPct);
+    y.set(yPct);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  const primaryGenre = genres[0] || "Fantasy";
+  const accentColor = primaryGenre === "Fantasy" ? "text-amber" :
+                      primaryGenre === "Science Fiction" ? "text-lavender" :
+                      primaryGenre === "Romance" ? "text-rose" :
+                      primaryGenre === "Mystery" || primaryGenre === "Thriller" ? "text-violet" :
+                      "text-amber";
+
+  return (
+    <Link href={`/story/${slug}`}>
+      <motion.div
+         layout
+         initial={{ opacity: 0, y: 20 }}
+         animate={{ opacity: 1, y: 0 }}
+         exit={{ opacity: 0, scale: 0.9 }}
+         transition={{ duration: 0.5 }}
+         className="group pb-8 [perspective:2000px] cursor-pointer flex justify-center w-full"
+      >
+        <motion.div
+          ref={cardRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+          className="relative w-full aspect-[2/3] max-w-[280px] shadow-2xl transition-all duration-300 group-hover:z-50"
+        >
+
+          {/* 1. The Book Base (Pages + Back Cover) */}
+          <div className="absolute inset-0 rounded-r-2xl rounded-l-sm bg-surface border-y border-r border-border shadow-[inset_10px_0_20px_rgba(0,0,0,0.5)] overflow-hidden" style={{ transform: "translateZ(-1px)" }}>
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/80 via-black/30 to-transparent z-10 pointer-events-none" />
+
+            {/* Page Content */}
+            <div className="relative h-full flex flex-col p-6 pl-8">
+              <p className={`text-[10px] uppercase tracking-[0.2em] mb-2 font-display ${accentColor}`}>Chapter One</p>
+              <div className="w-12 h-px bg-white/10 mb-5" />
+
+              <p className="text-[13px] text-paper/80 leading-[1.8] font-serif flex-1">
+                 {synopsis ? (
+                   <>
+                     <span className={`float-left text-4xl leading-7 pr-1.5 pt-1.5 font-display ${accentColor}`}>{synopsis.charAt(0)}</span>
+                     {synopsis.substring(1, 200)}...
+                   </>
+                 ) : (
+                   <>
+                     <span className={`float-left text-4xl leading-7 pr-1.5 pt-1.5 font-display ${accentColor}`}>A</span>
+                     story waiting to be discovered. Open this tome and begin your journey...
+                   </>
+                 )}
+              </p>
+
+              <div className="mt-auto pt-4 border-t border-white/5 pb-1">
+                <div className="flex items-center justify-between text-[11px] text-paper/50 font-medium">
+                  <div className="flex items-center gap-3">
+                    <span>{wordCount >= 1000 ? `${(wordCount / 1000).toFixed(1)}k` : wordCount} wds</span>
+                    <span>{chapterCount} chs</span>
+                  </div>
+                  <span className={`flex items-center gap-1 ${accentColor}`}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" /></svg>
+                    {sparkCount}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. The Hardcover (Front Flips Open) */}
+          <div className="absolute inset-0 origin-left transition-transform duration-[800ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] [transform-style:preserve-3d] group-hover:[transform:rotateY(-155deg)] translate-z-[1px]">
+
+            {/* FRONT of the Cover */}
+            <div className="absolute inset-0 rounded-r-2xl rounded-l-sm overflow-hidden [backface-visibility:hidden] shadow-[2px_0_15px_rgba(0,0,0,0.6)] bg-void">
+               {coverUrl ? (
+                 <img src={coverUrl} alt={title} className="absolute inset-0 w-full h-full object-cover opacity-90" />
+               ) : (
+                 <div className="absolute inset-0 bg-gradient-to-br from-amber/20 to-violet/20" />
+               )}
+               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+
+               {/* Realistic Spine Crease/Lighting */}
+               <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-black/80 via-black/10 to-transparent pointer-events-none" />
+               <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-white/20 mix-blend-overlay pointer-events-none" />
+
+               <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] pointer-events-none" />
+
+               {/* Cover Composition */}
+               <div className="relative h-full flex flex-col justify-end p-6 z-10 transition-transform duration-500" style={{ transform: "translateZ(30px)" }}>
+                  <div className="mb-auto mt-4 ml-4">
+                     <span className={`px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] ${accentColor} font-medium uppercase tracking-wider border border-white/10`}>
+                        {primaryGenre}
+                     </span>
+                  </div>
+
+                  <div className="ml-4">
+                     <h3 className="font-display text-white text-2xl font-bold leading-[1.1] mb-2 drop-shadow-md">{title}</h3>
+                     <div className="w-8 h-[2px] bg-white/30 mb-2" />
+                     <p className="text-white/80 text-[13px] font-medium tracking-wide uppercase">{author || "Anonymous"}</p>
+                  </div>
+               </div>
+            </div>
+
+            {/* BACK of the Cover (The Inside Endpaper) */}
+            <div className="absolute inset-0 rounded-l-2xl rounded-r-sm overflow-hidden [backface-visibility:hidden] border-r border-black/50" style={{ transform: "rotateY(180deg)" }}>
+               <div className="absolute inset-0 bg-[#121212]" />
+               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')] opacity-50 mix-blend-overlay" />
+               <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black/90 via-black/40 to-transparent" />
+               <div className="absolute inset-0 flex items-center justify-center opacity-5">
+                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+               </div>
+            </div>
+          </div>
+
+          {/* 3. Interactive Shadow */}
+          <div className="absolute -bottom-4 left-4 right-2 h-6 bg-amber/40 blur-xl rounded-full opacity-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 -z-[20]" />
+
+        </motion.div>
+      </motion.div>
+    </Link>
+  );
+}
+
 // ── Library dust particles ──
 function LibraryDust() {
   return (
@@ -124,6 +328,7 @@ function BrowsePage() {
   const [activeJams, setActiveJams] = useState<{ id: string; title: string; theme: string; liveStatus: string; entryCount: number; submissionEndsAt: string; votingEndsAt: string }[]>([]);
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -311,6 +516,11 @@ function BrowsePage() {
 
   return (
     <div className="relative">
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+      `}} />
       {/* ══════════════════════════════════════════════════════════
           1. LIBRARY HERO — the grand entrance
           ══════════════════════════════════════════════════════════ */}
@@ -334,83 +544,48 @@ function BrowsePage() {
         <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-12">
           {/* Title */}
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
             className="text-center mb-10"
           >
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-text-ghost text-[10px] uppercase tracking-[0.25em] font-display mb-3"
-            >
-              Quiloria
-            </motion.p>
             <motion.h1
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="font-display text-4xl md:text-5xl lg:text-6xl text-paper font-medium tracking-tight"
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="font-display text-5xl md:text-7xl font-medium text-paper tracking-tight drop-shadow-2xl mb-8"
             >
-              The Grand <span className="text-gold italic">Library</span>
+              The Grand <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber to-amber/50 italic pr-2">Archives</span>
             </motion.h1>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-text-secondary text-[14px] md:text-[15px] mt-4 max-w-md mx-auto leading-relaxed"
-            >
-              Wander the shelves, discover new worlds, and find the stories that speak to you.
-            </motion.p>
           </motion.div>
 
           {/* ── Search Portal — the magical search bar ── */}
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="max-w-xl mx-auto mb-8"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="max-w-2xl mx-auto mb-8"
           >
-            <div className={`relative group transition-all duration-500 ${searchFocused ? "scale-[1.02]" : ""}`}>
-              {/* Glow ring behind search */}
-              <div className={`absolute -inset-px rounded-2xl transition-all duration-500 ${
-                searchFocused
-                  ? "bg-gradient-to-r from-amber/25 via-gold/15 to-amber/25 shadow-[0_0_30px_rgba(200,150,60,0.12)]"
-                  : "bg-gradient-to-r from-border via-border-subtle to-border"
-              }`} />
+            <div className={`relative transition-all duration-500 ${searchFocused ? "scale-[1.02]" : ""}`}>
+              {/* Glow behind search */}
+              <div className={`absolute inset-0 rounded-full transition-opacity duration-500 blur-xl ${searchFocused ? 'bg-amber/20 opacity-100' : 'bg-white/5 opacity-0'}`} />
 
-              <div className="relative flex items-center gap-3 bg-elevated/90 backdrop-blur-sm rounded-2xl px-5 py-3.5">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 18 18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  className={`flex-shrink-0 transition-colors duration-300 ${searchFocused ? "text-amber" : "text-text-ghost"}`}
-                >
-                  <circle cx="8" cy="8" r="5.5" />
-                  <path d="M12.5 12.5L16 16" />
+              <div className="relative flex items-center bg-surface/40 backdrop-blur-xl border border-white/10 rounded-full p-2 pl-6 shadow-2xl">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-text-ghost">
+                  <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search the library..."
+                  placeholder="Search for worlds, characters, or authors..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
-                  className="bg-transparent text-[14px] text-text outline-none placeholder:text-text-ghost w-full font-body"
+                  className="w-full bg-transparent border-none outline-none text-paper placeholder:text-text-ghost pl-4 font-body text-lg"
                 />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="text-text-ghost hover:text-text-secondary transition-colors p-1"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M3 3l8 8M11 3l-8 8" />
-                    </svg>
-                  </button>
-                )}
+                <button className="bg-white/10 hover:bg-amber hover:text-void text-paper transition-all px-8 py-3 rounded-full font-medium ml-2">
+                  Search
+                </button>
               </div>
             </div>
           </motion.div>
@@ -422,29 +597,34 @@ function BrowsePage() {
 
       <div className="max-w-6xl mx-auto px-6 pb-16">
         {/* ══════════════════════════════════════════════════════════
-            2. GENRE FILTER — horizontal scrollable pill row
+            2. GENRE FILTER — mobile-first bottom sheet + desktop pills
             ══════════════════════════════════════════════════════════ */}
+
+        {/* Desktop: Wrapped pills */}
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mb-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+          className="mb-4 hidden lg:block"
         >
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex flex-wrap items-center gap-2">
             {/* All Genres pill */}
             <button
               onClick={() => setSelectedGenre(null)}
-              className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+              className={`relative px-4 py-2 rounded-full text-[13px] font-medium transition-all whitespace-nowrap flex-shrink-0 overflow-hidden ${
                 selectedGenre === null
-                  ? "bg-amber text-void shadow-sm shadow-amber/20"
-                  : "bg-elevated/60 text-text-secondary hover:text-paper hover:bg-elevated/80"
+                  ? "text-void bg-amber shadow-[0_0_20px_rgba(198,154,71,0.3)] border border-amber"
+                  : "text-text-secondary bg-surface/30 border border-white/5 hover:border-white/20 hover:text-paper"
               }`}
             >
+              {selectedGenre === null && (
+                <motion.div layoutId="filter-pill-bg" className="absolute inset-0 bg-gradient-to-r from-amber to-[#e6bc65] -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
+              )}
               All Genres
             </button>
 
-            {/* Top genres first, then remaining */}
-            {topGenres.map((genre) => {
+            {/* All genres */}
+            {[...topGenres, ...remainingGenres].map((genre) => {
               const wing = GENRE_WINGS[genre] || DEFAULT_WING;
               const isActive = selectedGenre === genre;
               const count = genreCounts[genre] || 0;
@@ -453,38 +633,18 @@ function BrowsePage() {
                 <button
                   key={genre}
                   onClick={() => setSelectedGenre(isActive ? null : genre)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                  className={`relative flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all whitespace-nowrap flex-shrink-0 overflow-hidden ${
                     isActive
-                      ? `${wing.accentBg} text-void shadow-sm`
-                      : "bg-elevated/60 text-text-secondary hover:text-paper hover:bg-elevated/80"
+                      ? `bg-amber text-void shadow-[0_0_20px_rgba(198,154,71,0.3)] border border-amber`
+                      : "bg-surface/30 text-text-secondary border border-white/5 hover:border-white/20 hover:text-paper"
                   }`}
                 >
-                  <span>{genre}</span>
-                  <span className={`text-[10px] ${isActive ? "text-void/60" : "text-text-ghost"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-
-            {remainingGenres.map((genre) => {
-              const wing = GENRE_WINGS[genre] || DEFAULT_WING;
-              const isActive = selectedGenre === genre;
-              const count = genreCounts[genre] || 0;
-
-              return (
-                <button
-                  key={genre}
-                  onClick={() => setSelectedGenre(isActive ? null : genre)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
-                    isActive
-                      ? `${wing.accentBg} text-void shadow-sm`
-                      : "bg-elevated/60 text-text-secondary hover:text-paper hover:bg-elevated/80"
-                  }`}
-                >
+                  {isActive && (
+                    <motion.div layoutId="filter-pill-bg" className="absolute inset-0 bg-gradient-to-r from-amber to-[#e6bc65] -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
+                  )}
                   <span>{genre}</span>
                   {count > 0 && (
-                    <span className={`text-[10px] ${isActive ? "text-void/60" : "text-text-ghost"}`}>
+                    <span className={`text-[11px] ${isActive ? "text-void/60" : "text-text-ghost"}`}>
                       {count}
                     </span>
                   )}
@@ -493,6 +653,124 @@ function BrowsePage() {
             })}
           </div>
         </motion.div>
+
+        {/* Mobile: Filter button that opens bottom sheet */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+          className="mb-4 lg:hidden"
+        >
+          <button
+            onClick={() => setFilterSheetOpen(true)}
+            className="w-full flex items-center justify-between gap-3 px-5 py-3 bg-surface/60 backdrop-blur-sm border border-border rounded-2xl hover:border-amber/30 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-secondary">
+                <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span className="text-[14px] font-medium text-text">
+                {selectedGenre || "All Genres"}
+              </span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-ghost">
+              <path d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </motion.div>
+
+        {/* Mobile: Bottom Sheet */}
+        <AnimatePresence>
+          {filterSheetOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setFilterSheetOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
+              />
+
+              {/* Bottom Sheet */}
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border rounded-t-3xl z-50 max-h-[80vh] overflow-hidden lg:hidden"
+              >
+                {/* Handle */}
+                <div className="flex justify-center pt-3 pb-2">
+                  <div className="w-12 h-1 bg-border-subtle rounded-full" />
+                </div>
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
+                  <h3 className="font-display text-lg font-semibold text-paper">
+                    Filter by Genre
+                  </h3>
+                  <button
+                    onClick={() => setFilterSheetOpen(false)}
+                    className="p-2 hover:bg-elevated rounded-full transition-colors"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-secondary">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Genre Pills */}
+                <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+                  <div className="flex flex-wrap gap-2">
+                    {/* All Genres pill */}
+                    <button
+                      onClick={() => {
+                        setSelectedGenre(null);
+                        setFilterSheetOpen(false);
+                      }}
+                      className={`px-4 py-2.5 rounded-full text-[14px] font-medium transition-all ${
+                        selectedGenre === null
+                          ? "bg-amber text-void shadow-lg shadow-amber/30"
+                          : "bg-elevated text-text-secondary border border-border hover:border-amber/30"
+                      }`}
+                    >
+                      All Genres
+                    </button>
+
+                    {/* All genres */}
+                    {[...topGenres, ...remainingGenres].map((genre) => {
+                      const isActive = selectedGenre === genre;
+                      const count = genreCounts[genre] || 0;
+
+                      return (
+                        <button
+                          key={genre}
+                          onClick={() => {
+                            setSelectedGenre(isActive ? null : genre);
+                            setFilterSheetOpen(false);
+                          }}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[14px] font-medium transition-all ${
+                            isActive
+                              ? "bg-amber text-void shadow-lg shadow-amber/30"
+                              : "bg-elevated text-text-secondary border border-border hover:border-amber/30"
+                          }`}
+                        >
+                          <span>{genre}</span>
+                          {count > 0 && (
+                            <span className={`text-[12px] ${isActive ? "text-void/60" : "text-text-ghost"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* ══════════════════════════════════════════════════════════
             3. FILTER BAR — sort, format, rating, result count (sticky)
@@ -574,11 +852,10 @@ function BrowsePage() {
           transition={{ delay: 0.5 }}
         >
           {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-6 h-6 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
-                <p className="text-text-ghost text-[11px] uppercase tracking-[0.12em]">Searching the stacks...</p>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16 py-8 min-h-[400px]">
+              <AnimatePresence>
+                {Array.from({length: 6}).map((_, i) => <SkeletonCard key={`skel-${i}`}/>)}
+              </AnimatePresence>
             </div>
           ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
@@ -589,7 +866,7 @@ function BrowsePage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(0.6 + i * 0.04, 1.2) }}
                 >
-                  <BookCard
+                  <EnhancedBookCard
                     title={story.title}
                     author={story.authorName || undefined}
                     genres={story.genres}
@@ -674,7 +951,7 @@ function BrowsePage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 + i * 0.04 }}
                       >
-                        <BookCard
+                        <EnhancedBookCard
                           title={story.title}
                           author={story.authorName || undefined}
                           genres={story.genres}
@@ -693,388 +970,6 @@ function BrowsePage() {
             </div>
           )}
         </motion.section>
-
-        {/* ══════════════════════════════════════════════════════════
-            5. DIVIDER — separates browsing from discovery sections
-            ══════════════════════════════════════════════════════════ */}
-        {!hasFiltersActive && !loading && (
-          <div className="flourish my-14">
-            <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-              Discover More
-            </span>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            6. STAFF PICKS — the librarian's recommendations
-            ══════════════════════════════════════════════════════════ */}
-        {!hasFiltersActive && !loading && staffPicks.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="mb-14"
-          >
-            <div className="flourish mb-6">
-              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                The Librarian Recommends
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {staffPicks.map((pick, i) => (
-                <motion.div
-                  key={pick.pickId}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.48 + i * 0.06 }}
-                >
-                  <Link
-                    href={`/story/${pick.slug || pick.id}`}
-                    className="block group"
-                  >
-                    <div className="relative rounded-2xl overflow-hidden border border-amber/15 hover:border-amber/30 transition-all duration-300">
-                      {/* Gold accent line */}
-                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent" />
-
-                      {/* Cover area */}
-                      <div className="h-40 relative overflow-hidden bg-gradient-to-br from-amber/10 to-amber/[0.02]">
-                        {pick.coverImageUrl ? (
-                          <img
-                            src={pick.coverImageUrl}
-                            alt={pick.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" className="text-amber/20">
-                              <path d="M2 3l9 3.5L20 3v14l-9 3.5L2 17V3z" />
-                              <path d="M11 6.5V20" />
-                            </svg>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/50 to-transparent" />
-                        {/* Staff pick badge */}
-                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
-                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
-                            <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
-                          </svg>
-                          <span className="text-[10px] text-amber font-medium uppercase tracking-wider">Staff Pick</span>
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-5 bg-surface/60">
-                        <h3 className="font-display text-paper text-[16px] font-semibold group-hover:text-amber transition-colors leading-snug">
-                          {pick.title}
-                        </h3>
-                        {pick.authorName && (
-                          <p className="text-text-secondary text-[12px] mt-1">by {pick.authorName}</p>
-                        )}
-                        {pick.curatorNote && (
-                          <p className="text-text-tertiary text-[12px] italic leading-relaxed mt-3 font-reading line-clamp-2">
-                            &ldquo;{pick.curatorNote}&rdquo;
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-3">
-                          {pick.genres.slice(0, 2).map((g) => (
-                            <GenrePill key={g} genre={g} size="sm" />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            7. SPOTLIGHT — boosted stories (paid Ink Drop placement)
-            ══════════════════════════════════════════════════════════ */}
-        {!hasFiltersActive && !loading && boostedStories.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mb-14"
-          >
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-7 h-7 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
-                  <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="font-display text-lg text-paper font-bold">
-                  In the Spotlight
-                </h2>
-                <p className="text-[11px] text-text-ghost">
-                  Featured by their creators
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-              {boostedStories.map((story) => (
-                <div key={story.id} className="flex-shrink-0">
-                  <StoryCard
-                    title={story.title}
-                    author={story.authorName || undefined}
-                    coverUrl={story.coverImageUrl || undefined}
-                    genres={story.genres || []}
-                    wordCount={story.totalWords || 0}
-                    chapterCount={story.chapterCount || 0}
-                    sparkCount={story.sparkCount}
-                    contentRating={story.contentRating}
-                    slug={story.slug || story.id}
-                    variant="featured"
-                    excerpt={story.synopsis || undefined}
-                    writingMode={story.writingMode}
-                    isBoosted
-                  />
-                </div>
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            8. OPEN ADVENTURES — campaign stories seeking players
-            ══════════════════════════════════════════════════════════ */}
-        {!hasFiltersActive && !loading && campaignStories.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.43 }}
-            className="mb-14"
-          >
-            <div className="flourish mb-6">
-              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                Open Adventures
-              </span>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-              {campaignStories.map((campaign, i) => (
-                <motion.div
-                  key={campaign.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45 + i * 0.04 }}
-                  className="flex-shrink-0 w-[300px]"
-                >
-                  <Link
-                    href={`/campaign/${campaign.id}`}
-                    className="block group"
-                  >
-                    <div className="relative rounded-2xl overflow-hidden border border-amber/15 hover:border-amber/30 transition-all duration-300 bg-surface/60">
-                      {/* Top accent line */}
-                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet/40 to-transparent" />
-
-                      {/* Cover area */}
-                      <div className="h-32 relative overflow-hidden bg-gradient-to-br from-violet/10 via-amber/5 to-transparent">
-                        {campaign.coverImageUrl ? (
-                          <img
-                            src={campaign.coverImageUrl}
-                            alt={campaign.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.8" className="text-amber/25">
-                              <path d="M12 2L5 6v12l7 4 7-4V6l-7-4z" />
-                              <path d="M12 12v10M5 6l7 6 7-6" />
-                            </svg>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/50 to-transparent" />
-
-                        {/* Adventure badge */}
-                        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
-                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber">
-                            <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
-                          </svg>
-                          <span className="text-[10px] text-amber font-medium uppercase tracking-wider">Adventure</span>
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-4">
-                        <h3 className="font-display text-paper text-[15px] font-semibold group-hover:text-amber transition-colors leading-snug truncate">
-                          {campaign.title}
-                        </h3>
-                        {campaign.authorName && (
-                          <p className="text-text-secondary text-[11px] mt-1">
-                            GM: {campaign.authorName}
-                          </p>
-                        )}
-                        {campaign.synopsis && (
-                          <p className="text-text-tertiary text-[12px] leading-relaxed mt-2 font-reading line-clamp-2">
-                            {campaign.synopsis}
-                          </p>
-                        )}
-
-                        {/* Campaign stats & join CTA */}
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="flex items-center gap-3">
-                            {campaign.genres.slice(0, 2).map((g) => (
-                              <GenrePill key={g} genre={g} size="sm" />
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-2.5 text-[10px] text-text-ghost">
-                            {/* Player count */}
-                            <span className="flex items-center gap-1" title="Players">
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
-                                <circle cx="6" cy="5" r="2.5" />
-                                <path d="M1 14c0-3 2.5-5 5-5s5 2 5 5" />
-                                <circle cx="11.5" cy="5.5" r="2" />
-                                <path d="M15 14c0-2.5-1.5-4-3.5-4" />
-                              </svg>
-                              {campaign.playerCount ?? 0}
-                            </span>
-                            {/* Session count */}
-                            <span className="flex items-center gap-1" title="Sessions">
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
-                                <rect x="2" y="3" width="12" height="10" rx="1.5" />
-                                <path d="M2 7h12" />
-                                <path d="M5 3v-1M11 3v-1" />
-                              </svg>
-                              {campaign.sessionCount ?? 0}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Join button */}
-                        <div className="mt-3 pt-3 border-t border-border/30">
-                          <span className="text-[11px] font-medium text-violet group-hover:text-amber transition-colors uppercase tracking-wider">
-                            View Adventure &rarr;
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            9. ACTIVE JAMS — community creative events
-            ══════════════════════════════════════════════════════════ */}
-        {!hasFiltersActive && !loading && activeJams.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.38 }}
-            className="mb-14"
-          >
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full bg-rose/10 border border-rose/20 flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose">
-                    <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="font-display text-lg text-paper font-bold">Active Jams</h2>
-                  <p className="text-[11px] text-text-ghost">Write, submit, vote</p>
-                </div>
-              </div>
-              <Link href="/jams" className="text-xs text-amber hover:text-amber/80 transition-colors">
-                View all &rarr;
-              </Link>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-              {activeJams.map((jam) => (
-                <Link
-                  key={jam.id}
-                  href={`/jams/${jam.id}`}
-                  className="flex-shrink-0 w-64 card-page p-4 hover:border-rose/20 transition-all group"
-                >
-                  <h3 className="font-display text-sm text-paper font-semibold group-hover:text-rose transition-colors mb-1 truncate">
-                    {jam.title}
-                  </h3>
-                  <p className="text-xs text-text-secondary italic mb-3 truncate">
-                    {jam.theme}
-                  </p>
-                  <div className="flex items-center justify-between text-[10px] text-text-ghost">
-                    <span className={`px-1.5 py-0.5 rounded-full border ${
-                      jam.liveStatus === "open"
-                        ? "text-sage border-sage/20 bg-sage/10"
-                        : "text-amber border-amber/20 bg-amber/10"
-                    }`}>
-                      {jam.liveStatus === "open" ? "Open" : "Voting"}
-                    </span>
-                    <span>{jam.entryCount} {jam.entryCount === 1 ? "entry" : "entries"}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            10. JUST ARRIVED — new additions to the collection
-            ══════════════════════════════════════════════════════════ */}
-        {!hasFiltersActive && !loading && justPublished.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mb-14"
-          >
-            <div className="flourish mb-6">
-              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                Just Arrived
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {justPublished.map((story, i) => (
-                <motion.div
-                  key={story.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.52 + i * 0.04 }}
-                >
-                  <Link
-                    href={`/story/${story.slug || story.id}`}
-                    className="flex items-center gap-4 card-page p-4 group transition-all duration-200 hover:border-amber/20"
-                  >
-                    {/* Cover */}
-                    <div className="relative w-14 h-[72px] rounded-lg flex-shrink-0 overflow-hidden border border-border-subtle bg-gradient-to-br from-amber/10 to-amber/[0.02]">
-                      {story.coverImageUrl ? (
-                        <Image src={story.coverImageUrl} alt={story.title} fill sizes="300px" className="object-cover" unoptimized />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-amber/30">
-                            <rect x="4" y="2" width="12" height="16" rx="1.5" />
-                            <path d="M7 6h6M7 9h4" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-[13px] font-medium text-paper truncate group-hover:text-amber transition-colors">
-                        {story.title}
-                      </h3>
-                      <p className="text-[11px] text-text-secondary mt-0.5 truncate">
-                        {story.authorName || "Anonymous"}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        {story.genres.slice(0, 1).map((g) => (
-                          <GenrePill key={g} genre={g} size="sm" />
-                        ))}
-                        <span className="text-[10px] text-text-ghost">
-                          {story.chapterCount} ch · {story.totalWords >= 1000 ? `${(story.totalWords / 1000).toFixed(1)}k` : story.totalWords} words
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-        )}
       </div>
     </div>
   );
