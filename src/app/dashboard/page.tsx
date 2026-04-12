@@ -384,13 +384,17 @@ export default function DashboardPage() {
     creatorHub.loaded &&
     (creatorHub.subscriberCount > 0 || creatorHub.tipsThisMonth > 0 || creatorHub.activeCommissions > 0);
 
+  // A writer is "early-stage" if they haven't written anything meaningful yet.
+  const isEarlyStage = stories.length > 0 && totalWords < 500 && totalSparks === 0;
+  const showStatsGrid = stories.length > 0 && !isEarlyStage;
+
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="flex items-center justify-center py-32">
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
-            <p className="text-text-ghost text-[12px] uppercase tracking-[0.15em]">Loading your dashboard...</p>
+            <p className="text-text-ghost text-[12px] uppercase tracking-[0.15em]">Opening your atelier...</p>
           </div>
         </div>
       </div>
@@ -398,489 +402,237 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative pb-24">
       {/* ── Hero area with backdrop ── */}
-      <div className="relative overflow-hidden">
-        {/* Backdrop image — subtle, blended into page */}
+      <div className="relative overflow-hidden mb-10">
         <div className="absolute inset-0 pointer-events-none">
-          <img
-            src={backdrop}
-            alt=""
-            className="w-full h-full object-cover opacity-[0.55] dark:opacity-[0.6]"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
+          <img src={backdrop} alt="" className="w-full h-full object-cover opacity-[0.55] dark:opacity-[0.6]" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-void" />
           <div className="absolute inset-0 bg-gradient-to-r from-void/30 via-transparent to-void/30" />
           <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-void to-transparent" />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-10 pb-6">
-          {/* Greeting */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4"
-          >
-            <motion.h1
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="font-display text-3xl md:text-4xl text-paper font-semibold"
-            >
+        <div className="relative max-w-7xl mx-auto px-6 pt-12 pb-12">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.h1 className="font-display text-4xl md:text-5xl text-paper font-semibold" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               {greeting}, <span className="text-gold italic">{firstName}</span>
             </motion.h1>
+            <motion.p className="text-text-secondary mt-3 text-lg font-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+              Welcome back to your creator's sanctuary.
+            </motion.p>
           </motion.div>
-
-          {/* ── Quick Actions ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="flex flex-wrap items-center gap-2 mb-10"
-          >
-            <QuickActionPill
-              href="/create"
-              label="New Story"
-              accent="text-gold"
-              icon={
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M8 3v10M3 8h10" />
-                </svg>
-              }
-            />
-            {isLoggedIn && (
-              <>
-                <QuickActionPill
-                  href="/creator/circle"
-                  label="My Subscribers"
-                  icon={
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4" />
-                    </svg>
-                  }
-                />
-                <QuickActionPill
-                  href="/scriptorium"
-                  label="Commissions"
-                  icon={
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M2 3h12v10H2zM5 7h6M5 10h3" />
-                    </svg>
-                  }
-                />
-                <QuickActionPill
-                  href="/settings/ink-drops"
-                  label="Ink Drops"
-                  icon={
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z" />
-                    </svg>
-                  }
-                />
-              </>
-            )}
-          </motion.div>
-
-          {/* ── Stats grid ── */}
-          {stories.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8"
-            >
-              <StatCard value={stories.length} label="Stories" accent="text-amber" />
-              <StatCard value={formatNumber(totalWords)} label="Words Written" accent="text-teal" />
-              <StatCard value={formatNumber(totalChapters)} label="Chapters" accent="text-lavender" />
-              <StatCard value={formatNumber(totalSparks)} label="Sparks" accent="text-rose" />
-            </motion.div>
-          )}
         </div>
-
-        {/* Fade backdrop to page bg */}
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-void to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-void to-transparent pointer-events-none" />
       </div>
 
       {error && (
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="mb-6 px-4 py-3 bg-rose/10 border border-rose/20 rounded-xl text-rose text-[13px]">
-            {error}
-          </div>
+        <div className="max-w-7xl mx-auto px-6 mb-8">
+          <div className="px-4 py-3 bg-rose/10 border border-rose/20 rounded-xl text-rose text-[13px]">{error}</div>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-6 pb-16">
-        {/* ── Creator Hub ── */}
-        {showCreatorHub && (
-          <div className="mb-12">
-            <div className="flourish mb-6">
-              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                Creator Hub
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {creatorHub.subscriberCount > 0 && (
-                <CreatorHubCard
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4" />
-                    </svg>
-                  }
-                  value={formatNumber(creatorHub.subscriberCount)}
-                  label="Subscribers"
-                  sublabel={creatorHub.monthlyIncome > 0 ? `${formatNumber(creatorHub.monthlyIncome)} drops this month` : undefined}
-                  href="/creator/circle"
-                  accentColor="text-gold"
-                  accentGlow="bg-gold/10"
-                  delay={0.25}
-                />
-              )}
-              {creatorHub.tipsThisMonth > 0 && (
-                <CreatorHubCard
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z" />
-                    </svg>
-                  }
-                  value={formatNumber(creatorHub.tipsThisMonth)}
-                  label="Earned This Month"
-                  sublabel={creatorHub.totalEarned > 0 ? `${formatNumber(creatorHub.totalEarned)} drops total` : undefined}
-                  href="/creator/earnings"
-                  accentColor="text-teal"
-                  accentGlow="bg-teal/10"
-                  delay={0.3}
-                />
-              )}
-              {creatorHub.activeCommissions > 0 && (
-                <CreatorHubCard
-                  icon={
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M2 3h12v10H2zM5 7h6M5 10h3" />
-                    </svg>
-                  }
-                  value={formatNumber(creatorHub.activeCommissions)}
-                  label="Active Commissions"
-                  href="/scriptorium"
-                  accentColor="text-amethyst"
-                  accentGlow="bg-amethyst/10"
-                  delay={0.35}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Active Story Spotlight ── */}
-        {activeStory && (
-          <div className="mb-12">
-            <ActiveStorySpotlight story={activeStory} />
-          </div>
-        )}
-
-        {/* ── Continue Reading ── */}
-        {!continueLoading && continueReading.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="mb-12"
-          >
-            <div className="flourish mb-6">
-              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                Continue Reading
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {continueReading.slice(0, 6).map((item, i) => (
-                <motion.div
-                  key={item.storyId}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + i * 0.05 }}
-                >
-                  <Link
-                    href={`/story/${item.storySlug || item.storyId}/read/${item.chapterId}`}
-                    className="card-page p-4 flex items-start gap-4 group transition-all duration-200 hover:border-amber/20"
-                  >
-                    {/* Cover thumbnail */}
-                    <div className="w-12 h-16 rounded-lg bg-gradient-to-br from-amber/15 to-amber/5 border border-border-subtle flex-shrink-0 overflow-hidden flex items-center justify-center">
-                      {item.storyCoverUrl ? (
-                        <img
-                          src={item.storyCoverUrl}
-                          alt={item.storyTitle}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-text-ghost">
-                          <path d="M2 3l6 2.5L14 3v9l-6 2.5L2 12V3z" />
-                          <path d="M8 5.5V14" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-paper text-[13px] font-medium truncate group-hover:text-amber transition-colors">
-                        {item.storyTitle}
-                      </h3>
-                      {item.authorName && (
-                        <p className="text-text-ghost text-[11px] mt-0.5 truncate">
-                          by {item.authorName}
-                        </p>
-                      )}
-                      <p className="text-text-tertiary text-[11px] mt-1 truncate">
-                        Ch. {item.chapterSortOrder + 1}: {item.chapterTitle}
-                      </p>
-                      {/* Progress bar */}
-                      <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber/60 rounded-full transition-all"
-                          style={{ width: `${Math.max(item.scrollPercent, 5)}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-text-ghost mt-1">
-                        {item.scrollPercent}% through chapter
-                      </p>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Your Works (remaining stories) ── */}
-        {stories.length > 0 ? (
-          <>
-            {otherStories.length > 0 && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35 }}
-                >
-                  <div className="flourish mb-6">
-                    <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                      Your Works
-                    </span>
+      {/* ── BENTO GRID ATELIER LAYOUT ── */}
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* LEFT COLUMN: CREATIVE FLOW (Col-Span-8) */}
+          <div className="lg:col-span-8 flex flex-col gap-10">
+            
+            {/* 1. Active Story Spotlight */}
+            {activeStory ? (
+              <div className="flex flex-col gap-4">
+                <div className="flourish">
+                  <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">On The Desk</span>
+                </div>
+                <div className="p-1 rounded-3xl bg-gradient-to-b from-border-subtle/50 to-transparent border border-border/30">
+                  <div className="rounded-[1.4rem] bg-ink/30 overflow-hidden shadow-2xl">
+                     <ActiveStorySpotlight story={activeStory} />
                   </div>
-                </motion.div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+                </div>
+              </div>
+            ) : (
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex flex-col items-center justify-center text-center py-20 border border-border-subtle/50 rounded-3xl bg-ink/20">
+                <div className="relative w-32 h-32 mb-8">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber/10 to-amber/[0.02] border border-amber/10" />
+                  <div className="absolute -inset-6 bg-amber/5 rounded-full blur-3xl" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="0.8" className="text-amber/50">
+                      <path d="M32 5C26 10 20 16 15 22C10 28 8 33 7 36L4 37L3 34C4 30 8 22 14 15C20 8 27 5 32 5Z" />
+                      <circle cx="6" cy="36" r="2" />
+                      <path d="M20 10l6-4" strokeDasharray="2 2" />
+                      <path d="M30 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1z" fill="currentColor" stroke="none" opacity="0.4" />
+                    </svg>
+                  </div>
+                </div>
+                <h2 className="font-display text-2xl text-paper mb-2">The ink awaits</h2>
+                <p className="text-text-secondary text-[14px] max-w-sm mb-8 leading-relaxed">Every great tale starts with a single word. Pick a path to begin.</p>
+                <Link href="/create" className="bg-amber text-void font-semibold px-8 py-3.5 rounded-full hover:bg-amber-light transition-all text-sm hover:shadow-[0_0_20px_rgba(200,150,60,0.3)]">
+                  Begin Your First Story
+                </Link>
+              </motion.div>
+            )}
+
+            {/* 2. Getting Started Hints */}
+            {isEarlyStage && activeStory && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Link href={activeStory.writingMode === "campaign" ? `/campaign/${activeStory.id}` : `/write/${activeStory.id}`} className="group rounded-2xl border border-border bg-ink/40 p-5 transition-all duration-300 hover:border-amber/30 hover:bg-amber/5">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber/10 border border-amber/20 text-amber mb-4"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 2l3 3-9 9H2v-3l9-9z"/></svg></div>
+                    <div className="font-display text-[15px] text-paper font-medium mb-1">Keep writing</div>
+                    <div className="text-[12px] text-text-ghost leading-relaxed">Pick up "{activeStory.title}" where you left off.</div>
+                  </Link>
+                  <Link href="/read" className="group rounded-2xl border border-border bg-ink/40 p-5 transition-all duration-300 hover:border-lavender/30 hover:bg-lavender/5">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-lavender/10 border border-lavender/20 text-lavender mb-4"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 3h5a3 3 0 013 3v8a2 2 0 00-2-2H2V3zM14 3H9a3 3 0 00-3 3v8a2 2 0 012-2h6V3z"/></svg></div>
+                    <div className="font-display text-[15px] text-paper font-medium mb-1">Read others</div>
+                    <div className="text-[12px] text-text-ghost leading-relaxed">Drop into For You — hand-picked for you.</div>
+                  </Link>
+                  <Link href="/browse" className="group rounded-2xl border border-border bg-ink/40 p-5 transition-all duration-300 hover:border-teal/30 hover:bg-teal/5">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-teal/10 border border-teal/20 text-teal mb-4"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="7" cy="7" r="5"/><path d="M11 11l3 3"/></svg></div>
+                    <div className="font-display text-[15px] text-paper font-medium mb-1">Explore catalog</div>
+                    <div className="text-[12px] text-text-ghost leading-relaxed">Browse genres and creators to follow.</div>
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 3. Your Other Works */}
+            {stories.length > 0 && otherStories.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-display text-xl text-paper">Drafts & Revisions</h3>
+                  <Link href="/profile" className="text-sm text-text-ghost hover:text-amber transition-colors">View All &rarr;</Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {otherStories.map((story, i) => (
-                    <motion.div
-                      key={story.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 + i * 0.05 }}
-                    >
+                    <motion.div key={story.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.05 }}>
                       <StoryCard
-                        title={story.title}
-                        genres={story.genres}
-                        wordCount={story.totalWords || 0}
-                        chapterCount={story.chapterCount || 0}
-                        sparkCount={story.sparkCount || 0}
-                        contentRating={story.contentRating}
-                        status={story.status as "draft" | "in-progress" | "complete"}
-                        slug={story.slug || story.id}
+                        title={story.title} genres={story.genres} wordCount={story.totalWords || 0}
+                        chapterCount={story.chapterCount || 0} sparkCount={story.sparkCount || 0} contentRating={story.contentRating}
+                        status={story.status as "draft" | "in-progress" | "complete"} slug={story.slug || story.id}
                         href={story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`}
-                        coverUrl={story.coverImageUrl || undefined}
-                        lastEdited={formatTimeAgo(story.updatedAt)}
+                        coverUrl={story.coverImageUrl || undefined} lastEdited={formatTimeAgo(story.updatedAt)}
                       />
                     </motion.div>
                   ))}
                 </div>
-              </>
-            )}
-          </>
-        ) : (
-          /* ── Empty state -- no stories yet ── */
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-col items-center justify-center text-center py-20"
-          >
-            <div className="relative w-32 h-32 mb-8">
-              {/* Glow ring */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber/10 to-amber/[0.02] border border-amber/10" />
-              <div className="absolute -inset-6 bg-amber/5 rounded-full blur-3xl" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 40 40"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="0.8"
-                  className="text-amber/50"
-                >
-                  <path d="M32 5C26 10 20 16 15 22C10 28 8 33 7 36L4 37L3 34C4 30 8 22 14 15C20 8 27 5 32 5Z" />
-                  <circle cx="6" cy="36" r="2" />
-                  <path d="M20 10l6-4" strokeDasharray="2 2" />
-                  {/* Sparkle */}
-                  <path d="M30 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1z" fill="currentColor" stroke="none" opacity="0.4" />
-                </svg>
-              </div>
-            </div>
-            <h2 className="font-display text-2xl text-paper mb-2">
-              The ink awaits
-            </h2>
-            <p className="text-text-secondary text-[14px] max-w-sm mb-8 leading-relaxed">
-              Your workshop is ready. Every great tale starts with a single word --
-              open a blank page and let the magic flow.
-            </p>
-            <Link
-              href="/create"
-              className="bg-amber text-void font-semibold px-7 py-3 rounded-full hover:bg-amber-light transition-all duration-200 text-[14px] hover:shadow-lg hover:shadow-amber/15"
-            >
-              Begin Your First Story
-            </Link>
-          </motion.div>
-        )}
-
-        {/* ── Section divider ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="flourish my-8"
-        >
-          <span className="text-text-ghost text-sm font-display">&loz;</span>
-        </motion.div>
-
-        {/* ── Reading List ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55 }}
-        >
-          <div className="flourish mb-6">
-            <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-              Reading List
-            </span>
-          </div>
-        </motion.div>
-
-        {followedLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-5 h-5 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
-          </div>
-        ) : followedStories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
-            {followedStories.map((story, i) => (
-              <motion.div
-                key={story.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 + i * 0.05 }}
-              >
-                <StoryCard
-                  title={story.title}
-                  author={story.authorName || undefined}
-                  genres={story.genres}
-                  wordCount={story.totalWords || 0}
-                  chapterCount={story.chapterCount || 0}
-                  sparkCount={story.sparkCount || 0}
-                  contentRating={story.contentRating}
-                  status={story.status as "draft" | "in-progress" | "complete"}
-                  slug={story.slug || story.id}
-                  href={`/story/${story.slug || story.id}`}
-                  coverUrl={story.coverImageUrl || undefined}
-                />
               </motion.div>
-            ))}
-          </div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex flex-col items-center justify-center text-center py-14 mb-12"
-          >
-            <div className="relative w-20 h-20 mb-5">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-lavender/10 to-lavender/[0.02] border border-lavender/10" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 32 32"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  className="text-lavender/40"
-                >
-                  <path d="M4 6C4 6 8 4 16 4s12 2 12 2v20s-4-2-12-2-12 2-12 2V6z" />
-                  <path d="M16 4v20" />
-                </svg>
-              </div>
-              <div className="absolute -inset-4 bg-lavender/5 rounded-full blur-2xl" />
-            </div>
-            <p className="text-text-secondary text-[14px] max-w-xs leading-relaxed">
-              Follow stories you love to see them here.
-            </p>
-            <Link
-              href="/browse"
-              className="mt-5 text-amber text-[13px] font-medium hover:text-amber-light transition-colors duration-200"
-            >
-              Browse stories &rarr;
-            </Link>
-          </motion.div>
-        )}
+            )}
 
-        {/* ── Recent Notifications ── */}
-        {notifications.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.65 }}
-          >
-            <div className="flourish mb-6">
-              <span className="font-display text-[11px] uppercase tracking-[0.18em] text-text-ghost px-4">
-                Recent Activity
-              </span>
-            </div>
-            <div className="rounded-xl border border-border bg-ink/50 overflow-hidden">
-              {notifications.map((notif, i) => (
-                <Link
-                  key={notif.id}
-                  href={notif.href}
-                  className={`flex items-center gap-3 px-5 py-3.5 hover:bg-surface/50 transition-colors duration-200 group ${
-                    i < notifications.length - 1 ? "border-b border-border/50" : ""
-                  }`}
-                >
-                  <NotificationIcon type={notif.type} />
-                  <span
-                    className={`flex-1 text-[13px] leading-snug truncate ${
-                      notif.read ? "text-text-secondary" : "text-text"
-                    }`}
-                  >
-                    {notif.message}
-                  </span>
-                  <span className="text-[10px] text-text-ghost flex-shrink-0">
-                    {formatTimeAgo(notif.createdAt)}
-                  </span>
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    className="text-text-ghost/30 group-hover:text-text-ghost group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0"
-                  >
-                    <path d="M6 3l5 5-5 5" />
-                  </svg>
+            {/* 4. Continue Reading (Scrollable Horizontal Row) */}
+            {!continueLoading && continueReading.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="pt-4 border-t border-border-subtle/50">
+                <h3 className="font-display text-xl text-paper mb-5">Continue Reading</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {continueReading.slice(0, 4).map((item, i) => (
+                    <Link key={item.storyId} href={`/story/${item.storySlug || item.storyId}/read/${item.chapterId}`} className="card-page p-4 flex items-start gap-4 group transition-all duration-300 hover:border-amber/20 hover:bg-surface/60 rounded-2xl">
+                      <div className="w-14 h-20 rounded-[4px] bg-gradient-to-br from-amber/15 to-amber/5 border border-border-subtle flex-shrink-0 overflow-hidden shadow-md">
+                        {item.storyCoverUrl ? <img src={item.storyCoverUrl} alt={item.storyTitle} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><svg className="w-4 h-4 text-amber/40"><circle cx="8" cy="8" r="4"/></svg></div>}
+                      </div>
+                      <div className="flex-1 min-w-0 pt-1">
+                        <h3 className="text-paper text-[14px] font-medium truncate group-hover:text-amber transition-colors">{item.storyTitle}</h3>
+                        {item.authorName && <p className="text-text-ghost text-[12px] truncate">by {item.authorName}</p>}
+                        <div className="flex items-center justify-between mt-3 text-[11px] text-text-tertiary"><span className="truncate">Ch. {item.chapterSortOrder + 1}</span><span>{item.scrollPercent}%</span></div>
+                        <div className="mt-1.5 h-1 bg-border rounded-full overflow-hidden"><div className="h-full bg-amber/60 rounded-full" style={{ width: `${Math.max(item.scrollPercent, 3)}%` }} /></div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* 5. Followed Library */}
+            {!followedLoading && followedStories.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="pt-4 border-t border-border-subtle/50">
+                 <div className="flex items-center justify-between mb-5">
+                   <h3 className="font-display text-xl text-paper">From the Guild</h3>
+                   <Link href="/browse" className="text-sm text-text-ghost hover:text-amber transition-colors">Library &rarr;</Link>
+                 </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                   {followedStories.slice(0,3).map((story, i) => (
+                      <StoryCard
+                        key={story.id} title={story.title} author={story.authorName || undefined} genres={story.genres}
+                        wordCount={story.totalWords || 0} chapterCount={story.chapterCount || 0} sparkCount={story.sparkCount || 0}
+                        contentRating={story.contentRating} status={story.status as "draft" | "in-progress" | "complete"} slug={story.slug || story.id}
+                        href={`/story/${story.slug || story.id}`} coverUrl={story.coverImageUrl || undefined}
+                      />
+                   ))}
+                 </div>
+              </motion.div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: THE HUB (Col-Span-4) */}
+          <div className="lg:col-span-4 flex flex-col gap-6">
+            
+            {/* Command Center (Quick Actions) */}
+            <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl border border-border bg-ink/30 p-6 backdrop-blur-xl shadow-xl">
+              <h3 className="font-display text-lg text-paper mb-4 flex items-center gap-2">
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                 Command Center
+              </h3>
+              <div className="flex flex-col gap-2.5">
+                <Link href="/create" className="flex items-center gap-3 w-full p-3 rounded-xl bg-amber/10 border border-amber/20 hover:bg-amber/20 transition-colors text-amber text-sm font-medium">
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v10M3 8h10"/></svg> Begin a New Chapter
                 </Link>
-              ))}
-            </div>
-            <div className="mt-3 text-center">
-              <Link
-                href="/notifications"
-                className="text-[12px] text-text-ghost hover:text-amber transition-colors duration-200"
-              >
-                View all notifications &rarr;
-              </Link>
-            </div>
-          </motion.div>
-        )}
+                {isLoggedIn && (
+                  <div className="grid grid-cols-2 gap-2.5 mt-2">
+                    <Link href="/creator/circle" className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-border bg-surface/40 hover:bg-surface hover:border-gold/30 transition-all text-text-secondary text-[12px] font-medium">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4"/></svg> Subscribers
+                    </Link>
+                    <Link href="/scriptorium" className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-border bg-surface/40 hover:bg-surface hover:border-teal/30 transition-all text-text-secondary text-[12px] font-medium">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal"><path d="M2 3h12v10H2zM5 7h6M5 10h3"/></svg> Commissions
+                    </Link>
+                    <Link href="/settings/ink-drops" className="flex flex-col items-center justify-center gap-2 p-3 col-span-2 rounded-xl border border-border bg-surface/40 hover:bg-surface hover:border-lavender/30 transition-all text-text-secondary text-[12px] font-medium">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-lavender"><path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z"/></svg> Manage Ink Drops
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* General Stats (At a Glance) */}
+            {showStatsGrid && (
+              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }} className="grid grid-cols-2 gap-3">
+                <StatCard value={formatNumber(totalWords)} label="Words" accent="text-amber" />
+                <StatCard value={stories.length} label="Tales" accent="text-teal" />
+                <StatCard value={formatNumber(totalChapters)} label="Chapters" accent="text-lavender" />
+                <StatCard value={formatNumber(totalSparks)} label="Sparks" accent="text-gold" />
+              </motion.div>
+            )}
+
+            {/* Creator Hub Earnings/Growth directly in sidebar */}
+            {showCreatorHub && (
+              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="rounded-2xl border border-border bg-ink/30 p-6 backdrop-blur-xl">
+                <h3 className="font-display text-lg text-paper mb-4">Growth & Earnings</h3>
+                <div className="flex flex-col gap-3">
+                  {creatorHub.subscriberCount > 0 && <CreatorHubCard icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14c0-3.3 2.7-4 6-4s6 .7 6 4"/></svg>} value={formatNumber(creatorHub.subscriberCount)} label="Subscribers" sublabel={creatorHub.monthlyIncome > 0 ? `${formatNumber(creatorHub.monthlyIncome)} drops/mo` : undefined} href="/creator/circle" accentColor="text-gold" accentGlow="bg-gold/10" delay={0.1} />}
+                  {creatorHub.tipsThisMonth > 0 && <CreatorHubCard icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 2C8 2 3 7.5 3 10a5 5 0 0010 0C13 7.5 8 2 8 2z"/></svg>} value={formatNumber(creatorHub.tipsThisMonth)} label="Earned this month" href="/creator/earnings" accentColor="text-teal" accentGlow="bg-teal/10" delay={0.15} />}
+                  {creatorHub.activeCommissions > 0 && <CreatorHubCard icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 3h12v10H2zM5 7h6M5 10h3"/></svg>} value={creatorHub.activeCommissions} label="Active commissions" href="/scriptorium" accentColor="text-amethyst" accentGlow="bg-amethyst/10" delay={0.2} />}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Recent Notifications Feed */}
+            <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }} className="rounded-2xl border border-border bg-ink/30 p-1 backdrop-blur-xl">
+              <div className="px-5 py-4 border-b border-border/50 flex justify-between items-center">
+                 <h3 className="font-display text-[15px] text-paper">Recent Activity</h3>
+                 <Link href="/notifications" className="text-amber text-[12px] font-medium hover:underline">View all</Link>
+              </div>
+              <div className="flex flex-col">
+                {notifications.length > 0 ? notifications.map((notif, i) => (
+                  <Link key={notif.id} href={notif.href} className={`flex items-start gap-3 px-5 py-4 hover:bg-surface/40 transition-colors group ${i < notifications.length - 1 ? "border-b border-border/40" : "rounded-b-[15px]"}`}>
+                    <div className="mt-0.5"><NotificationIcon type={notif.type} /></div>
+                    <div className="flex-1 text-[13px] leading-snug">
+                      <p className={`${notif.read ? "text-text-secondary" : "text-text"}`}>{notif.message}</p>
+                      <p className="text-[10px] text-text-ghost mt-1.5">{formatTimeAgo(notif.createdAt)}</p>
+                    </div>
+                  </Link>
+                )) : <div className="px-5 py-8 text-center text-text-ghost text-[13px]">All caught up. No new activity.</div>}
+              </div>
+            </motion.div>
+
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
+import { sendEmail, passwordResetEmail } from "@/server/services/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Look up user
     const [user] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, email: users.email })
       .from(users)
       .where(eq(users.email, email.toLowerCase().trim()))
       .limit(1);
@@ -53,9 +54,9 @@ export async function POST(request: NextRequest) {
       expiresAt,
     });
 
-    // TODO: Send reset email via Resend
     const resetUrl = `${request.nextUrl.origin}/reset-password?token=${token}`;
-    // Token generated — email delivery pending (Resend integration)
+    const { subject, html } = passwordResetEmail(resetUrl);
+    sendEmail(user.email, subject, html); // fire-and-forget
 
     return successResponse;
   } catch (error) {

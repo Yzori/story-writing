@@ -18,15 +18,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 
   if (!user) {
-    return { title: "Profile Not Found — Inkwell" };
+    return { title: "Profile Not Found — Quiloria" };
   }
 
   const name = user.displayName || "Writer";
   const description =
-    user.bio?.slice(0, 160) || `${name}'s profile on Inkwell`;
+    user.bio?.slice(0, 160) || `${name}'s profile on Quiloria`;
 
   return {
-    title: `${name} — Inkwell`,
+    title: `${name} — Quiloria`,
     description,
     openGraph: {
       title: name,

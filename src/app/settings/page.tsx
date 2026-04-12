@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const [comfortRating, setComfortRating] = useState("everyone");
   const [readingFont, setReadingFont] = useState("default");
   const [readingMode, setReadingMode] = useState("paginated");
+  const [emailNotifications, setEmailNotifications] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
@@ -58,6 +59,7 @@ export default function SettingsPage() {
           if (data.comfortRating) setComfortRating(data.comfortRating);
           if (data.readingMode) setReadingMode(data.readingMode);
           if (data.readingFont) setReadingFont(data.readingFont);
+          if (typeof data.emailNotifications === "boolean") setEmailNotifications(data.emailNotifications);
           setSyncStatus("synced");
         })
         .catch(() => {
@@ -83,7 +85,7 @@ export default function SettingsPage() {
         const res = await fetch("/api/users/me/preferences", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comfortRating, readingMode, readingFont }),
+          body: JSON.stringify({ comfortRating, readingMode, readingFont, emailNotifications }),
         });
         if (res.ok) {
           setSyncStatus("synced");
@@ -241,6 +243,48 @@ export default function SettingsPage() {
             ))}
           </div>
         </motion.div>
+
+        {/* Email Notifications */}
+        {session?.user && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className={`${cardClass} mt-6`}
+          >
+            <label className={labelClass}>Email Notifications</label>
+            <button
+              onClick={() => setEmailNotifications(!emailNotifications)}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border transition-all ${
+                emailNotifications
+                  ? "border-amber/30 bg-amber/[0.06]"
+                  : "border-border hover:border-border-active"
+              }`}
+            >
+              <div
+                className={`relative w-9 h-5 rounded-full transition-colors ${
+                  emailNotifications ? "bg-amber/30" : "bg-elevated"
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${
+                    emailNotifications
+                      ? "left-[18px] bg-amber"
+                      : "left-0.5 bg-text-ghost"
+                  }`}
+                />
+              </div>
+              <div className="text-left">
+                <span className={`block text-[13px] font-medium ${emailNotifications ? "text-amber" : "text-text-secondary"}`}>
+                  {emailNotifications ? "Enabled" : "Disabled"}
+                </span>
+                <span className="text-[10px] text-text-ghost">
+                  Receive emails for new chapters, tips, collaboration invites, and jams
+                </span>
+              </div>
+            </button>
+          </motion.div>
+        )}
 
         {/* Save */}
         <motion.div

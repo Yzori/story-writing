@@ -70,6 +70,7 @@ function WorkshopContent() {
   const { data: session, status: sessionStatus } = useSession();
   const slug = params.slug as string;
   const isSetupMode = searchParams.get("setup") === "true";
+  const fromEditor = searchParams.get("from") === "editor";
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [showRosterNudge, setShowRosterNudge] = useState(false);
 
@@ -507,7 +508,7 @@ function WorkshopContent() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-4 mb-3">
           <Link
             href={`/story/${slug}`}
             className="text-text-ghost hover:text-amber transition-colors text-[12px] flex items-center gap-1"
@@ -517,6 +518,17 @@ function WorkshopContent() {
             </svg>
             Back to story
           </Link>
+          {fromEditor && isOwner && story && (
+            <Link
+              href={`/write/${story.id}`}
+              className="text-text-ghost hover:text-teal transition-colors text-[12px] flex items-center gap-1"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M10 3L5 8l5 5" />
+              </svg>
+              Back to editor
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-3 mb-1">
           <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost bg-surface/80 px-2.5 py-1 rounded-full border border-border">

@@ -12,6 +12,11 @@ interface ToolkitPanelProps {
   onOpenChapterSettings: () => void;
   onOpenTypography: () => void;
   onOpenOutline: () => void;
+  // Monetization
+  onOpenMonetization: () => void;
+  // Team & Calls
+  onOpenWorkshop: () => void;
+  onOpenOpenCalls: () => void;
   // Export
   onExportPdf: () => void;
   onExportEpub: () => void;
@@ -50,6 +55,9 @@ export default function ToolkitPanel({
   onOpenChapterSettings,
   onOpenTypography,
   onOpenOutline,
+  onOpenMonetization,
+  onOpenWorkshop,
+  onOpenOpenCalls,
   onExportPdf,
   onExportEpub,
   onExportDocx,
@@ -112,6 +120,17 @@ export default function ToolkitPanel({
         .join(", ") || undefined,
       onClick: onOpenFrontMatter,
     },
+    {
+      label: "Monetization",
+      description: "Circle, chapter gating, and commissions",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="10" cy="10" r="7" />
+          <path d="M10 5.5v9M7.5 7.5c0-1.1 1.1-2 2.5-2s2.5 0.9 2.5 2-1.1 2-2.5 2-2.5 0.9-2.5 2 1.1 2 2.5 2 2.5-0.9 2.5-2" />
+        </svg>
+      ),
+      onClick: onOpenMonetization,
+    },
   ];
 
   const writingTools: ToolCard[] = [
@@ -150,6 +169,34 @@ export default function ToolkitPanel({
         </svg>
       ),
       onClick: onOpenOutline,
+    },
+  ];
+
+  const teamTools: ToolCard[] = [
+    {
+      label: "Workshop",
+      description: "Team, suggestions, lore book, agreement",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="7" cy="7" r="3" />
+          <circle cx="14" cy="8" r="2.5" />
+          <path d="M2 16c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+          <path d="M12 16c0-2.2 1.8-4 4-4s2 1 2 2" />
+        </svg>
+      ),
+      onClick: onOpenWorkshop,
+    },
+    {
+      label: "Open Calls",
+      description: "Post roles and recruit collaborators",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9v2a2 2 0 0 0 2 2h1l4 3v-12L6 7H5a2 2 0 0 0-2 2z" />
+          <path d="M14 6c1 1.3 1 4.7 0 6" />
+          <path d="M16 4c2 2.3 2 7.7 0 10" />
+        </svg>
+      ),
+      onClick: onOpenOpenCalls,
     },
   ];
 
@@ -195,6 +242,7 @@ export default function ToolkitPanel({
   const sections = [
     { title: "Story", tools: storyTools },
     { title: "Writing", tools: writingTools },
+    { title: "Team & Calls", tools: teamTools },
     { title: "Export", tools: exportTools },
   ];
 

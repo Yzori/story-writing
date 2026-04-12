@@ -26,6 +26,9 @@ interface CommandPaletteProps {
   onOpenChapterSettings?: () => void;
   onOpenOutline?: () => void;
   onOpenTypography?: () => void;
+  onOpenMonetization?: () => void;
+  onOpenWorkshop?: () => void;
+  onOpenOpenCalls?: () => void;
   onExportPdf?: () => void;
   onExportEpub?: () => void;
   onExportDocx?: () => void;
@@ -45,6 +48,9 @@ export default function CommandPalette({
   onOpenChapterSettings,
   onOpenOutline,
   onOpenTypography,
+  onOpenMonetization,
+  onOpenWorkshop,
+  onOpenOpenCalls,
   onExportPdf,
   onExportEpub,
   onExportDocx,
@@ -177,6 +183,39 @@ export default function CommandPalette({
           },
         ]
       : []),
+    ...(onOpenMonetization
+      ? [
+          {
+            id: "monetization",
+            label: "Monetization",
+            description: "Circle, chapter gating, commissions",
+            category: "Tools",
+            action: onOpenMonetization,
+          },
+        ]
+      : []),
+    ...(onOpenWorkshop
+      ? [
+          {
+            id: "workshop",
+            label: "Workshop",
+            description: "Team, suggestions, lore book, agreement",
+            category: "Tools",
+            action: onOpenWorkshop,
+          },
+        ]
+      : []),
+    ...(onOpenOpenCalls
+      ? [
+          {
+            id: "open-calls",
+            label: "Open Calls",
+            description: "Post roles and recruit collaborators",
+            category: "Tools",
+            action: onOpenOpenCalls,
+          },
+        ]
+      : []),
     ...(onOpenFrontMatter
       ? [
           {
@@ -266,7 +305,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenShortcuts, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query

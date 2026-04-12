@@ -268,6 +268,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Notify followers when a chapter is newly published
+    let notifiedFollowers = 0;
+    let storySlug: string | null = null;
     if (
       parsed.data.status === "published" &&
       existing.status !== "published"
@@ -276,6 +278,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         where: eq(stories.id, storyId),
       });
       if (story) {
+        storySlug = story.slug ?? null;
         const followerRows = await db
           .select({ userId: follows.userId })
           .from(follows)
@@ -283,6 +286,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const followerIds = followerRows
           .map((f) => f.userId)
           .filter((id) => id !== session.user.id);
+        notifiedFollowers = followerIds.length;
         if (followerIds.length > 0) {
           createBulkNotifications(
             followerIds,
@@ -294,7 +298,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ data: updated });
+    return NextResponse.json({
+      data: updated,
+      meta: { notifiedFollowers, storySlug },
+    });
   } catch (error) {
     console.error("PATCH /api/stories/[storyId]/chapters/[chapterId] error:", error);
     return NextResponse.json(

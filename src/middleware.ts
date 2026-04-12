@@ -2,7 +2,7 @@ import { auth } from "@/server/auth";
 import { NextResponse } from "next/server";
 import { validateCsrf } from "@/server/csrf";
 
-const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings", "/roster/setup", "/campaign"];
+const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings", "/roster/setup", "/campaign", "/creator"];
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];
 const authPages = ["/login", "/register"];
 
@@ -11,7 +11,8 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // CSRF protection for API routes with mutating methods
-  if (pathname.startsWith("/api/")) {
+  // Skip CSRF for webhook routes (they use their own signature verification)
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/webhooks/")) {
     const csrfResult = validateCsrf(req);
     if (csrfResult) return csrfResult;
   }

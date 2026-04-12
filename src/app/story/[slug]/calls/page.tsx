@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -83,8 +83,10 @@ function getRoleColor(role: string) {
 
 export default function OpenCallsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const slug = params.slug as string;
+  const fromEditor = searchParams.get("from") === "editor";
 
   // Story state
   const [story, setStory] = useState<ApiStoryData | null>(null);
@@ -327,6 +329,20 @@ export default function OpenCallsPage() {
             <path d="M6 3l5 5-5 5" />
           </svg>
           <span className="text-text-secondary">Open Calls</span>
+          {fromEditor && isOwner && (
+            <>
+              <span className="text-text-ghost/40">·</span>
+              <Link
+                href={`/write/${story.id}`}
+                className="hover:text-teal transition-colors flex items-center gap-1"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M10 3L5 8l5 5" />
+                </svg>
+                Back to editor
+              </Link>
+            </>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-4">

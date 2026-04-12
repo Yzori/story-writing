@@ -175,6 +175,7 @@ export const updatePreferencesSchema = z.object({
   comfortRating: z.enum(["everyone", "teen", "mature", "explicit"]).optional(),
   readingMode: z.enum(["paginated", "scroll"]).optional(),
   readingFont: z.enum(["default", "serif", "sans", "mono"]).optional(),
+  emailNotifications: z.boolean().optional(),
 });
 
 // ── Collaborators ───────────────────────────────────────────
@@ -367,6 +368,73 @@ export const upsertReadingProgressSchema = z.object({
 });
 
 // ── Guild Profiles ──────────────────────────────────────────
+
+// ── Spectator Reactions ────────────────────────────────────
+
+export const spectatorReactionSchema = z.object({
+  token: z.string().min(1).max(100),
+  type: z.enum([
+    "gasped",
+    "cried",
+    "laughed",
+    "need-more",
+    "saw-it-coming",
+    "heartbroken",
+    "inspired",
+    "terrified",
+  ]),
+});
+
+// ── Ink Drop Tips ──────────────────────────────────────────
+
+// ── Annotations ────────────────────────────────────────────
+
+export const createAnnotationSchema = z.object({
+  startOffset: z.number().int().min(0),
+  endOffset: z.number().int().min(1),
+  content: z.string().min(1).max(2000),
+  visibility: z.enum(["private", "public"]).default("private"),
+}).refine((d) => d.endOffset > d.startOffset, {
+  message: "endOffset must be greater than startOffset",
+});
+
+// ── Story Jams ─────────────────────────────────────────────
+
+export const createJamSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().min(1).max(5000),
+  theme: z.string().min(1).max(500),
+  bannerUrl: z.string().url().max(1000).optional(),
+  submissionStartsAt: z.string().datetime(),
+  submissionEndsAt: z.string().datetime(),
+  votingStartsAt: z.string().datetime(),
+  votingEndsAt: z.string().datetime(),
+  wordCountMin: z.number().int().min(0).optional(),
+  wordCountMax: z.number().int().min(1).optional(),
+  maxEntries: z.number().int().min(1).optional(),
+});
+
+export const submitJamEntrySchema = z.object({
+  storyId: z.string().uuid(),
+});
+
+export const createJamVoteSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+});
+
+export const boostStorySchema = z.object({
+  durationHours: z.literal(24), // only 24h boosts for now
+});
+
+export const inkDropCheckoutSchema = z.object({
+  tier: z.enum(["500", "1200", "3000"]),
+});
+
+export const inkDropTipSchema = z.object({
+  recipientUserId: z.string().uuid("Invalid recipient"),
+  amount: z.union([z.literal(5), z.literal(10), z.literal(25), z.literal(50), z.literal(100)]),
+  message: z.string().max(200).optional(),
+});
 
 export const guildProfileSchema = z.object({
   tagline: z.string().max(200).optional(),

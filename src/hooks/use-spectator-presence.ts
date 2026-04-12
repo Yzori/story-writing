@@ -17,6 +17,7 @@ function getOrCreateToken(sessionId: string): string {
 
 interface UseSpectatorPresenceReturn {
   spectatorCount: number;
+  token: string;
 }
 
 export function useSpectatorPresence(
@@ -87,5 +88,5 @@ export function useSpectatorPresence(
     };
   }, [storyId, sessionId, sendHeartbeat, presenceUrl]);
 
-  return { spectatorCount };
+  return { spectatorCount, token: tokenRef.current || "" };
 }

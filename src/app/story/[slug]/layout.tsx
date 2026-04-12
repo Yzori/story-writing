@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 
   if (!story) {
-    return { title: "Story Not Found — Inkwell" };
+    return { title: "Story Not Found — Quiloria" };
   }
 
   const author = await db.query.users.findFirst({
@@ -27,10 +27,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 
   const description =
-    story.synopsis?.slice(0, 160) || `Read "${story.title}" on Inkwell`;
+    story.synopsis?.slice(0, 160) || `Read "${story.title}" on Quiloria`;
 
   return {
-    title: `${story.title} — Inkwell`,
+    title: `${story.title} — Quiloria`,
     description,
     openGraph: {
       title: story.title,

@@ -82,17 +82,17 @@ async function sendNotificationEmail(
     if (!user?.emailNotifications || !user.email) return;
 
     // Use the notification message as the email body with a simple template
-    const baseUrl = process.env.NEXTAUTH_URL || "https://inkwell.app";
+    const baseUrl = process.env.NEXTAUTH_URL || "https://quiloria.app";
     const fullHref = href.startsWith("http") ? href : `${baseUrl}${href}`;
 
     await sendEmail(
       user.email,
       message,
       `<div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#D4C4A8;background:#1A1510;padding:32px 24px;border-radius:12px;">
-        <div style="text-align:center;margin-bottom:24px;"><span style="font-size:20px;font-weight:700;color:#C8963C;letter-spacing:0.05em;">Inkwell</span></div>
+        <div style="text-align:center;margin-bottom:24px;"><span style="font-size:20px;font-weight:700;color:#C8963C;letter-spacing:0.05em;">Quiloria</span></div>
         <p style="line-height:1.6;margin:0 0 16px;">${message}</p>
-        <div style="text-align:center;"><a href="${fullHref}" style="display:inline-block;padding:10px 24px;background:#C8963C20;border:1px solid #C8963C40;color:#C8963C;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View on Inkwell</a></div>
-        <div style="margin-top:32px;padding-top:16px;border-top:1px solid #2E271E;text-align:center;font-size:12px;color:#7A6C56;">You received this because you enabled email notifications on Inkwell.</div>
+        <div style="text-align:center;"><a href="${fullHref}" style="display:inline-block;padding:10px 24px;background:#C8963C20;border:1px solid #C8963C40;color:#C8963C;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View on Quiloria</a></div>
+        <div style="margin-top:32px;padding-top:16px;border-top:1px solid #2E271E;text-align:center;font-size:12px;color:#7A6C56;">You received this because you enabled email notifications on Quiloria.</div>
       </div>`,
       userId
     );

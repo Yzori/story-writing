@@ -7,9 +7,16 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useSpectatorSession } from "@/hooks/use-spectator-session";
 import { useSpectatorPresence } from "@/hooks/use-spectator-presence";
+import { useSpectatorReactions } from "@/hooks/use-spectator-reactions";
+import { useSpectatorTips } from "@/hooks/use-spectator-tips";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import LiveBadge from "@/components/shared/LiveBadge";
+import ReactionPicker from "@/components/campaign/spectator/ReactionPicker";
+import FloatingReactions from "@/components/campaign/spectator/FloatingReactions";
+import TipButton from "@/components/campaign/spectator/TipButton";
+import TipModal from "@/components/campaign/spectator/TipModal";
+import TipEntry from "@/components/campaign/spectator/TipEntry";
 
 export default function WatchSessionPage() {
   const params = useParams();
@@ -26,12 +33,34 @@ export default function WatchSessionPage() {
     storyTitle,
   } = useSpectatorSession(storyId, sessionId);
 
-  const { spectatorCount: presenceCount } = useSpectatorPresence(storyId, sessionId);
+  const { spectatorCount: presenceCount, token } = useSpectatorPresence(storyId, sessionId);
 
   // Use whichever count is fresher (presence heartbeat updates less frequently)
   const spectatorCount = Math.max(pollSpectatorCount, presenceCount);
 
+  // Reactions & tips
+  const { reactions, sendReaction } = useSpectatorReactions(storyId, sessionId, token);
+  const { tips, balance, sendTip } = useSpectatorTips(storyId, sessionId);
+
   const [logCollapsed, setLogCollapsed] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
+
+  // Build recipient list from characters (unique users)
+  const tipRecipients = useMemo(() => {
+    const list: { id: string; name: string; role?: string }[] = [];
+    const seen = new Set<string>();
+    for (const c of characters) {
+      if (c.userId && !seen.has(c.userId)) {
+        seen.add(c.userId);
+        list.push({
+          id: c.userId,
+          name: c.displayName || c.name || "Player",
+          role: c.name,
+        });
+      }
+    }
+    return list;
+  }, [characters]);
 
   // Split turns into story turns (prose) and log turns (ooc, rolls)
   const storyTurns = useMemo(
@@ -148,7 +177,10 @@ export default function WatchSessionPage() {
           </span>
         </div>
 
-        <LiveBadge spectatorCount={spectatorCount} />
+        <div className="flex items-center gap-2">
+          <TipButton balance={balance} onClick={() => setShowTipModal(true)} />
+          <LiveBadge spectatorCount={spectatorCount} />
+        </div>
       </motion.header>
 
       {/* Two-panel layout */}
@@ -168,7 +200,7 @@ export default function WatchSessionPage() {
         />
 
         {/* Story Canvas — spectator mode, no interactive controls */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 relative">
           <StoryCanvas
             sessionId={sessionId}
             storyId={storyId}
@@ -193,8 +225,42 @@ export default function WatchSessionPage() {
             onLastWords={() => {}}
             spectatorMode
           />
+
+          {/* Floating reactions overlay */}
+          <FloatingReactions reactions={reactions} />
+
+          {/* Tips feed — bottom-left of canvas */}
+          {tips.length > 0 && (
+            <div className="absolute bottom-16 left-4 z-20 flex flex-col gap-1.5 max-w-xs pointer-events-none">
+              <AnimatePresence>
+                {tips.slice(-5).map((tip) => (
+                  <TipEntry
+                    key={tip.id}
+                    fromDisplayName={tip.fromDisplayName}
+                    amount={tip.amount}
+                    message={tip.message}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Reaction picker — fixed bottom */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
+        <ReactionPicker onReact={sendReaction} />
+      </div>
+
+      {/* Tip modal */}
+      {showTipModal && balance !== null && tipRecipients.length > 0 && (
+        <TipModal
+          recipients={tipRecipients}
+          balance={balance}
+          onSend={sendTip}
+          onClose={() => setShowTipModal(false)}
+        />
+      )}
     </div>
   );
 }

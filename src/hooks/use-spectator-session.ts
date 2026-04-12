@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Turn } from "@/types/campaign";
 
-interface SpectatorCharacter {
+export interface SpectatorCharacter {
   id: string;
+  userId: string | null;
   name: string;
   portrait: string | null;
+  displayName: string | null;
 }
 
 interface SpectatorSession {
@@ -73,10 +75,12 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
           const charsJson = await charsRes.json();
           const allChars = charsJson.data ?? [];
           setCharacters(
-            allChars.map((c: { id: string; name: string; portrait: string | null }) => ({
+            allChars.map((c: { id: string; userId: string | null; name: string; portrait: string | null; userDisplayName: string | null }) => ({
               id: c.id,
+              userId: c.userId,
               name: c.name,
               portrait: c.portrait,
+              displayName: c.userDisplayName,
             }))
           );
         }

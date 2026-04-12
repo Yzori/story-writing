@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="inkwell-data-export-${userId}.json"`,
+        "Content-Disposition": `attachment; filename="quiloria-data-export-${userId}.json"`,
       },
     });
   } catch (error) {

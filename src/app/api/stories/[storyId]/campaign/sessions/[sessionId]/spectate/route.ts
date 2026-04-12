@@ -107,10 +107,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const characters = await db
       .select({
         id: playerCharacters.id,
+        userId: playerCharacters.userId,
         name: playerCharacters.name,
         portrait: playerCharacters.portrait,
+        userDisplayName: users.displayName,
       })
       .from(playerCharacters)
+      .leftJoin(users, eq(playerCharacters.userId, users.id))
       .where(eq(playerCharacters.storyId, storyId));
 
     // Count active spectators (heartbeat within last 45 seconds)

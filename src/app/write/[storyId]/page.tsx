@@ -31,6 +31,7 @@ import CommandPalette from "@/components/editor/CommandPalette";
 import CommentsSidebar from "@/components/editor/CommentsSidebar";
 import CommentPopover from "@/components/editor/CommentPopover";
 import MetadataPanel from "@/components/editor/MetadataPanel";
+import MonetizationPanel from "@/components/editor/MonetizationPanel";
 import StoryBiblePanel from "@/components/editor/StoryBiblePanel";
 import FrontMatterPanel from "@/components/editor/FrontMatterPanel";
 import ChapterSettingsPanel from "@/components/editor/ChapterSettingsPanel";
@@ -46,8 +47,10 @@ import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
+import { UpgradeModal } from "@/components/billing/UpgradeModal";
+import { useFeatureAccess } from "@/components/billing/FeatureGate";
 
-type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat";
+type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization";
 
 // Local storage key for editor-only settings (typography, goals, etc.)
 function editorSettingsKey(storyId: string) {
@@ -232,11 +235,41 @@ export default function WriteStoryPage() {
   const [needsTeamSetup, setNeedsTeamSetup] = useState(false);
   const [showRosterNudge, setShowRosterNudge] = useState(false);
   const [rosterNudgeDismissed, setRosterNudgeDismissed] = useState(false);
+  // Publish-chapter confirmation dialog state
+  const [publishDialog, setPublishDialog] = useState<{
+    open: boolean;
+    phase: "confirm" | "publishing" | "success";
+    chapterId: string | null;
+    chapterTitle: string;
+    notifiedFollowers: number;
+    shareUrl: string;
+    linkCopied: boolean;
+  }>({
+    open: false,
+    phase: "confirm",
+    chapterId: null,
+    chapterTitle: "",
+    notifiedFollowers: 0,
+    shareUrl: "",
+    linkCopied: false,
+  });
   // Co-op: collaborator presence
   const [collaborators, setCollaborators] = useState<{ id: string; userId: string; displayName: string | null; avatarUrl: string | null; role: string; status: string }[]>([]);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   // Format-aware editor
   const [storyFormat, setStoryFormat] = useState("novel");
+
+  // Subscription gates
+  const hasProAccess = useFeatureAccess("pro");
+  const [upgradeModal, setUpgradeModal] = useState<{
+    isOpen: boolean;
+    feature: string;
+    tier: "pro" | "premium";
+  }>({
+    isOpen: false,
+    feature: "",
+    tier: "pro",
+  });
 
   // Focus mode
   const [focusMode, setFocusMode] = useState(false);
@@ -913,6 +946,85 @@ export default function WriteStoryPage() {
     [storyId, updateProject]
   );
 
+  // ── Publish chapter flow (confirmation + share) ──────────
+  const openPublishDialog = useCallback(
+    (chapterId: string, chapterTitle: string) => {
+      setPublishDialog({
+        open: true,
+        phase: "confirm",
+        chapterId,
+        chapterTitle,
+        notifiedFollowers: 0,
+        shareUrl: "",
+        linkCopied: false,
+      });
+    },
+    []
+  );
+
+  const confirmPublish = useCallback(async () => {
+    const chapterId = publishDialog.chapterId;
+    if (!chapterId) return;
+    setPublishDialog((p) => ({ ...p, phase: "publishing" }));
+    try {
+      // Flush any unsaved content first so readers get the latest
+      await flushPendingSaves();
+      const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "published" }),
+      });
+      if (!res.ok) {
+        toast("Couldn\u2019t publish chapter", "error");
+        setPublishDialog((p) => ({ ...p, open: false }));
+        return;
+      }
+      const json = await res.json();
+      const notifiedFollowers: number = json?.meta?.notifiedFollowers ?? 0;
+      const resolvedSlug: string =
+        json?.meta?.storySlug || storySlug || storyId;
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const shareUrl = `${origin}/story/${resolvedSlug}/read/${chapterId}`;
+
+      updateProject((prev) => ({
+        ...prev,
+        chapters: prev.chapters.map((c) =>
+          c.id === chapterId ? { ...c, status: "published" as const } : c
+        ),
+      }));
+
+      setPublishDialog((p) => ({
+        ...p,
+        phase: "success",
+        notifiedFollowers,
+        shareUrl,
+      }));
+    } catch (err) {
+      console.error("Publish failed:", err);
+      toast("Network error. Try again.", "error");
+      setPublishDialog((p) => ({ ...p, open: false }));
+    }
+  }, [publishDialog.chapterId, storyId, storySlug, flushPendingSaves, toast, updateProject]);
+
+  const copyShareLink = useCallback(async () => {
+    if (!publishDialog.shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(publishDialog.shareUrl);
+      setPublishDialog((p) => ({ ...p, linkCopied: true }));
+      setTimeout(
+        () => setPublishDialog((p) => ({ ...p, linkCopied: false })),
+        2000
+      );
+    } catch {
+      toast("Couldn\u2019t copy link", "error");
+    }
+  }, [publishDialog.shareUrl, toast]);
+
+  const closePublishDialog = useCallback(() => {
+    setPublishDialog((p) => ({ ...p, open: false }));
+  }, []);
+
   const handleDeleteChapter = useCallback(
     async (id: string) => {
       // Prevent deleting the last chapter
@@ -1366,6 +1478,13 @@ export default function WriteStoryPage() {
   const handleOpenMetadata = useCallback(() => togglePanel("metadata"), [togglePanel]);
   const handleOpenFrontMatter = useCallback(() => togglePanel("frontmatter"), [togglePanel]);
   const handleOpenTypography = useCallback(() => togglePanel("typography"), [togglePanel]);
+  const handleOpenMonetization = useCallback(() => togglePanel("monetization"), [togglePanel]);
+  const handleOpenWorkshop = useCallback(() => {
+    if (storySlug) router.push(`/story/${storySlug}/workshop?from=editor`);
+  }, [router, storySlug]);
+  const handleOpenOpenCalls = useCallback(() => {
+    if (storySlug) router.push(`/story/${storySlug}/calls?from=editor`);
+  }, [router, storySlug]);
   const handleToggleOutlineView = useCallback(() => setShowOutline((v) => !v), []);
   const handleMentionClick = useCallback((characterId: string) => {
     setRightPanel("bible");
@@ -1387,6 +1506,16 @@ export default function WriteStoryPage() {
 
   // ── Dynamic export handlers ────────────────────────────────
   const handleExportPdf = useCallback(async () => {
+    // Check Pro access for exports
+    if (!hasProAccess) {
+      setUpgradeModal({
+        isOpen: true,
+        feature: "PDF Export",
+        tier: "pro",
+      });
+      return;
+    }
+
     if (!project) return;
     try {
       const { exportPdf } = await import("@/client/export-pdf");
@@ -1396,8 +1525,19 @@ export default function WriteStoryPage() {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
     }
-  }, [project]);
+  }, [project, hasProAccess]);
+
   const handleExportEpub = useCallback(async () => {
+    // Check Pro access for exports
+    if (!hasProAccess) {
+      setUpgradeModal({
+        isOpen: true,
+        feature: "EPUB Export",
+        tier: "pro",
+      });
+      return;
+    }
+
     if (!project) return;
     try {
       const { exportEpub } = await import("@/client/export-pdf");
@@ -1407,8 +1547,19 @@ export default function WriteStoryPage() {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
     }
-  }, [project]);
+  }, [project, hasProAccess]);
+
   const handleExportDocx = useCallback(async () => {
+    // Check Pro access for exports
+    if (!hasProAccess) {
+      setUpgradeModal({
+        isOpen: true,
+        feature: "DOCX Export",
+        tier: "pro",
+      });
+      return;
+    }
+
     if (!project) return;
     try {
       const { exportDocx } = await import("@/client/export-docx");
@@ -1418,7 +1569,7 @@ export default function WriteStoryPage() {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
     }
-  }, [project]);
+  }, [project, hasProAccess]);
 
   const totalWords = useMemo(() =>
     project?.chapters.reduce((s, c) => s + c.wordCount, 0) ?? 0,
@@ -1692,38 +1843,55 @@ export default function WriteStoryPage() {
                         {activeChapter.title ?? "Untitled"}
                       </h1>
                       <div className="flex items-center gap-3 shrink-0">
-                        {/* Co-op: Collaborator presence */}
-                        {writingMode !== "solo" && collaborators.length > 0 && (
+                        {/* Co-op: Collaborator presence + team controls */}
+                        {writingMode !== "solo" && (
                           <div className="hidden sm:flex items-center gap-1.5">
-                            <div className="flex -space-x-1.5">
-                              {collaborators.filter((c) => c.status === "accepted").slice(0, 4).map((c) => (
-                                <div
-                                  key={c.id}
-                                  className="w-6 h-6 rounded-full border border-void bg-elevated flex items-center justify-center text-[8px] font-bold text-text-secondary overflow-hidden"
-                                  title={c.displayName || "Collaborator"}
-                                >
-                                  {c.avatarUrl ? (
-                                    <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    (c.displayName || "?").charAt(0).toUpperCase()
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            {/* Chat toggle */}
+                            {collaborators.length > 0 && (
+                              <div className="flex -space-x-1.5">
+                                {collaborators.filter((c) => c.status === "accepted").slice(0, 4).map((c) => (
+                                  <div
+                                    key={c.id}
+                                    className="w-6 h-6 rounded-full border border-void bg-elevated flex items-center justify-center text-[8px] font-bold text-text-secondary overflow-hidden"
+                                    title={c.displayName || "Collaborator"}
+                                  >
+                                    {c.avatarUrl ? (
+                                      <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      (c.displayName || "?").charAt(0).toUpperCase()
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Workshop link */}
                             <button
-                              onClick={() => setRightPanel((p) => p === "chat" ? "none" : "chat")}
-                              className={`p-1.5 rounded-md transition-all ${
-                                rightPanel === "chat"
-                                  ? "bg-teal/10 text-teal border border-teal/20"
-                                  : "text-text-ghost hover:text-text-secondary border border-transparent"
-                              }`}
-                              title="Workshop Chat"
+                              onClick={handleOpenWorkshop}
+                              className="p-1.5 rounded-md text-text-ghost hover:text-teal border border-transparent hover:border-teal/20 transition-all"
+                              title="Workshop — team, suggestions, lore, agreement"
                             >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="7" cy="7" r="3" />
+                                <circle cx="14" cy="8" r="2.5" />
+                                <path d="M2 16c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+                                <path d="M12 16c0-2.2 1.8-4 4-4s2 1 2 2" />
                               </svg>
                             </button>
+                            {/* Chat toggle */}
+                            {collaborators.length > 0 && (
+                              <button
+                                onClick={() => setRightPanel((p) => p === "chat" ? "none" : "chat")}
+                                className={`p-1.5 rounded-md transition-all ${
+                                  rightPanel === "chat"
+                                    ? "bg-teal/10 text-teal border border-teal/20"
+                                    : "text-text-ghost hover:text-text-secondary border border-transparent"
+                                }`}
+                                title="Workshop Chat"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                                </svg>
+                              </button>
+                            )}
                             <div className="w-px h-4 bg-border" />
                           </div>
                         )}
@@ -1766,7 +1934,7 @@ export default function WriteStoryPage() {
                           <button
                             onClick={() => {
                               if (activeChapter) {
-                                handleUpdateChapterStatus(activeChapter.id, "published");
+                                openPublishDialog(activeChapter.id, activeChapter.title);
                               }
                             }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] border border-sage/30 text-sage hover:bg-sage/10 transition-all"
@@ -2091,6 +2259,143 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
+      {/* ── Publish Chapter Dialog ──────────────────────────── */}
+      <AnimatePresence>
+        {publishDialog.open && (
+          <motion.div
+            key="publish-dialog"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-void/70 backdrop-blur-sm px-4"
+            onClick={publishDialog.phase !== "publishing" ? closePublishDialog : undefined}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.25 }}
+              className="w-full max-w-md bg-elevated border border-border rounded-2xl p-7 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {publishDialog.phase === "confirm" && (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-sage/10 border border-sage/20 flex items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage">
+                        <path d="M2 8l4 4 8-8" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-text-ghost text-[10px] tracking-[0.2em] uppercase">Publish chapter</p>
+                      <h3 className="font-display text-paper text-lg leading-tight">
+                        {publishDialog.chapterTitle || "Untitled chapter"}
+                      </h3>
+                    </div>
+                  </div>
+                  <p className="text-text-secondary text-[13px] leading-relaxed mb-6">
+                    Readers who follow this story will be notified. You can unpublish any time
+                    from Chapter Settings.
+                  </p>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={closePublishDialog}
+                      className="text-text-ghost hover:text-paper text-[13px] tracking-wide transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmPublish}
+                      className="px-5 py-2 rounded-lg bg-sage/15 border border-sage/40 text-sage hover:bg-sage/25 font-medium text-[13px] transition-all"
+                    >
+                      Publish now
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {publishDialog.phase === "publishing" && (
+                <div className="flex flex-col items-center py-4">
+                  <div className="w-8 h-8 border-2 border-sage/30 border-t-sage rounded-full animate-spin mb-4" />
+                  <p className="text-text-ghost text-[12px] tracking-wide uppercase">
+                    Publishing…
+                  </p>
+                </div>
+              )}
+
+              {publishDialog.phase === "success" && (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-sage/15 border border-sage/30 flex items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="text-sage">
+                        <path d="M2 8l4 4 8-8" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sage text-[10px] tracking-[0.2em] uppercase">Published</p>
+                      <h3 className="font-display text-paper text-lg leading-tight truncate">
+                        {publishDialog.chapterTitle || "Untitled chapter"}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <p className="text-text-secondary text-[13px] leading-relaxed mb-5">
+                    {publishDialog.notifiedFollowers === 0
+                      ? "Your chapter is live. No followers to notify yet — share the link below."
+                      : publishDialog.notifiedFollowers === 1
+                        ? "Your chapter is live. 1 follower has been notified."
+                        : `Your chapter is live. ${publishDialog.notifiedFollowers.toLocaleString()} followers have been notified.`}
+                  </p>
+
+                  {/* Share link row */}
+                  <div className="mb-5">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-text-ghost mb-2">
+                      Share link
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={publishDialog.shareUrl}
+                        onFocus={(e) => e.currentTarget.select()}
+                        className="flex-1 bg-void border border-border rounded-md px-3 py-2 text-[12px] text-text-secondary font-mono outline-none focus:border-sage/40"
+                      />
+                      <button
+                        onClick={copyShareLink}
+                        className={`px-3 py-2 rounded-md border text-[12px] transition-all whitespace-nowrap ${
+                          publishDialog.linkCopied
+                            ? "border-sage/50 bg-sage/15 text-sage"
+                            : "border-border text-text-secondary hover:text-paper hover:border-border/80"
+                        }`}
+                      >
+                        {publishDialog.linkCopied ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                    <a
+                      href={publishDialog.shareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sage hover:text-sage-light text-[12px] tracking-wide transition-colors"
+                    >
+                      View as a reader →
+                    </a>
+                    <button
+                      onClick={closePublishDialog}
+                      className="px-4 py-2 rounded-lg text-text-ghost hover:text-paper text-[13px] transition-colors"
+                    >
+                      Back to writing
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Roster Nudge (after first publish) ─────────────── */}
       <AnimatePresence>
         {showRosterNudge && (
@@ -2208,6 +2513,15 @@ export default function WriteStoryPage() {
               onClose={handleClosePanel}
             />
           )}
+          {rightPanel === "monetization" && (
+            <MonetizationPanel
+              storyId={storyId}
+              storyTitle={project.title}
+              isPublic={isPublic}
+              onOpenMetadata={handleOpenMetadata}
+              onClose={handleClosePanel}
+            />
+          )}
         </AnimatePresence>
       </div>
 
@@ -2237,6 +2551,9 @@ export default function WriteStoryPage() {
             onOpenChapterSettings={handleToggleSettings}
             onOpenTypography={handleOpenTypography}
             onOpenOutline={handleToggleOutlineView}
+            onOpenMonetization={handleOpenMonetization}
+            onOpenWorkshop={handleOpenWorkshop}
+            onOpenOpenCalls={handleOpenOpenCalls}
             onExportPdf={handleExportPdf}
             onExportEpub={handleExportEpub}
             onExportDocx={handleExportDocx}
@@ -2272,6 +2589,9 @@ export default function WriteStoryPage() {
         onOpenChapterSettings={handleToggleSettings}
         onOpenOutline={handleToggleOutlineView}
         onOpenTypography={handleOpenTypography}
+        onOpenMonetization={handleOpenMonetization}
+        onOpenWorkshop={handleOpenWorkshop}
+        onOpenOpenCalls={handleOpenOpenCalls}
         onExportPdf={handleExportPdf}
         onExportEpub={handleExportEpub}
         onExportDocx={handleExportDocx}
@@ -2293,6 +2613,14 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       <OnboardingHints />
+
+      {/* Upgrade Modal for Premium Features */}
+      <UpgradeModal
+        isOpen={upgradeModal.isOpen}
+        onClose={() => setUpgradeModal({ ...upgradeModal, isOpen: false })}
+        feature={upgradeModal.feature}
+        tier={upgradeModal.tier}
+      />
     </div>
   );
 }

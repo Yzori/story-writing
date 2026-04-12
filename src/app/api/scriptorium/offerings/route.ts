@@ -19,9 +19,14 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Number(url.searchParams.get("limit") || 20), 50);
     const offset = Number(url.searchParams.get("offset") || 0);
 
+    const artisanId = url.searchParams.get("artisanId");
+
     const conditions = [eq(offerings.isActive, true)];
     if (craft && VALID_CRAFTS.includes(craft)) {
       conditions.push(eq(offerings.craft, craft));
+    }
+    if (artisanId) {
+      conditions.push(eq(offerings.artisanId, artisanId));
     }
 
     const results = await db
