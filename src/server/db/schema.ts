@@ -33,6 +33,16 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   inkDropBalance: integer("ink_drop_balance").notNull().default(100),
   emailNotifications: boolean("email_notifications").notNull().default(false),
+  // Subscription fields
+  subscriptionTier: text("subscription_tier").notNull().default("free"), // 'free' | 'pro' | 'premium'
+  subscriptionStatus: text("subscription_status").notNull().default("active"), // 'active' | 'cancelled' | 'past_due' | 'trialing'
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionEndsAt: timestamp("subscription_ends_at", { withTimezone: true }),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  // AI usage tracking
+  aiRequestsThisMonth: integer("ai_requests_this_month").notNull().default(0),
+  aiRequestsResetAt: timestamp("ai_requests_reset_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
