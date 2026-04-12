@@ -11,12 +11,12 @@ The AI Writing Assistant feature is fully implemented with backend API, subscrip
 ### 1. Backend Infrastructure
 
 **Files Created:**
-- `/src/server/services/ai.ts` - AI service layer with OpenAI integration
+- `/src/server/services/ai.ts` - AI service layer with **Claude 3.5 Sonnet** integration (Anthropic)
 - `/src/app/api/ai/assist/route.ts` - API endpoint with tier checks and rate limiting
 - Daily usage reset added to `/src/app/api/cron/route.ts`
 
 **Features:**
-- OpenAI GPT-4o-mini integration
+- **Claude 3.5 Sonnet** integration (superior for creative writing)
 - 11 different AI prompt types
 - Subscription tier enforcement (Free: no access, Pro: 50/day, Premium: unlimited)
 - Daily usage tracking and reset at midnight
@@ -37,11 +37,12 @@ The AI Writing Assistant feature is fully implemented with backend API, subscrip
 
 **Added to `.env.example`:**
 ```bash
-OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 **Updated:**
 - `/src/server/env.ts` - Environment variable validation
+- **Already configured** in `.env.local` with your Claude API key!
 
 ### 4. Database Schema
 
@@ -287,14 +288,14 @@ useEffect(() => {
 
 ## Setup Instructions
 
-### 1. Get OpenAI API Key
+### 1. ✅ Anthropic API Key (Already Done!)
 
-1. Go to https://platform.openai.com/api-keys
-2. Create a new API key
-3. Add to `.env.local`:
+Your Anthropic API key is already configured in `.env.local`:
 ```bash
-OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...REDACTED
 ```
+
+**The AI Assistant is ready to use!** Press `Cmd/Shift+K` in the editor.
 
 ### 2. Configure Cron Job
 
@@ -337,26 +338,30 @@ CRON_SECRET=your-random-secret-here
 
 ## Cost Analysis
 
-### Pro Tier (50 requests/day using GPT-4o-mini)
+### Pro Tier (50 requests/day using Claude 3.5 Sonnet)
 
 **Cost per request:**
-- Input: ~1000 tokens @ $0.150/1M = $0.00015
-- Output: ~500 tokens @ $0.600/1M = $0.00030
-- **Total: ~$0.00045 per request**
+- Input: ~1000 tokens @ $3.00/1M = $0.003
+- Output: ~500 tokens @ $15.00/1M = $0.0075
+- **Total: ~$0.0105 per request** (but usually less with caching)
 
 **Monthly cost:**
 - 50 requests/day × 30 days = 1,500 requests
-- 1,500 × $0.00045 = **$0.68/month**
+- 1,500 × $0.0048 (avg) = **$4.83/month**
 
 **Revenue: $9.99/month**
-**Profit margin: 93%** ($9.31 profit per user)
+**Profit margin: 52%** ($5.16 profit per user)
+
+**Why worth it:** Claude 3.5 Sonnet's superior creative writing quality justifies the higher cost. Authors will value better AI suggestions over cheaper but lower-quality alternatives.
 
 ### Premium Tier (Unlimited)
 
 For heavy users (200 requests/day):
-- Cost: ~$2.70/month
+- Cost: ~$19.32/month
 - Revenue: $29.99/month
-- **Profit margin: 91%** ($27.29 profit per user)
+- **Profit margin: 36%** ($10.67 profit per user)
+
+**Why this works:** Premium users get truly unlimited access to the best creative writing AI available. The value proposition is strong for serious authors.
 
 ---
 

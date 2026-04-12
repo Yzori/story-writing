@@ -1,22 +1,22 @@
 import "server-only";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/server/env";
 
-// Initialize OpenAI client (lazy initialization)
-let openaiClient: OpenAI | null = null;
+// Initialize Anthropic client (lazy initialization)
+let anthropicClient: Anthropic | null = null;
 
-function getOpenAIClient(): OpenAI {
-  if (!env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not configured");
+function getAnthropicClient(): Anthropic {
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({
+      apiKey: env.ANTHROPIC_API_KEY,
     });
   }
 
-  return openaiClient;
+  return anthropicClient;
 }
 
 export type AIPromptType =
@@ -56,31 +56,34 @@ export interface AIAssistResponse {
 export async function generateAIAssistance(
   request: AIAssistRequest
 ): Promise<AIAssistResponse> {
-  const client = getOpenAIClient();
+  const client = getAnthropicClient();
 
   const systemPrompt = getSystemPrompt(request.promptType);
   const userPrompt = buildUserPrompt(request);
 
   try {
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini", // Cost-effective for Pro tier
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
+    const message = await client.messages.create({
+      model: "claude-3-5-sonnet-20241022", // Latest Claude 3.5 Sonnet
       max_tokens: getMaxTokens(request.promptType),
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
     });
 
-    const suggestion = completion.choices[0]?.message?.content || "";
-    const tokensUsed = completion.usage?.total_tokens || 0;
+    const suggestion = message.content[0]?.type === "text" ? message.content[0].text : "";
+    const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
 
     return {
       suggestion: suggestion.trim(),
       tokensUsed,
     };
   } catch (error) {
-    console.error("OpenAI API error:", error);
+    console.error("Anthropic API error:", error);
     throw new Error("Failed to generate AI assistance");
   }
 }
@@ -91,32 +94,34 @@ export async function generateAIAssistance(
 export async function generateStoryIntelligence(
   request: AIAssistRequest
 ): Promise<AIAssistResponse> {
-  const client = getOpenAIClient();
+  const client = getAnthropicClient();
 
   const systemPrompt = getSystemPrompt(request.promptType);
   const userPrompt = buildUserPrompt(request);
 
   try {
-    // Use GPT-4 for better analysis quality on Premium tier
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini", // Can upgrade to gpt-4o for Premium later
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.3, // Lower temperature for analytical tasks
+    const message = await client.messages.create({
+      model: "claude-3-5-sonnet-20241022", // Use Claude 3.5 Sonnet for analysis
       max_tokens: 2000, // More tokens for detailed analysis
+      temperature: 0.3, // Lower temperature for analytical tasks
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
     });
 
-    const suggestion = completion.choices[0]?.message?.content || "";
-    const tokensUsed = completion.usage?.total_tokens || 0;
+    const suggestion = message.content[0]?.type === "text" ? message.content[0].text : "";
+    const tokensUsed = message.usage.input_tokens + message.usage.output_tokens;
 
     return {
       suggestion: suggestion.trim(),
       tokensUsed,
     };
   } catch (error) {
-    console.error("OpenAI API error:", error);
+    console.error("Anthropic API error:", error);
     throw new Error("Failed to generate story intelligence");
   }
 }
