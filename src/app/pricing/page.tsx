@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { SUBSCRIPTION_PLANS } from "@/server/stripe";
+import { SUBSCRIPTION_PLANS } from "@/config/subscription";
 
 export default function PricingPage() {
   const { data: session } = useSession();
