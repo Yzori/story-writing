@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
+import AnnotationLayer from "./AnnotationLayer";
 
 /**
  * For You Reader — the candlelit room.
@@ -113,12 +114,17 @@ export default function ForYouReader({
   const [storyEnded, setStoryEnded] = useState(false);
   const [finishedCelebration, setFinishedCelebration] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
+  const [showGestureHint, setShowGestureHint] = useState(false);
+  const [takingBreak, setTakingBreak] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const readerRef = useRef<HTMLDivElement>(null);
+  const articleRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
   const excludesRef = useRef<string[]>([]);
   const lastProgressSaveRef = useRef<number>(0);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // ── Queue fetching ─────────────────────────────────────────
 
@@ -249,6 +255,33 @@ export default function ForYouReader({
     if (currentChapter && !mounted) setMounted(true);
   }, [currentChapter, mounted]);
 
+  // First-visit gesture hint (once per browser, auto-dismiss after 4.5s)
+  useEffect(() => {
+    if (!currentChapter || typeof window === "undefined") return;
+    try {
+      const seen = localStorage.getItem("quiloria-fyr-gesture-hint-seen");
+      if (seen) return;
+    } catch {
+      return;
+    }
+    setShowGestureHint(true);
+    const t = setTimeout(() => {
+      setShowGestureHint(false);
+      try {
+        localStorage.setItem("quiloria-fyr-gesture-hint-seen", "1");
+      } catch {}
+    }, 4500);
+    return () => clearTimeout(t);
+  }, [currentChapter]);
+
+  const dismissGestureHint = useCallback(() => {
+    if (!showGestureHint) return;
+    setShowGestureHint(false);
+    try {
+      localStorage.setItem("quiloria-fyr-gesture-hint-seen", "1");
+    } catch {}
+  }, [showGestureHint]);
+
   // Restore scroll offset when chapter loads
   useEffect(() => {
     if (!currentChapter || !readerRef.current || !current) return;
@@ -325,13 +358,39 @@ export default function ForYouReader({
 
   const dismissCurrent = useCallback(() => {
     if (!current) return;
+    dismissGestureHint();
     excludesRef.current = [...excludesRef.current, current.storyId].slice(-50);
     saveSessionExcludes(excludesRef.current);
     advanceTo(cursor + 1);
-  }, [current, cursor, advanceTo]);
+  }, [current, cursor, advanceTo, dismissGestureHint]);
+
+  // "Take a break" — save progress at the current scroll position and exit the reader
+  const takeABreak = useCallback(async () => {
+    if (!current) return;
+    dismissGestureHint();
+    if (mode === "personalized" && session?.user?.id) {
+      try {
+        await fetch("/api/reading-progress", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storyId: current.storyId,
+            chapterId: current.chapterId,
+            scrollPercent: Math.round(scrollPercent),
+            pageNumber: 1,
+          }),
+        });
+      } catch {}
+    }
+    setTakingBreak(true);
+    setTimeout(() => {
+      if (typeof window !== "undefined") window.location.href = "/dashboard";
+    }, 1400);
+  }, [current, mode, session?.user?.id, scrollPercent, dismissGestureHint]);
 
   const saveAndNext = useCallback(async () => {
     if (!current) return;
+    dismissGestureHint();
     if (mode === "personalized" && session?.user?.id) {
       try {
         await fetch(`/api/stories/${current.storyId}/follows`, {
@@ -340,7 +399,7 @@ export default function ForYouReader({
       } catch {}
     }
     advanceTo(cursor + 1);
-  }, [current, cursor, advanceTo, mode, session?.user?.id]);
+  }, [current, cursor, advanceTo, mode, session?.user?.id, dismissGestureHint]);
 
   const sparkCurrent = useCallback(async () => {
     if (!current || mode !== "personalized" || !session?.user?.id) return;
@@ -434,6 +493,18 @@ export default function ForYouReader({
     [dismissCurrent, saveAndNext, sparkCurrent],
   );
 
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
   // Keyboard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -453,11 +524,14 @@ export default function ForYouReader({
         e.preventDefault();
         if (showBetween && nextChapter) continueToNextChapter();
         else el?.scrollBy({ top: el.clientHeight * 0.85, behavior: "smooth" });
+      } else if (e.key === "Escape" && menuOpen) {
+        e.preventDefault();
+        setMenuOpen(false);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dismissCurrent, saveAndNext, continueToNextChapter, showBetween, nextChapter]);
+  }, [dismissCurrent, saveAndNext, continueToNextChapter, showBetween, nextChapter, menuOpen]);
 
   // ── Render ─────────────────────────────────────────────────
 
@@ -565,21 +639,88 @@ export default function ForYouReader({
         )}
       </AnimatePresence>
 
-      {/* Top-right: ambient reason indicator */}
-      <AnimatePresence>
-        {reasonTag && (
-          <motion.div
-            key={`reason-${current?.storyId}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, delay: 0.8 }}
-            className="absolute top-5 right-6 z-10 font-display text-text-ghost text-[11px] italic tracking-wide"
+      {/* Top-right: navigation menu */}
+      <div className="absolute top-5 right-6 z-10 flex items-center gap-4">
+        {/* Ambient reason indicator */}
+        <AnimatePresence>
+          {reasonTag && (
+            <motion.div
+              key={`reason-${current?.storyId}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, delay: 0.8 }}
+              className="font-display text-text-ghost text-[11px] italic tracking-wide"
+            >
+              {reasonTag}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Menu button */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="group p-2 hover:bg-elevated/60 rounded-lg transition-all"
+            aria-label="Navigation menu"
           >
-            {reasonTag}
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="text-text-ghost group-hover:text-paper transition-colors"
+            >
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </button>
+
+          {/* Dropdown menu */}
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="absolute top-full right-0 mt-2 w-48 bg-elevated border border-border rounded-lg shadow-2xl overflow-hidden"
+              >
+                <Link
+                  href="/dashboard"
+                  className="block px-4 py-2.5 text-[13px] text-text hover:bg-surface hover:text-paper transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/browse"
+                  className="block px-4 py-2.5 text-[13px] text-text hover:bg-surface hover:text-paper transition-colors"
+                >
+                  Browse
+                </Link>
+                {current?.story.slug && (
+                  <Link
+                    href={`/story/${current.story.slug}`}
+                    className="block px-4 py-2.5 text-[13px] text-text hover:bg-surface hover:text-paper transition-colors border-t border-border"
+                  >
+                    Story page
+                  </Link>
+                )}
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    takeABreak();
+                  }}
+                  className="block w-full text-left px-4 py-2.5 text-[13px] text-text-ghost hover:bg-surface hover:text-paper transition-colors border-t border-border"
+                >
+                  Take a break
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
       {/* Chapter content */}
       <div
@@ -611,9 +752,17 @@ export default function ForYouReader({
                   </div>
                 )}
                 <div
+                  ref={articleRef}
                   className="prose-reader text-text text-[1.1rem] leading-[1.85] font-serif"
                   dangerouslySetInnerHTML={{ __html: currentChapter.content }}
                 />
+                {current && mode === "personalized" && session?.user?.id && (
+                  <AnnotationLayer
+                    storyId={current.storyId}
+                    chapterId={current.chapterId}
+                    contentRef={articleRef}
+                  />
+                )}
                 {currentChapter.authorNoteAfter && (
                   <div className="text-text-ghost text-[13px] italic mt-10 border-l border-border pl-4">
                     {currentChapter.authorNoteAfter}
@@ -683,7 +832,15 @@ export default function ForYouReader({
                   Save &amp; next story →
                 </button>
               </div>
-              <p className="text-text-ghost text-[10px] tracking-wide mt-8 opacity-60">
+              <div className="mt-6">
+                <button
+                  onClick={takeABreak}
+                  className="text-text-ghost/70 hover:text-paper text-[11px] tracking-wide transition-colors"
+                >
+                  Take a break
+                </button>
+              </div>
+              <p className="text-text-ghost text-[10px] tracking-wide mt-6 opacity-60">
                 ← dismiss · → save · ↓ continue
               </p>
             </div>
@@ -747,6 +904,86 @@ export default function ForYouReader({
         <span>↓ page</span>
         <span>→ save</span>
       </div>
+
+      {/* Take-a-break chip — always accessible in the bottom-right */}
+      <button
+        onClick={takeABreak}
+        className="absolute bottom-5 right-5 z-10 text-text-ghost/60 hover:text-paper text-[10px] tracking-[0.2em] uppercase transition-colors"
+      >
+        break
+      </button>
+
+      {/* First-visit gesture hint overlay */}
+      <AnimatePresence>
+        {showGestureHint && (
+          <motion.div
+            key="gesture-hint"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            onClick={dismissGestureHint}
+            className="absolute inset-0 z-40 bg-void/70 backdrop-blur-[2px] flex items-center justify-center px-6"
+          >
+            <div className="max-w-sm text-center">
+              <p className="font-display text-gold text-[11px] tracking-[0.3em] uppercase mb-6">
+                A quieter way to read
+              </p>
+              <div className="space-y-3 text-text-secondary text-[13px] leading-relaxed">
+                <div>
+                  <span className="text-paper font-medium">Scroll</span> or
+                  press <kbd className="px-1.5 py-0.5 border border-border rounded text-[11px] text-text-ghost">space</kbd> to
+                  read on
+                </div>
+                <div>
+                  <span className="text-paper font-medium">Swipe right</span> (or{" "}
+                  <kbd className="px-1.5 py-0.5 border border-border rounded text-[11px] text-text-ghost">→</kbd>) to
+                  save &amp; move on
+                </div>
+                <div>
+                  <span className="text-paper font-medium">Swipe left</span> (or{" "}
+                  <kbd className="px-1.5 py-0.5 border border-border rounded text-[11px] text-text-ghost">←</kbd>) to
+                  dismiss
+                </div>
+                <div>
+                  <span className="text-paper font-medium">Double-tap</span> to
+                  spark a story you love
+                </div>
+                <div>
+                  <span className="text-paper font-medium">Long-press</span> a
+                  passage to annotate it
+                </div>
+              </div>
+              <p className="mt-8 text-text-ghost text-[11px] tracking-wide">
+                tap anywhere to begin
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Take-a-break goodbye overlay */}
+      <AnimatePresence>
+        {takingBreak && (
+          <motion.div
+            key="break"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-void"
+          >
+            <div className="text-center">
+              <p className="font-display text-paper text-2xl mb-2">
+                Your place is kept.
+              </p>
+              <p className="text-text-ghost text-[12px] tracking-wide">
+                come back when you&apos;re ready
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
