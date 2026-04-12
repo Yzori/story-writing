@@ -187,6 +187,12 @@ export default function Navbar() {
           >
             Browse
           </Link>
+          <Link
+            href="/pricing"
+            className="text-gold hover:text-gold/80 transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 font-medium"
+          >
+            Pricing
+          </Link>
           {session && (
             <Link
               href="/library"
@@ -491,6 +497,13 @@ export default function Navbar() {
                 onClick={() => setMobileOpen(false)}
               >
                 Browse
+              </Link>
+              <Link
+                href="/pricing"
+                className="text-gold hover:text-gold/80 transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1 font-medium"
+                onClick={() => setMobileOpen(false)}
+              >
+                Pricing
               </Link>
               {session && (
                 <Link
