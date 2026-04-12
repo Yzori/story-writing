@@ -212,3 +212,36 @@ export async function processCommissionAutoComplete(): Promise<{
 
   return { completed, errors };
 }
+
+/**
+ * Reset AI usage counters for all users (runs daily at midnight).
+ */
+export async function resetAIUsageCounters(): Promise<{
+  reset: number;
+  errors: number;
+}> {
+  let reset = 0;
+  let errors = 0;
+
+  try {
+    // Reset all users with non-free subscription tiers
+    const nextReset = new Date();
+    nextReset.setHours(24, 0, 0, 0); // Next midnight
+
+    const result = await db
+      .update(users)
+      .set({
+        aiRequestsThisMonth: 0,
+        aiRequestsResetAt: nextReset,
+      })
+      .where(sql`${users.subscriptionTier} != 'free'`)
+      .returning({ id: users.id });
+
+    reset = result.length;
+  } catch (error) {
+    console.error("resetAIUsageCounters error:", error);
+    errors = 1;
+  }
+
+  return { reset, errors };
+}

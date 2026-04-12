@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   processCircleRenewals,
   processCommissionAutoComplete,
+  resetAIUsageCounters,
 } from "@/server/services/scheduled-jobs";
 
 /**
@@ -24,15 +25,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [renewalResults, autoCompleteResults] = await Promise.all([
+    const [renewalResults, autoCompleteResults, aiResetResults] = await Promise.all([
       processCircleRenewals(),
       processCommissionAutoComplete(),
+      resetAIUsageCounters(),
     ]);
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       renewals: renewalResults,
       autoComplete: autoCompleteResults,
+      aiReset: aiResetResults,
     });
   } catch (error) {
     console.error("Cron job error:", error);
