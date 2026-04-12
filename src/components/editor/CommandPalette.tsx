@@ -33,6 +33,7 @@ interface CommandPaletteProps {
   onExportEpub?: () => void;
   onExportDocx?: () => void;
   onOpenShortcuts?: () => void;
+  onOpenAI?: () => void;
 }
 
 export default function CommandPalette({
@@ -55,6 +56,7 @@ export default function CommandPalette({
   onExportEpub,
   onExportDocx,
   onOpenShortcuts,
+  onOpenAI,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -158,6 +160,18 @@ export default function CommandPalette({
             shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}H`,
             category: "Tools",
             action: onOpenSearch,
+          },
+        ]
+      : []),
+    ...(onOpenAI
+      ? [
+          {
+            id: "ai-assistant",
+            label: "AI Writing Assistant",
+            description: "AI-powered writing help",
+            shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}K`,
+            category: "Tools",
+            action: onOpenAI,
           },
         ]
       : []),

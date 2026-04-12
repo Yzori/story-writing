@@ -47,6 +47,7 @@ import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
+import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
 
@@ -276,6 +277,8 @@ export default function WriteStoryPage() {
   // Reference pane
   const [refPaneOpen, setRefPaneOpen] = useState(false);
   const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes">("bible");
+  // AI Assistant
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
@@ -714,9 +717,15 @@ export default function WriteStoryPage() {
         setCommandOpen((v) => !v);
         return;
       }
-      if (isMod && e.key === "k") {
+      if (isMod && e.key === "k" && !e.shiftKey) {
         e.preventDefault();
         setCommandOpen((v) => !v);
+        return;
+      }
+      // AI Assistant: Cmd+Shift+K
+      if (isMod && e.shiftKey && e.key === "K") {
+        e.preventDefault();
+        setShowAIAssistant((v) => !v);
         return;
       }
       if (isMod && e.shiftKey && e.key.toLowerCase() === "h") {
@@ -1290,6 +1299,18 @@ export default function WriteStoryPage() {
       });
     },
     [updateProject, storyId, rosterNudgeDismissed]
+  );
+
+  // ── AI Assistant handlers ─────────────────────────────────
+  const handleAIAccept = useCallback(
+    (suggestion: string) => {
+      if (!editorInstance) return;
+
+      const { from } = editorInstance.state.selection;
+      editorInstance.chain().focus().insertContentAt(from, suggestion).run();
+      setShowAIAssistant(false);
+    },
+    [editorInstance]
   );
 
   const handleRestoreSnapshot = useCallback(
@@ -2583,6 +2604,7 @@ export default function WriteStoryPage() {
         onToggleZen={noopCallback}
         isZenMode={false}
         onOpenSearch={handleOpenSearch}
+        onOpenAI={() => { setCommandOpen(false); setShowAIAssistant(true); }}
         onOpenMetadata={handleOpenMetadata}
         onOpenBible={handleToggleBible}
         onOpenFrontMatter={handleOpenFrontMatter}
@@ -2600,6 +2622,20 @@ export default function WriteStoryPage() {
 
       {/* Keyboard Shortcuts Panel */}
       {showShortcuts && <ShortcutsPanel onClose={() => setShowShortcuts(false)} />}
+
+      {/* AI Writing Assistant */}
+      {showAIAssistant && editorInstance && (
+        <AIAssistantPanel
+          storyId={storyId as string}
+          selectedText={editorInstance.state.doc.textBetween(
+            editorInstance.state.selection.from,
+            editorInstance.state.selection.to
+          )}
+          context={activeChapter?.content || ""}
+          onAccept={handleAIAccept}
+          onClose={() => setShowAIAssistant(false)}
+        />
+      )}
 
       {/* Goals popover */}
       <AnimatePresence>
