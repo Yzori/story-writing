@@ -167,6 +167,14 @@ export default function Navbar() {
           {/* Nav links — lantern-lit hover */}
           {session && (
             <Link
+              href="/dashboard"
+              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
+            >
+              Dashboard
+            </Link>
+          )}
+          {session && (
+            <Link
               href="/read"
               className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
             >
@@ -458,7 +466,16 @@ export default function Navbar() {
                 />
               </form>
 
-              {/* Primary nav — matches desktop: Read · Browse · Library · Write */}
+              {/* Primary nav — matches desktop: Dashboard · Read · Browse · Library · Write */}
+              {session && (
+                <Link
+                  href="/dashboard"
+                  className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Dashboard
+                </Link>
+              )}
               {session && (
                 <Link
                   href="/read"
@@ -497,13 +514,6 @@ export default function Navbar() {
                 <>
                   <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   {/* Secondary links — utilities, matching desktop user menu */}
-                  <Link
-                    href="/dashboard"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
                   <Link
                     href="/roster"
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
