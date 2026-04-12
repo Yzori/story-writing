@@ -507,7 +507,7 @@ export default function ForYouReader({
 
   return (
     <div
-      className="fixed inset-0 bg-void overflow-hidden select-text"
+      className="fixed top-14 left-0 right-0 bottom-0 bg-void overflow-hidden select-text"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -587,7 +587,7 @@ export default function ForYouReader({
         onScroll={handleScroll}
         className="relative h-full w-full overflow-y-auto scroll-smooth"
       >
-        <div className="min-h-full flex flex-col items-center px-6 pt-24 pb-32">
+        <div className="min-h-full flex flex-col items-center px-6 pt-16 pb-32">
           <AnimatePresence mode="wait">
             {currentChapter ? (
               <motion.article
