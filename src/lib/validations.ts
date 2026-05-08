@@ -176,6 +176,7 @@ export const updatePreferencesSchema = z.object({
   readingMode: z.enum(["paginated", "scroll"]).optional(),
   readingFont: z.enum(["default", "serif", "sans", "mono"]).optional(),
   emailNotifications: z.boolean().optional(),
+  emailDigestMode: z.enum(["instant", "daily", "weekly", "off"]).optional(),
 });
 
 // ── Collaborators ───────────────────────────────────────────

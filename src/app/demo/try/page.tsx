@@ -9,6 +9,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Underline from "@tiptap/extension-underline";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { getPromptsForFormat } from "@/lib/writing-prompts";
 
 // localStorage keys — same ones the register page reads on first signup
 export const DEMO_DRAFT_KEY = "quiloria-demo-draft-v1";
@@ -19,11 +20,9 @@ interface DemoDraft {
   updatedAt: number;
 }
 
-const PROMPT_OPTIONS = [
-  "Open with a single image — a place, a face, a smell. Then put a person in it.",
-  "Start mid-conversation. The reader doesn't need to know where they are yet.",
-  "First sentence: a small, ordinary action. Second sentence: something is wrong.",
-];
+// Demo always pitches the novel format (the most universal entry point).
+// Once they sign up, the import flow lands them in a novel draft anyway.
+const DEMO_PROMPTS = getPromptsForFormat("novel").slice(0, 3);
 
 export default function TryEditorPage() {
   const [title, setTitle] = useState("Untitled");
@@ -112,10 +111,13 @@ export default function TryEditorPage() {
   const wordCount = editor?.storage.characterCount?.words?.() ?? 0;
   const hasContent = wordCount > 0;
 
-  const insertPrompt = (prompt: string) => {
+  const insertPrompt = (text: string) => {
     if (!editor) return;
-    editor.commands.insertContent(`<p><em>${prompt}</em></p><p></p>`);
-    editor.commands.focus("end");
+    const html = text
+      .split("\n\n")
+      .map((para) => `<p><em>${para.replace(/\n/g, "<br>")}</em></p>`)
+      .join("");
+    editor.chain().focus("end").insertContent(html).run();
   };
 
   return (
@@ -163,18 +165,22 @@ export default function TryEditorPage() {
         {/* Prompts (shown until the user has written anything) */}
         {!hasContent && hydrated && (
           <div className="mb-8 rounded-xl border border-amber/15 bg-amber/[0.04] p-4">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-amber/70 font-medium mb-2.5">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-amber/70 font-medium mb-3">
               Stuck? Try one of these openings
             </p>
-            <ul className="space-y-1.5">
-              {PROMPT_OPTIONS.map((p) => (
-                <li key={p}>
+            <ul className="space-y-2">
+              {DEMO_PROMPTS.map((p) => (
+                <li key={p.label}>
                   <button
                     type="button"
-                    onClick={() => insertPrompt(p)}
-                    className="w-full text-left text-[13px] text-text-secondary hover:text-paper transition-colors px-2 py-1 rounded hover:bg-amber/[0.06] cursor-pointer"
+                    onClick={() => insertPrompt(p.insert)}
+                    title={p.hint}
+                    className="w-full text-left text-[13px] text-text-secondary hover:text-paper transition-colors px-2.5 py-1.5 rounded-lg hover:bg-amber/[0.06] cursor-pointer"
                   >
-                    <span className="text-amber/60 mr-2">→</span>{p}
+                    <span className="font-medium text-paper">{p.label}</span>
+                    {p.hint && (
+                      <span className="block text-[11px] text-text-ghost mt-0.5">{p.hint}</span>
+                    )}
                   </button>
                 </li>
               ))}

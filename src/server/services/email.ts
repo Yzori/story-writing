@@ -152,6 +152,58 @@ export function genericNotificationEmail(message: string, url: string) {
   };
 }
 
+export interface DigestItem {
+  type: string;
+  message: string;
+  href: string;
+}
+
+export function digestEmail(
+  items: DigestItem[],
+  cadence: "daily" | "weekly",
+) {
+  const intro =
+    cadence === "daily"
+      ? "Here's what happened on Quiloria today."
+      : "Here's your weekly Quiloria roundup.";
+
+  const itemsHtml = items
+    .slice(0, 30)
+    .map((item) => {
+      const safeMessage = item.message
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      return `
+        <li style="margin:0 0 10px;padding:10px 12px;background:#0F0C09;border:1px solid #2E271E;border-radius:8px;list-style:none;">
+          <a href="${item.href}" style="color:#D4C4A8;text-decoration:none;line-height:1.5;font-size:13px;">
+            ${safeMessage}
+            <span style="color:#C8963C;margin-left:6px;">→</span>
+          </a>
+        </li>`;
+    })
+    .join("");
+
+  const remaining = items.length > 30 ? items.length - 30 : 0;
+  const remainingHtml = remaining
+    ? `<p style="margin:8px 0 0;font-size:11px;color:#7A6C56;text-align:center;">…and ${remaining} more, waiting for you on Quiloria.</p>`
+    : "";
+
+  return {
+    subject:
+      cadence === "daily"
+        ? `Quiloria daily — ${items.length} update${items.length === 1 ? "" : "s"}`
+        : `Quiloria weekly — ${items.length} update${items.length === 1 ? "" : "s"}`,
+    html: WRAPPER(`
+      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">${cadence === "daily" ? "Today on Quiloria" : "This week on Quiloria"}</h2>
+      <p style="margin:0 0 16px;line-height:1.6;color:#9A8A6A;font-size:13px;">${intro}</p>
+      <ul style="margin:0;padding:0;">${itemsHtml}</ul>
+      ${remainingHtml}
+      <div style="text-align:center;margin-top:18px;">${CTA(`${APP_URL}/notifications`, "Open notifications")}</div>
+    `),
+  };
+}
+
 export function passwordResetEmail(resetUrl: string) {
   return {
     subject: "Reset your Quiloria password",

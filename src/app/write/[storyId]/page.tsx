@@ -49,6 +49,7 @@ import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
 import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
 import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
+import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
 
@@ -1991,6 +1992,25 @@ export default function WriteStoryPage() {
                       focusMode ? "focus-mode" : ""
                     }`}
                   >
+                  {/* Format-aware "stuck?" prompts — auto-hide above 50 words */}
+                  {activeChapter && storyFormat !== "webtoon" && (
+                    <WritingPromptsBar
+                      format={storyFormat}
+                      chapterKey={activeChapter.id}
+                      wordCount={activeChapter.wordCount ?? 0}
+                      onPick={(text) => {
+                        if (!editorInstance) return;
+                        // Insert as italicized prose so the writer can clearly see
+                        // what came from the prompt vs. their own writing.
+                        const html = text
+                          .split("\n\n")
+                          .map((para) => `<p><em>${para.replace(/\n/g, "<br>")}</em></p>`)
+                          .join("");
+                        editorInstance.chain().focus("end").insertContent(html).run();
+                      }}
+                    />
+                  )}
+
                   <EditorErrorBoundary>
                     {storyFormat === "screenplay" ? (
                       <ScreenplayEditor

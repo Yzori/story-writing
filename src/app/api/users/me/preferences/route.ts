@@ -26,6 +26,7 @@ export async function GET() {
         readingMode: users.readingMode,
         readingFont: users.readingFont,
         emailNotifications: users.emailNotifications,
+        emailDigestMode: users.emailDigestMode,
       })
       .from(users)
       .where(eq(users.id, session.user.id))
@@ -97,6 +98,7 @@ export async function PATCH(request: NextRequest) {
         readingMode: users.readingMode,
         readingFont: users.readingFont,
         emailNotifications: users.emailNotifications,
+        emailDigestMode: users.emailDigestMode,
       });
 
     if (!updated) {

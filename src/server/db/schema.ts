@@ -33,6 +33,12 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   inkDropBalance: integer("ink_drop_balance").notNull().default(100),
   emailNotifications: boolean("email_notifications").notNull().default(true),
+  // Email cadence: "instant" sends per-event (default), "daily"/"weekly" queue
+  // until a digest is built by /api/cron/email-digest, "off" suppresses emails
+  // entirely (effectively the same as emailNotifications=false; we keep both
+  // for backwards compatibility — either being off suppresses sends).
+  emailDigestMode: text("email_digest_mode").notNull().default("instant"),
+  lastDigestSentAt: timestamp("last_digest_sent_at", { withTimezone: true }),
   // Subscription fields
   subscriptionTier: text("subscription_tier").notNull().default("free"), // 'free' | 'pro' | 'premium'
   subscriptionStatus: text("subscription_status").notNull().default("active"), // 'active' | 'cancelled' | 'past_due' | 'trialing'
@@ -506,6 +512,9 @@ export const notifications = pgTable(
     message: text("message").notNull(),
     href: text("href").notNull(),
     read: boolean("read").notNull().default(false),
+    /** When the corresponding email was sent. Null means either suppressed
+     *  (user opted out) or queued for the next digest run. */
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -514,6 +523,7 @@ export const notifications = pgTable(
     index("idx_notifications_user_id").on(table.userId),
     index("idx_notifications_user_read").on(table.userId, table.read),
     index("idx_notifications_user_created").on(table.userId, table.createdAt),
+    index("idx_notifications_user_emailed").on(table.userId, table.emailedAt),
   ]
 );
 

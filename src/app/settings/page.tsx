@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [readingFont, setReadingFont] = useState("default");
   const [readingMode, setReadingMode] = useState("paginated");
   const [emailNotifications, setEmailNotifications] = useState(false);
+  const [emailDigestMode, setEmailDigestMode] = useState<"instant" | "daily" | "weekly" | "off">("instant");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
@@ -60,6 +61,9 @@ export default function SettingsPage() {
           if (data.readingMode) setReadingMode(data.readingMode);
           if (data.readingFont) setReadingFont(data.readingFont);
           if (typeof data.emailNotifications === "boolean") setEmailNotifications(data.emailNotifications);
+          if (data.emailDigestMode === "instant" || data.emailDigestMode === "daily" || data.emailDigestMode === "weekly" || data.emailDigestMode === "off") {
+            setEmailDigestMode(data.emailDigestMode);
+          }
           setSyncStatus("synced");
         })
         .catch(() => {
@@ -85,7 +89,7 @@ export default function SettingsPage() {
         const res = await fetch("/api/users/me/preferences", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comfortRating, readingMode, readingFont, emailNotifications }),
+          body: JSON.stringify({ comfortRating, readingMode, readingFont, emailNotifications, emailDigestMode }),
         });
         if (res.ok) {
           setSyncStatus("synced");
@@ -252,37 +256,38 @@ export default function SettingsPage() {
             transition={{ delay: 0.12 }}
             className={`${cardClass} mt-6`}
           >
-            <label className={labelClass}>Email Notifications</label>
-            <button
-              onClick={() => setEmailNotifications(!emailNotifications)}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border transition-all ${
-                emailNotifications
-                  ? "border-amber/30 bg-amber/[0.06]"
-                  : "border-border hover:border-border-active"
-              }`}
-            >
-              <div
-                className={`relative w-9 h-5 rounded-full transition-colors ${
-                  emailNotifications ? "bg-amber/30" : "bg-elevated"
-                }`}
-              >
-                <div
-                  className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${
-                    emailNotifications
-                      ? "left-[18px] bg-amber"
-                      : "left-0.5 bg-text-ghost"
-                  }`}
-                />
-              </div>
-              <div className="text-left">
-                <span className={`block text-[13px] font-medium ${emailNotifications ? "text-amber" : "text-text-secondary"}`}>
-                  {emailNotifications ? "Enabled" : "Disabled"}
-                </span>
-                <span className="text-[10px] text-text-ghost">
-                  Receive emails for new chapters, tips, collaboration invites, and jams
-                </span>
-              </div>
-            </button>
+            <label className={labelClass}>Email cadence</label>
+            <p className="text-text-secondary text-[12px] mb-4 leading-relaxed">
+              How often we email you about new chapters, comments on your work, collaboration invites, and updates from authors you follow.
+            </p>
+            <div className="space-y-1.5">
+              {[
+                { value: "instant", label: "Send each one as it happens", description: "One email per event. Best for low-volume readers." },
+                { value: "daily", label: "Daily digest", description: "One email each morning summarizing yesterday." },
+                { value: "weekly", label: "Weekly digest", description: "One email each week. Best for occasional check-ins." },
+                { value: "off", label: "Don't send any emails", description: "You'll still see notifications in the app." },
+              ].map((opt) => {
+                const selected = emailDigestMode === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setEmailDigestMode(opt.value as typeof emailDigestMode);
+                      // Keep the legacy boolean in sync with mode for back-compat.
+                      setEmailNotifications(opt.value !== "off");
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                      selected
+                        ? "border-amber/30 bg-amber/[0.06] text-amber"
+                        : "border-transparent text-text-secondary hover:bg-subtle/30"
+                    }`}
+                  >
+                    <span className="text-[13px] font-medium block sm:inline">{opt.label}</span>
+                    <span className="text-[11px] text-text-ghost block sm:inline sm:ml-2 mt-0.5 sm:mt-0">{opt.description}</span>
+                  </button>
+                );
+              })}
+            </div>
           </motion.div>
         )}
 

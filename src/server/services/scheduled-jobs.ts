@@ -7,9 +7,11 @@ import {
   inkDropTransactions,
   commissions,
   offerings,
+  notifications,
 } from "@/server/db/schema";
-import { eq, and, lte, sql } from "drizzle-orm";
+import { eq, and, lte, sql, isNull, inArray, gte, or } from "drizzle-orm";
 import { createNotification } from "./notifications";
+import { sendEmail, digestEmail, type DigestItem } from "./email";
 
 /**
  * Process Circle subscription renewals.
@@ -244,4 +246,128 @@ export async function resetAIUsageCounters(): Promise<{
   }
 
   return { reset, errors };
+}
+
+const APP_URL = process.env.NEXTAUTH_URL || "https://quiloria.app";
+const DAILY_INTERVAL_MS = 23 * 60 * 60 * 1000;
+const WEEKLY_INTERVAL_MS = 6 * 24 * 60 * 60 * 1000;
+
+/**
+ * Process email digests for users in daily/weekly mode.
+ *
+ * For each eligible user:
+ * - Fetch unemailed notifications (emailed_at IS NULL) since their last digest
+ * - If any exist, send a single digest email
+ * - Mark all included notifications as emailed
+ * - Stamp last_digest_sent_at on the user
+ *
+ * Run this hourly via your cron platform — the function self-rate-limits via
+ * lastDigestSentAt so it's safe to run more often than the cadence.
+ */
+export async function processEmailDigests(): Promise<{
+  daily: number;
+  weekly: number;
+  itemsSent: number;
+  errors: number;
+}> {
+  let dailyCount = 0;
+  let weeklyCount = 0;
+  let itemsSent = 0;
+  let errors = 0;
+  const now = new Date();
+
+  for (const cadence of ["daily", "weekly"] as const) {
+    const intervalMs = cadence === "daily" ? DAILY_INTERVAL_MS : WEEKLY_INTERVAL_MS;
+    const cutoff = new Date(now.getTime() - intervalMs);
+
+    try {
+      const eligible = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          lastDigestSentAt: users.lastDigestSentAt,
+        })
+        .from(users)
+        .where(
+          and(
+            eq(users.emailDigestMode, cadence),
+            eq(users.emailNotifications, true),
+            // user has never had a digest, or last digest was at least one
+            // interval ago — `or` is imported from drizzle-orm
+            or(
+              isNull(users.lastDigestSentAt),
+              lte(users.lastDigestSentAt, cutoff),
+            ),
+          ),
+        );
+
+      for (const user of eligible) {
+        if (!user.email) continue;
+        try {
+          const pending = await db
+            .select({
+              id: notifications.id,
+              type: notifications.type,
+              message: notifications.message,
+              href: notifications.href,
+            })
+            .from(notifications)
+            .where(
+              and(
+                eq(notifications.userId, user.id),
+                isNull(notifications.emailedAt),
+                gte(notifications.createdAt, cutoff),
+              ),
+            )
+            .limit(50);
+
+          if (pending.length === 0) {
+            // Nothing to send — still update lastDigestSentAt so we don't
+            // re-scan this user every hour.
+            await db
+              .update(users)
+              .set({ lastDigestSentAt: now })
+              .where(eq(users.id, user.id));
+            continue;
+          }
+
+          const items: DigestItem[] = pending.map((p) => ({
+            type: p.type,
+            message: p.message,
+            href: p.href.startsWith("http") ? p.href : `${APP_URL}${p.href}`,
+          }));
+
+          const tpl = digestEmail(items, cadence);
+          await sendEmail(user.email, tpl.subject, tpl.html, user.id);
+
+          await db
+            .update(notifications)
+            .set({ emailedAt: now })
+            .where(
+              inArray(
+                notifications.id,
+                pending.map((p) => p.id),
+              ),
+            );
+
+          await db
+            .update(users)
+            .set({ lastDigestSentAt: now })
+            .where(eq(users.id, user.id));
+
+          itemsSent += pending.length;
+          if (cadence === "daily") dailyCount++;
+          else weeklyCount++;
+        } catch (err) {
+          console.error(`processEmailDigests user ${user.id} error:`, err);
+          errors++;
+        }
+      }
+    } catch (err) {
+      console.error(`processEmailDigests ${cadence} sweep error:`, err);
+      errors++;
+    }
+  }
+
+  return { daily: dailyCount, weekly: weeklyCount, itemsSent, errors };
 }

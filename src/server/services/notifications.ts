@@ -39,15 +39,21 @@ export async function createNotification(
   message: string,
   href: string
 ) {
+  let inserted: { id: string } | undefined;
   try {
-    await db.insert(notifications).values({ userId, type, message, href });
+    const rows = await db
+      .insert(notifications)
+      .values({ userId, type, message, href })
+      .returning({ id: notifications.id });
+    inserted = rows[0];
   } catch (error) {
     console.error("Failed to create notification:", error);
+    return;
   }
 
   // Fire-and-forget email for supported types
-  if (EMAIL_ENABLED_TYPES.has(type)) {
-    sendNotificationEmail(userId, type, message, href).catch(() => {});
+  if (inserted && EMAIL_ENABLED_TYPES.has(type)) {
+    sendNotificationEmail(inserted.id, userId, type, message, href).catch(() => {});
   }
 }
 
@@ -61,29 +67,35 @@ export async function createBulkNotifications(
   href: string
 ) {
   if (userIds.length === 0) return;
+  let inserted: { id: string; userId: string }[] = [];
   try {
-    await db.insert(notifications).values(
-      userIds.map((userId) => ({ userId, type, message, href }))
-    );
+    inserted = await db
+      .insert(notifications)
+      .values(userIds.map((userId) => ({ userId, type, message, href })))
+      .returning({ id: notifications.id, userId: notifications.userId });
   } catch (error) {
     console.error("Failed to create bulk notifications:", error);
+    return;
   }
 
   // Fire-and-forget emails
   if (EMAIL_ENABLED_TYPES.has(type)) {
-    for (const userId of userIds) {
-      sendNotificationEmail(userId, type, message, href).catch(() => {});
+    for (const row of inserted) {
+      sendNotificationEmail(row.id, row.userId, type, message, href).catch(() => {});
     }
   }
 }
 
 /**
  * Look up user's email preferences and send via the type-appropriate template.
- * The notification `message` is parsed for context where possible — for richer
- * data (commenter name, snippet, etc.), call sites should pass a structured
- * payload via createRichNotification (TODO).
+ *
+ * Honors the user's emailDigestMode:
+ *  - "off" or emailNotifications=false → suppressed (emailedAt left null)
+ *  - "instant" → send now and stamp emailedAt
+ *  - "daily" / "weekly" → leave emailedAt null; the cron picks it up
  */
 async function sendNotificationEmail(
+  notificationId: string,
   userId: string,
   type: NotifType,
   message: string,
@@ -94,11 +106,20 @@ async function sendNotificationEmail(
       .select({
         email: users.email,
         emailNotifications: users.emailNotifications,
+        emailDigestMode: users.emailDigestMode,
       })
       .from(users)
       .where(eq(users.id, userId));
 
-    if (!user?.emailNotifications || !user.email) return;
+    if (!user?.email) return;
+    if (!user.emailNotifications) return;
+
+    const mode = user.emailDigestMode ?? "instant";
+    if (mode === "off") return;
+    if (mode === "daily" || mode === "weekly") {
+      // Queued for digest — leave emailedAt null; cron will batch and send.
+      return;
+    }
 
     const baseUrl = process.env.NEXTAUTH_URL || "https://quiloria.app";
     const fullHref = href.startsWith("http") ? href : `${baseUrl}${href}`;
@@ -149,6 +170,11 @@ async function sendNotificationEmail(
     })();
 
     await sendEmail(user.email, tpl.subject, tpl.html, userId);
+    // Stamp emailedAt so the digest cron knows this one's already sent.
+    await db
+      .update(notifications)
+      .set({ emailedAt: new Date() })
+      .where(eq(notifications.id, notificationId));
   } catch (error) {
     console.error("Failed to send notification email:", error);
   }

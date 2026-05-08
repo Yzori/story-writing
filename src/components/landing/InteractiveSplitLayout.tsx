@@ -180,32 +180,36 @@ type InkParticle = {
   fadeSpeed: number;
 };
 
-// ── Auth-aware "Begin Writing" CTA ──────────────────────────
+// ── Auth-aware primary CTA ──────────────────────────────────
+// Returns a single button so it sits cleanly next to the "Explore Stories"
+// secondary link. The "no account needed" reassurance lives in a tagline
+// rendered separately by the parent (HeroSection / FinalCTA).
 function BeginWritingCTA() {
   const { data: session } = useSession();
-  // Anon users: drop straight into the public demo editor (no signup required).
-  // Signed-in users: jump to the create flow as before.
   const primaryHref = session?.user ? "/create" : "/demo/try";
-  const primaryLabel = session?.user ? "Begin Writing" : "Try the editor";
+  const primaryLabel = session?.user ? "Begin Writing" : "Try the editor — free";
 
   return (
-    <div className="inline-flex flex-col items-center gap-3">
-      <Link
-        href={primaryHref}
-        className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-black font-body font-semibold text-sm tracking-wide
-          hover:bg-gold-light transition-all duration-300
-          shadow-[var(--t-shadow-card-hover)]
-          hover:shadow-[var(--t-shadow-elevated)]"
-      >
-        {primaryLabel}
-      </Link>
-      <Link
-        href="/read"
-        className="text-text-ghost hover:text-gold text-[12px] tracking-[0.15em] uppercase transition-colors"
-      >
-        {session?.user ? "Or read first" : "Start reading — no account needed"}
-      </Link>
-    </div>
+    <Link
+      href={primaryHref}
+      className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-black font-body font-semibold text-sm tracking-wide
+        hover:bg-gold-light transition-all duration-300
+        shadow-[var(--t-shadow-card-hover)]
+        hover:shadow-[var(--t-shadow-elevated)]"
+    >
+      {primaryLabel}
+    </Link>
+  );
+}
+
+/** "No account needed" reassurance — only shown to anon users. */
+function CtaTagline() {
+  const { data: session } = useSession();
+  if (session?.user) return null;
+  return (
+    <p className="mt-5 text-text-ghost text-[11px] tracking-[0.15em] uppercase text-center sm:text-left">
+      No account needed to try
+    </p>
   );
 }
 
@@ -590,21 +594,24 @@ function HeroSection() {
           and collaborate with fellow storytellers.
         </motion.p>
 
-        {/* CTAs — visible immediately with subtle delay */}
+        {/* CTAs — equal-weight pills, primary first */}
         <motion.div
-          className="mt-10 md:mt-12 flex flex-col sm:flex-row gap-4 sm:gap-5 w-full sm:w-auto"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
+          className="mt-10 md:mt-12"
         >
-          <BeginWritingCTA />
-          <Link
-            href="/browse"
-            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border border-border-active text-text-secondary font-body font-medium text-sm tracking-wide
-              hover:text-paper hover:border-gold/30 transition-all duration-300"
-          >
-            Explore Stories
-          </Link>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
+            <BeginWritingCTA />
+            <Link
+              href="/browse"
+              className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border border-border-active text-text-secondary font-body font-medium text-sm tracking-wide
+                hover:text-paper hover:border-gold/30 transition-all duration-300"
+            >
+              Explore Stories
+            </Link>
+          </div>
+          <CtaTagline />
         </motion.div>
       </motion.div>
 
@@ -1306,20 +1313,25 @@ function FinalCTA() {
         </motion.p>
 
         <motion.div
-          className="mt-10 flex flex-col sm:flex-row gap-4 justify-center"
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.4 }}
+          className="mt-10"
         >
-          <BeginWritingCTA />
-          <Link
-            href="/browse"
-            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border border-border-active text-text-secondary font-body font-medium text-sm tracking-wide
-              hover:text-paper hover:border-gold/30 transition-all duration-300"
-          >
-            Explore Stories
-          </Link>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-center">
+            <BeginWritingCTA />
+            <Link
+              href="/browse"
+              className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border border-border-active text-text-secondary font-body font-medium text-sm tracking-wide
+                hover:text-paper hover:border-gold/30 transition-all duration-300"
+            >
+              Explore Stories
+            </Link>
+          </div>
+          <div className="text-center">
+            <CtaTagline />
+          </div>
         </motion.div>
       </div>
     </section>
