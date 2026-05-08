@@ -23,6 +23,8 @@ interface OpenCall {
   status: CallStatus;
   createdAt: string;
   responseCount?: number;
+  /** Set when the current user has already pitched on this call. */
+  userPitched?: { status: string } | null;
 }
 
 interface CallResponse {
@@ -677,7 +679,30 @@ export default function OpenCallsPage() {
                           {/* Non-owner authenticated: Pitch form */}
                           {!isOwner && session?.user && call.status === "open" && (
                             <div className="mt-4">
-                              {pitchSuccess[call.id] ? (
+                              {call.userPitched && !pitchSuccess[call.id] ? (
+                                <div className="bg-lavender/10 border border-lavender/20 rounded-xl p-4">
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-lavender/20 flex items-center justify-center shrink-0">
+                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-lavender">
+                                        <circle cx="8" cy="8" r="6" />
+                                        <path d="M8 5v3l2 2" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-lavender text-[13px] font-medium mb-0.5">
+                                        Pitch sent — awaiting response
+                                      </p>
+                                      <p className="text-text-secondary text-[11px]">
+                                        {call.userPitched.status === "accepted"
+                                          ? "The creator has accepted your pitch."
+                                          : call.userPitched.status === "declined"
+                                          ? "The creator passed on this pitch."
+                                          : "The creator will review your pitch and follow up."}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : pitchSuccess[call.id] ? (
                                 <motion.div
                                   initial={{ opacity: 0, y: 4 }}
                                   animate={{ opacity: 1, y: 0 }}

@@ -153,20 +153,29 @@ export default function NotificationsPage() {
   const filtered = filter === "all" ? notifications : notifications.filter((n) => n.type === filter);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const filters: { key: "all" | NotifType; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "chapter", label: "Chapters" },
-    { key: "spark", label: "Sparks" },
-    { key: "follow", label: "Follows" },
-    { key: "comment", label: "Comments" },
-    { key: "update", label: "Updates" },
-    { key: "collaboration", label: "Collabs" },
-    { key: "suggestion", label: "Suggestions" },
-    { key: "open-call", label: "Open Calls" },
-    { key: "tip", label: "Tips" },
-    { key: "jam", label: "Jams" },
-    { key: "annotation", label: "Notes" },
-  ];
+  // Primary filters: most-frequent types stay as chips. Less-common types
+  // collapse under a "More" dropdown so the strip stays scannable.
+  const PRIMARY_KEYS: ("all" | NotifType)[] = ["all", "chapter", "spark", "comment", "follow"];
+  const MORE_KEYS: NotifType[] = ["update", "collaboration", "suggestion", "open-call", "tip", "jam", "annotation"];
+
+  const FILTER_LABELS: Record<"all" | NotifType, string> = {
+    all: "All",
+    chapter: "Chapters",
+    spark: "Sparks",
+    follow: "Follows",
+    comment: "Comments",
+    update: "Updates",
+    collaboration: "Collabs",
+    suggestion: "Suggestions",
+    "open-call": "Open Calls",
+    tip: "Tips",
+    jam: "Jams",
+    annotation: "Notes",
+  };
+
+  const filters = PRIMARY_KEYS.map((key) => ({ key, label: FILTER_LABELS[key] }));
+  const moreFilters = MORE_KEYS.map((key) => ({ key, label: FILTER_LABELS[key] }));
+  const activeMoreLabel = MORE_KEYS.includes(filter as NotifType) ? FILTER_LABELS[filter as NotifType] : null;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -212,6 +221,38 @@ export default function NotificationsPage() {
             {f.label}
           </button>
         ))}
+        <details className="relative shrink-0">
+          <summary
+            className={`list-none px-3.5 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 [&::-webkit-details-marker]:hidden ${
+              activeMoreLabel
+                ? "bg-amber text-void"
+                : "bg-elevated text-text-secondary hover:text-paper"
+            }`}
+          >
+            {activeMoreLabel || "More"}
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+          </summary>
+          <div className="absolute left-0 top-9 z-30 min-w-[160px] rounded-xl border border-border bg-elevated shadow-2xl py-1.5">
+            {moreFilters.map((f) => (
+              <button
+                key={f.key}
+                onClick={(e) => {
+                  setFilter(f.key);
+                  (e.currentTarget.closest("details") as HTMLDetailsElement)?.removeAttribute("open");
+                }}
+                className={`w-full text-left px-4 py-2 text-[12px] transition-colors ${
+                  filter === f.key
+                    ? "text-amber bg-amber/10"
+                    : "text-text-secondary hover:text-paper hover:bg-subtle/40"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </details>
       </motion.div>
 
       {/* Loading */}

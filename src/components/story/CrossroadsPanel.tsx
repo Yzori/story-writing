@@ -248,9 +248,14 @@ export default function CrossroadsPanel({
             <circle cx="4" cy="12" r="1" fill="currentColor" />
             <circle cx="12" cy="12" r="1" fill="currentColor" />
           </svg>
-          <h3 className="font-display text-lg text-paper font-semibold">
-            Crossroads
-          </h3>
+          <div>
+            <h3 className="font-display text-lg text-paper font-semibold">
+              Crossroads
+            </h3>
+            <p className="text-[10px] text-text-ghost mt-0.5">
+              Reader polls — influence scales with drops spent
+            </p>
+          </div>
         </div>
         {isOwner && !showCreateForm && (
           <button
@@ -717,11 +722,9 @@ function CrossroadCard({
                     <span className="text-[10px] text-text-ghost tabular-nums w-8 text-right">
                       {Math.round(opt.percentage)}%
                     </span>
-                    {!isClosed && (
-                      <span className="text-[10px] text-text-ghost">
-                        {opt.voterCount} voter{opt.voterCount !== 1 ? "s" : ""}
-                      </span>
-                    )}
+                    <span className="text-[10px] text-text-ghost tabular-nums">
+                      {opt.voterCount} voter{opt.voterCount !== 1 ? "s" : ""}
+                    </span>
                   </div>
                 </div>
               </button>

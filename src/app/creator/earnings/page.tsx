@@ -48,19 +48,40 @@ export default function CreatorEarningsPage() {
     <div className="max-w-4xl mx-auto px-6 py-10">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between mb-6 gap-4">
           <div>
             <h1 className="font-display text-2xl text-paper font-bold">Earnings</h1>
             <p className="text-text-secondary text-sm mt-1">
               Ink Drops received from your audience
             </p>
           </div>
-          <Link
-            href="/settings/ink-drops"
-            className="text-xs text-gold hover:text-gold-light transition-colors"
-          >
-            Buy Ink Drops &rarr;
-          </Link>
+        </div>
+
+        {/* Payout policy strip */}
+        <div className="mb-8 rounded-xl border border-border bg-surface/40 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
+                <rect x="2" y="4" width="12" height="9" rx="1" />
+                <path d="M2 7h12M6 10h2" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-paper text-[13px] font-medium mb-1">How drops become money</p>
+              <p className="text-text-secondary text-[12px] leading-relaxed">
+                You keep <span className="text-paper font-medium">70%</span> of every drop spent on your work. Once your balance crosses <span className="text-paper font-medium">$25 USD-equivalent</span>, you can request a payout from this page — <span className="text-text-ghost">payouts process weekly via Stripe Connect</span>.
+              </p>
+              <Link
+                href="/settings/billing"
+                className="inline-flex items-center gap-1 mt-2 text-[12px] text-gold hover:text-gold-light transition-colors"
+              >
+                Manage payout method
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 3l5 5-5 5" />
+                </svg>
+              </Link>
+            </div>
+          </div>
         </div>
 
         {loading ? (

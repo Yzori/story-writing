@@ -55,9 +55,9 @@ type Tab = "team" | "suggestions" | "lore" | "agreement";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "team", label: "Team" },
+  { key: "agreement", label: "Agreement" },
   { key: "suggestions", label: "Suggestions" },
   { key: "lore", label: "Lore Book" },
-  { key: "agreement", label: "Agreement" },
 ];
 
 

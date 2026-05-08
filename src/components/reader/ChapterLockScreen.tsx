@@ -313,7 +313,7 @@ export default function ChapterLockScreen({
                     transition={{ duration: 0.15 }}
                     onClick={handleUnlockSingle}
                     disabled={unlocking}
-                    className="w-full rounded-lg bg-gold px-4 py-3 font-display text-sm font-semibold text-void transition-colors hover:bg-gold-light disabled:opacity-50"
+                    className="w-full rounded-full bg-gold px-4 py-3 font-display text-sm font-semibold text-void transition-colors hover:bg-gold-light disabled:opacity-50"
                   >
                     {unlocking ? (
                       <span className="inline-flex items-center gap-2">
@@ -351,7 +351,7 @@ export default function ChapterLockScreen({
                       transition={{ duration: 0.15 }}
                       onClick={handleUnlockBundle}
                       disabled={unlocking || !canAffordBundle}
-                      className="w-full rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+                      className="w-full rounded-full border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
                     >
                       {unlocking ? (
                         <span className="inline-flex items-center gap-2">
@@ -370,7 +370,7 @@ export default function ChapterLockScreen({
                       transition={{ delay: 0.1 }}
                       onClick={() => handleConfirmStep("bundle")}
                       disabled={!canAffordBundle}
-                      className="w-full rounded-lg border border-border bg-transparent px-4 py-2.5 text-sm text-text-secondary transition-colors hover:border-gold/30 hover:text-gold disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary"
+                      className="w-full rounded-full border border-border bg-transparent px-4 py-2.5 text-sm text-text-secondary transition-colors hover:border-gold/30 hover:text-gold disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary"
                     >
                       <span>
                         or unlock all {bundle.remaining} remaining ({bundle.bundlePrice} ◆
@@ -394,7 +394,7 @@ export default function ChapterLockScreen({
               </p>
               <Link
                 href="/settings/ink-drops"
-                className="inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-3 font-display text-sm font-semibold text-void transition-colors hover:bg-gold-light"
+                className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-3 font-display text-sm font-semibold text-void transition-colors hover:bg-gold-light"
               >
                 <DropletIcon className="h-4 w-4" />
                 Get Ink Drops

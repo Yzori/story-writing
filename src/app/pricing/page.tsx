@@ -165,19 +165,35 @@ export default function PricingPage() {
         <div className="space-y-6">
           <FAQItem
             question="Can I cancel anytime?"
-            answer="Yes! You can cancel your subscription at any time. You'll retain access until the end of your billing period."
+            answer="Yes. You can cancel from Settings → Billing. Your access continues until the end of the current billing period — we don't pro-rate refunds for the partial month, but nothing further is charged."
           />
           <FAQItem
             question="What happens to my stories if I downgrade?"
-            answer="Your stories and data are safe. You'll keep everything you've written, but some premium features will be locked until you upgrade again."
+            answer="Your stories and chapters stay exactly as they are. Premium features (AI assistant, advanced exports, story intelligence) are locked, but nothing is deleted. You can re-upgrade at any time and pick up where you left off."
+          />
+          <FAQItem
+            question="How does the platform fee work for creators?"
+            answer="When readers spend Ink Drops on your work — donations, chapter unlocks, Circle subscriptions, commissions — you keep 70%. The remaining 30% covers payment processing, hosting, content moderation, and platform development. The split is the same on every revenue stream."
+          />
+          <FAQItem
+            question="When do I get paid?"
+            answer="Earned drops accumulate in your creator balance. Once you cross the $25 USD-equivalent payout threshold, you can request a payout from the Earnings page. Payouts are processed weekly via Stripe Connect. International payouts may take 3–5 business days to clear."
+          />
+          <FAQItem
+            question="What about refunds on Ink Drop purchases?"
+            answer="Drops you've already spent on a creator are non-refundable — they've been credited to that creator's balance. Unspent drops in your account can be refunded within 14 days of purchase by emailing support. Subscription charges follow the cancel-anytime policy above."
           />
           <FAQItem
             question="How does AI usage work?"
-            answer="Pro users get 50 AI requests per day, which resets at midnight. Premium users have unlimited AI access. Free users don't have access to AI features."
+            answer="Pro users get 50 AI requests per day, which resets at midnight UTC. Premium users have unlimited AI access plus exclusive features (continuity check, plot hole detection, character arc analysis). Free users don't currently have AI access."
           />
           <FAQItem
             question="Can I switch between plans?"
-            answer="Absolutely! You can upgrade or downgrade at any time. Changes take effect at the start of your next billing cycle."
+            answer="Yes. Upgrades take effect immediately and we pro-rate the charge against your existing billing cycle. Downgrades take effect at the start of your next billing cycle so you don't lose paid time."
+          />
+          <FAQItem
+            question="Where is my data stored, and who can see my drafts?"
+            answer="Drafts are private to you and any collaborators you've explicitly invited. Quiloria staff don't read your drafts. Data is hosted in the EU and US depending on your region. You can export everything (DOCX, PDF) at any time and request full deletion from Settings."
           />
         </div>
       </div>

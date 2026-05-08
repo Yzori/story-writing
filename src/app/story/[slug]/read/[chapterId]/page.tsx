@@ -122,6 +122,7 @@ export default function ChapterReadPage() {
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
   const [mode, setMode] = useState<ReadingMode>("paginated");
   const [fontSize, setFontSize] = useState<FontSizeKey>("medium");
+  const [fontFamily, setFontFamily] = useState<ReadingFont>("default");
   const [fontClass, setFontClass] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,7 +148,9 @@ export default function ChapterReadPage() {
   useEffect(() => {
     setMode(loadReadingMode());
     setFontSize(loadFontSize());
-    setFontClass(FONT_CLASS_MAP[loadReadingFont()]);
+    const loaded = loadReadingFont();
+    setFontFamily(loaded);
+    setFontClass(FONT_CLASS_MAP[loaded]);
 
     async function load() {
       setLoading(true);
@@ -289,6 +292,14 @@ export default function ChapterReadPage() {
     saveFontSize(newSize);
   }, []);
 
+  const handleFontFamilyChange = useCallback((newFont: ReadingFont) => {
+    setFontFamily(newFont);
+    setFontClass(FONT_CLASS_MAP[newFont]);
+    try {
+      localStorage.setItem(READING_FONT_KEY, newFont);
+    } catch {}
+  }, []);
+
   const navigateToChapter = useCallback(
     (id: string) => {
       // Save progress immediately when switching chapters
@@ -415,6 +426,9 @@ export default function ChapterReadPage() {
           onModeChange={handleModeChange}
           fontSize={fontSize}
           onFontSizeChange={handleFontSizeChange}
+          fontFamily={fontFamily}
+          onFontFamilyChange={handleFontFamilyChange}
+          disableFontFamily={storyFormat === "screenplay" || storyFormat === "webtoon"}
           onPrevChapter={handlePrevChapter}
           onNextChapter={handleNextChapter}
           onBack={handleBack}
@@ -454,6 +468,9 @@ export default function ChapterReadPage() {
           onModeChange={handleModeChange}
           fontSize={fontSize}
           onFontSizeChange={handleFontSizeChange}
+          fontFamily={fontFamily}
+          onFontFamilyChange={handleFontFamilyChange}
+          disableFontFamily={storyFormat === "screenplay" || storyFormat === "webtoon"}
           onPrevChapter={handlePrevChapter}
           onNextChapter={handleNextChapter}
           onBack={handleBack}

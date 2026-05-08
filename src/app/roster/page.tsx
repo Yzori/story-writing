@@ -340,6 +340,8 @@ function RosterPageContent() {
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [isListed, setIsListed] = useState<boolean | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  /** True when rendering DUMMY_MEMBERS instead of live API data. */
+  const [showingPreview, setShowingPreview] = useState(false);
 
   // Check if current user is on the roster
   useEffect(() => {
@@ -363,15 +365,24 @@ function RosterPageContent() {
       if (res.ok) {
         const json = await res.json();
         const fetched = json.data?.members || [];
-        setMembers(fetched.length > 0 ? fetched : DUMMY_MEMBERS);
-        setTotal(json.data?.total || fetched.length || DUMMY_MEMBERS.length);
+        if (fetched.length > 0) {
+          setMembers(fetched);
+          setTotal(json.data?.total || fetched.length);
+          setShowingPreview(false);
+        } else {
+          setMembers(DUMMY_MEMBERS);
+          setTotal(DUMMY_MEMBERS.length);
+          setShowingPreview(true);
+        }
       } else {
         setMembers(DUMMY_MEMBERS);
         setTotal(DUMMY_MEMBERS.length);
+        setShowingPreview(true);
       }
     } catch {
       setMembers(DUMMY_MEMBERS);
       setTotal(DUMMY_MEMBERS.length);
+      setShowingPreview(true);
     } finally {
       setLoading(false);
     }
@@ -536,6 +547,27 @@ function RosterPageContent() {
             )}
           </div>
         </div>
+
+        {/* Preview banner — when no real members exist yet */}
+        {!loading && showingPreview && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-6 relative z-10">
+            <div className="rounded-xl border border-amber/20 bg-amber/[0.04] px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-amber bg-amber/15 border border-amber/25 px-2 py-0.5 rounded-full shrink-0">
+                Preview
+              </span>
+              <p className="text-[12px] text-text-secondary leading-relaxed">
+                These are sample creatives so you can see what the roster looks like.
+                {session?.user && (
+                  <> Be the first to{" "}
+                    <Link href="/roster/setup" className="text-amber hover:text-amber-light underline">
+                      post your card
+                    </Link>.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── Cards Grid ───────────────────────────────────── */}
         <div className="max-w-7xl mx-auto px-6 mt-8 relative z-10">

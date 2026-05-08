@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { openCalls, users, stories } from "@/server/db/schema";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { openCalls, openCallResponses, users, stories } from "@/server/db/schema";
+import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createOpenCallSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
@@ -15,6 +15,7 @@ type RouteParams = { params: Promise<{ storyId: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { storyId } = await params;
+    const session = await auth();
 
     const result = await db
       .select({
@@ -40,7 +41,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .orderBy(desc(openCalls.createdAt))
       .limit(100);
 
-    return NextResponse.json({ data: result });
+    // Annotate each call with whether the current user has already pitched.
+    let withUserState: Array<typeof result[number] & { userPitched?: { status: string } | null }> = result;
+    if (session?.user?.id && result.length > 0) {
+      const callIds = result.map((c) => c.id);
+      const myPitches = await db
+        .select({ callId: openCallResponses.callId, status: openCallResponses.status })
+        .from(openCallResponses)
+        .where(
+          and(
+            eq(openCallResponses.userId, session.user.id),
+            inArray(openCallResponses.callId, callIds),
+          ),
+        );
+      const byCall = new Map(myPitches.map((p) => [p.callId, { status: p.status }]));
+      withUserState = result.map((c) => ({ ...c, userPitched: byCall.get(c.id) ?? null }));
+    }
+
+    return NextResponse.json({ data: withUserState });
   } catch (error) {
     console.error("GET /api/stories/[storyId]/open-calls error:", error);
     return NextResponse.json(

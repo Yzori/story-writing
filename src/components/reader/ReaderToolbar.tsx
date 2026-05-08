@@ -17,6 +17,22 @@ export const FONT_SIZE_OPTIONS: { key: FontSizeKey; label: string; value: string
   { key: "xl", label: "XL", value: "1.4rem" },
 ];
 
+export type ReadingFont = "default" | "serif" | "sans" | "mono";
+
+export const FONT_FAMILY_OPTIONS: { key: ReadingFont; label: string; sample: string }[] = [
+  { key: "default", label: "Default", sample: "Aa" },
+  { key: "serif", label: "Serif", sample: "Aa" },
+  { key: "sans", label: "Sans", sample: "Aa" },
+  { key: "mono", label: "Mono", sample: "Aa" },
+];
+
+const FONT_FAMILY_PREVIEW_CLASS: Record<ReadingFont, string> = {
+  default: "",
+  serif: "font-serif",
+  sans: "font-sans",
+  mono: "font-mono",
+};
+
 const AUTO_HIDE_DELAY = 3000;
 
 interface ReaderToolbarProps {
@@ -28,12 +44,16 @@ interface ReaderToolbarProps {
   onModeChange: (mode: ReadingMode) => void;
   fontSize: FontSizeKey;
   onFontSizeChange: (size: FontSizeKey) => void;
+  fontFamily?: ReadingFont;
+  onFontFamilyChange?: (font: ReadingFont) => void;
   onPrevChapter: () => void;
   onNextChapter: () => void;
   onBack: () => void;
   onSelectChapter: (id: string) => void;
   chapters: Chapter[];
   wordCount?: number;
+  /** Disable font family switcher when format requires fixed typography (e.g., screenplay). */
+  disableFontFamily?: boolean;
 }
 
 export default function ReaderToolbar({
@@ -45,12 +65,15 @@ export default function ReaderToolbar({
   onModeChange,
   fontSize,
   onFontSizeChange,
+  fontFamily = "default",
+  onFontFamilyChange,
   onPrevChapter,
   onNextChapter,
   onBack,
   onSelectChapter,
   chapters,
   wordCount,
+  disableFontFamily,
 }: ReaderToolbarProps) {
   const [showChapterList, setShowChapterList] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
@@ -287,6 +310,29 @@ export default function ReaderToolbar({
                   ))}
                 </div>
 
+                {!disableFontFamily && onFontFamilyChange && (
+                  <>
+                    <span className="hidden lg:inline text-text-ghost/30 mx-1">|</span>
+                    {/* Font family selector — desktop ≥lg only (mobile gets sheet) */}
+                    <div className="hidden lg:flex items-center bg-surface rounded-lg border border-border p-0.5">
+                      {FONT_FAMILY_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => onFontFamilyChange(opt.key)}
+                          className={`px-2 py-1 rounded-md text-[11px] transition-all ${
+                            fontFamily === opt.key
+                              ? "bg-amber/15 text-amber"
+                              : "text-text-ghost hover:text-text-secondary"
+                          } ${FONT_FAMILY_PREVIEW_CLASS[opt.key]}`}
+                          title={`Font: ${opt.label}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 <span className="text-text-ghost/30 mx-1">|</span>
 
                 {/* Share */}
@@ -405,6 +451,29 @@ export default function ReaderToolbar({
                   ))}
                 </div>
               </div>
+
+              {/* Font family */}
+              {!disableFontFamily && onFontFamilyChange && (
+                <div className="mb-5">
+                  <p className="text-[11px] text-text-secondary mb-2">Font</p>
+                  <div className="flex items-center bg-surface rounded-lg border border-border p-0.5 gap-0.5">
+                    {FONT_FAMILY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => onFontFamilyChange(opt.key)}
+                        className={`flex-1 px-2 py-2 rounded-md text-[12px] transition-all text-center ${
+                          fontFamily === opt.key
+                            ? "bg-amber/15 text-amber"
+                            : "text-text-ghost hover:text-text-secondary"
+                        } ${FONT_FAMILY_PREVIEW_CLASS[opt.key]}`}
+                        aria-label={opt.label}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Theme + Share row */}
               <div className="flex items-center gap-3">

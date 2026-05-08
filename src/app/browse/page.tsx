@@ -125,9 +125,19 @@ interface BookCardProps {
   sparkCount: number;
   slug: string;
   coverUrl?: string;
+  format?: string;
 }
 
-function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterCount, sparkCount, slug, coverUrl }: BookCardProps) {
+const FORMAT_LABELS: Record<string, string> = {
+  novel: "Novel",
+  poetry: "Poetry",
+  screenplay: "Screenplay",
+  webtoon: "Webtoon",
+  illustrated: "Illustrated",
+  campaign: "Adventure",
+};
+
+function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterCount, sparkCount, slug, coverUrl, format }: BookCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
   // 3D Tilt Logic
@@ -242,10 +252,15 @@ function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterC
 
                {/* Cover Composition */}
                <div className="relative h-full flex flex-col justify-end p-6 z-10 transition-transform duration-500" style={{ transform: "translateZ(30px)" }}>
-                  <div className="mb-auto mt-4 ml-4">
+                  <div className="mb-auto mt-4 ml-4 flex flex-wrap items-center gap-1.5">
                      <span className={`px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] ${accentColor} font-medium uppercase tracking-wider border border-white/10`}>
                         {primaryGenre}
                      </span>
+                     {format && format !== "novel" && FORMAT_LABELS[format] && (
+                       <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-white/80 font-medium uppercase tracking-wider border border-white/10">
+                          {FORMAT_LABELS[format]}
+                       </span>
+                     )}
                   </div>
 
                   <div className="ml-4">
@@ -876,6 +891,7 @@ function BrowsePage() {
                     sparkCount={story.sparkCount || 0}
                     slug={story.slug || story.id}
                     coverUrl={story.coverImageUrl || undefined}
+                    format={story.writingMode === "campaign" ? "campaign" : story.format}
                   />
                 </motion.div>
               ))}
@@ -961,6 +977,7 @@ function BrowsePage() {
                           sparkCount={story.sparkCount || 0}
                           slug={story.slug || story.id}
                           coverUrl={story.coverImageUrl || undefined}
+                          format={story.writingMode === "campaign" ? "campaign" : story.format}
                         />
                       </motion.div>
                     ))}
