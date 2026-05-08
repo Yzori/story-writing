@@ -15,6 +15,8 @@ import PoetryReader from "@/components/reader/PoetryReader";
 import ScreenplayReader from "@/components/reader/ScreenplayReader";
 import AnnotationLayer from "@/components/reader/AnnotationLayer";
 import IllustratedReader from "@/components/reader/IllustratedReader";
+import SceneClip from "@/components/reader/SceneClip";
+import ClipSelectionFAB from "@/components/reader/ClipSelectionFAB";
 import ChapterLockScreen from "@/components/reader/ChapterLockScreen";
 
 const READER_PREFS_KEY = "quiloria-reader-prefs";
@@ -117,6 +119,9 @@ export default function ChapterReadPage() {
 
   const [storyTitle, setStoryTitle] = useState("");
   const [storyFormat, setStoryFormat] = useState("novel");
+  const [storyCoverUrl, setStoryCoverUrl] = useState<string | null>(null);
+  const [storyAuthorName, setStoryAuthorName] = useState<string>("");
+  const [clipPassage, setClipPassage] = useState<string | null>(null);
   const [storyId, setStoryId] = useState<string | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
@@ -171,6 +176,8 @@ export default function ChapterReadPage() {
         setStoryTitle(story.title);
         setStoryFormat(story.format || "novel");
         setStoryId(story.id);
+        setStoryCoverUrl(story.coverImageUrl || null);
+        setStoryAuthorName(story.author?.displayName || "");
 
         // Convert chapter list (these are summaries from the story endpoint)
         const chapterList = (story.chapters as ReaderApiChapter[]).map(apiChapterToChapter);
@@ -636,6 +643,20 @@ export default function ChapterReadPage() {
           <ChapterComments storyId={storyId} chapterId={chapterId} />
         </div>
       )}
+
+      {/* "Clip" floating button — shows when a passage is selected in prose */}
+      <ClipSelectionFAB onClip={(text) => setClipPassage(text)} />
+
+      {/* Scene-clip share dialog */}
+      <SceneClip
+        open={!!clipPassage}
+        onClose={() => setClipPassage(null)}
+        passage={clipPassage ?? ""}
+        storyTitle={storyTitle}
+        authorName={storyAuthorName || "the author"}
+        coverUrl={storyCoverUrl}
+        shareUrl={typeof window !== "undefined" ? window.location.href : ""}
+      />
     </div>
   );
 }
