@@ -51,7 +51,7 @@ import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
 
-type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization";
+type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
 
 // Local storage key for editor-only settings (typography, goals, etc.)
 function editorSettingsKey(storyId: string) {
@@ -277,8 +277,15 @@ export default function WriteStoryPage() {
   // Reference pane
   const [refPaneOpen, setRefPaneOpen] = useState(false);
   const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes">("bible");
-  // AI Assistant
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  // AI Assistant — docked in the right-panels block. This shim preserves the
+  // existing setShowAIAssistant() call sites (Cmd+Shift+K, command palette, etc.)
+  const setShowAIAssistant = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    if (typeof next === "function") {
+      setRightPanel((p) => (next(p === "ai") ? "ai" : "none"));
+    } else {
+      setRightPanel(next ? "ai" : "none");
+    }
+  }, []);
 
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
@@ -2543,6 +2550,18 @@ export default function WriteStoryPage() {
               onClose={handleClosePanel}
             />
           )}
+          {rightPanel === "ai" && editorInstance && (
+            <AIAssistantPanel
+              storyId={storyId as string}
+              selectedText={editorInstance.state.doc.textBetween(
+                editorInstance.state.selection.from,
+                editorInstance.state.selection.to,
+              )}
+              context={activeChapter?.content || ""}
+              onAccept={handleAIAccept}
+              onClose={handleClosePanel}
+            />
+          )}
         </AnimatePresence>
       </div>
 
@@ -2622,20 +2641,6 @@ export default function WriteStoryPage() {
 
       {/* Keyboard Shortcuts Panel */}
       {showShortcuts && <ShortcutsPanel onClose={() => setShowShortcuts(false)} />}
-
-      {/* AI Writing Assistant */}
-      {showAIAssistant && editorInstance && (
-        <AIAssistantPanel
-          storyId={storyId as string}
-          selectedText={editorInstance.state.doc.textBetween(
-            editorInstance.state.selection.from,
-            editorInstance.state.selection.to
-          )}
-          context={activeChapter?.content || ""}
-          onAccept={handleAIAccept}
-          onClose={() => setShowAIAssistant(false)}
-        />
-      )}
 
       {/* Goals popover */}
       <AnimatePresence>

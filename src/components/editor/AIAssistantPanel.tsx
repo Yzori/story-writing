@@ -236,26 +236,37 @@ export default function AIAssistantPanel({
   });
 
   return (
-    <div className="fixed inset-0 bg-void/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
+    <>
+      {/* Mobile backdrop */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-surface border border-border rounded-2xl rounded-b-none sm:rounded-b-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-40 bg-black/30 md:hidden"
+      />
+      <motion.aside
+        initial={{ x: "100%", opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: "100%", opacity: 0 }}
+        transition={{ type: "spring", stiffness: 400, damping: 35 }}
+        className="fixed md:relative inset-y-0 right-0 z-50 md:z-auto h-full w-[88vw] max-w-[400px] md:w-[380px] border-l border-border bg-surface shrink-0 overflow-hidden flex flex-col shadow-2xl md:shadow-none"
+        aria-label="AI Writing Assistant"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border gap-3">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-border gap-3 shrink-0">
           <div className="min-w-0">
-            <h2 className="font-display text-xl sm:text-2xl text-paper flex items-center gap-2 truncate">
-              <span className="text-xl sm:text-2xl">✨</span> AI Writing Assistant
+            <h2 className="font-display text-sm sm:text-base text-paper flex items-center gap-2">
+              <span className="text-base sm:text-lg">✨</span>
+              <span className="truncate">AI Writing Assistant</span>
             </h2>
             {usage && usage.hasAccess && (
-              <p className="text-sm text-text-ghost mt-1">
+              <p className="text-[11px] text-text-ghost mt-0.5">
                 {usage.limit === null ? (
-                  <span className="text-gold">Unlimited AI • Premium</span>
+                  <span className="text-gold">Unlimited • Premium</span>
                 ) : (
                   <>
-                    {usage.remaining || 0} of {usage.limit} requests remaining today
+                    {usage.remaining || 0} of {usage.limit} requests left today
                   </>
                 )}
               </p>
@@ -263,50 +274,64 @@ export default function AIAssistantPanel({
           </div>
           <button
             onClick={onClose}
-            className="text-text-ghost hover:text-paper transition-colors"
+            className="p-1 rounded-md text-text-ghost hover:text-paper hover:bg-subtle/50 transition-colors shrink-0"
+            aria-label="Close AI assistant"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="4" y1="4" x2="10" y2="10" />
+              <line x1="10" y1="4" x2="4" y2="10" />
             </svg>
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 space-y-5">
           {!usage?.hasAccess ? (
-            <div className="text-center py-12">
-              <span className="text-6xl mb-4 block">🔒</span>
-              <h3 className="font-display text-xl text-paper mb-2">AI Features Locked</h3>
-              <p className="text-text-secondary mb-6">
+            <div className="text-center py-10">
+              <span className="text-5xl mb-4 block">🔒</span>
+              <h3 className="font-display text-lg text-paper mb-2">AI Features Locked</h3>
+              <p className="text-text-secondary text-sm mb-6 leading-relaxed">
                 Upgrade to Pro or Premium to unlock AI Writing Assistant
               </p>
               <Link
                 href="/pricing"
-                className="inline-block bg-gold text-void px-6 py-3 rounded-lg font-medium hover:bg-gold/90 transition-all shadow-lg shadow-gold/20"
+                className="inline-block bg-gold text-void px-5 py-2.5 rounded-full text-sm font-medium hover:bg-gold/90 transition-all shadow-lg shadow-gold/20"
               >
                 View Plans
               </Link>
             </div>
           ) : (
             <>
+              {/* Selection preview — only when text is selected */}
+              {selectedText && selectedText.trim().length > 0 && (
+                <div className="rounded-lg border border-amber/15 bg-amber/[0.04] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-amber/70 mb-1.5">
+                    Selected text
+                  </p>
+                  <p className="text-[12px] text-text-secondary leading-relaxed font-reading line-clamp-3">
+                    {selectedText.length > 220 ? selectedText.slice(0, 220) + "…" : selectedText}
+                  </p>
+                </div>
+              )}
+
               {/* Prompt Type Selection */}
               <div>
-                <label className="block text-sm font-medium text-paper mb-3">
-                  Choose AI Feature
+                <label className="block text-[11px] uppercase tracking-[0.12em] text-text-ghost font-medium mb-2.5">
+                  Choose what to do
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-1 gap-2">
                   {availableOptions.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => setSelectedPrompt(option.id)}
-                      className={`p-3 sm:p-4 rounded-lg text-left transition-all border ${
+                      className={`p-3 rounded-lg text-left transition-all border ${
                         selectedPrompt === option.id
-                          ? "border-gold bg-gold/10 shadow-lg shadow-gold/10"
-                          : "border-border bg-surface/30 hover:border-gold/40"
+                          ? "border-gold/40 bg-gold/[0.06] shadow-[0_0_10px_rgba(200,150,60,0.05)]"
+                          : "border-border bg-surface/30 hover:border-gold/30"
                       }`}
                     >
-                      <div className="font-medium text-paper mb-1">{option.label}</div>
-                      <div className="text-xs text-text-ghost">{option.description}</div>
+                      <div className="font-medium text-paper text-[13px] mb-0.5">{option.label}</div>
+                      <div className="text-[11px] text-text-ghost leading-snug">{option.description}</div>
                     </button>
                   ))}
                 </div>
@@ -314,22 +339,21 @@ export default function AIAssistantPanel({
 
               {/* Premium upsell */}
               {usage.tier === "pro" && (
-                <div className="p-4 bg-amethyst/10 border border-amethyst/30 rounded-lg">
-                  <p className="text-sm text-text-secondary">
-                    <span className="text-amethyst font-semibold">Premium feature:</span> Unlock
-                    advanced story intelligence with{" "}
+                <div className="p-3 bg-amethyst/10 border border-amethyst/30 rounded-lg">
+                  <p className="text-[12px] text-text-secondary leading-relaxed">
+                    <span className="text-amethyst font-semibold">Premium:</span> Unlock plot hole detection,
+                    continuity checking, and pacing analysis →{" "}
                     <Link href="/pricing" className="text-gold hover:underline">
-                      Premium
-                    </Link>{" "}
-                    — plot hole detection, continuity checking, and more.
+                      compare plans
+                    </Link>
                   </p>
                 </div>
               )}
 
               {/* Error */}
               {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                  <p className="text-sm text-red-400">{error}</p>
+                <div className="p-3 bg-rose/10 border border-rose/30 rounded-lg">
+                  <p className="text-[12px] text-rose">{error}</p>
                 </div>
               )}
 
@@ -337,18 +361,18 @@ export default function AIAssistantPanel({
               <AnimatePresence>
                 {suggestion && (
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="p-6 bg-surface/50 border border-border rounded-lg"
+                    exit={{ opacity: 0, y: -12 }}
+                    className="p-4 bg-elevated/60 border border-gold/20 rounded-lg"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-gold">AI Suggestion</span>
-                      <span className="text-xs text-text-ghost">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-gold font-medium">AI Suggestion</span>
+                      <span className="text-[10px] text-text-ghost">
                         Review before accepting
                       </span>
                     </div>
-                    <div className="prose prose-invert max-w-none text-sm leading-relaxed text-text whitespace-pre-wrap">
+                    <div className="prose prose-invert max-w-none text-[13px] leading-relaxed text-text whitespace-pre-wrap font-reading">
                       {suggestion}
                     </div>
                   </motion.div>
@@ -361,45 +385,67 @@ export default function AIAssistantPanel({
         {/* Footer */}
         {usage?.hasAccess && (
           <div
-            className="flex items-center justify-end gap-3 p-4 sm:p-6 border-t border-border"
-            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+            className="flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-4 border-t border-border shrink-0"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-surface border border-border text-paper hover:border-gold/40 transition-all"
-            >
-              Cancel
-            </button>
-
             {suggestion ? (
-              <button
-                onClick={handleAccept}
-                className="px-4 py-2 rounded-lg bg-gold text-void font-medium hover:bg-gold/90 transition-all shadow-lg shadow-gold/20"
-              >
-                Accept & Insert
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setSuggestion(null);
+                    handleGenerate();
+                  }}
+                  disabled={isLoading}
+                  className="px-3 py-2 rounded-full text-[12px] text-text-secondary border border-border hover:text-paper hover:border-border-active transition-all disabled:opacity-40"
+                  title="Generate a new suggestion"
+                >
+                  Try again
+                </button>
+                <div className="flex-1" />
+                <button
+                  onClick={onClose}
+                  className="px-3 py-2 rounded-full text-[12px] text-text-ghost hover:text-paper transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAccept}
+                  className="px-4 py-2 rounded-full bg-gold text-void text-[12px] font-semibold hover:bg-gold/90 transition-all shadow-lg shadow-gold/20"
+                >
+                  Accept &amp; insert
+                </button>
+              </>
             ) : (
-              <button
-                onClick={handleGenerate}
-                disabled={isLoading}
-                className="px-4 py-2 rounded-lg bg-gold text-void font-medium hover:bg-gold/90 transition-all shadow-lg shadow-gold/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Generating...
-                  </span>
-                ) : (
-                  "Generate"
-                )}
-              </button>
+              <>
+                <button
+                  onClick={onClose}
+                  className="px-3 py-2 rounded-full text-[12px] text-text-ghost hover:text-paper transition-colors"
+                >
+                  Cancel
+                </button>
+                <div className="flex-1" />
+                <button
+                  onClick={handleGenerate}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold text-void text-[12px] font-semibold hover:bg-gold/90 transition-all shadow-lg shadow-gold/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Generating…
+                    </>
+                  ) : (
+                    "Generate"
+                  )}
+                </button>
+              </>
             )}
           </div>
         )}
-      </motion.div>
-    </div>
+      </motion.aside>
+    </>
   );
 }
