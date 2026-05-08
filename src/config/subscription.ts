@@ -3,6 +3,18 @@
  * This file is shared between client and server
  */
 
+/**
+ * Free-tier "taste" allowance: lifetime number of "Continue Writing" generations
+ * a Free user can run before being prompted to upgrade. Set to 0 to disable.
+ */
+export const FREE_AI_LIFETIME_GENERATIONS = 5;
+
+/**
+ * The single prompt type that's available on the Free tier (limited by the
+ * lifetime quota above). All other prompts remain Pro/Premium gated.
+ */
+export const FREE_AI_PROMPT_TYPE = "continue" as const;
+
 export const SUBSCRIPTION_PLANS = {
   pro: {
     name: "Pro",

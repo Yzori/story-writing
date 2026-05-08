@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const PATHS = [
   {
     id: "write",
     title: "I want to write",
-    description: "Start your first story, poem, screenplay, or comic",
+    description: "Skip the setup — start writing your first chapter now",
     href: "/create",
+    instant: true,
     accent: "amber",
     icon: (
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-amber">
@@ -80,6 +83,37 @@ const cardVariants = {
 };
 
 export default function WelcomeContent({ firstName }: { firstName: string }) {
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleInstantStart = async () => {
+    if (creating) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/stories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Untitled story",
+          format: "novel",
+          writingMode: "solo",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.data?.id) {
+        setCreateError(json.error?.message || "Couldn't start a new story");
+        setCreating(false);
+        return;
+      }
+      router.push(`/write/${json.data.id}`);
+    } catch {
+      setCreateError("Network error — please try again");
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-6 py-16 relative overflow-hidden">
       {/* Ambient background glows */}
@@ -120,57 +154,58 @@ export default function WelcomeContent({ firstName }: { firstName: string }) {
         animate="visible"
         className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-3xl relative z-10"
       >
-        {PATHS.map((path) => (
-          <motion.div key={path.id} variants={cardVariants}>
-            <Link href={path.href} className="block group">
-              <motion.div
-                whileHover={{ scale: 1.03, y: -4 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="relative rounded-2xl p-6 flex flex-col items-center text-center bg-surface/50 backdrop-blur-xl border border-border/50 overflow-hidden transition-shadow duration-500"
+        {PATHS.map((path) => {
+          const isInstantWrite = path.id === "write" && (path as { instant?: boolean }).instant;
+          const cardInner = (
+            <motion.div
+              whileHover={{ scale: creating && isInstantWrite ? 1 : 1.03, y: creating && isInstantWrite ? 0 : -4 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="relative rounded-2xl p-6 flex flex-col items-center text-center bg-surface/50 backdrop-blur-xl border border-border/50 overflow-hidden transition-shadow duration-500 h-full"
+              style={{ boxShadow: "0 0 0 rgba(0,0,0,0)" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = `0 8px 40px var(--color-${path.accent}/0.12), 0 0 60px var(--color-${path.accent}/0.06)`;
+                e.currentTarget.style.borderColor = `var(--color-${path.accent}/0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = "0 0 0 rgba(0,0,0,0)";
+                e.currentTarget.style.borderColor = "";
+              }}
+            >
+              {/* Hover glow overlay */}
+              <div
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                 style={{
-                  boxShadow: "0 0 0 rgba(0,0,0,0)",
+                  background: `radial-gradient(circle at 50% 30%, var(--color-${path.accent}/0.08) 0%, transparent 70%)`,
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = `0 8px 40px var(--color-${path.accent}/0.12), 0 0 60px var(--color-${path.accent}/0.06)`;
-                  e.currentTarget.style.borderColor = `var(--color-${path.accent}/0.3)`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "0 0 0 rgba(0,0,0,0)";
-                  e.currentTarget.style.borderColor = "";
-                }}
-              >
-                {/* Hover glow overlay */}
+              />
+
+              {/* Icon container */}
+              <div className="relative w-16 h-16 mb-5 flex items-center justify-center">
                 <div
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                  className="absolute inset-0 rounded-full border border-border/50 group-hover:border-transparent transition-colors duration-300"
                   style={{
-                    background: `radial-gradient(circle at 50% 30%, var(--color-${path.accent}/0.08) 0%, transparent 70%)`,
+                    background: `radial-gradient(circle, var(--color-${path.accent}/0.08) 0%, transparent 70%)`,
                   }}
                 />
-
-                {/* Icon container */}
-                <div className="relative w-16 h-16 mb-5 flex items-center justify-center">
-                  <div
-                    className="absolute inset-0 rounded-full border border-border/50 group-hover:border-transparent transition-colors duration-300"
-                    style={{
-                      background: `radial-gradient(circle, var(--color-${path.accent}/0.08) 0%, transparent 70%)`,
-                    }}
-                  />
-                  <div className="relative z-10 group-hover:scale-110 transition-transform duration-300">
-                    {path.icon}
-                  </div>
+                <div className="relative z-10 group-hover:scale-110 transition-transform duration-300">
+                  {path.icon}
                 </div>
+              </div>
 
-                {/* Text */}
-                <h2 className={`font-display text-lg text-paper font-semibold mb-2 group-hover:text-${path.accent} transition-colors duration-300`}>
-                  {path.title}
-                </h2>
-                <p className="text-text-secondary text-[13px] leading-relaxed">
-                  {path.description}
-                </p>
+              {/* Text */}
+              <h2 className={`font-display text-lg text-paper font-semibold mb-2 group-hover:text-${path.accent} transition-colors duration-300`}>
+                {path.title}
+              </h2>
+              <p className="text-text-secondary text-[13px] leading-relaxed">
+                {path.description}
+              </p>
 
-                {/* Arrow indicator */}
-                <div className="mt-5 flex items-center justify-center w-8 h-8 rounded-full border border-border/50 group-hover:border-transparent group-hover:bg-white/5 transition-all duration-300">
+              {/* Arrow indicator (or spinner when creating) */}
+              <div className="mt-5 flex items-center justify-center w-8 h-8 rounded-full border border-border/50 group-hover:border-transparent group-hover:bg-white/5 transition-all duration-300">
+                {isInstantWrite && creating ? (
+                  <div className="w-3.5 h-3.5 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
+                ) : (
                   <svg
                     width="14"
                     height="14"
@@ -182,12 +217,54 @@ export default function WelcomeContent({ firstName }: { firstName: string }) {
                   >
                     <path d="M6 3l5 5-5 5" />
                   </svg>
+                )}
+              </div>
+            </motion.div>
+          );
+
+          return (
+            <motion.div key={path.id} variants={cardVariants}>
+              {isInstantWrite ? (
+                <button
+                  type="button"
+                  onClick={handleInstantStart}
+                  disabled={creating}
+                  className="block group w-full text-left disabled:cursor-wait"
+                  aria-label="Start writing your first chapter now"
+                >
+                  {cardInner}
+                </button>
+              ) : (
+                <Link href={path.href} className="block group">
+                  {cardInner}
+                </Link>
+              )}
+              {isInstantWrite && (
+                <div className="mt-2 text-center">
+                  <Link
+                    href="/create"
+                    className="text-[11px] text-text-ghost hover:text-amber transition-colors"
+                  >
+                    Or set up details first →
+                  </Link>
                 </div>
-              </motion.div>
-            </Link>
-          </motion.div>
-        ))}
+              )}
+            </motion.div>
+          );
+        })}
       </motion.div>
+
+      {/* Inline error if create fails */}
+      {createError && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-4 text-[12px] text-rose relative z-10"
+          role="status"
+        >
+          {createError}
+        </motion.p>
+      )}
 
       {/* Skip link */}
       <motion.div

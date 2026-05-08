@@ -32,7 +32,7 @@ export const users = pgTable("users", {
   readingFont: text("reading_font").notNull().default("default"),
   isAdmin: boolean("is_admin").notNull().default(false),
   inkDropBalance: integer("ink_drop_balance").notNull().default(100),
-  emailNotifications: boolean("email_notifications").notNull().default(false),
+  emailNotifications: boolean("email_notifications").notNull().default(true),
   // Subscription fields
   subscriptionTier: text("subscription_tier").notNull().default("free"), // 'free' | 'pro' | 'premium'
   subscriptionStatus: text("subscription_status").notNull().default("active"), // 'active' | 'cancelled' | 'past_due' | 'trialing'
@@ -43,6 +43,8 @@ export const users = pgTable("users", {
   // AI usage tracking
   aiRequestsThisMonth: integer("ai_requests_this_month").notNull().default(0),
   aiRequestsResetAt: timestamp("ai_requests_reset_at", { withTimezone: true }),
+  // Free-tier "taste" — lifetime cap of free AI generations (Continue Writing only)
+  aiFreeGenerationsUsed: integer("ai_free_generations_used").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

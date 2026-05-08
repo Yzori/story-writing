@@ -313,18 +313,6 @@ export default function Navbar() {
                             Dashboard
                           </Link>
                           <Link
-                            href="/roster"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
-                              <circle cx="5" cy="6" r="2.5" />
-                              <circle cx="11" cy="6" r="2.5" />
-                              <path d="M1 14c0-2.2 1.8-4 4-4M9 10c2.2 0 4 1.8 4 4" />
-                            </svg>
-                            Writers
-                          </Link>
-                          <Link
                             href="/scriptorium"
                             onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
@@ -527,13 +515,6 @@ export default function Navbar() {
                 <>
                   <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   {/* Secondary links — utilities, matching desktop user menu */}
-                  <Link
-                    href="/roster"
-                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Writers
-                  </Link>
                   <Link
                     href="/scriptorium"
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"

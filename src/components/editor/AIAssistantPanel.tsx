@@ -132,6 +132,7 @@ export default function AIAssistantPanel({
     remaining: number | null;
     tier: string;
     hasAccess: boolean;
+    isFreeTrial?: boolean;
   } | null>(null);
 
   // Fetch AI usage stats
@@ -151,6 +152,18 @@ export default function AIAssistantPanel({
           remaining: data.usage.remaining,
           tier: data.tier,
           hasAccess: data.hasAccess,
+          isFreeTrial: data.usage.isFreeTrial,
+        });
+      } else if (res.status !== 401) {
+        // Free user with exhausted quota — still surface tier so the panel
+        // can show the upgrade state instead of crashing.
+        setUsage({
+          current: data.usage?.current ?? 0,
+          limit: data.usage?.limit ?? 0,
+          remaining: 0,
+          tier: data.tier ?? "free",
+          hasAccess: false,
+          isFreeTrial: true,
         });
       }
     } catch (err) {
@@ -223,7 +236,10 @@ export default function AIAssistantPanel({
     }
   };
 
+  const isFreeTrial = !!usage?.isFreeTrial;
   const availableOptions = PROMPT_OPTIONS.filter((option) => {
+    // Free trial: only the "continue" prompt is available, the rest are upsells
+    if (isFreeTrial && option.id !== "continue") return false;
     // Filter based on tier
     if (option.requiresPremium && usage?.tier !== "premium") {
       return false;
@@ -264,6 +280,10 @@ export default function AIAssistantPanel({
               <p className="text-[11px] text-text-ghost mt-0.5">
                 {usage.limit === null ? (
                   <span className="text-gold">Unlimited • Premium</span>
+                ) : isFreeTrial ? (
+                  <span className="text-amber">
+                    {usage.remaining ?? 0} free generation{(usage.remaining ?? 0) === 1 ? "" : "s"} left
+                  </span>
                 ) : (
                   <>
                     {usage.remaining || 0} of {usage.limit} requests left today
@@ -288,20 +308,45 @@ export default function AIAssistantPanel({
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 space-y-5">
           {!usage?.hasAccess ? (
             <div className="text-center py-10">
-              <span className="text-5xl mb-4 block">🔒</span>
-              <h3 className="font-display text-lg text-paper mb-2">AI Features Locked</h3>
+              <span className="text-5xl mb-4 block">{isFreeTrial ? "✨" : "🔒"}</span>
+              <h3 className="font-display text-lg text-paper mb-2">
+                {isFreeTrial ? "You've used your free generations" : "AI Features Locked"}
+              </h3>
               <p className="text-text-secondary text-sm mb-6 leading-relaxed">
-                Upgrade to Pro or Premium to unlock AI Writing Assistant
+                {isFreeTrial
+                  ? "Pro unlocks 50 AI requests per day plus 6 more prompt types — Rephrase, Expand, Improve Dialogue, and more."
+                  : "Upgrade to Pro or Premium to unlock AI Writing Assistant"}
               </p>
               <Link
                 href="/pricing"
                 className="inline-block bg-gold text-void px-5 py-2.5 rounded-full text-sm font-medium hover:bg-gold/90 transition-all shadow-lg shadow-gold/20"
               >
-                View Plans
+                {isFreeTrial ? "See Pro" : "View Plans"}
               </Link>
             </div>
           ) : (
             <>
+              {/* Free trial banner — shown to Free users with quota remaining */}
+              {isFreeTrial && (
+                <div className="rounded-lg border border-amber/20 bg-amber/[0.05] p-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base shrink-0">✨</span>
+                    <div className="min-w-0">
+                      <p className="text-[12px] text-paper font-medium leading-snug">
+                        Try it free — {usage.remaining ?? 0} of {usage.limit} generations left
+                      </p>
+                      <p className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
+                        Free users get a taste of <span className="text-paper">Continue Writing</span>.{" "}
+                        <Link href="/pricing" className="text-amber hover:text-amber-light underline">
+                          Pro unlocks the rest
+                        </Link>{" "}
+                        — Rephrase, Expand, dialogue polish, and 50/day.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Selection preview — only when text is selected */}
               {selectedText && selectedText.trim().length > 0 && (
                 <div className="rounded-lg border border-amber/15 bg-amber/[0.04] p-3">

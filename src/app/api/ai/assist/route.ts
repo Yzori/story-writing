@@ -5,7 +5,11 @@ import { eq, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { generateAIAssistance, generateStoryIntelligence, type AIPromptType } from "@/server/services/ai";
-import { SUBSCRIPTION_PLANS } from "@/config/subscription";
+import {
+  SUBSCRIPTION_PLANS,
+  FREE_AI_LIFETIME_GENERATIONS,
+  FREE_AI_PROMPT_TYPE,
+} from "@/config/subscription";
 
 export const maxDuration = 60; // AI requests can take up to 60 seconds
 
@@ -41,6 +45,7 @@ export async function POST(request: NextRequest) {
         subscriptionTier: users.subscriptionTier,
         aiRequestsThisMonth: users.aiRequestsThisMonth,
         aiRequestsResetAt: users.aiRequestsResetAt,
+        aiFreeGenerationsUsed: users.aiFreeGenerationsUsed,
       })
       .from(users)
       .where(eq(users.id, session.user.id));
@@ -52,30 +57,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check subscription tier
-    if (user.subscriptionTier === "free") {
-      return NextResponse.json(
-        {
-          error: {
-            code: "SUBSCRIPTION_REQUIRED",
-            message: "AI Writing Assistant requires a Pro or Premium subscription",
-            upgradeUrl: "/pricing",
+    // Free-tier handling: allow only the "Continue Writing" prompt, capped at
+    // FREE_AI_LIFETIME_GENERATIONS uses across the user's lifetime. Any other
+    // prompt type, or exhausted quota, returns the upgrade prompt as before.
+    const isFreeTier = user.subscriptionTier === "free";
+    if (isFreeTier) {
+      const body = await request.clone().json();
+      const requestedPrompt = body.promptType as AIPromptType;
+      if (requestedPrompt !== FREE_AI_PROMPT_TYPE) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "SUBSCRIPTION_REQUIRED",
+              message: "This AI feature requires a Pro or Premium subscription",
+              upgradeUrl: "/pricing",
+            },
           },
-        },
-        { status: 402 }
-      );
+          { status: 402 },
+        );
+      }
+      if (user.aiFreeGenerationsUsed >= FREE_AI_LIFETIME_GENERATIONS) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "FREE_QUOTA_EXHAUSTED",
+              message: "You've used all your free AI generations. Upgrade to keep going.",
+              upgradeUrl: "/pricing",
+              freeGenerationsLimit: FREE_AI_LIFETIME_GENERATIONS,
+              freeGenerationsUsed: user.aiFreeGenerationsUsed,
+            },
+          },
+          { status: 402 },
+        );
+      }
     }
 
-    // Check if reset is needed (daily reset at midnight)
+    // Daily reset (Pro). Free uses lifetime quota (no reset). Premium is unlimited.
     const now = new Date();
     const resetAt = user.aiRequestsResetAt ? new Date(user.aiRequestsResetAt) : null;
     let currentUsage = user.aiRequestsThisMonth;
 
-    if (!resetAt || resetAt < now) {
-      // Reset counter
+    if (!isFreeTier && (!resetAt || resetAt < now)) {
       const nextReset = new Date();
-      nextReset.setHours(24, 0, 0, 0); // Next midnight
-
+      nextReset.setHours(24, 0, 0, 0);
       await db
         .update(users)
         .set({
@@ -83,14 +107,15 @@ export async function POST(request: NextRequest) {
           aiRequestsResetAt: nextReset,
         })
         .where(eq(users.id, user.id));
-
       currentUsage = 0;
     }
 
-    // Check Pro tier limit (Premium is unlimited)
-    const tierLimit = SUBSCRIPTION_PLANS[user.subscriptionTier as "pro" | "premium"]?.aiRequestLimit;
+    // Pro daily limit (Premium is unlimited; Free is gated by lifetime quota above).
+    const tierLimit = isFreeTier
+      ? FREE_AI_LIFETIME_GENERATIONS
+      : SUBSCRIPTION_PLANS[user.subscriptionTier as "pro" | "premium"]?.aiRequestLimit;
 
-    if (tierLimit !== null && currentUsage >= tierLimit) {
+    if (!isFreeTier && tierLimit !== null && currentUsage >= tierLimit) {
       return NextResponse.json(
         {
           error: {
@@ -185,16 +210,21 @@ export async function POST(request: NextRequest) {
       ? await generateStoryIntelligence(aiRequest)
       : await generateAIAssistance(aiRequest);
 
-    // Increment usage counter
-    await db
-      .update(users)
-      .set({
-        aiRequestsThisMonth: sql`${users.aiRequestsThisMonth} + 1`,
-      })
-      .where(eq(users.id, user.id));
+    // Increment the appropriate counter
+    if (isFreeTier) {
+      await db
+        .update(users)
+        .set({ aiFreeGenerationsUsed: sql`${users.aiFreeGenerationsUsed} + 1` })
+        .where(eq(users.id, user.id));
+    } else {
+      await db
+        .update(users)
+        .set({ aiRequestsThisMonth: sql`${users.aiRequestsThisMonth} + 1` })
+        .where(eq(users.id, user.id));
+    }
 
-    const newUsage = currentUsage + 1;
-    const remaining = tierLimit === null ? null : tierLimit - newUsage;
+    const newUsage = isFreeTier ? user.aiFreeGenerationsUsed + 1 : currentUsage + 1;
+    const remaining = tierLimit === null ? null : Math.max(0, (tierLimit ?? 0) - newUsage);
 
     return NextResponse.json({
       suggestion: result.suggestion,
@@ -203,7 +233,8 @@ export async function POST(request: NextRequest) {
         current: newUsage,
         limit: tierLimit,
         remaining,
-        resetAt: user.aiRequestsResetAt,
+        resetAt: isFreeTier ? null : user.aiRequestsResetAt,
+        isFreeTrial: isFreeTier,
       },
     });
   } catch (error: any) {
@@ -243,6 +274,7 @@ export async function GET(request: NextRequest) {
         subscriptionTier: users.subscriptionTier,
         aiRequestsThisMonth: users.aiRequestsThisMonth,
         aiRequestsResetAt: users.aiRequestsResetAt,
+        aiFreeGenerationsUsed: users.aiFreeGenerationsUsed,
       })
       .from(users)
       .where(eq(users.id, session.user.id));
@@ -254,21 +286,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tierLimit = user.subscriptionTier === "free"
-      ? 0
+    const isFreeTier = user.subscriptionTier === "free";
+    const tierLimit = isFreeTier
+      ? FREE_AI_LIFETIME_GENERATIONS
       : SUBSCRIPTION_PLANS[user.subscriptionTier as "pro" | "premium"]?.aiRequestLimit ?? 0;
 
-    const remaining = tierLimit === null ? null : Math.max(0, tierLimit - user.aiRequestsThisMonth);
+    const current = isFreeTier ? user.aiFreeGenerationsUsed : user.aiRequestsThisMonth;
+    const remaining = tierLimit === null ? null : Math.max(0, (tierLimit ?? 0) - current);
+    const hasAccess = isFreeTier ? user.aiFreeGenerationsUsed < FREE_AI_LIFETIME_GENERATIONS : true;
 
     return NextResponse.json({
       tier: user.subscriptionTier,
       usage: {
-        current: user.aiRequestsThisMonth,
+        current,
         limit: tierLimit,
         remaining,
-        resetAt: user.aiRequestsResetAt,
+        resetAt: isFreeTier ? null : user.aiRequestsResetAt,
+        isFreeTrial: isFreeTier,
       },
-      hasAccess: user.subscriptionTier !== "free",
+      hasAccess,
     });
   } catch (error) {
     console.error("GET /api/ai/assist error:", error);

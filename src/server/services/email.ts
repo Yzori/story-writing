@@ -43,14 +43,17 @@ export async function sendEmail(
 
 // ── Email Templates ────────────────────────────────────────
 
+const APP_URL = process.env.NEXTAUTH_URL || "https://quiloria.app";
+
 const WRAPPER = (body: string) => `
 <div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#D4C4A8;background:#1A1510;padding:32px 24px;border-radius:12px;">
   <div style="text-align:center;margin-bottom:24px;">
     <span style="font-size:20px;font-weight:700;color:#C8963C;letter-spacing:0.05em;">Quiloria</span>
   </div>
   ${body}
-  <div style="margin-top:32px;padding-top:16px;border-top:1px solid #2E271E;text-align:center;font-size:12px;color:#7A6C56;">
-    You received this because you enabled email notifications on Quiloria.
+  <div style="margin-top:32px;padding-top:16px;border-top:1px solid #2E271E;text-align:center;font-size:12px;color:#7A6C56;line-height:1.5;">
+    You received this because you have email notifications enabled on Quiloria.<br/>
+    <a href="${APP_URL}/settings" style="color:#9A8A6A;text-decoration:underline;">Manage email preferences</a>
   </div>
 </div>`;
 
@@ -98,6 +101,53 @@ export function jamStartedEmail(jamTitle: string, theme: string, url: string) {
       <p style="margin:0 0 8px;line-height:1.6;"><strong style="color:#C8963C;">${jamTitle}</strong> is accepting submissions.</p>
       <p style="margin:0 0 16px;line-height:1.6;color:#9A8A6A;">Theme: <em>${theme}</em></p>
       <div style="text-align:center;">${CTA(url, "View Jam")}</div>
+    `),
+  };
+}
+
+export function commentReceivedEmail(commenterName: string, chapterTitle: string, snippet: string, url: string) {
+  const safeSnippet = snippet.length > 200 ? snippet.slice(0, 200) + "…" : snippet;
+  return {
+    subject: `${commenterName} commented on "${chapterTitle}"`,
+    html: WRAPPER(`
+      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New comment</h2>
+      <p style="margin:0 0 12px;line-height:1.6;"><strong style="color:#C8963C;">${commenterName}</strong> left a comment on <em>"${chapterTitle}"</em>:</p>
+      <blockquote style="margin:0 0 16px;padding:12px 14px;border-left:3px solid #C8963C40;background:#0F0C09;color:#9A8A6A;font-style:italic;line-height:1.5;border-radius:4px;">"${safeSnippet}"</blockquote>
+      <div style="text-align:center;">${CTA(url, "Read &amp; Reply")}</div>
+    `),
+  };
+}
+
+export function creatorUpdateEmail(authorName: string, storyTitle: string, snippet: string, url: string) {
+  const safeSnippet = snippet.length > 200 ? snippet.slice(0, 200) + "…" : snippet;
+  return {
+    subject: `${authorName} posted an update for "${storyTitle}"`,
+    html: WRAPPER(`
+      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New update from ${authorName}</h2>
+      <p style="margin:0 0 12px;line-height:1.6;color:#9A8A6A;">From <em>"${storyTitle}"</em></p>
+      <p style="margin:0 0 16px;line-height:1.6;color:#D4C4A8;">${safeSnippet}</p>
+      <div style="text-align:center;">${CTA(url, "Read Update")}</div>
+    `),
+  };
+}
+
+export function suggestionReceivedEmail(suggesterName: string, storyTitle: string, url: string) {
+  return {
+    subject: `${suggesterName} sent a suggestion for "${storyTitle}"`,
+    html: WRAPPER(`
+      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New suggestion to review</h2>
+      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#C8963C;">${suggesterName}</strong> proposed an edit on <em>"${storyTitle}"</em>.</p>
+      <div style="text-align:center;">${CTA(url, "Review in Workshop")}</div>
+    `),
+  };
+}
+
+export function genericNotificationEmail(message: string, url: string) {
+  return {
+    subject: message.length > 60 ? message.slice(0, 57) + "…" : message,
+    html: WRAPPER(`
+      <p style="margin:0 0 16px;line-height:1.6;">${message}</p>
+      <div style="text-align:center;">${CTA(url, "View on Quiloria")}</div>
     `),
   };
 }
