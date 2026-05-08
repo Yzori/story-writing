@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import StoryCard from "@/components/shared/StoryCard";
+import AttentionStrip from "@/components/dashboard/AttentionStrip";
 import type { ApiStory, ApiReadingProgress, ApiNotification } from "@/types/api";
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -438,6 +439,9 @@ export default function DashboardPage() {
           {/* LEFT COLUMN: CREATIVE FLOW (Col-Span-8) */}
           <div className="lg:col-span-8 flex flex-col gap-10">
             
+            {/* 0. Today — pending items waiting on the creator */}
+            <AttentionStrip />
+
             {/* 1. Active Story Spotlight */}
             {activeStory ? (
               <div className="flex flex-col gap-4">

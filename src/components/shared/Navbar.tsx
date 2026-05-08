@@ -14,6 +14,7 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [inkDropBalance, setInkDropBalance] = useState<number | null>(null);
+  const [streak, setStreak] = useState<{ days: number; status: "active" | "at-risk" | "broken" | "none" } | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session, status: sessionStatus } = useSession();
   const isLoading = sessionStatus === "loading";
@@ -66,6 +67,26 @@ export default function Navbar() {
     }
     fetchBalance();
     const interval = setInterval(fetchBalance, 60000);
+    return () => { controller.abort(); clearInterval(interval); };
+  }, [session?.user?.id]);
+
+  // Fetch reading streak (refresh every 5 min — streaks change at most once a day)
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const controller = new AbortController();
+    async function fetchStreak() {
+      try {
+        const res = await fetch("/api/user/streak", { signal: controller.signal });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data) setStreak({ days: json.data.days, status: json.data.status });
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }
+    fetchStreak();
+    const interval = setInterval(fetchStreak, 5 * 60_000);
     return () => { controller.abort(); clearInterval(interval); };
   }, [session?.user?.id]);
 
@@ -231,6 +252,28 @@ export default function Navbar() {
                   <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-gold to-copper shadow-[0_0_4px_var(--t-gold-soft)] animate-pulse" />
                 )}
               </Link>
+
+              {/* Reading streak — shown when active or at-risk */}
+              {streak && streak.days > 0 && (streak.status === "active" || streak.status === "at-risk") && (
+                <Link
+                  href="/read"
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg transition-all duration-300 ${
+                    streak.status === "at-risk"
+                      ? "text-rose hover:bg-rose/10 hover:text-rose"
+                      : "text-amber hover:bg-amber/10"
+                  }`}
+                  title={
+                    streak.status === "at-risk"
+                      ? `${streak.days}-day streak — read today to keep it alive`
+                      : `${streak.days}-day reading streak`
+                  }
+                >
+                  <span className="text-[11px]" aria-hidden>
+                    🔥
+                  </span>
+                  <span className="text-[11px] tabular-nums font-medium">{streak.days}</span>
+                </Link>
+              )}
 
               {/* Ink Drop balance */}
               {inkDropBalance !== null && (

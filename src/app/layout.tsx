@@ -44,6 +44,30 @@ export const metadata: Metadata = {
   title: "Quiloria — Where Stories Come Alive",
   description:
     "A collaborative writing platform where writers, artists, and readers come together to create stories that matter.",
+  manifest: "/manifest.json",
+  applicationName: "Quiloria",
+  appleWebApp: {
+    capable: true,
+    title: "Quiloria",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
+};
+
+export const viewport = {
+  themeColor: "#0A0805",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({

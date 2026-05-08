@@ -48,6 +48,7 @@ import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
 import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
+import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
 
@@ -2654,6 +2655,18 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       <OnboardingHints />
+
+      {/* First-chapter coach — nudges new writers through title/genre/cover/100 words */}
+      <FirstChapterCoach
+        state={{
+          hasTitle: !!project.title && project.title !== "Untitled story" && project.title !== "Untitled",
+          hasGenre: (project.metadata?.genres?.length ?? 0) > 0,
+          hasCover: !!project.metadata?.coverImageDataUrl,
+          hasContent: (activeChapter?.wordCount ?? 0) >= 100,
+        }}
+        totalWords={totalWords}
+        onOpenSetup={handleOpenMetadata}
+      />
 
       {/* Upgrade Modal for Premium Features */}
       <UpgradeModal

@@ -45,6 +45,10 @@ export const users = pgTable("users", {
   aiRequestsResetAt: timestamp("ai_requests_reset_at", { withTimezone: true }),
   // Free-tier "taste" — lifetime cap of free AI generations (Continue Writing only)
   aiFreeGenerationsUsed: integer("ai_free_generations_used").notNull().default(0),
+  // Reader streak — incremented when reading-progress is upserted on a new UTC day
+  readingStreakDays: integer("reading_streak_days").notNull().default(0),
+  readingStreakLastDay: text("reading_streak_last_day"), // YYYY-MM-DD (UTC)
+  readingStreakBest: integer("reading_streak_best").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

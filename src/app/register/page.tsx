@@ -1,13 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-export default function RegisterPage() {
+const DEMO_DRAFT_KEY = "quiloria-demo-draft-v1";
+
+interface DemoDraft {
+  title?: string;
+  content?: string;
+  updatedAt?: number;
+}
+
+function readDemoDraft(): DemoDraft | null {
+  try {
+    const raw = localStorage.getItem(DEMO_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DemoDraft;
+    if (!parsed?.content) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearDemoDraft() {
+  try { localStorage.removeItem(DEMO_DRAFT_KEY); } catch {}
+}
+
+/**
+ * Imports a localStorage demo draft into a real story for a freshly registered
+ * user. Best-effort: on any failure we fall through to the regular welcome
+ * flow rather than leaving the user stuck.
+ */
+async function importDemoDraft(draft: DemoDraft): Promise<string | null> {
+  try {
+    const storyRes = await fetch("/api/stories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: draft.title?.trim() || "Untitled story",
+        format: "novel",
+        writingMode: "solo",
+      }),
+    });
+    const storyJson = await storyRes.json();
+    const storyId: string | undefined = storyJson.data?.id;
+    if (!storyRes.ok || !storyId) return null;
+
+    // Replace the auto-created first chapter's content with the draft.
+    const chaptersRes = await fetch(`/api/stories/${storyId}/chapters?withContent=true`, { cache: "no-store" });
+    const chaptersJson = await chaptersRes.json();
+    const firstChapter = chaptersJson?.data?.[0];
+    if (firstChapter?.id) {
+      await fetch(`/api/stories/${storyId}/chapters/${firstChapter.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: draft.content }),
+      });
+    } else {
+      // No auto chapter — create one with the draft content.
+      await fetch(`/api/stories/${storyId}/chapters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Chapter 1", content: draft.content }),
+      });
+    }
+
+    return storyId;
+  } catch {
+    return null;
+  }
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromDemo = searchParams?.get("source") === "demo";
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -15,6 +86,12 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Detect a demo draft so we can show a friendly banner and tailor the redirect.
+  useEffect(() => {
+    setHasDraft(!!readDemoDraft());
+  }, []);
 
   function validate(): string | null {
     if (!displayName.trim()) return "Display name is required.";
@@ -41,7 +118,26 @@ export default function RegisterPage() {
       if (!res.ok) { setError(data.error || "Registration failed. Please try again."); setLoading(false); return; }
 
       const result = await signIn("credentials", { email, password, redirect: false });
-      if (result?.error) { router.push("/login"); } else { router.push("/welcome"); router.refresh(); }
+      if (result?.error) {
+        router.push("/login");
+        return;
+      }
+
+      // If the user came from the demo editor, import their draft into a real
+      // story and drop them straight into the editor.
+      const draft = readDemoDraft();
+      if (draft) {
+        const storyId = await importDemoDraft(draft);
+        if (storyId) {
+          clearDemoDraft();
+          router.push(`/write/${storyId}`);
+          router.refresh();
+          return;
+        }
+      }
+
+      router.push("/welcome");
+      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -72,9 +168,35 @@ export default function RegisterPage() {
             </svg>
             <span className="font-display text-sm font-bold text-paper tracking-wide">Quiloria</span>
           </Link>
-          <h1 className="font-display text-3xl text-paper font-semibold">Begin your journey</h1>
-          <p className="text-text-secondary text-sm mt-2">Always free to write and read · No credit card required</p>
+          <h1 className="font-display text-3xl text-paper font-semibold">
+            {hasDraft ? "Save your draft" : "Begin your journey"}
+          </h1>
+          <p className="text-text-secondary text-sm mt-2">
+            {hasDraft
+              ? "Create an account and we'll bring your draft with you."
+              : "Always free to write and read · No credit card required"}
+          </p>
         </div>
+
+        {/* Demo draft banner */}
+        {hasDraft && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 rounded-xl border border-amber/20 bg-amber/[0.05] px-4 py-3 flex items-start gap-3"
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber/80 shrink-0 mt-0.5">
+              <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
+              <path d="M5 5h6M5 8h4M5 11h3" />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-paper text-[12px] font-medium">Your draft is ready to save</p>
+              <p className="text-text-ghost text-[11px] mt-0.5 leading-relaxed">
+                We'll import your demo writing as your first chapter.
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Form Card */}
         <div className="card-page firelight p-6">
@@ -201,5 +323,13 @@ export default function RegisterPage() {
         </p>
       </motion.div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-void" />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

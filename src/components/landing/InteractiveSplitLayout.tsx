@@ -183,24 +183,27 @@ type InkParticle = {
 // ── Auth-aware "Begin Writing" CTA ──────────────────────────
 function BeginWritingCTA() {
   const { data: session } = useSession();
-  const href = session?.user ? "/create" : "/register?callbackUrl=/create";
+  // Anon users: drop straight into the public demo editor (no signup required).
+  // Signed-in users: jump to the create flow as before.
+  const primaryHref = session?.user ? "/create" : "/demo/try";
+  const primaryLabel = session?.user ? "Begin Writing" : "Try the editor";
 
   return (
     <div className="inline-flex flex-col items-center gap-3">
       <Link
-        href={href}
+        href={primaryHref}
         className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-gold text-black font-body font-semibold text-sm tracking-wide
           hover:bg-gold-light transition-all duration-300
           shadow-[var(--t-shadow-card-hover)]
           hover:shadow-[var(--t-shadow-elevated)]"
       >
-        Begin Writing
+        {primaryLabel}
       </Link>
       <Link
         href="/read"
         className="text-text-ghost hover:text-gold text-[12px] tracking-[0.15em] uppercase transition-colors"
       >
-        Start reading — no account needed
+        {session?.user ? "Or read first" : "Start reading — no account needed"}
       </Link>
     </div>
   );

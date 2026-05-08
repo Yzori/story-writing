@@ -6,6 +6,56 @@ import { auth } from "@/server/auth";
 import { upsertReadingProgressSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
 
+/** UTC date in YYYY-MM-DD form for streak bucketing. */
+function utcDay(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Best-effort streak bump after a successful reading-progress upsert.
+ * - If the last streak day is today (UTC) → no-op
+ * - If the last streak day is yesterday → days += 1
+ * - Otherwise → reset to 1
+ * Always updates `readingStreakBest` to max(current, new).
+ * Errors are swallowed — streak is a delight, not a contract.
+ */
+async function bumpReadingStreak(userId: string): Promise<void> {
+  try {
+    const [user] = await db
+      .select({
+        days: users.readingStreakDays,
+        lastDay: users.readingStreakLastDay,
+        best: users.readingStreakBest,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+    if (!user) return;
+
+    const today = utcDay();
+    if (user.lastDay === today) return; // already counted today
+
+    let nextDays = 1;
+    if (user.lastDay) {
+      const yesterday = utcDay(new Date(Date.now() - 86_400_000));
+      if (user.lastDay === yesterday) {
+        nextDays = (user.days ?? 0) + 1;
+      }
+    }
+    const nextBest = Math.max(user.best ?? 0, nextDays);
+
+    await db
+      .update(users)
+      .set({
+        readingStreakDays: nextDays,
+        readingStreakLastDay: today,
+        readingStreakBest: nextBest,
+      })
+      .where(eq(users.id, userId));
+  } catch (error) {
+    console.error("bumpReadingStreak failed:", error);
+  }
+}
+
 /**
  * GET /api/reading-progress?storyId=...
  * Returns the user's reading progress for a specific story, or all stories if no storyId.
@@ -152,6 +202,10 @@ export async function PUT(request: NextRequest) {
         },
       })
       .returning();
+
+    // Fire-and-forget streak bump. Reading is a daily habit loop, so we
+    // count the act of saving any progress on a chapter as "read today".
+    bumpReadingStreak(userId).catch(() => {});
 
     return NextResponse.json({ data: result });
   } catch (error) {
