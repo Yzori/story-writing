@@ -179,6 +179,10 @@ export const updatePreferencesSchema = z.object({
   readingFont: z.enum(["default", "serif", "sans", "mono"]).optional(),
   emailNotifications: z.boolean().optional(),
   emailDigestMode: z.enum(["instant", "daily", "weekly", "off"]).optional(),
+  preferredGenres: z.array(z.string().max(64)).max(20).optional(),
+  preferredReadLength: z.enum(["quick", "short", "medium", "long", "any"]).optional(),
+  /** Pass `true` to stamp onboardedAt to now. Cannot be unset. */
+  markOnboarded: z.boolean().optional(),
 });
 
 // ── Collaborators ───────────────────────────────────────────

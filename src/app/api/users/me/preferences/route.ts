@@ -27,6 +27,9 @@ export async function GET() {
         readingFont: users.readingFont,
         emailNotifications: users.emailNotifications,
         emailDigestMode: users.emailDigestMode,
+        preferredGenres: users.preferredGenres,
+        preferredReadLength: users.preferredReadLength,
+        onboardedAt: users.onboardedAt,
       })
       .from(users)
       .where(eq(users.id, session.user.id))
@@ -80,18 +83,33 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updates = parsed.data;
+    const { markOnboarded, preferredReadLength, ...rest } = parsed.data;
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(parsed.data).length === 0) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "No fields to update" } },
         { status: 400 }
       );
     }
 
+    // "any" is a UI sentinel that means "no preference" — store as null.
+    const dbReadLength =
+      preferredReadLength === undefined
+        ? undefined
+        : preferredReadLength === "any"
+          ? null
+          : preferredReadLength;
+
+    const setPayload: Record<string, unknown> = {
+      ...rest,
+      updatedAt: new Date(),
+    };
+    if (dbReadLength !== undefined) setPayload.preferredReadLength = dbReadLength;
+    if (markOnboarded) setPayload.onboardedAt = new Date();
+
     const [updated] = await db
       .update(users)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(setPayload)
       .where(eq(users.id, session.user.id))
       .returning({
         comfortRating: users.comfortRating,
@@ -99,6 +117,9 @@ export async function PATCH(request: NextRequest) {
         readingFont: users.readingFont,
         emailNotifications: users.emailNotifications,
         emailDigestMode: users.emailDigestMode,
+        preferredGenres: users.preferredGenres,
+        preferredReadLength: users.preferredReadLength,
+        onboardedAt: users.onboardedAt,
       });
 
     if (!updated) {

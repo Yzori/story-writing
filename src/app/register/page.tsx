@@ -124,7 +124,8 @@ function RegisterForm() {
       }
 
       // If the user came from the demo editor, import their draft into a real
-      // story and drop them straight into the editor.
+      // story and drop them straight into the editor — they're a writer first,
+      // skip the reader-preference flow entirely.
       const draft = readDemoDraft();
       if (draft) {
         const storyId = await importDemoDraft(draft);
@@ -136,7 +137,8 @@ function RegisterForm() {
         }
       }
 
-      router.push("/welcome");
+      // Default new-user path: preference capture → /welcome → reader/writer/collab.
+      router.push("/welcome/preferences?next=/welcome");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

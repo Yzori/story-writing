@@ -55,6 +55,13 @@ export const users = pgTable("users", {
   readingStreakDays: integer("reading_streak_days").notNull().default(0),
   readingStreakLastDay: text("reading_streak_last_day"), // YYYY-MM-DD (UTC)
   readingStreakBest: integer("reading_streak_best").notNull().default(0),
+  // Reader onboarding — preferences captured at signup to prime the For You feed.
+  preferredGenres: text("preferred_genres")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  preferredReadLength: text("preferred_read_length"), // "quick" | "short" | "medium" | "long" | null = no preference
+  onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

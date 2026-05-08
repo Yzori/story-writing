@@ -1024,6 +1024,89 @@ function ModeSelection({
           </motion.p>
         </AnimatePresence>
       </motion.div>
+
+      {/* Import existing manuscript */}
+      <ImportEntry disabled={!!selectedMode} />
     </div>
+  );
+}
+
+function ImportEntry({ disabled }: { disabled: boolean }) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onPick = async (file: File) => {
+    if (importing) return;
+    setError(null);
+    if (!file.name.toLowerCase().endsWith(".docx")) {
+      setError("We only support .docx for now.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File too large. 10 MB max.");
+      return;
+    }
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/stories/import", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok || !json.data?.id) {
+        setError(json.error?.message || "Import failed.");
+        setImporting(false);
+        return;
+      }
+      router.push(`/write/${json.data.id}`);
+    } catch {
+      setError("Network error. Try again.");
+      setImporting(false);
+    }
+  };
+
+  if (disabled) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 text-center"
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={importing}
+        className="text-[12px] text-text-ghost hover:text-amber transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+      >
+        {importing ? (
+          <>
+            <span className="w-3 h-3 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
+            Importing your manuscript…
+          </>
+        ) : (
+          <>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M8 11V3M8 3l-3 3M8 3l3 3" />
+              <path d="M3 11v2a1 1 0 001 1h8a1 1 0 001-1v-2" />
+            </svg>
+            Or import a .docx manuscript
+          </>
+        )}
+      </button>
+      {error && <p className="text-[11px] text-rose mt-2">{error}</p>}
+    </motion.div>
   );
 }

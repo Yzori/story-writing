@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const userId = session?.user?.id ?? null;
 
     // ── Gather user signals ──────────────────────────────────
-    const [sparkRows, followRows, progressRows] = userId
+    const [sparkRows, followRows, progressRows, prefRows] = userId
       ? await Promise.all([
           db
             .select({
@@ -73,8 +73,17 @@ export async function GET(request: NextRequest) {
             .from(readingProgress)
             .leftJoin(stories, eq(readingProgress.storyId, stories.id))
             .where(eq(readingProgress.userId, userId)),
+          db
+            .select({
+              preferredGenres: users.preferredGenres,
+            })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1),
         ])
-      : [[], [], []];
+      : [[], [], [], []];
+
+    const explicitGenres = new Set<string>(prefRows[0]?.preferredGenres ?? []);
 
     const sparkedStoryIds = new Set(sparkRows.map((r) => r.storyId));
     const sparkedAuthorIds = new Set(
@@ -231,6 +240,9 @@ export async function GET(request: NextRequest) {
       if (followedAuthorIds.has(c.userId)) score += 12;
       if (Number(c.isStaffPick) > 0) score += 6;
       if (c.genres?.some((g) => topGenres.has(g))) score += 4;
+      // Explicit reader-onboarding genre prefs — strong signal for new users
+      // who haven't built read history yet.
+      if (c.genres?.some((g) => explicitGenres.has(g))) score += 7;
       if (activeFormats.has(c.format)) score += 3;
       if (hasNewChapter) score += 15;
       // New Voice: author joined in the last 30 days
@@ -247,6 +259,7 @@ export async function GET(request: NextRequest) {
       else if (hasNewChapter) reason = "new-chapter";
       else if (sparkedAuthorIds.has(c.userId)) reason = "sparked-author";
       else if (Number(c.isStaffPick) > 0) reason = "staff-pick";
+      else if (c.genres?.some((g) => explicitGenres.has(g))) reason = "genre-match";
       else if (isNewVoice) reason = "new-voice";
       else if (c.genres?.some((g) => topGenres.has(g))) reason = "genre-match";
       else reason = "new-voice";
