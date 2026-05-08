@@ -167,6 +167,7 @@ export async function GET(request: NextRequest) {
         title: stories.title,
         slug: stories.slug,
         synopsis: stories.synopsis,
+        hook: stories.hook,
         coverImageUrl: stories.coverImageUrl,
         format: stories.format,
         genres: stories.genres,

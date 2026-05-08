@@ -32,3 +32,32 @@ export function formatNumber(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return n.toLocaleString();
 }
+
+/**
+ * Reading-time at the conventional 250 wpm pace.
+ * Returns short, scan-friendly strings:
+ *  - "<1 min" for tiny excerpts
+ *  - "5 min" / "23 min" / "1 hr" / "1 hr 20 min"
+ *  - Full hours collapse minutes when minutes < 5 ("2 hr" not "2 hr 3 min")
+ */
+export function formatReadTime(words: number, wpm = 250): string {
+  if (!words || words <= 0) return "";
+  const minutes = Math.max(1, Math.round(words / wpm));
+  if (words < 100) return "<1 min";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  if (rem < 5) return `${hours} hr`;
+  return `${hours} hr ${rem} min`;
+}
+
+/**
+ * Reading-length category — useful for "if you have X minutes" filters.
+ */
+export function readLengthBucket(words: number): "quick" | "short" | "medium" | "long" | "epic" {
+  if (words < 1000) return "quick";    // < 4 min
+  if (words < 5000) return "short";    // < 20 min
+  if (words < 20000) return "medium";  // < 1.5 hr
+  if (words < 80000) return "long";    // < 5 hr
+  return "epic";
+}

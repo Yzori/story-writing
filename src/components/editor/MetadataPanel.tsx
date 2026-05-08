@@ -235,6 +235,33 @@ export default function MetadataPanel({
             )}
           </section>
 
+          {/* Hook — short pitch shown on cards and feeds */}
+          <section>
+            <div className="flex items-baseline justify-between mb-2">
+              <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">
+                Hook
+              </label>
+              <span className="text-[10px] text-text-ghost tabular-nums">
+                {(metadata.hook?.length ?? 0)}/280
+              </span>
+            </div>
+            <textarea
+              value={metadata.hook ?? ""}
+              onChange={(e) => {
+                if (e.target.value.length <= 280) {
+                  update({ hook: e.target.value });
+                }
+              }}
+              placeholder="One or two sentences that earn the reader's next 5 minutes."
+              rows={2}
+              maxLength={280}
+              className="w-full bg-elevated border border-border rounded-lg px-3 py-2.5 text-[13px] text-text leading-relaxed font-reading italic outline-none placeholder:text-text-ghost placeholder:not-italic focus:border-amber/30 transition-colors resize-none"
+            />
+            <p className="text-[10px] text-text-ghost mt-1.5 leading-relaxed">
+              Shown on browse cards and the For You feed. Optional but high-leverage — the story's first taste.
+            </p>
+          </section>
+
           {/* Synopsis */}
           <section>
             <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">

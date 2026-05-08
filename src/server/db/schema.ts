@@ -86,6 +86,8 @@ export const stories = pgTable("stories", {
   title: text("title").notNull(),
   format: text("format").notNull().default("novel"),
   synopsis: text("synopsis").default(""),
+  /** Author-curated 1-2 sentence pitch — surfaced on cards/feeds. */
+  hook: text("hook").default(""),
   coverImageUrl: text("cover_image_url"),
   genres: text("genres")
     .array()

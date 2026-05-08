@@ -11,6 +11,7 @@ export interface ApiStory {
   title: string;
   format: string;
   synopsis: string | null;
+  hook?: string | null;
   coverImageUrl: string | null;
   genres: string[];
   contentRating: string;
@@ -35,6 +36,7 @@ export interface ApiStoryData {
   title: string;
   format: string;
   synopsis: string | null;
+  hook?: string | null;
   dedication: string | null;
   coverImageUrl: string | null;
   genres: string[];

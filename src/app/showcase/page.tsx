@@ -14,6 +14,7 @@ interface StaffPickStory {
   title: string;
   format: string;
   synopsis: string | null;
+  hook: string | null;
   coverImageUrl: string | null;
   genres: string[];
   contentRating: string;
@@ -206,6 +207,7 @@ function FormatSection({
               coverUrl={story.coverImageUrl ?? undefined}
               format={story.format}
               excerpt={story.synopsis ?? undefined}
+              hook={story.hook ?? undefined}
             />
             {story.curatorNote && (
               <div className="px-3 py-2 rounded-lg border border-amber/15 bg-amber/[0.03]">

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import GenrePill from "./GenrePill";
+import { formatReadTime } from "@/lib/format";
 
 const RATING_BADGES: Record<string, { label: string; className: string }> = {
   everyone: { label: "All Ages", className: "text-sage" },
@@ -27,6 +28,8 @@ interface StoryCardProps {
   lastEdited?: string;
   variant?: "default" | "featured";
   excerpt?: string;
+  /** Author-curated short pitch (1-2 sentences). Renders as a pull-quote. */
+  hook?: string;
   writingMode?: string;
   isBoosted?: boolean;
   format?: string;
@@ -84,6 +87,7 @@ export default function StoryCard({
   lastEdited,
   variant = "default",
   excerpt,
+  hook,
   writingMode,
   isBoosted,
   format,
@@ -144,17 +148,29 @@ export default function StoryCard({
                 by {author}
               </p>
             )}
-            {excerpt && (
+            {hook ? (
+              <p className="text-text-secondary text-[13px] leading-relaxed line-clamp-3 mb-3 font-reading italic border-l-2 border-amber/30 pl-3">
+                {hook}
+              </p>
+            ) : excerpt ? (
               <p className="text-text-tertiary text-[12px] leading-relaxed line-clamp-2 mb-3">
                 {excerpt}
               </p>
-            )}
+            ) : null}
             <div className="flex items-center gap-2 flex-wrap">
               {genres.slice(0, 2).map((g) => (
                 <GenrePill key={g} genre={g} />
               ))}
             </div>
-            <div className="flex items-center gap-3 mt-3.5 pt-3 border-t border-border-subtle text-[11px] text-text-tertiary">
+            <div className="flex items-center gap-2.5 mt-3.5 pt-3 border-t border-border-subtle text-[11px] text-text-tertiary">
+              {wordCount > 0 && (
+                <>
+                  <span className="text-text-secondary" title={`${formatWordCount(wordCount)} words`}>
+                    {formatReadTime(wordCount)}
+                  </span>
+                  <span className="text-text-ghost">·</span>
+                </>
+              )}
               <span className="flex items-center gap-1.5">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
                   <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
@@ -163,12 +179,15 @@ export default function StoryCard({
                 {chapterCount} ch
               </span>
               {sparkCount !== undefined && sparkCount > 0 && (
-                <span className="flex items-center gap-1 text-amber/70">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
-                  </svg>
-                  {sparkCount}
-                </span>
+                <>
+                  <span className="text-text-ghost">·</span>
+                  <span className="flex items-center gap-1 text-amber/70">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+                    </svg>
+                    {sparkCount}
+                  </span>
+                </>
               )}
             </div>
           </div>
@@ -241,6 +260,11 @@ export default function StoryCard({
               by {author}
             </p>
           )}
+          {hook && (
+            <p className="text-text-secondary text-[12px] leading-relaxed line-clamp-2 mb-3 font-reading italic">
+              {hook}
+            </p>
+          )}
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
             {formatLabel && (
               <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-text-secondary bg-elevated/60 border border-border-subtle px-2 py-0.5 rounded-full">
@@ -257,17 +281,24 @@ export default function StoryCard({
             )}
           </div>
           <div className="flex items-center justify-between text-[11px] text-text-tertiary pt-3 border-t border-border-subtle">
-            <div className="flex items-center gap-3">
-              <span>{formatWordCount(wordCount)} words</span>
-              <span className="text-text-ghost">|</span>
+            <div className="flex items-center gap-2.5">
+              {wordCount > 0 && (
+                <span className="text-text-secondary" title={`${formatWordCount(wordCount)} words`}>
+                  {formatReadTime(wordCount)}
+                </span>
+              )}
+              {wordCount > 0 && chapterCount > 0 && <span className="text-text-ghost">·</span>}
               <span>{chapterCount} ch</span>
               {sparkCount !== undefined && sparkCount > 0 && (
-                <span className="flex items-center gap-1 text-amber/60">
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
-                  </svg>
-                  {sparkCount}
-                </span>
+                <>
+                  <span className="text-text-ghost">·</span>
+                  <span className="flex items-center gap-1 text-amber/60">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+                    </svg>
+                    {sparkCount}
+                  </span>
+                </>
               )}
             </div>
             {contentRating && contentRating !== "everyone" && RATING_BADGES[contentRating] && (

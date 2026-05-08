@@ -50,6 +50,8 @@ export interface FrontMatter {
 export interface StoryMetadata {
   coverImageDataUrl: string | null;
   synopsis: string;
+  /** Author-curated 1-2 sentence pitch — surfaced on cards and feeds. */
+  hook: string;
   genres: string[];
   contentRating: ContentRating;
   status: StoryStatus;
@@ -174,6 +176,7 @@ function createMetadata(): StoryMetadata {
   return {
     coverImageDataUrl: null,
     synopsis: "",
+    hook: "",
     genres: [],
     contentRating: "PG",
     status: "draft",

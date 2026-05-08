@@ -8,6 +8,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import { GENRES } from "@/config/genres";
 import StoryCard from "@/components/shared/StoryCard";
 import GenrePill from "@/components/shared/GenrePill";
+import { formatReadTime } from "@/lib/format";
 import type { ApiStory } from "@/types/api";
 
 
@@ -120,6 +121,8 @@ interface BookCardProps {
   author?: string;
   genres: string[];
   synopsis?: string;
+  /** Author-curated short pitch — preferred over synopsis when present. */
+  hook?: string;
   wordCount: number;
   chapterCount: number;
   sparkCount: number;
@@ -137,7 +140,9 @@ const FORMAT_LABELS: Record<string, string> = {
   campaign: "Adventure",
 };
 
-function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterCount, sparkCount, slug, coverUrl, format }: BookCardProps) {
+function EnhancedBookCard({ title, author, genres, synopsis, hook, wordCount, chapterCount, sparkCount, slug, coverUrl, format }: BookCardProps) {
+  // Hook (author pitch) wins over synopsis as the inside-cover preview.
+  const previewText = hook?.trim() || synopsis;
   const cardRef = useRef<HTMLDivElement>(null);
 
   // 3D Tilt Logic
@@ -204,10 +209,10 @@ function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterC
               <div className="w-12 h-px bg-white/10 mb-5" />
 
               <p className="text-[13px] text-paper/80 leading-[1.8] font-serif flex-1">
-                 {synopsis ? (
+                 {previewText ? (
                    <>
-                     <span className={`float-left text-4xl leading-7 pr-1.5 pt-1.5 font-display ${accentColor}`}>{synopsis.charAt(0)}</span>
-                     {synopsis.substring(1, 200)}...
+                     <span className={`float-left text-4xl leading-7 pr-1.5 pt-1.5 font-display ${accentColor}`}>{previewText.charAt(0)}</span>
+                     {previewText.substring(1, 200)}{previewText.length > 200 ? "..." : ""}
                    </>
                  ) : (
                    <>
@@ -219,8 +224,13 @@ function EnhancedBookCard({ title, author, genres, synopsis, wordCount, chapterC
 
               <div className="mt-auto pt-4 border-t border-white/5 pb-1">
                 <div className="flex items-center justify-between text-[11px] text-paper/50 font-medium">
-                  <div className="flex items-center gap-3">
-                    <span>{wordCount >= 1000 ? `${(wordCount / 1000).toFixed(1)}k` : wordCount} wds</span>
+                  <div className="flex items-center gap-2.5">
+                    {wordCount > 0 && (
+                      <span className="text-paper/70" title={`${wordCount.toLocaleString()} words`}>
+                        {formatReadTime(wordCount)}
+                      </span>
+                    )}
+                    {wordCount > 0 && <span className="text-paper/30">·</span>}
                     <span>{chapterCount} chs</span>
                   </div>
                   <span className={`flex items-center gap-1 ${accentColor}`}>
@@ -886,6 +896,7 @@ function BrowsePage() {
                     author={story.authorName || undefined}
                     genres={story.genres}
                     synopsis={story.synopsis || undefined}
+                    hook={story.hook || undefined}
                     wordCount={story.totalWords || 0}
                     chapterCount={story.chapterCount || 0}
                     sparkCount={story.sparkCount || 0}

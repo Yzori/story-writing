@@ -385,6 +385,7 @@ export default function WriteStoryPage() {
           metadata: {
             coverImageDataUrl: story.coverImageUrl || null,
             synopsis: story.synopsis || "",
+            hook: story.hook || "",
             genres: story.genres || [],
             contentRating: story.contentRating || "G",
             status: story.status || "draft",
@@ -1157,6 +1158,7 @@ export default function WriteStoryPage() {
       // Sync key fields to API
       const patchBody: Record<string, unknown> = {
         synopsis: metadata.synopsis,
+        hook: metadata.hook,
         genres: metadata.genres,
         contentRating: metadata.contentRating,
         status: metadata.status,

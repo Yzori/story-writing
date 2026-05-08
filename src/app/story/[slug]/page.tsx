@@ -114,6 +114,7 @@ export default function StoryPage() {
   const [readingProgressPercent, setReadingProgressPercent] = useState<number>(0);
   const [moreByAuthor, setMoreByAuthor] = useState<Array<{
     id: string; title: string; format: string; synopsis: string | null;
+    hook?: string | null;
     coverImageUrl: string | null; genres: string[]; status: string;
     slug: string | null; authorName: string | null; chapterCount: number;
     totalWords: number; sparkCount: number; contentRating: string;
@@ -580,6 +581,13 @@ export default function StoryPage() {
                 <GenrePill key={genre} genre={genre} size="md" />
               ))}
             </div>
+          )}
+
+          {/* Hook — pull-quote pitch above the synopsis */}
+          {story.hook && (
+            <p className="text-paper text-[16px] sm:text-[17px] leading-relaxed max-w-2xl mb-4 font-reading italic border-l-2 border-amber/40 pl-4">
+              {story.hook}
+            </p>
           )}
 
           {/* Synopsis */}
@@ -1228,6 +1236,7 @@ export default function StoryPage() {
                     slug={s.slug || s.id}
                     coverUrl={s.coverImageUrl || undefined}
                     excerpt={s.synopsis || undefined}
+                    hook={s.hook || undefined}
                     format={s.format}
                   />
                 </div>

@@ -56,6 +56,7 @@ export async function GET() {
       title: stories.title,
       slug: stories.slug,
       synopsis: stories.synopsis,
+      hook: stories.hook,
       coverImageUrl: stories.coverImageUrl,
       genres: stories.genres,
       format: stories.format,
