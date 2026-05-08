@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { dropsToUsd } from "@/lib/constants";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -50,12 +51,6 @@ const DEFAULT_FORM: WizardForm = {
 const PRICE_OPTIONS = [300, 400, 500, 600, 700, 800];
 const EARLY_ACCESS_OPTIONS = [1, 2, 3, 5, 7];
 const STEP_LABELS = ["Price", "Early Access", "Your Note", "Preview"];
-
-const DROPS_TO_USD = 0.83 / 100;
-
-function dropsToUsd(drops: number): string {
-  return (drops * DROPS_TO_USD).toFixed(2);
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", {

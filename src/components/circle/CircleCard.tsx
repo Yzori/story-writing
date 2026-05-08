@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { dropsToUsd } from "@/lib/constants";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -34,11 +35,6 @@ type CardState =
   | "cancelled";
 
 // ── Helpers ─────────────────────────────────────────────────
-
-/** Approximate USD value: 100 drops ~ $1 */
-function dropsToUsd(drops: number): string {
-  return (drops / 100).toFixed(2);
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {

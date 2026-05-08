@@ -971,9 +971,9 @@ export default function StoryCanvas({
                   <button
                     key={t.key}
                     onClick={() => setDraftType(t.key)}
-                    className={`px-3 py-1 text-[10px] uppercase tracking-[0.08em] font-medium rounded-full border transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 text-[12px] uppercase tracking-[0.08em] font-semibold rounded-full border transition-all cursor-pointer ${
                       draftType === t.key
-                        ? "bg-amber/15 text-amber border-amber/30"
+                        ? "bg-amber/15 text-amber border-amber/40 shadow-[0_0_10px_rgba(200,150,60,0.15)]"
                         : "bg-subtle/30 text-text-tertiary border-border hover:text-text-secondary"
                     }`}
                     title={t.hint}
@@ -1072,7 +1072,7 @@ export default function StoryCanvas({
                     disabled={!draftContent.trim()}
                     className="bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] disabled:opacity-50 disabled:hover:bg-amber/10 disabled:hover:text-amber disabled:cursor-not-allowed cursor-pointer"
                   >
-                    Ink to Story
+                    Post Turn
                   </button>
                 </div>
               </div>

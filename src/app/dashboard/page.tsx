@@ -511,6 +511,7 @@ export default function DashboardPage() {
                         status={story.status as "draft" | "in-progress" | "complete"} slug={story.slug || story.id}
                         href={story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`}
                         coverUrl={story.coverImageUrl || undefined} lastEdited={formatTimeAgo(story.updatedAt)}
+                        format={story.format}
                       />
                     </motion.div>
                   ))}
@@ -554,6 +555,7 @@ export default function DashboardPage() {
                         wordCount={story.totalWords || 0} chapterCount={story.chapterCount || 0} sparkCount={story.sparkCount || 0}
                         contentRating={story.contentRating} status={story.status as "draft" | "in-progress" | "complete"} slug={story.slug || story.id}
                         href={`/story/${story.slug || story.id}`} coverUrl={story.coverImageUrl || undefined}
+                        format={story.format}
                       />
                    ))}
                  </div>

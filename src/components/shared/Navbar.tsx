@@ -600,19 +600,18 @@ export default function Navbar() {
               ) : (
                 <>
                   <Link
+                    href="/register"
+                    className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-md py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300 mb-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Sign up
+                  </Link>
+                  <Link
                     href="/login"
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[14px] py-2.5 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
                   >
                     Log in
-                  </Link>
-                  <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
-                  <Link
-                    href="/register"
-                    className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-md py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Sign up
                   </Link>
                 </>
               )}

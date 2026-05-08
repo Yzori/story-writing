@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
 export default function BillingSettingsPage() {
@@ -12,6 +12,8 @@ export default function BillingSettingsPage() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
 
   const user = session?.user as any;
   const tier = user?.subscriptionTier || "free";
@@ -42,24 +44,21 @@ export default function BillingSettingsPage() {
     }
   };
 
-  const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel? You'll lose access to premium features at the end of your billing period.")) {
-      return;
-    }
-
+  const handleCancelConfirmed = async () => {
     setIsLoading("cancel");
+    setShowCancelConfirm(false);
     try {
       const res = await fetch("/api/billing/cancel", { method: "POST" });
       const data = await res.json();
 
       if (res.ok) {
-        alert(data.message);
+        setCancelMessage(data.message || "Your subscription will end at the close of this billing period.");
         router.refresh();
       } else {
-        alert(data.error?.message || "Failed to cancel");
+        setCancelMessage(data.error?.message || "Failed to cancel.");
       }
     } catch (error) {
-      alert("Something went wrong");
+      setCancelMessage("Something went wrong.");
     } finally {
       setIsLoading("");
     }
@@ -178,7 +177,7 @@ export default function BillingSettingsPage() {
 
                   {status !== "cancelled" && (
                     <button
-                      onClick={handleCancel}
+                      onClick={() => setShowCancelConfirm(true)}
                       disabled={!!isLoading}
                       className="px-4 py-2 text-rose hover:text-rose/80 transition-colors disabled:opacity-50"
                     >
@@ -190,6 +189,71 @@ export default function BillingSettingsPage() {
             )}
           </div>
         </div>
+
+        {/* Cancel confirmation modal */}
+        <AnimatePresence>
+          {showCancelConfirm && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-void/80 backdrop-blur-sm"
+                onClick={() => setShowCancelConfirm(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                transition={{ duration: 0.2 }}
+                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100vw-1.5rem)] max-w-md"
+              >
+                <div className="bg-surface border border-border rounded-2xl p-6 sm:p-7 shadow-2xl">
+                  <h3 className="font-display text-xl text-paper mb-2">Cancel your subscription?</h3>
+                  <p className="text-text-secondary text-sm leading-relaxed mb-5">
+                    You&apos;ll keep access to {getPlanName()} features until
+                    {subscriptionEndsAt ? (
+                      <> <span className="text-paper font-medium">{new Date(subscriptionEndsAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span></>
+                    ) : (
+                      <> the end of this billing period</>
+                    )}
+                    . After that, your account stays active on the Free plan — your stories are never deleted.
+                  </p>
+                  <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+                    <button
+                      onClick={handleCancelConfirmed}
+                      disabled={!!isLoading}
+                      className="px-4 py-2.5 rounded-full text-sm text-rose hover:text-rose/80 border border-rose/20 hover:border-rose/40 transition-colors disabled:opacity-50"
+                    >
+                      {isLoading === "cancel" ? "Cancelling..." : "Cancel subscription"}
+                    </button>
+                    <button
+                      onClick={() => setShowCancelConfirm(false)}
+                      className="px-5 py-2.5 rounded-full text-sm font-medium bg-gold text-void hover:bg-gold/90 transition-colors"
+                    >
+                      Keep my plan
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Cancel result toast */}
+        <AnimatePresence>
+          {cancelMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-elevated border border-border rounded-xl px-5 py-3 shadow-2xl max-w-md text-center text-sm text-text"
+              onAnimationComplete={() => setTimeout(() => setCancelMessage(null), 5000)}
+            >
+              {cancelMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* AI Usage Card (Pro/Premium only) */}
         {tier !== "free" && (

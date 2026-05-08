@@ -109,10 +109,46 @@ export default function InkDropsPage() {
           <div>
             <h1 className="font-display text-2xl text-paper font-bold">Ink Drops</h1>
             <p className="text-text-secondary text-sm">
-              Support creators by tipping during live sessions
+              The platform currency. Spend on tips, unlocks, polls, subscriptions, and commissions.
             </p>
           </div>
         </div>
+
+        {/* What you can do with Ink Drops */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8 rounded-xl border border-border bg-surface/30 p-5"
+        >
+          <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3">What Ink Drops do</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-[12px]">
+            <div className="flex items-center gap-2 text-text-secondary">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
+              Leave a gift
+            </div>
+            <div className="flex items-center gap-2 text-text-secondary">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal shrink-0" />
+              Unlock chapters
+            </div>
+            <div className="flex items-center gap-2 text-text-secondary">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber shrink-0" />
+              Join a Circle
+            </div>
+            <div className="flex items-center gap-2 text-text-secondary">
+              <span className="w-1.5 h-1.5 rounded-full bg-amethyst shrink-0" />
+              Commission work
+            </div>
+            <div className="flex items-center gap-2 text-text-secondary">
+              <span className="w-1.5 h-1.5 rounded-full bg-sage shrink-0" />
+              Vote on Crossroads
+            </div>
+            <div className="flex items-center gap-2 text-text-secondary">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose shrink-0" />
+              Live tips
+            </div>
+          </div>
+        </motion.div>
 
         {/* Success/cancel banners */}
         <AnimatePresence>

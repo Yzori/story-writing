@@ -684,7 +684,7 @@ export default function SessionPlayPage() {
       {/* Mobile drawer toggle — Context Panel (character / GM tools) */}
       <button
         onClick={() => setShowContextDrawer(true)}
-        className="fixed top-4 right-4 z-50 xl:hidden w-10 h-10 rounded-xl bg-black/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-amber transition-colors cursor-pointer"
+        className="fixed top-4 right-4 z-50 lg:hidden w-10 h-10 rounded-xl bg-black/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-amber transition-colors cursor-pointer"
         title={isGM ? "GM Dashboard" : "Character Sheet"}
       >
         {isGM ? (
@@ -828,7 +828,7 @@ export default function SessionPlayPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 xl:hidden"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
               onClick={() => setShowContextDrawer(false)}
             />
             <motion.div
@@ -836,7 +836,7 @@ export default function SessionPlayPage() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed top-0 right-0 bottom-0 z-50 xl:hidden max-w-[88vw]"
+              className="fixed top-0 right-0 bottom-0 z-50 lg:hidden max-w-[88vw]"
             >
               <button
                 onClick={() => setShowContextDrawer(false)}

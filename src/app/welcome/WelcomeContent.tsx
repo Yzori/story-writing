@@ -25,7 +25,7 @@ const PATHS = [
     id: "read",
     title: "I want to read",
     description: "Discover stories from writers around the world",
-    href: "/browse",
+    href: "/read",
     accent: "lavender",
     icon: (
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-lavender">
@@ -42,7 +42,7 @@ const PATHS = [
     id: "collaborate",
     title: "I want to collaborate",
     description: "Find writers to build worlds together",
-    href: "/browse",
+    href: "/roster",
     accent: "teal",
     icon: (
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-teal">

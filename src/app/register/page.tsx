@@ -73,7 +73,7 @@ export default function RegisterPage() {
             <span className="font-display text-sm font-bold text-paper tracking-wide">Quiloria</span>
           </Link>
           <h1 className="font-display text-3xl text-paper font-semibold">Begin your journey</h1>
-          <p className="text-text-secondary text-sm mt-2">Create an account and start writing</p>
+          <p className="text-text-secondary text-sm mt-2">Always free to write and read · No credit card required</p>
         </div>
 
         {/* Form Card */}
@@ -101,7 +101,7 @@ export default function RegisterPage() {
                 required
                 maxLength={100}
                 placeholder="Your pen name"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all"
+                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
               />
             </div>
 
@@ -117,7 +117,7 @@ export default function RegisterPage() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all"
+                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
               />
             </div>
 
@@ -133,7 +133,7 @@ export default function RegisterPage() {
                 required
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all"
+                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
               />
             </div>
 
@@ -149,7 +149,7 @@ export default function RegisterPage() {
                 required
                 autoComplete="new-password"
                 placeholder="Repeat your password"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/25 focus:shadow-sm focus:shadow-amber/5 transition-all"
+                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
               />
             </div>
 
@@ -180,6 +180,16 @@ export default function RegisterPage() {
             </svg>
             Continue with GitHub
           </button>
+
+          {/* Reassurance footer */}
+          <div className="mt-5 pt-4 border-t border-border-subtle flex items-start gap-2 text-[11px] text-text-ghost leading-relaxed">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sage/60 shrink-0 mt-0.5">
+              <path d="M3 8.5l3 3 7-7" />
+            </svg>
+            <span>
+              Your stories stay yours. Free tier is forever — no trial expiry, no payment up front.
+            </span>
+          </div>
         </div>
 
         {/* Footer */}

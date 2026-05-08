@@ -171,7 +171,7 @@ export default function BoostMarketplace() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
           <button
             onClick={() => setTier("standard")}
-            className={`text-left p-4 sm:p-6 rounded-sm border transition-all ${
+            className={`text-left p-4 sm:p-6 rounded-xl border transition-all ${
               tier === "standard"
                 ? "border-gold/50 bg-gold/5"
                 : "border-border bg-elevated/30 hover:border-border-active"
@@ -194,7 +194,7 @@ export default function BoostMarketplace() {
           </button>
           <button
             onClick={() => setTier("hero")}
-            className={`text-left p-6 rounded-sm border transition-all relative ${
+            className={`text-left p-4 sm:p-6 rounded-xl border transition-all relative ${
               tier === "hero"
                 ? "border-gold/50 bg-gold/5"
                 : "border-border bg-elevated/30 hover:border-border-active"
@@ -222,7 +222,7 @@ export default function BoostMarketplace() {
 
         {/* Hero availability */}
         {tier === "hero" && heroState && (
-          <div className="mb-8 p-4 rounded-sm border border-border bg-elevated/20">
+          <div className="mb-8 p-4 rounded-xl border border-border bg-elevated/20">
             <p className="text-[12px] text-text-secondary">
               <span className="font-display text-paper">
                 {heroState.activeCount} / 5
@@ -259,7 +259,7 @@ export default function BoostMarketplace() {
               <button
                 key={s.id}
                 onClick={() => setSelectedId(s.id)}
-                className={`flex items-center gap-3 p-3 rounded-sm border text-left transition-all ${
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                   selectedId === s.id
                     ? "border-gold/50 bg-gold/5"
                     : "border-border bg-elevated/30 hover:border-border-active"
@@ -292,7 +292,7 @@ export default function BoostMarketplace() {
         )}
 
         {/* Confirm */}
-        <div className="flex items-center justify-between p-5 rounded-sm border border-gold/20 bg-gradient-to-br from-gold/5 to-transparent">
+        <div className="flex items-center justify-between p-5 rounded-xl border border-gold/20 bg-gradient-to-br from-gold/5 to-transparent">
           <div>
             <p className="text-text-ghost text-[11px] tracking-wide uppercase">
               Cost
@@ -354,7 +354,7 @@ export default function BoostMarketplace() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`mt-6 p-4 rounded-sm border ${
+            className={`mt-6 p-4 rounded-xl border ${
               result.ok
                 ? "border-gold/30 bg-gold/5 text-gold"
                 : "border-rose/30 bg-rose/5 text-rose"

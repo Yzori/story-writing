@@ -50,7 +50,7 @@ export default function ContextPanel({
   onClocksChange,
   forceVisible = false,
 }: ContextPanelProps) {
-  const visibilityClass = forceVisible ? "flex w-full max-w-[340px]" : "hidden xl:flex w-[300px]";
+  const visibilityClass = forceVisible ? "flex w-full max-w-[340px]" : "hidden lg:flex w-[280px] xl:w-[300px]";
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
 
@@ -86,7 +86,7 @@ export default function ContextPanel({
   // Collapsed sidebar (shared between GM and player views)
   if (isCollapsed && !forceVisible) {
     return (
-      <div className="w-12 h-full flex flex-col items-center border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex py-4 gap-3">
+      <div className="w-12 h-full flex flex-col items-center border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden lg:flex py-4 gap-3">
         <button
           onClick={onToggleCollapse}
           className="w-8 h-8 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text hover:bg-subtle/50 transition-all cursor-pointer"
@@ -549,31 +549,6 @@ export default function ContextPanel({
             </div>
           </div>
 
-          {/* Audio Mixer Stub */}
-          <div className="space-y-4 mt-8 pb-8">
-            <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-cyan-400 border-b border-cyan-400/20 pb-2 flex items-center gap-2">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-              </svg>
-              Synchronized Audio
-            </h3>
-            <div className="bg-ink border border-border-subtle rounded-lg p-3 opacity-50">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-xs text-text-secondary font-medium">Cavern Ambience</span>
-                <div className="w-8 h-4 bg-subtle/50 rounded-full flex items-center p-0.5 relative cursor-not-allowed" title="Coming soon">
-                  <div className="w-3 h-3 bg-text-tertiary rounded-full absolute left-0.5" />
-                </div>
-              </div>
-              <div className="w-full h-1 bg-subtle/50 rounded-full overflow-hidden">
-                <div className="w-0 h-full bg-cyan-400/50" />
-              </div>
-              <div className="mt-3 flex items-center justify-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/30" />
-                <p className="text-[10px] text-cyan-400/40 uppercase tracking-widest font-bold">Coming Soon</p>
-              </div>
-            </div>
-          </div>
         </div>
 
       </div>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { SUBSCRIPTION_PLANS } from "@/config/subscription";
 
@@ -245,7 +245,7 @@ function PricingCard({
       {tier.ctaLink ? (
         <Link
           href={tier.ctaLink}
-          className={`block w-full py-3 px-6 rounded-lg text-center font-medium transition-all ${
+          className={`block w-full py-3 px-6 rounded-full text-center font-medium transition-all ${
             tier.highlight
               ? "bg-gold text-void hover:bg-gold/90 shadow-lg shadow-gold/20"
               : "bg-surface border border-border text-paper hover:border-gold/40"
@@ -257,7 +257,7 @@ function PricingCard({
         <button
           onClick={onSubscribe}
           disabled={isLoading}
-          className={`w-full py-3 px-6 rounded-lg font-medium transition-all disabled:opacity-50 ${
+          className={`w-full py-3 px-6 rounded-full font-medium transition-all disabled:opacity-50 ${
             tier.highlight
               ? "bg-gold text-void hover:bg-gold/90 shadow-lg shadow-gold/20"
               : "bg-surface border border-border text-paper hover:border-gold/40"
@@ -274,7 +274,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="border border-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-surface/50 transition-colors"
@@ -289,11 +289,21 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {isOpen && (
-        <div className="px-6 pb-4 text-text-secondary text-sm">
-          {answer}
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-6 pb-4 text-text-secondary text-sm">
+              {answer}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

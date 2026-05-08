@@ -29,7 +29,16 @@ interface StoryCardProps {
   excerpt?: string;
   writingMode?: string;
   isBoosted?: boolean;
+  format?: string;
 }
+
+const FORMAT_LABELS: Record<string, string> = {
+  novel: "Novel",
+  poetry: "Poetry",
+  screenplay: "Screenplay",
+  webtoon: "Webtoon",
+  illustrated: "Illustrated",
+};
 
 const STATUS_STYLES: Record<string, { label: string; dot: string; className: string }> = {
   draft: { label: "Draft", dot: "bg-text-ghost", className: "text-text-ghost" },
@@ -77,9 +86,11 @@ export default function StoryCard({
   excerpt,
   writingMode,
   isBoosted,
+  format,
 }: StoryCardProps) {
   const linkHref = href || `/story/${slug}`;
   const statusInfo = status ? STATUS_STYLES[status] : null;
+  const formatLabel = format && format !== "novel" ? FORMAT_LABELS[format] : null;
 
   if (variant === "featured") {
     return (
@@ -231,12 +242,17 @@ export default function StoryCard({
             </p>
           )}
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
-            {genres.slice(0, 2).map((g) => (
+            {formatLabel && (
+              <span className="text-[10px] uppercase tracking-[0.1em] font-medium text-text-secondary bg-elevated/60 border border-border-subtle px-2 py-0.5 rounded-full">
+                {formatLabel}
+              </span>
+            )}
+            {genres.slice(0, formatLabel ? 1 : 2).map((g) => (
               <GenrePill key={g} genre={g} />
             ))}
-            {genres.length > 2 && (
+            {genres.length > (formatLabel ? 1 : 2) && (
               <span className="text-[10px] text-text-ghost ml-0.5">
-                +{genres.length - 2}
+                +{genres.length - (formatLabel ? 1 : 2)}
               </span>
             )}
           </div>

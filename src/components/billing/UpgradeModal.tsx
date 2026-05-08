@@ -137,7 +137,7 @@ export function UpgradeModal({
                 <button
                   onClick={handleUpgrade}
                   disabled={isLoading}
-                  className="px-6 py-2 bg-gold text-void font-medium rounded-lg hover:bg-gold/90 transition-colors shadow-lg shadow-gold/20 disabled:opacity-50"
+                  className="px-6 py-2 bg-gold text-void font-medium rounded-full hover:bg-gold/90 transition-colors shadow-lg shadow-gold/20 disabled:opacity-50"
                 >
                   {isLoading ? "Loading..." : `Upgrade to ${tierName}`}
                 </button>

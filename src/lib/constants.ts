@@ -2,6 +2,16 @@
  * Shared constants used across API routes, pages, and components.
  */
 
+// ── Ink Drops → USD conversion ──────────────────────────────
+// Anchored to the mid-tier purchase (1200 drops for $9.99 = $0.0083/drop).
+// Single source of truth — keep all USD-equivalent displays consistent.
+
+export const DROPS_TO_USD = 0.0083;
+
+export function dropsToUsd(drops: number): string {
+  return (drops * DROPS_TO_USD).toFixed(2);
+}
+
 // ── Chapter gating tier prices (in Ink Drops) ───────────────
 
 export const TIER_PRICES: Record<string, number> = {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
+import { dropsToUsd } from "@/lib/constants";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -115,9 +116,6 @@ function craftMeta(craft: CraftType): CraftMeta | undefined {
   return CRAFT_LIST.find((c) => c.value === craft);
 }
 
-function dropsToUsd(drops: number): string {
-  return (drops * 0.0083).toFixed(2);
-}
 
 const DELIVERY_OPTIONS = [3, 5, 7, 14, 21, 30];
 const REVISION_OPTIONS = [1, 2, 3, 4, 5];

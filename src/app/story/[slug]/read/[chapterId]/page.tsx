@@ -595,6 +595,11 @@ export default function ChapterReadPage() {
             fontSizeValue={getFontSizeValue(fontSize)}
             initialScrollPercent={initialScrollPercent ?? undefined}
             onScrollProgress={handleScrollProgress}
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
           />
         )}
       </div>
@@ -608,12 +613,7 @@ export default function ChapterReadPage() {
         />
       )}
 
-      {/* Reactions section below the reader */}
-      {storyId && (
-        <ChapterReactions storyId={storyId} chapterId={chapterId} />
-      )}
-
-      {/* Comments section below the reactions */}
+      {/* Comments section */}
       {storyId && (
         <div ref={commentsRef}>
           <ChapterComments storyId={storyId} chapterId={chapterId} />

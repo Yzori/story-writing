@@ -650,11 +650,13 @@ export default function StoryPage() {
               {followCount > 0 && <span className="text-[11px] opacity-60">{followCount}</span>}
             </button>
 
-            {/* Spark */}
+            {/* Spark \u2014 icon + count, no label */}
             <button
               onClick={handleSpark}
               disabled={sparkLoading || !session?.user}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full border text-[13px] font-medium transition-all duration-200 ${
+              aria-label={hasSparked ? "Remove spark" : "Spark this story"}
+              title={hasSparked ? "Sparked" : "Spark this story"}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full border text-[13px] font-medium transition-all duration-200 ${
                 hasSparked
                   ? "bg-amber/10 border-amber/25 text-amber"
                   : "bg-surface/80 border-border text-text-secondary hover:border-amber/25 hover:text-amber"
@@ -663,7 +665,7 @@ export default function StoryPage() {
               <svg width="14" height="14" viewBox="0 0 16 16" fill={hasSparked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5">
                 <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
               </svg>
-              {sparkCount > 0 ? sparkCount : "Spark"}
+              {sparkCount > 0 && <span className="tabular-nums">{sparkCount}</span>}
             </button>
 
             {/* Leave a Gift (only for logged-in non-owners) */}
@@ -675,7 +677,7 @@ export default function StoryPage() {
               />
             )}
 
-            {/* Share */}
+            {/* Share \u2014 icon-only */}
             <button
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href).then(
@@ -683,14 +685,15 @@ export default function StoryPage() {
                   () => toast("Couldn\u2019t copy link", "error")
                 );
               }}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border bg-surface/80 border-border text-text-secondary hover:border-lavender/25 hover:text-lavender text-[13px] font-medium transition-all duration-200 cursor-pointer"
+              aria-label="Share this story"
+              title="Copy link"
+              className="flex items-center justify-center w-10 h-10 rounded-full border bg-surface/80 border-border text-text-secondary hover:border-lavender/25 hover:text-lavender transition-all duration-200 cursor-pointer"
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M6 10l4-4" />
                 <path d="M9 3l2-1.5a2.12 2.12 0 0 1 3 3L12.5 7" />
                 <path d="M7 13l-2 1.5a2.12 2.12 0 0 1-3-3L3.5 9" />
               </svg>
-              Share
             </button>
 
             {/* Edit for owner */}
@@ -706,14 +709,28 @@ export default function StoryPage() {
               </Link>
             )}
 
-            {/* Report */}
+            {/* Overflow menu \u2014 Report (and any other secondary actions) */}
             {!isOwner && session?.user && (
-              <button
-                onClick={() => setShowReport(true)}
-                className="text-text-ghost hover:text-rose text-[12px] transition-colors ml-1"
-              >
-                Report
-              </button>
+              <details className="relative ml-auto sm:ml-0">
+                <summary
+                  aria-label="More actions"
+                  className="list-none flex items-center justify-center w-10 h-10 rounded-full border bg-surface/80 border-border text-text-ghost hover:text-text-secondary cursor-pointer transition-colors [&::-webkit-details-marker]:hidden"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <circle cx="3" cy="8" r="1.5" />
+                    <circle cx="8" cy="8" r="1.5" />
+                    <circle cx="13" cy="8" r="1.5" />
+                  </svg>
+                </summary>
+                <div className="absolute right-0 top-12 z-30 min-w-[160px] rounded-xl border border-border bg-elevated shadow-2xl py-1.5">
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="w-full text-left px-4 py-2 text-[13px] text-rose/80 hover:text-rose hover:bg-rose/10 transition-colors"
+                  >
+                    Report this story
+                  </button>
+                </div>
+              </details>
             )}
 
             {/* Campaign join actions */}
@@ -919,10 +936,39 @@ export default function StoryPage() {
                   ))}
                 </div>
               ) : (
-                <div className="bg-surface/60 border border-border rounded-2xl p-14 text-center">
-                  <p className="text-text-secondary text-[13px]">
-                    No chapters yet. The story is just beginning.
+                <div className="bg-surface/60 border border-border rounded-2xl p-10 sm:p-14 text-center">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber/60">
+                      <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
+                      <path d="M5 5h6M5 8h4" />
+                    </svg>
+                  </div>
+                  <p className="text-paper text-[15px] font-display mb-2">
+                    No chapters yet
                   </p>
+                  <p className="text-text-secondary text-[13px] mb-5 max-w-xs mx-auto leading-relaxed">
+                    The story is just beginning. Follow {story.author?.displayName || "the author"} to be notified when the first chapter lands.
+                  </p>
+                  {!isOwner && session?.user && !hasFollowed && (
+                    <button
+                      onClick={handleFollow}
+                      disabled={followLoading}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber text-void font-semibold text-[12px] hover:bg-amber-light transition-all duration-200 disabled:opacity-50"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M4 2v12l4-3 4 3V2H4z" />
+                      </svg>
+                      Follow this story
+                    </button>
+                  )}
+                  {!session?.user && (
+                    <Link
+                      href="/register"
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber text-void font-semibold text-[12px] hover:bg-amber-light transition-all duration-200"
+                    >
+                      Sign up to follow
+                    </Link>
+                  )}
                 </div>
               )}
 
@@ -1182,6 +1228,7 @@ export default function StoryPage() {
                     slug={s.slug || s.id}
                     coverUrl={s.coverImageUrl || undefined}
                     excerpt={s.synopsis || undefined}
+                    format={s.format}
                   />
                 </div>
               ))}

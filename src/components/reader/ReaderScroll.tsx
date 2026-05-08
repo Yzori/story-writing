@@ -18,6 +18,7 @@ interface ReaderScrollProps {
   fontSizeValue?: string;
   initialScrollPercent?: number;
   onScrollProgress?: (percent: number) => void;
+  reactionsElement?: React.ReactNode;
 }
 
 export default function ReaderScroll({
@@ -34,6 +35,7 @@ export default function ReaderScroll({
   fontSizeValue,
   initialScrollPercent,
   onScrollProgress,
+  reactionsElement,
 }: ReaderScrollProps) {
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -115,6 +117,9 @@ export default function ReaderScroll({
             <span className="text-[11px] text-text-ghost tracking-[0.2em] uppercase">End of chapter</span>
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-text-ghost/30 to-transparent" />
           </div>
+
+          {/* Reactions */}
+          {reactionsElement && <div className="mb-12">{reactionsElement}</div>}
 
           {/* Chapter navigation */}
           <div className="flex items-center justify-between gap-4 mb-16">
