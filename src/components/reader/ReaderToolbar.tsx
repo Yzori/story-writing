@@ -347,7 +347,8 @@ export default function ReaderToolbar({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-elevated border-t border-border-active rounded-t-2xl shadow-2xl shadow-black/60 px-5 pb-8 pt-4 md:hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-elevated border-t border-border-active rounded-t-2xl shadow-2xl shadow-black/60 px-5 pt-4 md:hidden"
+              style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
             >
               {/* Drag handle */}
               <div className="flex justify-center mb-5">

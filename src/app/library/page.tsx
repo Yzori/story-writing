@@ -88,7 +88,7 @@ export default function LibraryPage() {
   return (
     <main className="min-h-screen bg-void">
       <Navbar />
-      <div className="max-w-5xl mx-auto px-6 pt-24 pb-20">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-16 sm:pb-20">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -97,13 +97,13 @@ export default function LibraryPage() {
           <p className="text-text-ghost text-[11px] tracking-[0.3em] uppercase mb-2">
             Your library
           </p>
-          <h1 className="font-display text-paper text-4xl mb-10">
+          <h1 className="font-display text-paper text-3xl sm:text-4xl mb-8 sm:mb-10">
             What you&apos;re reading
           </h1>
         </motion.div>
 
         {/* Tabs */}
-        <div className="flex gap-8 border-b border-border mb-10">
+        <div className="flex gap-6 sm:gap-8 border-b border-border mb-8 sm:mb-10 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
           {(
             [
               { id: "continue", label: "Continue", count: progress.length },
@@ -114,7 +114,7 @@ export default function LibraryPage() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`pb-3 text-[13px] tracking-wide transition-all border-b-2 ${
+              className={`shrink-0 pb-3 text-[13px] tracking-wide transition-all border-b-2 ${
                 tab === t.id
                   ? "text-gold border-gold"
                   : "text-text-ghost border-transparent hover:text-paper"
@@ -219,7 +219,7 @@ export default function LibraryPage() {
             cta={{ href: "/roster", label: "Browse writers" }}
           />
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             {authors.map((a) => (
               <Link
                 key={a.id}

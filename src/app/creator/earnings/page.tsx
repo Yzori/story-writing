@@ -132,13 +132,14 @@ export default function CreatorEarningsPage() {
                       const pct = data.totalEarned > 0 ? Math.round((stats.total / data.totalEarned) * 100) : 0;
                       return (
                         <div key={type}>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${source.accent}`} />
-                              <span className="text-[13px] text-paper font-medium">{source.label}</span>
+                          <div className="flex flex-wrap items-center justify-between gap-y-1 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-2 h-2 rounded-full ${source.accent} shrink-0`} />
+                              <span className="text-[13px] text-paper font-medium truncate">{source.label}</span>
                             </div>
-                            <div className="flex items-center gap-3 text-[12px]">
-                              <span className="text-text-ghost">{stats.count} transactions</span>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px]">
+                              <span className="text-text-ghost hidden sm:inline">{stats.count} transactions</span>
+                              <span className="text-text-ghost sm:hidden">{stats.count} tx</span>
                               <span className="text-paper font-bold tabular-nums">{formatNumber(stats.total)} drops</span>
                               <span className="text-text-ghost w-8 text-right">{pct}%</span>
                             </div>

@@ -72,7 +72,7 @@ export default function SessionLog({
   }
 
   return (
-    <div className="w-[320px] lg:w-[380px] h-full flex flex-col border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0">
+    <div className="w-[88vw] max-w-[380px] sm:w-[320px] lg:w-[380px] h-full flex flex-col border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0">
       {/* Header */}
       <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md pb-4 shrink-0">
         <div className="flex items-center justify-between">

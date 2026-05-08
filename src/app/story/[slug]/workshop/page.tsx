@@ -645,12 +645,12 @@ function WorkshopContent() {
       </AnimatePresence>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 border-b border-border mb-6">
+      <div className="flex items-center gap-1 border-b border-border mb-6 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`relative px-4 py-3 text-[13px] font-medium transition-colors ${
+            className={`relative shrink-0 px-4 py-3 text-[13px] font-medium transition-colors ${
               activeTab === t.key
                 ? "text-amber"
                 : "text-text-secondary hover:text-text"

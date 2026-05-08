@@ -50,8 +50,9 @@ function Divider() {
 
 function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
   const [show, setShow] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0, flipBelow: false });
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
 
   const updatePosition = useCallback(() => {
     const { empty } = editor.state.selection;
@@ -75,10 +76,24 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
       return;
     }
 
-    const x = rect.left + rect.width / 2;
-    const y = rect.top - 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 8;
+    // Estimated width — actual width clamped after layout via ref check below
+    const estHalfWidth = (toolbarRef.current?.offsetWidth ?? 360) / 2;
+    const estHeight = toolbarRef.current?.offsetHeight ?? 40;
 
-    setPosition({ x, y });
+    const idealX = rect.left + rect.width / 2;
+    const x = Math.min(
+      Math.max(idealX, margin + estHalfWidth),
+      viewportWidth - margin - estHalfWidth,
+    );
+
+    // If there isn't room above the selection, flip below
+    const flipBelow = rect.top - estHeight - margin < 0;
+    const y = flipBelow ? rect.bottom + margin : rect.top - margin;
+
+    setPosition({ x, y, flipBelow });
     setShow(true);
   }, [editor]);
 
@@ -111,11 +126,11 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 4, scale: 0.97 }}
           transition={{ duration: 0.12 }}
-          className="fixed z-50 -translate-x-1/2 -translate-y-full pointer-events-auto"
-          style={{ left: position.x, top: position.y }}
+          className={`fixed z-50 -translate-x-1/2 ${position.flipBelow ? "" : "-translate-y-full"} pointer-events-auto`}
+          style={{ left: position.x, top: position.y, maxWidth: "calc(100vw - 1rem)" }}
           onMouseDown={(e) => e.preventDefault()}
         >
-          <div role="toolbar" aria-orientation="horizontal" aria-label="Text formatting" className="flex items-center gap-0.5 px-2 py-1.5 rounded-full bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 relative">
+          <div ref={toolbarRef} role="toolbar" aria-orientation="horizontal" aria-label="Text formatting" className="flex items-center gap-0.5 px-2 py-1.5 rounded-full bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 relative overflow-x-auto scrollbar-hide">
             {/* Bold */}
             <ToolbarButton
               active={editor.isActive("bold")}
@@ -238,7 +253,12 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
             )}
 
             {/* Bubble tail */}
-            <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-elevated/95 border-b border-r border-border-active rotate-45" />
+            {!position.flipBelow && (
+              <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-elevated/95 border-b border-r border-border-active rotate-45" />
+            )}
+            {position.flipBelow && (
+              <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-elevated/95 border-t border-l border-border-active rotate-45" />
+            )}
           </div>
         </motion.div>
       )}

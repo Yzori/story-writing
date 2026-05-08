@@ -485,7 +485,7 @@ export default function ScreenplayEditor({
       {/* ── Element Type Toolbar ──────────────────────────── */}
       {editable && (
         <div className="sticky top-0 z-30 bg-void/90 backdrop-blur-sm border-b border-border/40">
-          <div className="max-w-[740px] mx-auto flex items-center gap-1 px-4 py-2">
+          <div className="max-w-[740px] mx-auto flex items-center gap-1 px-3 sm:px-4 py-2 overflow-x-auto scrollbar-hide">
             {(
               [
                 { type: "sceneHeading", label: "Scene", shortcut: "" },
@@ -499,7 +499,7 @@ export default function ScreenplayEditor({
               <button
                 key={type}
                 onClick={() => setElementType(type)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
+                className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
                   activeElement === type
                     ? "bg-amber/15 text-amber border border-amber/30"
                     : "text-text-ghost hover:text-text-secondary hover:bg-surface/50 border border-transparent"
@@ -519,11 +519,11 @@ export default function ScreenplayEditor({
       )}
 
       {/* ── Script Page ──────────────────────────────────── */}
-      <div className="max-w-[740px] mx-auto px-4 py-8 min-h-full">
-        <div className="relative bg-[#FAFAF5] rounded-sm shadow-2xl shadow-black/40 px-16 py-12 min-h-[800px]">
+      <div className="max-w-[740px] mx-auto px-3 sm:px-4 py-6 sm:py-8 min-h-full">
+        <div className="relative bg-[#FAFAF5] rounded-sm shadow-2xl shadow-black/40 px-6 sm:px-10 md:px-16 py-8 sm:py-10 md:py-12 min-h-[800px]">
           {/* Brass brads decoration */}
-          <div className="absolute top-8 left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
-          <div className="absolute bottom-8 left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
+          <div className="absolute top-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
+          <div className="absolute bottom-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
 
           <EditorContent
             editor={editor}
@@ -640,6 +640,13 @@ export default function ScreenplayEditor({
           white-space: nowrap;
           line-height: 1.5;
           margin-top: 2px;
+        }
+
+        /* Hide gutter labels on narrow screens — they get clipped off-screen */
+        @media (max-width: 768px) {
+          .screenplay-element-label {
+            display: none;
+          }
         }
 
         /* ── Auto-detect Character Hint ──────────────────── */

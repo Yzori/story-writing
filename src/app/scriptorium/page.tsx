@@ -399,7 +399,7 @@ function CommissionModal({
   return (
     <motion.div
       ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-void/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -408,7 +408,8 @@ function CommissionModal({
       }}
     >
       <motion.div
-        className="w-full max-w-lg rounded-xl border border-border bg-ink p-6 shadow-2xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl rounded-b-none sm:rounded-b-xl border border-border bg-ink p-5 sm:p-6 shadow-2xl"
+        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         initial={{ opacity: 0, y: 20, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.97 }}

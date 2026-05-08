@@ -53,7 +53,7 @@ export default function JamsPage() {
   const ended = jams.filter((j) => j.liveStatus === "ended");
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <div className="mb-10">
           <h1 className="font-display text-3xl text-paper font-bold">Story Jams</h1>
@@ -99,7 +99,7 @@ function JamSection({ title, jams }: { title: string; jams: Jam[] }) {
       <h2 className="text-[11px] uppercase tracking-[0.12em] text-text-ghost font-semibold mb-4">
         {title}
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
         {jams.map((jam, i) => {
           const statusStyle = STATUS_STYLES[jam.liveStatus] || STATUS_STYLES.upcoming;
           return (

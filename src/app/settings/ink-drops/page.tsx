@@ -182,14 +182,14 @@ export default function InkDropsPage() {
 
               <div className="text-center mb-4 pt-1">
                 <p className="text-sm font-medium text-text-secondary mb-1">{tier.label}</p>
-                <p className="text-3xl font-bold text-paper tabular-nums">
+                <p className="text-2xl sm:text-3xl font-bold text-paper tabular-nums">
                   {tier.drops.toLocaleString()}
                 </p>
                 <p className="text-[11px] text-text-ghost">Ink Drops</p>
               </div>
 
               <div className="text-center mb-4">
-                <p className="text-lg font-semibold text-paper">{tier.price}</p>
+                <p className="text-base sm:text-lg font-semibold text-paper">{tier.price}</p>
                 <p className="text-[10px] text-text-ghost">{tier.perDrop} per drop</p>
               </div>
 

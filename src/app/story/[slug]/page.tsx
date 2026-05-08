@@ -481,7 +481,7 @@ export default function StoryPage() {
 
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 -mt-28 relative">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-16 sm:-mt-24 md:-mt-28 relative">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           {/* Owner cover edit */}
           {isOwner && (
@@ -590,7 +590,7 @@ export default function StoryPage() {
           )}
 
           {/* Stats row */}
-          <div className="flex items-center gap-5 text-[12px] text-text-tertiary mb-6">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-text-tertiary mb-6">
             <span className="flex items-center gap-1.5">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-ghost">
                 <path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
@@ -614,7 +614,7 @@ export default function StoryPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Start / Continue Reading CTA */}
             {publishedChapters.length > 0 && (
               <Link
@@ -623,7 +623,7 @@ export default function StoryPage() {
                     ? `/story/${slug}/read/${readingProgressChapterId}`
                     : `/story/${slug}/read/${publishedChapters[0].id}`
                 }
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 hover:shadow-lg hover:shadow-amber/15"
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 hover:shadow-lg hover:shadow-amber/15"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M2 3l6 2.5L14 3v9l-6 2.5L2 12V3z" />
@@ -823,12 +823,12 @@ export default function StoryPage() {
         </motion.div>
 
         {/* Tab Bar */}
-        <div className="flex items-center gap-1 border-b border-border-active mb-6">
+        <div className="flex items-center gap-1 border-b border-border-active mb-6 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`relative px-4 py-3 text-[13px] font-medium transition-colors ${
+              className={`relative shrink-0 px-4 py-3 text-[13px] font-medium transition-colors ${
                 activeTab === t.key
                   ? "text-amber"
                   : "text-text-secondary hover:text-text"
@@ -1168,9 +1168,9 @@ export default function StoryPage() {
                 More by {story.author.displayName}
               </span>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
               {moreByAuthor.map((s) => (
-                <div key={s.id} className="flex-shrink-0 w-[280px]">
+                <div key={s.id} className="flex-shrink-0 w-[260px] sm:w-[280px] snap-start">
                   <StoryCard
                     title={s.title}
                     author={s.authorName || undefined}

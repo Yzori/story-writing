@@ -45,6 +45,7 @@ export default function SessionPlayPage() {
   const [chatInput, setChatInput] = useState("");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
+  const [showContextDrawer, setShowContextDrawer] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [epilogueText, setEpilogueText] = useState("");
   const [activeStoryMoment, setActiveStoryMoment] = useState<{
@@ -669,7 +670,7 @@ export default function SessionPlayPage() {
         )}
       </AnimatePresence>
 
-      {/* Mobile drawer toggle */}
+      {/* Mobile drawer toggle — Session Log */}
       <button
         onClick={() => setShowLogDrawer(true)}
         className="fixed top-4 left-4 z-50 lg:hidden w-10 h-10 rounded-xl bg-black/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-amber transition-colors cursor-pointer"
@@ -678,6 +679,24 @@ export default function SessionPlayPage() {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
+      </button>
+
+      {/* Mobile drawer toggle — Context Panel (character / GM tools) */}
+      <button
+        onClick={() => setShowContextDrawer(true)}
+        className="fixed top-4 right-4 z-50 xl:hidden w-10 h-10 rounded-xl bg-black/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-amber transition-colors cursor-pointer"
+        title={isGM ? "GM Dashboard" : "Character Sheet"}
+      >
+        {isGM ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+          </svg>
+        )}
       </button>
 
       {/* Left Pillar — desktop */}
@@ -783,7 +802,7 @@ export default function SessionPlayPage() {
         onRemoveMapPin={() => showToast("Map pins coming soon")}
       />
 
-      {/* Right Pillar */}
+      {/* Right Pillar — desktop (xl+) */}
       <ContextPanel
         isGM={isGM}
         myCharacter={myCharacter}
@@ -800,6 +819,56 @@ export default function SessionPlayPage() {
         clocks={clocks}
         onClocksChange={handleClocksChange}
       />
+
+      {/* Right Pillar — mobile drawer (below xl) */}
+      <AnimatePresence>
+        {showContextDrawer && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 xl:hidden"
+              onClick={() => setShowContextDrawer(false)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed top-0 right-0 bottom-0 z-50 xl:hidden max-w-[88vw]"
+            >
+              <button
+                onClick={() => setShowContextDrawer(false)}
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/70 hover:text-white"
+                aria-label="Close panel"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <line x1="4" y1="4" x2="12" y2="12" />
+                  <line x1="12" y1="4" x2="4" y2="12" />
+                </svg>
+              </button>
+              <ContextPanel
+                forceVisible
+                isGM={isGM}
+                myCharacter={myCharacter}
+                characters={characters}
+                activePlayerId={campaignSession?.activePlayerId ?? null}
+                onRequestRoll={handleRequestRoll}
+                onPushEvent={handlePushEvent}
+                onSceneBreak={handleSceneBreak}
+                onChangeCharacterStatus={handleChangeCharacterStatus}
+                onStoryMoment={handleStoryMoment}
+                onAddIllustration={handleAddIllustration}
+                roster={roster}
+                onInviteNewCharacter={handleInviteNewCharacter}
+                clocks={clocks}
+                onClocksChange={handleClocksChange}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

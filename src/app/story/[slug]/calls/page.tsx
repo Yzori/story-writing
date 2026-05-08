@@ -506,11 +506,11 @@ export default function OpenCallsPage() {
                   {/* Call Header (clickable) */}
                   <button
                     onClick={() => toggleExpand(call.id)}
-                    className="w-full text-left px-5 py-4 flex items-start gap-4 cursor-pointer"
+                    className="w-full text-left px-4 sm:px-5 py-4 flex items-start gap-3 sm:gap-4 cursor-pointer"
                   >
                     <div className="flex-1 min-w-0">
                       {/* Badges row */}
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span
                           className={`text-[10px] uppercase tracking-[0.12em] font-medium px-2.5 py-0.5 rounded-full border ${roleColor.bg} ${roleColor.text} ${roleColor.border}`}
                         >
@@ -534,7 +534,7 @@ export default function OpenCallsPage() {
                       )}
 
                       {/* Meta row */}
-                      <div className="flex items-center gap-4 mt-2 text-[11px] text-text-ghost">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-text-ghost">
                         <span>{relativeTime(call.createdAt)}</span>
                         {isOwner && call.responseCount !== undefined && (
                           <span className="flex items-center gap-1">
@@ -598,7 +598,7 @@ export default function OpenCallsPage() {
 
                           {/* Owner: Status controls */}
                           {isOwner && (
-                            <div className="flex items-center gap-2 mb-5">
+                            <div className="flex flex-wrap items-center gap-2 mb-5">
                               <span className="text-[11px] text-text-ghost mr-1">Set status:</span>
                               {(["open", "filled", "closed"] as CallStatus[]).map((s) => {
                                 const style = STATUS_STYLES[s];

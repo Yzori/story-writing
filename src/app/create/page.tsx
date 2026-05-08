@@ -211,7 +211,7 @@ export default function CreatePage() {
                   }}
                 />
 
-                <div className="relative w-[400px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
+                <div className="relative w-full max-w-[280px] sm:max-w-[340px] md:w-[400px] md:max-w-none rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
                   {/* Spine effect */}
                   <div
                     className="absolute top-0 left-0 w-[7px] h-full z-30 pointer-events-none"

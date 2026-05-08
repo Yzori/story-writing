@@ -228,9 +228,9 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50"
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100vw-1rem)] max-w-[420px] max-h-[calc(100vh-1rem)] overflow-y-auto"
         >
-          <div className="bg-ink/95 backdrop-blur-2xl border border-border p-8 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.9)] flex flex-col items-center min-w-[320px]">
+          <div className="bg-ink/95 backdrop-blur-2xl border border-border p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.9)] flex flex-col items-center">
             <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-text-secondary mb-2">Roll 2d6</h3>
             {rollReason && (
               <p className="text-xs text-violet-400 mb-2 text-center max-w-[280px]">
@@ -274,7 +274,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
             {/* Approach selector */}
             <div className="mb-4 w-full">
               <p className="text-[9px] uppercase tracking-widest text-text-tertiary mb-2 text-center">Approach</p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex flex-wrap gap-2 justify-center">
                 {APPROACHES.map((approach) => {
                   const mod = approaches[approach];
                   const isSelected = selectedApproach === approach;
@@ -283,7 +283,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
                       key={approach}
                       onClick={() => setSelectedApproach(isSelected ? null : approach)}
                       disabled={!!preSelectedAttribute}
-                      className={`px-3 py-2 rounded-lg border transition-all cursor-pointer flex flex-col items-center gap-0.5 min-w-[80px] disabled:cursor-default ${
+                      className={`px-3 py-2 rounded-lg border transition-all cursor-pointer flex flex-col items-center gap-0.5 flex-1 min-w-[72px] sm:min-w-[80px] disabled:cursor-default ${
                         isSelected
                           ? "bg-amber/20 border-amber/40 text-amber"
                           : "bg-subtle/30 border-border text-text-secondary hover:text-text"

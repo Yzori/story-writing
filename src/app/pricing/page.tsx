@@ -92,16 +92,16 @@ export default function PricingPage() {
       {/* Hero Section */}
       <div className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-to-b from-gold/5 via-transparent to-transparent pointer-events-none" />
-        <div className="max-w-5xl mx-auto px-6 py-20 text-center relative">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-20 text-center relative">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="font-display text-5xl md:text-6xl mb-4 bg-gradient-to-b from-paper via-gold to-copper bg-clip-text text-transparent">
+            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl mb-4 bg-gradient-to-b from-paper via-gold to-copper bg-clip-text text-transparent">
               Unlock Your Full Potential
             </h1>
-            <p className="text-text-secondary text-lg md:text-xl max-w-2xl mx-auto">
+            <p className="text-text-secondary text-base sm:text-lg md:text-xl max-w-2xl mx-auto">
               Choose the plan that fits your writing journey. Upgrade anytime, cancel anytime.
             </p>
           </motion.div>
@@ -138,8 +138,8 @@ export default function PricingPage() {
       </div>
 
       {/* Pricing Cards */}
-      <div className="max-w-7xl mx-auto px-6 py-16">
-        <div className="grid md:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 md:gap-8">
           {/* Free Tier */}
           <PricingCard tier={freeTier} isLoading={false} />
 
@@ -160,8 +160,8 @@ export default function PricingPage() {
       </div>
 
       {/* FAQ Section */}
-      <div className="max-w-3xl mx-auto px-6 py-16 border-t border-border">
-        <h2 className="font-display text-3xl text-center mb-12">Frequently Asked Questions</h2>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-16 border-t border-border">
+        <h2 className="font-display text-2xl sm:text-3xl text-center mb-8 sm:mb-12">Frequently Asked Questions</h2>
         <div className="space-y-6">
           <FAQItem
             question="Can I cancel anytime?"
@@ -199,7 +199,7 @@ function PricingCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className={`relative rounded-2xl border p-8 ${
+      className={`relative rounded-2xl border p-6 sm:p-8 ${
         tier.highlight
           ? "border-gold/40 bg-gradient-to-b from-gold/5 to-transparent shadow-lg shadow-gold/10"
           : "border-border bg-surface/30"
@@ -218,7 +218,7 @@ function PricingCard({
           {tier.originalPrice && (
             <span className="text-text-ghost line-through text-lg">${tier.originalPrice}</span>
           )}
-          <span className="text-5xl font-bold text-paper">${tier.price}</span>
+          <span className="text-4xl sm:text-5xl font-bold text-paper">${tier.price}</span>
           <span className="text-text-ghost">/month</span>
         </div>
         {tier.savings && (

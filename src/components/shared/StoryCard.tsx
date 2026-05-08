@@ -87,10 +87,10 @@ export default function StoryCard({
         <motion.div
           whileHover={{ y: -4 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="card-page relative overflow-hidden min-w-[300px] w-[300px] flex-shrink-0 cursor-pointer group hover:shadow-[var(--t-shadow-card-hover)] transition-all duration-300"
+          className="card-page relative overflow-hidden min-w-[260px] w-[260px] sm:min-w-[300px] sm:w-[300px] flex-shrink-0 cursor-pointer group hover:shadow-[var(--t-shadow-card-hover)] transition-all duration-300"
         >
           <div
-            className={`h-44 bg-gradient-to-br ${getGradient(genres)} relative overflow-hidden`}
+            className={`h-36 sm:h-44 bg-gradient-to-br ${getGradient(genres)} relative overflow-hidden`}
           >
             {coverUrl && (
               <Image

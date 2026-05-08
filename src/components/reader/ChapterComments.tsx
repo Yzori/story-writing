@@ -126,7 +126,7 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
   };
 
   return (
-    <div id="chapter-comments" className="max-w-2xl mx-auto px-6 py-10 border-t border-border">
+    <div id="chapter-comments" className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10 border-t border-border">
       <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-6 block">
         Comments {comments.length > 0 && `(${comments.length})`}
       </span>
@@ -197,9 +197,9 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
           {comments.map((comment) => (
             <div
               key={comment.id}
-              className="bg-surface/60 border border-border-subtle rounded-xl p-4"
+              className="bg-surface/60 border border-border-subtle rounded-xl p-3 sm:p-4"
             >
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber text-[10px] font-display font-semibold flex-shrink-0 overflow-hidden">
                   {comment.author.avatarUrl ? (
                     <img
@@ -211,14 +211,14 @@ export default function ChapterComments({ storyId, chapterId }: ChapterCommentsP
                     (comment.author.displayName || "?").charAt(0)
                   )}
                 </div>
-                <p className="text-paper text-[13px] font-medium flex-1 min-w-0">
+                <p className="text-paper text-[13px] font-medium flex-1 min-w-0 truncate">
                   {comment.author.displayName}
                 </p>
-                <span className="text-[11px] text-text-ghost flex-shrink-0">
+                <span className="text-[10px] sm:text-[11px] text-text-ghost flex-shrink-0">
                   {relativeTime(comment.createdAt)}
                 </span>
               </div>
-              <p className="text-text-secondary text-[13px] leading-relaxed font-reading whitespace-pre-wrap pl-10">
+              <p className="text-text-secondary text-[13px] leading-relaxed font-reading whitespace-pre-wrap pl-9 sm:pl-10">
                 {comment.content}
               </p>
             </div>

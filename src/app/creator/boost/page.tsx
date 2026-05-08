@@ -148,7 +148,7 @@ export default function BoostMarketplace() {
   return (
     <main className="min-h-screen bg-void">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-6 pt-24 pb-20">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-16 sm:pb-20">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -171,7 +171,7 @@ export default function BoostMarketplace() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
           <button
             onClick={() => setTier("standard")}
-            className={`text-left p-6 rounded-sm border transition-all ${
+            className={`text-left p-4 sm:p-6 rounded-sm border transition-all ${
               tier === "standard"
                 ? "border-gold/50 bg-gold/5"
                 : "border-border bg-elevated/30 hover:border-border-active"

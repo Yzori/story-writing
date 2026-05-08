@@ -116,13 +116,13 @@ function Spinner({ className = "" }: { className?: string }) {
 
 function StepIndicator({ current }: { current: WizardStep }) {
   return (
-    <div className="mb-8 flex items-center justify-center gap-3">
+    <div className="mb-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
       {STEP_LABELS.map((label, idx) => {
         const step = (idx + 1) as WizardStep;
         const isActive = step === current;
         const isDone = step < current;
         return (
-          <div key={label} className="flex items-center gap-3">
+          <div key={label} className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-2">
               <div
                 className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold transition-colors ${
@@ -136,7 +136,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
                 {isDone ? <CheckIcon className="h-3.5 w-3.5" /> : step}
               </div>
               <span
-                className={`hidden font-body text-xs sm:inline ${
+                className={`font-body text-xs ${isActive ? "inline" : "hidden sm:inline"} ${
                   isActive ? "text-paper" : isDone ? "text-text-secondary" : "text-text-ghost"
                 }`}
               >
@@ -144,7 +144,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
               </span>
             </div>
             {idx < STEP_LABELS.length - 1 && (
-              <div className={`h-px w-6 transition-colors ${isDone ? "bg-gold/40" : "bg-border"}`} />
+              <div className={`h-px w-3 sm:w-6 transition-colors ${isDone ? "bg-gold/40" : "bg-border"}`} />
             )}
           </div>
         );
@@ -871,18 +871,12 @@ export default function CreatorCirclePage() {
                         </p>
                       </div>
 
-                      <div className="hidden items-center gap-3 sm:flex">
-                        <span className="rounded-full bg-gold/10 px-2.5 py-0.5 font-body text-xs font-medium text-gold">
+                      <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3 shrink-0">
+                        <span className="rounded-full bg-gold/10 px-2.5 py-0.5 font-body text-[11px] sm:text-xs font-medium text-gold">
                           {sub.tier === "confidant" ? "Confidant" : sub.tier}
                         </span>
-                        <span className="font-body text-xs text-text-ghost">
+                        <span className="font-body text-[10px] sm:text-xs text-text-ghost whitespace-nowrap">
                           Renews {formatDate(sub.renewalDate)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center sm:hidden">
-                        <span className="rounded-full bg-gold/10 px-2 py-0.5 font-body text-[11px] font-medium text-gold">
-                          {sub.tier === "confidant" ? "Confidant" : sub.tier}
                         </span>
                       </div>
                     </div>

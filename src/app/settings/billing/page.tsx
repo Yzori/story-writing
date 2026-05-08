@@ -122,14 +122,14 @@ export default function BillingSettingsPage() {
 
         {/* Current Plan Card */}
         <div className="mb-6 border border-border rounded-xl overflow-hidden">
-          <div className={`p-6 bg-gradient-to-r ${getPlanColor()}`}>
-            <div className="flex items-center justify-between">
-              <div>
+          <div className={`p-5 sm:p-6 bg-gradient-to-r ${getPlanColor()}`}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-void/70 text-sm font-medium mb-1">Current Plan</p>
-                <h2 className="text-3xl font-bold text-void">{getPlanName()}</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-void">{getPlanName()}</h2>
               </div>
               {tier !== "free" && (
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-void/70 text-sm">Status</p>
                   <p className="text-void font-medium capitalize">{status}</p>
                 </div>

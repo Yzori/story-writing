@@ -13,7 +13,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="bg-void overflow-x-hidden w-screen min-h-screen">
+    <main className="bg-void overflow-x-hidden w-full min-h-screen">
       <Navbar />
       <InteractiveSplitLayout />
     </main>

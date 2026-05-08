@@ -39,7 +39,7 @@ export default function PoetryReader({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[600px] mx-auto px-8 py-16">
+      <div className="max-w-[600px] mx-auto px-5 sm:px-6 md:px-8 py-10 sm:py-14 md:py-16">
         {/* Poem title */}
         <motion.h1
           initial={{ opacity: 0, y: 8 }}

@@ -236,18 +236,18 @@ export default function AIAssistantPanel({
   });
 
   return (
-    <div className="fixed inset-0 bg-void/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-void/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-surface border border-border rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-surface border border-border rounded-2xl rounded-b-none sm:rounded-b-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div>
-            <h2 className="font-display text-2xl text-paper flex items-center gap-2">
-              <span className="text-2xl">✨</span> AI Writing Assistant
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border gap-3">
+          <div className="min-w-0">
+            <h2 className="font-display text-xl sm:text-2xl text-paper flex items-center gap-2 truncate">
+              <span className="text-xl sm:text-2xl">✨</span> AI Writing Assistant
             </h2>
             {usage && usage.hasAccess && (
               <p className="text-sm text-text-ghost mt-1">
@@ -272,7 +272,7 @@ export default function AIAssistantPanel({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6">
           {!usage?.hasAccess ? (
             <div className="text-center py-12">
               <span className="text-6xl mb-4 block">🔒</span>
@@ -294,12 +294,12 @@ export default function AIAssistantPanel({
                 <label className="block text-sm font-medium text-paper mb-3">
                   Choose AI Feature
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                   {availableOptions.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => setSelectedPrompt(option.id)}
-                      className={`p-4 rounded-lg text-left transition-all border ${
+                      className={`p-3 sm:p-4 rounded-lg text-left transition-all border ${
                         selectedPrompt === option.id
                           ? "border-gold bg-gold/10 shadow-lg shadow-gold/10"
                           : "border-border bg-surface/30 hover:border-gold/40"
@@ -360,7 +360,10 @@ export default function AIAssistantPanel({
 
         {/* Footer */}
         {usage?.hasAccess && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+          <div
+            className="flex items-center justify-end gap-3 p-4 sm:p-6 border-t border-border"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          >
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-lg bg-surface border border-border text-paper hover:border-gold/40 transition-all"

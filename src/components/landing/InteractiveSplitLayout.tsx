@@ -367,7 +367,7 @@ function HeroSection() {
     >
       {/* Warm radial glow behind headline */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] pointer-events-none"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] sm:w-[600px] sm:h-[450px] md:w-[800px] md:h-[600px] pointer-events-none"
         style={{
           background:
             "radial-gradient(ellipse at center, rgba(200,150,60,0.06) 0%, transparent 70%)",
@@ -870,7 +870,7 @@ function FormatShowcase() {
     <section className="relative py-24 md:py-32 px-6 overflow-hidden">
       {/* Ambient background orb — shifts color per format */}
       <motion.div
-        className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] pointer-events-none rounded-full"
+        className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[250px] sm:w-[500px] sm:h-[360px] md:w-[700px] md:h-[500px] pointer-events-none rounded-full"
         animate={{
           background: `radial-gradient(ellipse at center, rgba(${rgb}, 0.08) 0%, transparent 70%)`,
         }}

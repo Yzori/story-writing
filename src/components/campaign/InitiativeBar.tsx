@@ -144,7 +144,7 @@ export default function InitiativeBar({
   const showExtendButton = isMyTurn && isActive && secondsLeft > 0 && secondsLeft < 60;
 
   return (
-    <div className="w-full h-20 border-b border-border-subtle bg-black/40 backdrop-blur-xl flex items-center justify-between px-8 z-30 shrink-0">
+    <div className="w-full min-h-20 border-b border-border-subtle bg-black/40 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-2 z-30 shrink-0">
       <div className="flex items-center gap-3">
         {/* GM badge */}
         {isGM && (
@@ -165,7 +165,7 @@ export default function InitiativeBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-4" role="group" aria-label="Turn order">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 max-w-full overflow-x-auto scrollbar-hide" role="group" aria-label="Turn order">
         {initiativeList.map((p) => (
           <button
             key={p.id}

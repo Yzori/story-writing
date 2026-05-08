@@ -173,7 +173,7 @@ export default function ReaderPaginated({
       </div>
 
       {/* Page viewport */}
-      <div className="flex-1 overflow-hidden px-8 py-12 relative">
+      <div className="flex-1 overflow-hidden px-4 sm:px-6 md:px-8 py-8 sm:py-10 md:py-12 relative">
         <div className="max-w-[680px] mx-auto h-full relative">
           {/* Clipping container */}
           <div

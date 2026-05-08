@@ -27,6 +27,8 @@ interface ContextPanelProps {
   /** Tension clocks — local session-scoped state */
   clocks?: ProgressClockData[];
   onClocksChange?: (clocks: ProgressClockData[]) => void;
+  /** When true, panel renders without the `hidden xl:flex` constraint (use inside a mobile drawer). */
+  forceVisible?: boolean;
 }
 
 export default function ContextPanel({
@@ -46,7 +48,9 @@ export default function ContextPanel({
   onInviteNewCharacter,
   clocks = [],
   onClocksChange,
+  forceVisible = false,
 }: ContextPanelProps) {
+  const visibilityClass = forceVisible ? "flex w-full max-w-[340px]" : "hidden xl:flex w-[300px]";
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
 
@@ -80,7 +84,7 @@ export default function ContextPanel({
   };
 
   // Collapsed sidebar (shared between GM and player views)
-  if (isCollapsed) {
+  if (isCollapsed && !forceVisible) {
     return (
       <div className="w-12 h-full flex flex-col items-center border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex py-4 gap-3">
         <button
@@ -111,7 +115,7 @@ export default function ContextPanel({
 
   if (isGM) {
     return (
-      <div className="w-[300px] h-full flex flex-col border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex">
+      <div className={`${visibilityClass} h-full flex-col border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0`}>
         {/* GM Header */}
         <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md">
           <div className="flex items-center gap-3 mb-2">
@@ -586,7 +590,7 @@ export default function ContextPanel({
   );
 
   return (
-    <div className="w-[300px] h-full flex flex-col border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0 hidden xl:flex">
+    <div className={`${visibilityClass} h-full flex-col border-l border-border-subtle bg-void shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0`}>
       <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-8 h-8 rounded-full bg-rose/20 flex items-center justify-center font-display text-rose text-lg border border-rose/30">

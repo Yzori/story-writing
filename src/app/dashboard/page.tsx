@@ -36,8 +36,8 @@ interface CreatorHubData {
 
 function StatCard({ value, label, accent }: { value: string | number; label: string; accent: string }) {
   return (
-    <div className="rounded-xl border border-border bg-ink/40 px-5 py-4 flex flex-col items-center gap-1.5 min-w-0">
-      <span className={`font-display text-xl md:text-2xl font-bold tabular-nums ${accent}`}>
+    <div className="rounded-xl border border-border bg-ink/40 px-3 sm:px-5 py-4 flex flex-col items-center gap-1.5 min-w-0 w-full">
+      <span className={`font-display text-xl md:text-2xl font-bold tabular-nums truncate max-w-full ${accent}`}>
         {value}
       </span>
       <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost font-medium">
@@ -592,7 +592,7 @@ export default function DashboardPage() {
 
             {/* General Stats (At a Glance) */}
             {showStatsGrid && (
-              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }} className="grid grid-cols-2 gap-3">
+              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }} className="grid grid-cols-2 gap-3 sm:gap-4">
                 <StatCard value={formatNumber(totalWords)} label="Words" accent="text-amber" />
                 <StatCard value={stories.length} label="Tales" accent="text-teal" />
                 <StatCard value={formatNumber(totalChapters)} label="Chapters" accent="text-lavender" />

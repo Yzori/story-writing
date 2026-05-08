@@ -541,7 +541,7 @@ function BrowsePage() {
         {/* Floating library dust */}
         <LibraryDust />
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-12">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-16 pb-10 sm:pb-12">
           {/* Title */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -553,7 +553,7 @@ function BrowsePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="font-display text-5xl md:text-7xl font-medium text-paper tracking-tight drop-shadow-2xl mb-8"
+              className="font-display text-4xl sm:text-5xl md:text-7xl font-medium text-paper tracking-tight drop-shadow-2xl mb-8"
             >
               The Grand <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber to-amber/50 italic pr-2">Archives</span>
             </motion.h1>
@@ -779,9 +779,9 @@ function BrowsePage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
-          className="sticky top-14 z-30 bg-void/95 backdrop-blur-sm -mx-6 px-6 py-3 mb-6"
+          className="sticky top-14 z-30 bg-void/95 backdrop-blur-sm -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-6"
         >
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-nowrap sm:flex-wrap items-center gap-3 overflow-x-auto sm:overflow-visible scrollbar-hide">
             {/* Sort pills */}
             <div className="flex items-center gap-1 bg-surface/60 rounded-xl p-1 border border-border/50">
               {SORT_OPTIONS.map((opt) => (
@@ -858,7 +858,7 @@ function BrowsePage() {
               </AnimatePresence>
             </div>
           ) : filtered.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 sm:gap-x-6 md:gap-x-8 gap-y-8 sm:gap-y-10 md:gap-y-12">
               {filtered.map((story, i) => (
                 <motion.div
                   key={story.id}
@@ -943,7 +943,7 @@ function BrowsePage() {
                       You Might Enjoy
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 sm:gap-x-6 md:gap-x-8 gap-y-8 sm:gap-y-10 md:gap-y-12">
                     {popularFallback.map((story, i) => (
                       <motion.div
                         key={story.id}

@@ -106,7 +106,7 @@ export default function SettingsPage() {
   const cardClass = "card-page p-6";
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -189,8 +189,8 @@ export default function SettingsPage() {
                     : "border-transparent text-text-secondary hover:bg-subtle/30"
                 }`}
               >
-                <span className="text-[13px] font-medium">{rating.label}</span>
-                <span className="text-[11px] text-text-ghost ml-2">{rating.description}</span>
+                <span className="text-[13px] font-medium block sm:inline">{rating.label}</span>
+                <span className="text-[11px] text-text-ghost block sm:inline sm:ml-2 mt-0.5 sm:mt-0">{rating.description}</span>
               </button>
             ))}
           </div>

@@ -33,17 +33,17 @@ export default function ScreenplayReader({
 
   return (
     <div className="flex-1 overflow-y-auto bg-void">
-      <div className="max-w-[740px] mx-auto px-4 py-8">
+      <div className="max-w-[740px] mx-auto px-3 sm:px-4 py-6 sm:py-8">
         {/* Script page */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="relative bg-[#FAFAF5] rounded-sm shadow-2xl shadow-black/40 px-16 py-12 min-h-[600px]"
+          className="relative bg-[#FAFAF5] rounded-sm shadow-2xl shadow-black/40 px-6 sm:px-10 md:px-16 py-8 sm:py-10 md:py-12 min-h-[600px]"
         >
           {/* Brass brads */}
-          <div className="absolute top-8 left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
-          <div className="absolute bottom-8 left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
+          <div className="absolute top-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
+          <div className="absolute bottom-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
 
           {/* Title page header */}
           <div className="text-center mb-8 pb-6 border-b border-[#e5e5dc]">

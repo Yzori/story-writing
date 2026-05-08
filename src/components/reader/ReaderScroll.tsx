@@ -92,7 +92,7 @@ export default function ReaderScroll({
       {/* Scrollable content */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-8 py-16"
+        className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-10 sm:py-14 md:py-16"
       >
         <div className="max-w-[680px] mx-auto">
           {authorNoteBefore?.trim() && (

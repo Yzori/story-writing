@@ -197,7 +197,7 @@ export default function NotificationsPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="flex items-center gap-2 overflow-x-auto pb-1 mb-6"
+        className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0"
       >
         {filters.map((f) => (
           <button

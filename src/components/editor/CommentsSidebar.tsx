@@ -28,14 +28,23 @@ export default function CommentsSidebar({
   const resolvedThreads = threads.filter((t) => t.resolved);
 
   return (
-    <motion.aside
-      initial={{ width: 0, opacity: 0 }}
-      animate={{ width: 320, opacity: 1 }}
-      exit={{ width: 0, opacity: 0 }}
-      transition={{ type: "spring", stiffness: 400, damping: 35 }}
-      className="h-full border-l border-border bg-surface shrink-0 overflow-hidden flex flex-col"
-    >
-      <div className="min-w-[320px] flex flex-col h-full">
+    <>
+      {/* Mobile backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-40 bg-black/30 md:hidden"
+      />
+      <motion.aside
+        initial={{ x: "100%", width: 320, opacity: 0 }}
+        animate={{ x: 0, width: 320, opacity: 1 }}
+        exit={{ x: "100%", width: 320, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 400, damping: 35 }}
+        className="fixed md:relative inset-y-0 right-0 z-50 md:z-auto h-full max-w-[88vw] border-l border-border bg-surface shrink-0 overflow-hidden flex flex-col shadow-2xl md:shadow-none"
+      >
+        <div className="min-w-[280px] sm:min-w-[320px] flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-medium text-paper">Comments</h3>
@@ -107,6 +116,7 @@ export default function CommentsSidebar({
         </div>
       </div>
     </motion.aside>
+    </>
   );
 }
 

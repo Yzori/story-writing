@@ -692,7 +692,7 @@ export default function WebtoonEditor({
       {/* Main content area */}
       {viewMode === "visual" ? (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-[680px] mx-auto px-6 py-8 space-y-6">
+          <div className="max-w-[680px] mx-auto px-3 sm:px-4 md:px-6 py-6 md:py-8 space-y-6">
             {/* Panel list */}
             {panelCount > 0 && editable ? (
               <Reorder.Group
@@ -797,9 +797,9 @@ export default function WebtoonEditor({
         </div>
       ) : (
         /* ---- Script Mode ---- */
-        <div className="flex-1 flex overflow-hidden">
-          <div className="w-1/2 border-r border-border bg-surface flex flex-col">
-            <div className="px-5 py-3 border-b border-border">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          <div className="w-full md:w-1/2 md:min-h-0 min-h-[50vh] border-b md:border-b-0 md:border-r border-border bg-surface flex flex-col">
+            <div className="px-4 sm:px-5 py-3 border-b border-border">
               <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Episode Script
               </h3>
@@ -810,14 +810,14 @@ export default function WebtoonEditor({
             />
           </div>
 
-          <div className="w-1/2 bg-void flex flex-col">
-            <div className="px-5 py-3 border-b border-border">
+          <div className="w-full md:w-1/2 bg-void flex flex-col">
+            <div className="px-4 sm:px-5 py-3 border-b border-border">
               <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Panel Sequence
               </h3>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <div className="px-4 py-6 space-y-4">
+              <div className="px-3 sm:px-4 py-6 space-y-4">
                 {panelCount > 0 ? (
                   panels.map((panel, i) => (
                     <div
