@@ -13,6 +13,7 @@ import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { compileSessionToHTML } from "@/server/services/compile-session";
 import { countWords } from "@/lib/utils";
+import { isStoryTurnType } from "@/lib/campaign-turns";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -113,9 +114,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(eq(campaignTurns.sessionId, sessionId))
       .orderBy(asc(campaignTurns.sortOrder));
 
-    // Check if there are any story turns (not just OOC/rolls)
-    const storyTurnTypes = ["narration", "consequence", "action", "dialogue", "reaction", "description", "illustration", "scene-break"];
-    const hasStoryContent = turns.some((t) => storyTurnTypes.includes(t.type)) || campaignSession.opening;
+    // Check if there are any story turns (not just OOC/rolls). Delegates the
+    // membership test to the shared predicate so adding a new turn type only
+    // requires editing src/lib/campaign-turns.ts.
+    const hasStoryContent = turns.some((t) => isStoryTurnType(t.type)) || campaignSession.opening;
     if (!hasStoryContent) {
       return NextResponse.json(
         {
