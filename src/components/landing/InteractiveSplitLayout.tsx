@@ -262,7 +262,14 @@ function Hero() {
 // ── Video band ──────────────────────────────────────────────
 function VideoBand() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Autoplay when scrolled into view, pause when out. Respects
+  // prefers-reduced-motion: video stays paused on the poster frame so
+  // the user can still press play manually via the controls below.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -279,6 +286,55 @@ function VideoBand() {
     return () => io.disconnect();
   }, []);
 
+  // Mirror native play/pause state back into the controls so the icon
+  // stays correct when autoplay/IntersectionObserver flips it.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onVolume = () => setIsMuted(v.muted);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    v.addEventListener("volumechange", onVolume);
+    return () => {
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("volumechange", onVolume);
+    };
+  }, []);
+
+  // Track fullscreen state so the fullscreen icon swaps to "exit"
+  // when the user enters fullscreen via the API or Escape key.
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+  };
+
+  const toggleFullscreen = () => {
+    const target = frameRef.current;
+    if (!target) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      target.requestFullscreen().catch(() => {});
+    }
+  };
+
   return (
     <section className="relative px-6 py-10 md:py-14">
       <div className="max-w-5xl mx-auto">
@@ -292,25 +348,90 @@ function VideoBand() {
           Where imagination becomes story
         </motion.p>
         <motion.div
-          className="relative rounded-2xl overflow-hidden"
+          className="relative rounded-2xl overflow-hidden group"
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
           <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-gold/20 via-gold/8 to-gold/15 pointer-events-none z-0" />
-          <div className="relative rounded-2xl overflow-hidden border border-gold/15 bg-ink">
+          <div
+            ref={frameRef}
+            className="relative rounded-2xl overflow-hidden border border-gold/15 bg-ink"
+          >
             <video
               ref={videoRef}
               src="/hero-video.mp4"
-              className="w-full h-auto block aspect-video object-cover"
+              className="w-full h-auto block aspect-video object-cover bg-ink"
               loop
               muted
               playsInline
               preload="metadata"
               aria-label="Quiloria — Where imagination becomes story"
+              onClick={togglePlay}
             />
             <div className="absolute inset-0 pointer-events-none rounded-2xl shadow-[inset_0_2px_12px_rgba(0,0,0,0.15),inset_0_-2px_12px_rgba(0,0,0,0.1)]" />
+
+            {/* Controls. Visible on hover (desktop) and always on touch
+               via focus-within. Bottom-right cluster keeps the editorial
+               frame uncluttered while the user is just watching. */}
+            <div className="absolute bottom-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300">
+              <button
+                type="button"
+                onClick={togglePlay}
+                aria-label={isPlaying ? "Pause video" : "Play video"}
+                aria-pressed={isPlaying}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-void/70 backdrop-blur-md border border-gold/25 text-paper hover:bg-void/85 hover:border-gold/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-colors"
+              >
+                {isPlaying ? (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+                    <rect x="2.5" y="2" width="2.5" height="8" rx="0.5" />
+                    <rect x="7" y="2" width="2.5" height="8" rx="0.5" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+                    <path d="M3 2v8l7-4z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={toggleMute}
+                aria-label={isMuted ? "Unmute video" : "Mute video"}
+                aria-pressed={!isMuted}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-void/70 backdrop-blur-md border border-gold/25 text-paper hover:bg-void/85 hover:border-gold/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-colors"
+              >
+                {isMuted ? (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 6v4h2l3 2.5v-9L5 6H3z" fill="currentColor" />
+                    <path d="M11 6l3 4M14 6l-3 4" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 6v4h2l3 2.5v-9L5 6H3z" fill="currentColor" />
+                    <path d="M10.5 5.5a3.5 3.5 0 010 5" />
+                    <path d="M12.5 3.5a6 6 0 010 9" opacity="0.6" />
+                  </svg>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                aria-pressed={isFullscreen}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-void/70 backdrop-blur-md border border-gold/25 text-paper hover:bg-void/85 hover:border-gold/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-colors"
+              >
+                {isFullscreen ? (
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M6 2v4H2M14 6h-4V2M2 10h4v4M10 14v-4h4" />
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </motion.div>
         <motion.p
