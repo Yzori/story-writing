@@ -3,31 +3,60 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import type { FeaturedStoryData, ShelfStoryData } from "@/lib/landing-data";
 
-// ── Mock data ───────────────────────────────────────────────
-// TODO: wire FEATURED_STORY to /api/stories?featured=true with a sensible
-// fallback when the response is empty; SHELF_STORIES likewise. Hardcoded
-// content here is fine for launch day but stale within a week.
-const FEATURED_STORY = {
+// ── Fallback fixtures ───────────────────────────────────────
+// Used when the server passes null/[] (fresh install with no public
+// stories yet). Production traffic should never see these once the
+// platform has real content.
+const FEATURED_FALLBACK: FeaturedStoryData = {
+  slug: "",
   title: "The salt-keeper's daughter",
   author: "Maren Holt",
-  genre: "Coastal fantasy",
-  chapters: 24,
-  readers: "12,400",
   synopsis:
     "A cursed lighthouse, a missing brother, and a coast that remembers every shipwreck it has ever taken.",
-  slug: "salt-keepers-daughter",
+  genres: ["Coastal fantasy"],
+  chapterCount: 24,
+  sparkCount: 12400,
+  coverImageUrl: null,
 };
 
 const FOR_YOU_TAGS = ["Fantasy", "Slow-burn", "Sapphic", "Novella", "Found family"];
 
-const SHELF_STORIES = [
-  { title: "The Obsidian Crown", author: "Kaelen Thorne", genre: "Fantasy", accent: "from-gold/30 via-copper/15 to-walnut/20" },
-  { title: "Whispering Pines", author: "Sarah Imani", genre: "Mystery", accent: "from-amethyst/30 via-walnut/20 to-ink" },
-  { title: "Neon Grifters", author: "Cyborg2088", genre: "Cyberpunk", accent: "from-teal/25 via-amethyst/15 to-ink" },
-  { title: "Salt & Ruin", author: "Maren Holt", genre: "Fantasy", accent: "from-ruby/25 via-copper/15 to-walnut/20" },
-  { title: "The Hollow Depths", author: "Abysswalker", genre: "Sci-Fi", accent: "from-teal/30 via-walnut/20 to-ink" },
+const SHELF_FALLBACK: ShelfStoryData[] = [
+  { slug: "", title: "The Obsidian Crown", author: "Kaelen Thorne", genres: ["Fantasy"], coverImageUrl: null },
+  { slug: "", title: "Whispering Pines", author: "Sarah Imani", genres: ["Mystery"], coverImageUrl: null },
+  { slug: "", title: "Neon Grifters", author: "Cyborg2088", genres: ["Cyberpunk"], coverImageUrl: null },
+  { slug: "", title: "Salt & Ruin", author: "Maren Holt", genres: ["Fantasy"], coverImageUrl: null },
+  { slug: "", title: "The Hollow Depths", author: "Abysswalker", genres: ["Sci-Fi"], coverImageUrl: null },
 ];
+
+// Cycling accent gradients for shelf tiles when no cover image is
+// available — keeps the row visually varied instead of five identical
+// neutral placeholders.
+const SHELF_ACCENTS = [
+  "from-gold/30 via-copper/15 to-walnut/20",
+  "from-amethyst/30 via-walnut/20 to-ink",
+  "from-teal/25 via-amethyst/15 to-ink",
+  "from-ruby/25 via-copper/15 to-walnut/20",
+  "from-teal/30 via-walnut/20 to-ink",
+];
+
+// Compact integer formatter — "12,400" not "12400", "1.2k" optional.
+function formatCount(n: number): string {
+  if (n < 1000) return String(n);
+  return n.toLocaleString();
+}
+
+// Pull a sensible display author when the join returns null (deleted
+// user, anonymous import, etc.).
+function authorOrAnon(author: string | null): string {
+  return author?.trim() || "Anonymous";
+}
+
+function storyHref(slug: string): string {
+  return slug ? `/story/${slug}` : "/browse";
+}
 
 // ── Seeded pseudo-random to avoid hydration mismatches ──────
 function seededRandom(seed: number) {
@@ -257,28 +286,52 @@ function VideoBand() {
 }
 
 // ── Bento cells ─────────────────────────────────────────────
-function FeaturedStoryCell() {
+function FeaturedStoryCell({ story }: { story: FeaturedStoryData }) {
+  const blurb = story.synopsis?.trim() ?? "";
+  const genre = story.genres[0];
+  const meta: string[] = [];
+  if (genre) meta.push(genre);
+  meta.push(authorOrAnon(story.author));
+  if (story.chapterCount > 0) {
+    meta.push(`${story.chapterCount} chapter${story.chapterCount === 1 ? "" : "s"}`);
+  }
+  if (story.sparkCount > 0) {
+    meta.push(`${formatCount(story.sparkCount)} spark${story.sparkCount === 1 ? "" : "s"}`);
+  }
+
   return (
     <Link
-      href="/browse"
+      href={storyHref(story.slug)}
       className="group relative block rounded-2xl border border-gold/15 bg-surface/40 backdrop-blur-sm overflow-hidden hover:border-gold/30 hover:bg-surface/60 transition-all duration-500 h-full"
     >
-      {/* Faux cover gradient — replace with real coverImageUrl */}
-      <div className="absolute inset-0 bg-gradient-to-br from-teal/15 via-amethyst/8 to-walnut/30 opacity-90" />
-      <div className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/30 to-transparent" />
+      {/* Real cover when present, gradient placeholder otherwise. */}
+      {story.coverImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={story.coverImageUrl}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover opacity-55"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-teal/15 via-amethyst/8 to-walnut/30 opacity-90" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-void/95 via-void/40 to-void/10" />
       <div className="relative p-6 md:p-8 min-h-[260px] flex flex-col justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-gold/80 font-display mb-3">
             Featured this week
           </p>
           <h3 className="font-display text-2xl md:text-3xl text-paper font-medium leading-[1.1] mb-3">
-            {FEATURED_STORY.title}
+            {story.title}
           </h3>
-          <p className="text-text text-sm leading-relaxed max-w-md mb-4 font-body">
-            {FEATURED_STORY.synopsis}
-          </p>
+          {blurb && (
+            <p className="text-text text-sm leading-relaxed max-w-md mb-4 font-body">
+              {blurb}
+            </p>
+          )}
           <p className="text-text-tertiary text-[12px] font-body">
-            {FEATURED_STORY.genre} · {FEATURED_STORY.author} · {FEATURED_STORY.chapters} chapters · {FEATURED_STORY.readers} readers
+            {meta.join(" · ")}
           </p>
         </div>
         <div className="flex items-center gap-2 text-gold text-[13px] font-body mt-6 group-hover:gap-3 transition-all duration-300">
@@ -369,7 +422,7 @@ function StatCell({
   );
 }
 
-function Bento() {
+function Bento({ featured }: { featured: FeaturedStoryData }) {
   return (
     <section className="relative px-6 py-10 md:py-14">
       <div className="max-w-6xl mx-auto">
@@ -381,7 +434,7 @@ function Bento() {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
           >
-            <FeaturedStoryCell />
+            <FeaturedStoryCell story={featured} />
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -439,7 +492,7 @@ function Bento() {
 }
 
 // ── Happening now shelf ─────────────────────────────────────
-function HappeningNow() {
+function HappeningNow({ stories }: { stories: ShelfStoryData[] }) {
   return (
     <section className="relative px-6 py-12 md:py-20">
       <div className="max-w-6xl mx-auto">
@@ -469,30 +522,46 @@ function HappeningNow() {
           </Link>
         </motion.div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5">
-          {SHELF_STORIES.map((s, i) => (
-            <motion.div
-              key={s.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
-            >
-              <Link href="/browse" className="group block">
-                <div
-                  className={`relative aspect-[3/4] rounded-xl overflow-hidden border border-border bg-gradient-to-br ${s.accent} mb-3 transition-all duration-500 group-hover:border-gold/25`}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-void/85 via-void/15 to-transparent" />
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <p className="font-display text-paper text-[14px] font-medium leading-tight">
-                      {s.title}
-                    </p>
+          {stories.map((s, i) => {
+            const accent = SHELF_ACCENTS[i % SHELF_ACCENTS.length];
+            const genre = s.genres[0] ?? "Story";
+            return (
+              <motion.div
+                key={`${s.slug || "fallback"}-${i}`}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ duration: 0.5, delay: i * 0.08 }}
+              >
+                <Link href={storyHref(s.slug)} className="group block">
+                  <div
+                    className={`relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-3 transition-all duration-500 group-hover:border-gold/25 ${
+                      s.coverImageUrl ? "bg-ink" : `bg-gradient-to-br ${accent}`
+                    }`}
+                  >
+                    {s.coverImageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.coverImageUrl}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-void/90 via-void/20 to-transparent" />
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <p className="font-display text-paper text-[14px] font-medium leading-tight">
+                        {s.title}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <p className="text-text text-[13px] font-body">{s.author}</p>
-                <p className="text-text-tertiary text-[11px] font-body mt-0.5">{s.genre}</p>
-              </Link>
-            </motion.div>
-          ))}
+                  <p className="text-text text-[13px] font-body">{authorOrAnon(s.author)}</p>
+                  <p className="text-text-tertiary text-[11px] font-body mt-0.5">{genre}</p>
+                </Link>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -556,7 +625,17 @@ function FinalCTA() {
 }
 
 // ── Main ────────────────────────────────────────────────────
-export default function InteractiveSplitLayout() {
+interface Props {
+  featured?: FeaturedStoryData | null;
+  shelf?: ShelfStoryData[];
+}
+
+export default function InteractiveSplitLayout({ featured = null, shelf = [] }: Props = {}) {
+  // Real data when the server passes it; mock fixtures otherwise so a
+  // brand-new install still renders something coherent.
+  const featuredDisplay = featured ?? FEATURED_FALLBACK;
+  const shelfDisplay = shelf.length > 0 ? shelf : SHELF_FALLBACK;
+
   return (
     <div className="relative w-full bg-void font-body text-text selection:bg-gold/20 selection:text-paper">
       {/* Brand-signature ambient layer — fireflies + motes drift behind every
@@ -565,8 +644,8 @@ export default function InteractiveSplitLayout() {
       <div className="relative z-10">
         <Hero />
         <VideoBand />
-        <Bento />
-        <HappeningNow />
+        <Bento featured={featuredDisplay} />
+        <HappeningNow stories={shelfDisplay} />
         <FinalCTA />
       </div>
     </div>
