@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { SUBSCRIPTION_PLANS } from "@/config/subscription";
+import Navbar from "@/components/shared/Navbar";
 
 export default function PricingPage() {
   const { data: session } = useSession();
@@ -89,10 +90,11 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-void">
-      {/* Hero Section */}
+      <Navbar />
+      {/* Hero Section — top padding clears the fixed h-14 navbar */}
       <div className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-to-b from-gold/5 via-transparent to-transparent pointer-events-none" />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-20 text-center relative">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20 text-center relative">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
