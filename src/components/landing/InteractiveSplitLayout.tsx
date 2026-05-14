@@ -729,7 +729,7 @@ function VideoShowcase() {
           transition={{ duration: 1 }}
         >
           <span className="font-display text-[11px] uppercase tracking-[0.2em] text-text-ghost px-4">
-            Words Come Alive
+            See the editor in motion
           </span>
         </motion.div>
 
@@ -1091,24 +1091,14 @@ function FormatShowcase() {
 }
 
 // ── Genre Shelves ───────────────────────────────────────────
-const GENRE_COLORS: Record<string, string> = {
-  fantasy: "168, 85, 247",
-  scifi: "45, 212, 191",
-  romance: "225, 29, 72",
-  mystery: "168, 85, 247",
-  thriller: "225, 29, 72",
-  horror: "200, 40, 40",
-  historical: "194, 120, 62",
-  litfic: "160, 160, 170",
-  adventure: "16, 185, 129",
-  cyberpunk: "45, 212, 191",
-  darkfantasy: "130, 60, 200",
-  sliceoflife: "194, 140, 80",
-  wuxia: "225, 29, 72",
-  isekai: "16, 185, 129",
-  litrpg: "16, 185, 129",
-  mythology: "200, 150, 60",
-};
+// Per-genre RGB encoding was redundant — fantasy/mystery shared the same
+// purple, scifi/cyberpunk shared the same teal, adventure/isekai/litrpg all
+// shared the same emerald. The signal was unreliable enough that it read as
+// visual noise rather than navigation. Unified to a single brand accent so
+// typography carries the differentiation. Kept as a constant rather than
+// inlined so the hover treatment stays consistent if we ever do reintroduce
+// distinct hues (e.g. for a subset of high-traffic genres).
+const GENRE_ACCENT_RGB = "200, 150, 60"; // candlelit gold
 
 function GenreShelves() {
   const [hoveredGenre, setHoveredGenre] = useState<string | null>(null);
@@ -1132,7 +1122,7 @@ function GenreShelves() {
         {/* Genre grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {GENRES.map((genre, i) => {
-            const rgb = GENRE_COLORS[genre.id] || "200, 150, 60";
+            const rgb = GENRE_ACCENT_RGB;
             const isHovered = hoveredGenre === genre.id;
 
             return (

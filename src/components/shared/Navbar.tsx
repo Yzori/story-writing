@@ -466,10 +466,11 @@ export default function Navbar() {
               >
                 Log in
               </Link>
-              {/* Gold-leaf invitation button */}
+              {/* Gold-leaf invitation button. Pill radius matches the hero
+                 primary CTA so action surfaces stay in one shape family. */}
               <Link
                 href="/register"
-                className="relative font-display font-semibold px-5 py-1.5 rounded-md text-[13px] ml-1.5 transition-all duration-300 border border-gold/30 text-gold bg-gradient-to-b from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10 hover:border-gold/50 hover:shadow-none hover:text-paper"
+                className="relative font-display font-semibold px-5 py-1.5 rounded-full text-[13px] ml-1.5 transition-all duration-300 border border-gold/30 text-gold bg-gradient-to-b from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10 hover:border-gold/50 hover:text-paper"
               >
                 Sign up
               </Link>
@@ -671,7 +672,7 @@ export default function Navbar() {
                   </Link>
                   <Link
                     href="/register"
-                    className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-md py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300 mb-1 mt-2"
+                    className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-full py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300 mb-1 mt-2"
                     onClick={() => setMobileOpen(false)}
                   >
                     Sign up
