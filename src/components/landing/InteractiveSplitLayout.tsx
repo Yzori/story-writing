@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform, useMotionValue, AnimatePresence, animate } from "framer-motion";
+import { motion, useScroll, useTransform, useMotionValue, AnimatePresence, animate, useReducedMotion } from "framer-motion";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -113,7 +113,13 @@ const GENRES = [
 ];
 
 // ── Floating Particles Component ────────────────────────────
+// Decorative ambient motion. When the user prefers reduced motion we skip
+// rendering entirely — 44 infinite-loop animations are exactly what
+// prefers-reduced-motion exists to opt out of, and a static fallback would
+// just be 44 dim dots that don't help anyone.
 function FireflyParticles() {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) return null;
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
       {PARTICLES.map((p) => (
@@ -859,9 +865,21 @@ const FORMAT_COLORS: Record<string, string> = {
   screenplay: "225, 29, 72",
 };
 
+// Auto-rotate cadence — 11s is long enough to read longer descriptions
+// like "Vertical-scroll comics, manga, graphic novels…" without feeling
+// chaotic. WCAG 2.2.2 still requires a real pause control for >5s autoplay.
+const FORMAT_AUTOPLAY_MS = 11000;
+
 function FormatShowcase() {
+  const reduceMotion = useReducedMotion();
   const [activeIdx, setActiveIdx] = useState(0);
-  const [paused, setPaused] = useState(false);
+  // For reduced-motion users we start paused and don't auto-resume. The
+  // explicit pause toggle still works (intentional opt-in to motion).
+  const [paused, setPaused] = useState<boolean>(!!reduceMotion);
+  // Distinguishes "user explicitly paused" from "tab-click temporarily
+  // paused" — the temporary kind auto-resumes after 15s; the explicit kind
+  // doesn't until the user toggles it back on.
+  const [userPaused, setUserPaused] = useState<boolean>(!!reduceMotion);
   const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [timerKey, setTimerKey] = useState(0);
 
@@ -870,10 +888,21 @@ function FormatShowcase() {
     setPaused(true);
     setTimerKey((k) => k + 1);
     if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    // Don't auto-resume if the user has explicitly paused.
+    if (userPaused) return;
     pauseTimeoutRef.current = setTimeout(() => {
       setPaused(false);
       setTimerKey((k) => k + 1);
     }, 15000);
+  }, [userPaused]);
+
+  const togglePlayback = useCallback(() => {
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    setUserPaused((wasPaused) => {
+      setPaused(!wasPaused);
+      setTimerKey((k) => k + 1);
+      return !wasPaused;
+    });
   }, []);
 
   useEffect(() => {
@@ -881,7 +910,7 @@ function FormatShowcase() {
     const timer = setInterval(() => {
       setActiveIdx((prev) => (prev + 1) % FORMATS.length);
       setTimerKey((k) => k + 1);
-    }, 7000);
+    }, FORMAT_AUTOPLAY_MS);
     return () => clearInterval(timer);
   }, [paused]);
 
@@ -999,8 +1028,28 @@ function FormatShowcase() {
           </div>
         </div>
 
-        {/* Progress bars with timer fill */}
+        {/* Progress bars + pause control. WCAG 2.2.2 requires an
+           accessible pause for auto-moving content over 5s; pause-on-hover
+           alone doesn't reach keyboard or assistive-tech users. */}
         <div className="flex gap-2 mt-10 lg:mt-14 items-center">
+          <button
+            type="button"
+            onClick={togglePlayback}
+            aria-label={userPaused ? "Resume format carousel" : "Pause format carousel"}
+            aria-pressed={userPaused}
+            className="mr-2 w-7 h-7 inline-flex items-center justify-center rounded-full border border-border bg-surface/50 text-text-secondary hover:text-paper hover:border-border-active focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-colors"
+          >
+            {userPaused ? (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
+                <path d="M2 1.5v7l6-3.5z" />
+              </svg>
+            ) : (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
+                <rect x="2" y="1.5" width="2" height="7" rx="0.5" />
+                <rect x="6" y="1.5" width="2" height="7" rx="0.5" />
+              </svg>
+            )}
+          </button>
           {FORMATS.map((f, i) => {
             const isActive = i === activeIdx;
             return (
@@ -1022,7 +1071,7 @@ function FormatShowcase() {
                       style={{ background: `rgb(${FORMAT_COLORS[f.id] || FORMAT_COLORS.novels})` }}
                       initial={{ width: "0%" }}
                       animate={{ width: "100%" }}
-                      transition={{ duration: 7, ease: "linear" }}
+                      transition={{ duration: FORMAT_AUTOPLAY_MS / 1000, ease: "linear" }}
                     />
                   )}
                   {isActive && paused && (
