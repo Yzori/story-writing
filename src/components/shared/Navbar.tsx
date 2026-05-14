@@ -207,7 +207,7 @@ export default function Navbar() {
           {!session && (
             <Link
               href="/pricing"
-              className="text-gold hover:text-gold/80 transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 font-medium"
+              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10"
             >
               Pricing
             </Link>
@@ -481,7 +481,9 @@ export default function Navbar() {
         <button
           className="md:hidden relative w-8 h-8 flex flex-col items-center justify-center gap-1.5"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
         >
           <span
             className={`block w-5 h-px bg-gold/70 transition-all duration-300 ${
@@ -500,6 +502,7 @@ export default function Navbar() {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
+            id="mobile-menu"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
@@ -552,7 +555,7 @@ export default function Navbar() {
               {!session && (
                 <Link
                   href="/pricing"
-                  className="text-gold hover:text-gold/80 transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1 font-medium"
+                  className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
                   onClick={() => setMobileOpen(false)}
                 >
                   Pricing

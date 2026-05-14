@@ -74,7 +74,11 @@ html, html.theme-dark {
   --t-text: #B8B2A0;
   --t-text-secondary: #918B7E;
   --t-text-tertiary: #6E6962;
-  --t-text-ghost: #524E48;
+  /* Was #524E48 (~2.1:1 on --t-void) — failed WCAG 3:1 even as decorative
+     text. This token carries product copy (eyebrows, "no account needed",
+     scroll hints), so it has to clear at least 3:1 for AA-large. Brightened
+     to ~4.5:1 against the dark backdrop. */
+  --t-text-ghost: #85806F;
 
   /* Candlelight gold — brighter, pops against neutral bg */
   --t-gold: #D4A843;

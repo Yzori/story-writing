@@ -402,32 +402,44 @@ function HeroSection() {
           Quiloria
         </motion.p>
 
-        {/* Headline with quill writing animation */}
+        {/* Headline with quill writing animation.
+           Phrasing-content only inside <h1>: block-elements as direct h1
+           children is invalid HTML. We use <span> with display:block on the
+           line wrappers + motion.span on the clipped reveal layer. */}
         <h1
           ref={textContainerRef}
           className="relative font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-medium leading-[1.15] tracking-tight"
         >
           {/* Line 1: "Every story" */}
-          <div className="relative text-center">
-            <motion.div className="text-paper whitespace-nowrap" style={{ clipPath: line1Clip }}>
+          <span className="relative text-center block">
+            <motion.span
+              className="text-paper whitespace-nowrap block"
+              style={{ clipPath: line1Clip }}
+            >
               Every story
-            </motion.div>
-          </div>
+            </motion.span>
+          </span>
 
           {/* Line 2: "begins with a" */}
-          <div className="relative text-center">
-            <motion.div className="whitespace-nowrap pr-2" style={{ clipPath: line2Clip }}>
+          <span className="relative text-center block">
+            <motion.span
+              className="whitespace-nowrap pr-2 block"
+              style={{ clipPath: line2Clip }}
+            >
               <span className="text-paper">begins </span>
               <span className="text-gold italic">with a</span>
-            </motion.div>
-          </div>
+            </motion.span>
+          </span>
 
           {/* Line 3: "single word" */}
-          <div className="relative text-center">
-            <motion.div className="text-gold italic whitespace-nowrap" style={{ clipPath: line3Clip }}>
+          <span className="relative text-center block">
+            <motion.span
+              className="text-gold italic whitespace-nowrap block"
+              style={{ clipPath: line3Clip }}
+            >
               single word
-            </motion.div>
-          </div>
+            </motion.span>
+          </span>
 
           {/* Ink particles & quill overlay */}
           <div className="absolute inset-0 pointer-events-none z-30">
