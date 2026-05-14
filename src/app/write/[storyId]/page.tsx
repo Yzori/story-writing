@@ -621,12 +621,20 @@ export default function WriteStoryPage() {
       return false;
     };
 
-    // Chain onto any in-flight flush so callers always await an actual save.
-    // The `.catch(() => false)` shields fresh callers from a prior caller's
-    // rejection — we run our own attempt regardless.
-    const prior = flushPromise.current ?? Promise.resolve(true);
-    const next = prior.catch(() => false).then(doFlush);
-    flushPromise.current = next.finally(() => {
+    // Chain onto any in-flight flush so callers always await it, but don't
+    // convert a failed prior flush into success. If the prior flush already
+    // handled/cleared the pending entry because of a conflict, a follow-up
+    // publish/delete/switch must see `false` instead of treating an empty
+    // queue as safely saved.
+    const prior = flushPromise.current;
+    const next = (async (): Promise<boolean> => {
+      const priorOk = prior ? await prior.catch(() => false) : true;
+      if (!priorOk && pendingSaves.current.size === 0) return false;
+      return doFlush();
+    })();
+
+    flushPromise.current = next;
+    next.finally(() => {
       if (flushPromise.current === next) flushPromise.current = null;
     });
     return next;
