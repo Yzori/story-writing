@@ -79,6 +79,7 @@ function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromDemo = searchParams?.get("source") === "demo";
+  const intent = searchParams?.get("intent"); // "write" | "read" | null
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -135,6 +136,15 @@ function RegisterForm() {
           router.refresh();
           return;
         }
+      }
+
+      // Intent-aware routing: writer-intent users skip reader preferences and
+      // land in the create flow; reader-intent and unspecified fall through
+      // to preference capture.
+      if (intent === "write") {
+        router.push("/create");
+        router.refresh();
+        return;
       }
 
       // Default new-user path: preference capture → /welcome → reader/writer/collab.
@@ -296,7 +306,7 @@ function RegisterForm() {
           {/* GitHub OAuth */}
           <button
             type="button"
-            onClick={() => signIn("github", { callbackUrl: "/welcome" })}
+            onClick={() => signIn("github", { callbackUrl: intent === "write" ? "/create" : "/welcome" })}
             className="w-full flex items-center justify-center gap-2.5 bg-elevated/80 border border-border text-text-secondary font-medium px-6 py-2.5 rounded-full hover:text-paper hover:border-border-active transition-all duration-200 text-sm"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

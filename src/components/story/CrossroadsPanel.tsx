@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import GlossaryTerm from "@/components/shared/GlossaryTerm";
 
 interface CrossroadOption {
   label: string;
@@ -292,8 +293,11 @@ export default function CrossroadsPanel({
                   Create a Crossroad
                 </p>
                 <p className="text-text-secondary text-[12px] mb-4">
-                  Pose a question and let your readers shape the story with their
-                  Ink Drops.
+                  Pose a question and let your readers shape the story with their{" "}
+                  <GlossaryTerm
+                    term="Ink Drops"
+                    explain="Quiloria's in-app currency. Readers spend drops to tip authors, unlock chapters, and weight their vote on Crossroads."
+                  />.
                 </p>
               </div>
 

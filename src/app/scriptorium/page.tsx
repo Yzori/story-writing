@@ -592,11 +592,15 @@ export default function ScriptoriumPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          <p className="font-display text-[11px] uppercase tracking-[0.25em] text-gold/70 mb-3">
+            Commissions marketplace
+          </p>
           <h1 className="font-display text-3xl md:text-4xl lg:text-5xl text-paper mb-3 tracking-tight">
             The Scriptorium
           </h1>
           <p className="text-text-secondary text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            Commission original work from fellow storytellers
+            Hire or offer original work — illustration, editing, world-building,
+            and more — from fellow storytellers.
           </p>
           {session && (
             <div className="mt-5 flex items-center justify-center gap-3">

@@ -15,7 +15,7 @@ export default function PricingPage() {
 
   const handleSubscribe = async (tier: "pro" | "premium") => {
     if (!session?.user) {
-      router.push("/login?redirect=/pricing");
+      router.push("/login?callbackUrl=/pricing");
       return;
     }
 
@@ -61,7 +61,7 @@ export default function PricingPage() {
       "Monetization via Ink Drops",
     ],
     cta: session ? "Current Plan" : "Sign Up Free",
-    ctaLink: session ? "/dashboard" : "/signup",
+    ctaLink: session ? "/dashboard" : "/register?intent=write",
     highlight: false,
   };
 

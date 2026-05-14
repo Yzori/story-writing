@@ -590,8 +590,8 @@ function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          Write novels, poetry, screenplays &amp; comics. Read, react,
-          and collaborate with fellow storytellers.
+          Write, publish, and grow your stories — solo, with collaborators,
+          or running adventures at the table.
         </motion.p>
 
         {/* CTAs — equal-weight pills, primary first */}
@@ -1338,14 +1338,272 @@ function FinalCTA() {
   );
 }
 
+// ── Why Quiloria — Four Pillars ─────────────────────────────
+// Plain-language layer beneath the atmospheric hero. Each pillar pairs a
+// concrete outcome with a brand-flavored eyebrow, so a 10-second visitor knows
+// what they can actually do here. Atmospheric, not sterile.
+const PILLARS = [
+  {
+    eyebrow: "Write",
+    title: "Write your way",
+    body:
+      "Five formats — novel, poetry, screenplay, webtoon, illustrated. Format-aware prompts when you're stuck. Autosave that respects drafts.",
+    accent: "text-amber",
+    glow: "bg-amber/15",
+    border: "border-amber/20",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M3 21l4-1 13-13-3-3L4 17l-1 4z" strokeLinejoin="round" />
+        <path d="M14 6l3 3" />
+      </svg>
+    ),
+  },
+  {
+    eyebrow: "Read",
+    title: "Find what you love",
+    body:
+      "A personal feed tuned to genres you care about. Follow authors, react to chapters, build reading streaks, unlock the next chapter.",
+    accent: "text-teal",
+    glow: "bg-teal/15",
+    border: "border-teal/20",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M2 5c4-2 8-2 10 1 2-3 6-3 10-1v15c-4-2-8-2-10 1-2-3-6-3-10-1V5z" strokeLinejoin="round" />
+        <path d="M12 6v16" />
+      </svg>
+    ),
+  },
+  {
+    eyebrow: "Play together",
+    title: "Let readers shape stories",
+    body:
+      "Co-write with collaborators. Run live adventures with players and a GM. Open polls that let your audience vote on what happens next.",
+    accent: "text-amethyst",
+    glow: "bg-amethyst/15",
+    border: "border-amethyst/20",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <circle cx="7" cy="10" r="3" />
+        <circle cx="17" cy="10" r="3" />
+        <path d="M2 20c1-3 3-4.5 5-4.5s4 1.5 5 4.5M12 20c1-3 3-4.5 5-4.5s4 1.5 5 4.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    eyebrow: "Earn",
+    title: "Get paid by fans",
+    body:
+      "Tips, monthly subscriptions, chapter unlocks, paid commissions. Built in, no plugins, no payout middlemen between you and your readers.",
+    accent: "text-sage",
+    glow: "bg-sage/15",
+    border: "border-sage/20",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M12 3c0 0-5 5-5 9a5 5 0 0010 0c0-4-5-9-5-9z" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+];
+
+function WhyQuiloria() {
+  return (
+    <section className="relative py-24 md:py-32 px-6 overflow-hidden">
+      {/* Faint ambient glow — keeps continuity with hero without overpowering */}
+      <div
+        aria-hidden
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(200,150,60,0.04) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="relative max-w-6xl mx-auto">
+        <motion.div
+          className="text-center mb-14 md:mb-20"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.7 }}
+        >
+          <p className="font-display text-[11px] uppercase tracking-[0.25em] text-text-ghost mb-4">
+            Why Quiloria
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl text-paper font-medium leading-[1.1] max-w-2xl mx-auto">
+            A place to <span className="text-gold italic">write</span>,{" "}
+            <span className="text-gold italic">read</span>, and{" "}
+            <span className="text-gold italic">build worlds together</span>.
+          </h2>
+          <p className="mt-6 text-text-secondary text-base md:text-lg font-body max-w-xl mx-auto leading-relaxed">
+            Not just a writing app. A living place where stories are made,
+            shared, and shaped by the people who love them.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+          {PILLARS.map((p, i) => (
+            <motion.div
+              key={p.eyebrow}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.6, delay: i * 0.08, ease: "easeOut" }}
+              className={`relative rounded-2xl border ${p.border} bg-surface/40 backdrop-blur-sm p-6 md:p-7 group hover:bg-surface/60 transition-all duration-500`}
+            >
+              {/* Soft ambient glow on hover */}
+              <div
+                className={`absolute -inset-px rounded-2xl ${p.glow} opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-700 pointer-events-none`}
+                aria-hidden
+              />
+              <div className="relative">
+                <div className={`${p.accent} mb-5 opacity-70`}>{p.icon}</div>
+                <p className={`text-[10.5px] uppercase tracking-[0.18em] mb-2 ${p.accent}`}>
+                  {p.eyebrow}
+                </p>
+                <h3 className="font-display text-xl text-paper font-medium mb-3 leading-tight">
+                  {p.title}
+                </h3>
+                <p className="text-text-secondary text-[13.5px] leading-relaxed font-body">
+                  {p.body}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Reader Value Strip ──────────────────────────────────────
+// Quick callouts answering "what do I get if I'm here to read, not write?"
+// Sits low on the page to catch readers who scrolled past the writer-heavy
+// format showcase.
+const READER_BENEFITS = [
+  {
+    label: "For You feed",
+    body: "Fiction tuned to genres and lengths you actually want.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "Reading streaks",
+    body: "Track every day you read. Small habits, real stories.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M12 3c0 0-5 5-5 9a5 5 0 0010 0c0-4-5-9-5-9z" strokeLinejoin="round" />
+        <path d="M9 14a3 3 0 006 0c0-2-3-4-3-4s-3 2-3 4z" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
+    label: "Follow authors",
+    body: "New chapters land in your feed the moment they publish.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c0-4 4-7 8-7s8 3 8 7" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "First chapter free",
+    body: "Every story opens with a free read. Try before you commit.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M5 4h11l3 3v13H5z" strokeLinejoin="round" />
+        <path d="M8 9h7M8 13h5M8 17h4" />
+      </svg>
+    ),
+  },
+];
+
+function ReaderValueStrip() {
+  return (
+    <section className="relative py-16 md:py-24 px-6 border-t border-border-subtle">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          className="text-center mb-10 md:mb-14"
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6 }}
+        >
+          <p className="font-display text-[11px] uppercase tracking-[0.25em] text-teal/70 mb-3">
+            For readers
+          </p>
+          <h2 className="font-display text-2xl sm:text-3xl md:text-4xl text-paper font-medium">
+            Here to read? <span className="text-gold italic">Stay a while.</span>
+          </h2>
+          <p className="mt-4 text-text-secondary text-sm md:text-base font-body max-w-lg mx-auto leading-relaxed">
+            Free to browse, free to read. No paywall before page one.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          {READER_BENEFITS.map((b, i) => (
+            <motion.div
+              key={b.label}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, delay: i * 0.07 }}
+              className="rounded-xl border border-border bg-surface/30 backdrop-blur-sm p-4 md:p-5 hover:border-teal/30 hover:bg-surface/50 transition-all duration-300"
+            >
+              <div className="text-teal/70 mb-3">{b.icon}</div>
+              <p className="font-display text-paper text-[14px] font-medium mb-1.5">
+                {b.label}
+              </p>
+              <p className="text-text-secondary text-[12px] leading-relaxed font-body">
+                {b.body}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div
+          className="mt-10 text-center"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+        >
+          <Link
+            href="/browse"
+            className="inline-flex items-center gap-2 text-teal hover:text-paper text-[13px] font-medium transition-colors group"
+          >
+            Browse the catalog
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="transition-transform group-hover:translate-x-0.5"
+            >
+              <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 // ── Main Component ──────────────────────────────────────────
 export default function InteractiveSplitLayout() {
   return (
     <div className="relative w-full bg-void font-body text-text selection:bg-gold/20 selection:text-paper">
       <HeroSection />
+      <WhyQuiloria />
       <VideoShowcase />
       <FormatShowcase />
       <GenreShelves />
+      <ReaderValueStrip />
       <FinalCTA />
     </div>
   );

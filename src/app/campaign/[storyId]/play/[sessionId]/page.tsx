@@ -145,23 +145,21 @@ export default function SessionPlayPage() {
     [sendTurn, myCharacter, showToast]
   );
 
-  // Draft commit — after player writes, return control to GM
+  // Draft commit — server hands the spotlight back to the GM automatically
+  // after a player's story-type turn, so we no longer call setActivePlayer
+  // from the client (that endpoint is GM-only and was 403'ing for players,
+  // leaving the spotlight stuck on whoever had been assigned the turn).
   const handleCommitDraft = useCallback(
     async (content: string, type: string) => {
       try {
         const gmTypes = ["narration", "consequence"];
         const characterId = gmTypes.includes(type) ? undefined : myCharacter?.id;
         await sendTurn(type, content, characterId);
-        // After a player writes, return control to GM (set activePlayerId to GM's userId)
-        // null = open floor (anyone can write), GM userId = GM's turn (players locked)
-        if (!isGM && campaignSession?.activePlayerId && story) {
-          await setActivePlayer(story.userId);
-        }
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to commit");
       }
     },
-    [sendTurn, myCharacter, isGM, campaignSession, setActivePlayer, showToast]
+    [sendTurn, myCharacter, showToast]
   );
 
   // GM picks who goes next

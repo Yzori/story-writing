@@ -140,7 +140,7 @@ export default function ShowcasePage() {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/register"
+                href="/register?intent=read"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-amber text-void font-semibold text-sm hover:bg-amber-light transition-all shadow-lg shadow-amber/15"
               >
                 Sign up free

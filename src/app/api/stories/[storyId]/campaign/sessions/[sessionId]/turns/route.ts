@@ -168,7 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Only GM (story owner) can post narration and consequence
     const isStoryOwner = check.story?.userId === session.user.id;
-    const gmOnlyTypes = ["narration", "consequence", "roll-request", "illustration"];
+    const gmOnlyTypes = ["narration", "consequence", "roll-request", "illustration", "scene-break"];
     if (gmOnlyTypes.includes(parsed.data.type) && !isStoryOwner) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can narrate" } },
@@ -224,15 +224,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    // Open floor: after a player posts a story turn, return control to GM
+    // Hand the spotlight back to the GM after a player posts a story turn —
+    // whether they were assigned the floor (activePlayerId === user) or it
+    // was open (activePlayerId is null). Without this, assigned-player turns
+    // get stuck on the player because the client cannot reassign (the
+    // active-player endpoint is GM-only). Skip when the GM themselves posted.
+    const posterIsPlayer = session.user.id !== check.story!.userId;
+    const playerCedesFloor =
+      !campaignSession.activePlayerId ||
+      campaignSession.activePlayerId === session.user.id;
+    let nextActivePlayerId: string | null = campaignSession.activePlayerId ?? null;
     if (
-      !campaignSession.activePlayerId &&
-      playerStoryTypes.includes(parsed.data.type) &&
-      session.user.id !== check.story!.userId
+      posterIsPlayer &&
+      playerCedesFloor &&
+      playerStoryTypes.includes(parsed.data.type)
     ) {
+      nextActivePlayerId = check.story!.userId;
       await db
         .update(campaignSessions)
-        .set({ activePlayerId: check.story!.userId })
+        .set({ activePlayerId: nextActivePlayerId })
         .where(eq(campaignSessions.id, sessionId));
     }
 
@@ -261,7 +271,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .leftJoin(playerCharacters, eq(campaignTurns.characterId, playerCharacters.id))
       .where(eq(campaignTurns.id, created.id));
 
-    return NextResponse.json({ data: enriched ?? created }, { status: 201 });
+    // Surface the (possibly updated) activePlayerId so the client can reflect
+    // the auto-handover immediately, without waiting for the next poll.
+    return NextResponse.json(
+      { data: enriched ?? created, meta: { activePlayerId: nextActivePlayerId } },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("POST /api/.../turns error:", error);
     return NextResponse.json(

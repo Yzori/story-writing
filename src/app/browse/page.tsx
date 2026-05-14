@@ -73,24 +73,33 @@ const DUST_MOTES = Array.from({ length: 20 }, (_, i) => ({
 }));
 
 // ── Hero Particles for featured sections ──
-const HeroParticles = () => {
-  // Generate random stable particles
-  const particles = useMemo(() => Array.from({ length: 30 }).map((_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    duration: 10 + Math.random() * 20,
-    delay: Math.random() * -20,
-    size: 2 + Math.random() * 3
-  })), []);
+// Seeded so SSR and client render identical values — Math.random() here
+// produces a hydration mismatch warning and unstable visuals.
+const HERO_SEED = seededRandom(7919);
+const HERO_PARTICLES = Array.from({ length: 30 }, (_, i) => ({
+  id: i,
+  x: HERO_SEED() * 100,
+  y: HERO_SEED() * 100,
+  duration: 10 + HERO_SEED() * 20,
+  delay: HERO_SEED() * -20,
+  size: 2 + HERO_SEED() * 3,
+  // Pre-compute the horizontal drift direction so animate props stay stable
+  // across renders. Without this, every re-render flips the destination x.
+  driftSign: HERO_SEED() > 0.5 ? 1 : -1,
+}));
 
+const HeroParticles = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none mix-blend-screen z-10">
-      {particles.map(p => (
+      {HERO_PARTICLES.map((p) => (
         <motion.div
           key={p.id}
           initial={{ y: `${p.y + 20}%`, x: `${p.x}%`, opacity: 0 }}
-          animate={{ y: [`${p.y}%`, `${p.y - 30}%`], x: [`${p.x}%`, `${p.x + (Math.random() > 0.5 ? 10 : -10)}%`], opacity: [0, 0.6, 0] }}
+          animate={{
+            y: [`${p.y}%`, `${p.y - 30}%`],
+            x: [`${p.x}%`, `${p.x + p.driftSign * 10}%`],
+            opacity: [0, 0.6, 0],
+          }}
           transition={{ duration: p.duration, repeat: Infinity, ease: "linear", delay: p.delay }}
           className="absolute rounded-full bg-violet-300 shadow-[0_0_10px_#a78bfa]"
           style={{ width: p.size, height: p.size }}

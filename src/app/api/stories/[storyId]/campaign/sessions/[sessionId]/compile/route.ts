@@ -146,7 +146,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const nextOrder = (maxResult?.maxOrder ?? -1) + 1;
     const wordCount = countWords(compiledHTML);
 
-    // Create the chapter draft linked to the session
+    // Create the chapter draft, then atomically claim the session by setting
+    // chapterId only when it's still NULL. Two concurrent compile requests
+    // can both pass the early check at line 86 (chapterId IS NULL), but only
+    // one UPDATE can flip the column. The loser deletes its orphan chapter
+    // and returns the winner's chapterId — same shape as the early-return
+    // duplicate path.
     const [chapter] = await db
       .insert(chapters)
       .values({
@@ -160,11 +165,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    // Link the session back to the chapter
-    await db
+    const claimed = await db
       .update(campaignSessions)
       .set({ chapterId: chapter.id })
-      .where(eq(campaignSessions.id, sessionId));
+      .where(
+        and(
+          eq(campaignSessions.id, sessionId),
+          isNull(campaignSessions.chapterId),
+        ),
+      )
+      .returning({ chapterId: campaignSessions.chapterId });
+
+    if (claimed.length === 0) {
+      // Lost the race — another request already claimed the session. Roll
+      // back our chapter and return the existing claim.
+      await db.delete(chapters).where(eq(chapters.id, chapter.id));
+      const winner = await db.query.campaignSessions.findFirst({
+        where: eq(campaignSessions.id, sessionId),
+      });
+      return NextResponse.json(
+        {
+          data: {
+            chapterId: winner?.chapterId,
+            message: "Session already compiled",
+          },
+        },
+        { status: 200 },
+      );
+    }
 
     return NextResponse.json(
       {

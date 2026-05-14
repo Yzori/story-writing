@@ -244,6 +244,18 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       });
       maxSortRef.current = Math.max(maxSortRef.current, newTurn.sortOrder);
 
+      // The server may have auto-handed control back to the GM after a
+      // player's story turn. Apply that change locally so the editor lock
+      // updates immediately instead of waiting for the next poll.
+      const nextActivePlayerId = json?.meta?.activePlayerId;
+      if (nextActivePlayerId !== undefined) {
+        setCampaignSession((prev) =>
+          prev && prev.activePlayerId !== nextActivePlayerId
+            ? { ...prev, activePlayerId: nextActivePlayerId }
+            : prev,
+        );
+      }
+
       return newTurn;
     },
     [storyId, sessionId]

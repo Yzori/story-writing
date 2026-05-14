@@ -87,23 +87,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      // Only one active session per story — use transaction to prevent race
+      // Pre-flight check for a nicer error message; the DB partial unique
+      // index `campaign_sessions_one_active_per_story` is what actually
+      // prevents the race — the previous read-only "transaction" did nothing
+      // since both reads could happen before either write.
       if (newStatus === "active") {
-        const conflict = await db.transaction(async (tx) => {
-          const existingActive = await tx
-            .select({ id: campaignSessions.id })
-            .from(campaignSessions)
-            .where(
-              and(
-                eq(campaignSessions.storyId, storyId),
-                eq(campaignSessions.status, "active"),
-                sql`${campaignSessions.id} != ${sessionId}`
-              )
-            )
-            .limit(1);
-          return existingActive.length > 0;
-        });
-        if (conflict) {
+        const existingActive = await db
+          .select({ id: campaignSessions.id })
+          .from(campaignSessions)
+          .where(
+            and(
+              eq(campaignSessions.storyId, storyId),
+              eq(campaignSessions.status, "active"),
+              sql`${campaignSessions.id} != ${sessionId}`,
+            ),
+          )
+          .limit(1);
+        if (existingActive.length > 0) {
           return NextResponse.json(
             { error: { code: "BAD_REQUEST", message: "Another session is already active" } },
             { status: 400 }
@@ -118,11 +118,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.activePlayerId = null;
     }
 
-    const [updated] = await db
-      .update(campaignSessions)
-      .set(updateData)
-      .where(eq(campaignSessions.id, sessionId))
-      .returning();
+    // The UPDATE may fail with a unique_violation if a concurrent request
+    // raced past the pre-flight check and won. PG error code 23505.
+    let updated;
+    try {
+      [updated] = await db
+        .update(campaignSessions)
+        .set(updateData)
+        .where(eq(campaignSessions.id, sessionId))
+        .returning();
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "23505") {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Another session is already active" } },
+          { status: 400 }
+        );
+      }
+      throw err;
+    }
 
     // Notify players when session ends or begins
     if (parsed.data.status === "completed" || parsed.data.status === "active") {

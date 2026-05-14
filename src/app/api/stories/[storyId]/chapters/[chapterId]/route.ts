@@ -180,10 +180,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Only bump version when content changes — metadata-only patches (title,
+    // status, outline, authorNote) must not desync the client's baseVersion,
+    // otherwise the next content autosave conflicts and the user's edits get
+    // dumped to localStorage with no recovery path.
     const updateData: Record<string, unknown> = {
       ...updateFields,
       updatedAt: new Date(),
-      version: existing.version + 1,
+      ...(updateFields.content !== undefined && {
+        version: existing.version + 1,
+      }),
     };
 
     // Webtoon content is JSON (panel arrays) — skip HTML sanitization and word counting
@@ -197,10 +203,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.wordCount = countWords(updateFields.content);
     }
 
+    // Optimistic lock guard: only update when the row's version still matches
+    // what we read. If another writer bumped version between our read and
+    // write, this returns zero rows and we surface a CONFLICT below.
+    const contentChanging = updateFields.content !== undefined;
     const [updated] = await db
       .update(chapters)
       .set(updateData)
-      .where(and(eq(chapters.id, chapterId), eq(chapters.version, existing.version)))
+      .where(
+        and(
+          eq(chapters.id, chapterId),
+          // Only enforce version match when we're bumping it — metadata-only
+          // patches don't compete on version so they should always succeed.
+          contentChanging ? eq(chapters.version, existing.version) : dsql`true`,
+        ),
+      )
       .returning();
 
     // If update returned nothing, another concurrent write won the race

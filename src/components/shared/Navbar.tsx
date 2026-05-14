@@ -185,15 +185,11 @@ export default function Navbar() {
 
         {/* Right: Nav links + user */}
         <div className="hidden md:flex items-center gap-0.5">
-          {/* Nav links — lantern-lit hover */}
-          {session && (
-            <Link
-              href="/dashboard"
-              className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
-            >
-              Dashboard
-            </Link>
-          )}
+          {/* Audience-gated top nav.
+             Anon: Browse · Pricing · Try editor · Log in · Sign up
+             Logged-in: Read · Browse · Dashboard · Write · [utilities] · [profile]
+             Library + Pricing + creator routes live in the profile menu for signed-in users
+             to keep the top bar focused. */}
           {session && (
             <Link
               href="/read"
@@ -208,18 +204,20 @@ export default function Navbar() {
           >
             Browse
           </Link>
-          <Link
-            href="/pricing"
-            className="text-gold hover:text-gold/80 transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 font-medium"
-          >
-            Pricing
-          </Link>
+          {!session && (
+            <Link
+              href="/pricing"
+              className="text-gold hover:text-gold/80 transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 font-medium"
+            >
+              Pricing
+            </Link>
+          )}
           {session && (
             <Link
-              href="/library"
+              href="/dashboard"
               className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 hover:shadow-none"
             >
-              Library
+              Dashboard
             </Link>
           )}
           {isLoading ? (
@@ -343,6 +341,17 @@ export default function Navbar() {
                             Edit Profile
                           </Link>
                           <Link
+                            href="/library"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <path d="M3 2h10v12H3z" />
+                              <path d="M6 2v12M10 2v12" />
+                            </svg>
+                            Library
+                          </Link>
+                          <Link
                             href="/dashboard"
                             onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
@@ -398,6 +407,17 @@ export default function Navbar() {
                             Earnings
                           </Link>
                           <Link
+                            href="/pricing"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60">
+                              <path d="M2 6l6-4 6 4v8H2z" />
+                              <path d="M6 14V9h4v5" />
+                            </svg>
+                            Pricing
+                          </Link>
+                          <Link
                             href="/settings"
                             onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-text-secondary hover:text-paper hover:bg-gold/10 transition-all duration-200"
@@ -433,6 +453,13 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              {/* Demo editor — strongest anonymous conversion CTA */}
+              <Link
+                href="/demo/try"
+                className="text-text hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10 font-medium"
+              >
+                Try editor
+              </Link>
               <Link
                 href="/login"
                 className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] px-3 py-2 rounded-lg hover:bg-gold/10"
@@ -503,16 +530,9 @@ export default function Navbar() {
                 />
               </form>
 
-              {/* Primary nav — matches desktop: Dashboard · Read · Browse · Library · Write */}
-              {session && (
-                <Link
-                  href="/dashboard"
-                  className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Dashboard
-                </Link>
-              )}
+              {/* Primary nav — audience-gated.
+                 Anon: Browse · Pricing · Try editor (CTA) · Log in · Sign up
+                 Logged-in: Read · Browse · Dashboard · Write (Library + Pricing live in secondary) */}
               {session && (
                 <Link
                   href="/read"
@@ -529,20 +549,22 @@ export default function Navbar() {
               >
                 Browse
               </Link>
-              <Link
-                href="/pricing"
-                className="text-gold hover:text-gold/80 transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1 font-medium"
-                onClick={() => setMobileOpen(false)}
-              >
-                Pricing
-              </Link>
+              {!session && (
+                <Link
+                  href="/pricing"
+                  className="text-gold hover:text-gold/80 transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1 font-medium"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Pricing
+                </Link>
+              )}
               {session && (
                 <Link
-                  href="/library"
+                  href="/dashboard"
                   className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Library
+                  Dashboard
                 </Link>
               )}
               {session && (
@@ -558,6 +580,13 @@ export default function Navbar() {
                 <>
                   <div className="my-1.5 h-px bg-gradient-to-r from-border-active via-border to-transparent" />
                   {/* Secondary links — utilities, matching desktop user menu */}
+                  <Link
+                    href="/library"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Library
+                  </Link>
                   <Link
                     href="/scriptorium"
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
@@ -607,6 +636,13 @@ export default function Navbar() {
                     Profile
                   </Link>
                   <Link
+                    href="/pricing"
+                    className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Pricing
+                  </Link>
+                  <Link
                     href="/settings"
                     className="text-text-secondary hover:text-paper transition-all duration-300 text-[13px] py-2 hover:pl-1"
                     onClick={() => setMobileOpen(false)}
@@ -624,8 +660,15 @@ export default function Navbar() {
               ) : (
                 <>
                   <Link
+                    href="/demo/try"
+                    className="text-paper hover:text-gold transition-all duration-300 text-[15px] font-display py-2.5 hover:pl-1"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Try editor — free
+                  </Link>
+                  <Link
                     href="/register"
-                    className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-md py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300 mb-1"
+                    className="inline-flex items-center justify-center font-display font-semibold text-gold border border-gold/25 bg-gradient-to-b from-gold/12 to-gold/4 rounded-md py-2.5 text-[14px] hover:text-paper hover:border-gold/40 transition-all duration-300 mb-1 mt-2"
                     onClick={() => setMobileOpen(false)}
                   >
                     Sign up

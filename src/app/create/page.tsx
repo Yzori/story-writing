@@ -22,6 +22,91 @@ const POPULAR_GENRES = [
   "Horror", "Literary Fiction", "Dark Fantasy",
 ];
 
+// Static per-mode class strings. Tailwind only sees class names that appear as
+// literal substrings in the source — dynamic `bg-${x}/10` template literals
+// get stripped at build time, so we hand-roll the three combinations here.
+// Inline CSS uses `color-mix(...)` instead of `var(--color-X/0.08)` because
+// the slash-opacity syntax is Tailwind sugar, not valid CSS inside var().
+type AccentKey = "violet" | "teal" | "amber";
+
+const ACCENT: Record<AccentKey, {
+  ambientBg: string;
+  ambientGlow: string;
+  dragRing: string;
+  bookGenrePill: string;
+  inputFocus: string;
+  synopsisFocus: string;
+  formatSelected: string;
+  formatGlow: string;
+  formatTextActive: string;
+  formatDescActive: string;
+  selectedGenrePill: string;
+  genrePillHover: string;
+  genreToggleHover: string;
+  ratingSelected: string;
+  ratingDescActive: string;
+  submitBg: string;
+  submitHoverShadow: string;
+}> = {
+  violet: {
+    ambientBg: "radial-gradient(ellipse 60% 50% at 50% 35%, color-mix(in srgb, var(--color-violet) 8%, transparent) 0%, transparent 70%)",
+    ambientGlow: "0 0 140px color-mix(in srgb, var(--color-violet) 10%, transparent), 0 0 60px color-mix(in srgb, var(--color-violet) 5%, transparent)",
+    dragRing: "ring-2 ring-violet/50 ring-inset",
+    bookGenrePill: "bg-violet/15 border border-violet/20 text-violet",
+    inputFocus: "focus:border-violet/30",
+    synopsisFocus: "focus:border-violet/25",
+    formatSelected: "bg-violet/10 border-violet/30",
+    formatGlow: "0 0 20px color-mix(in srgb, var(--color-violet) 8%, transparent)",
+    formatTextActive: "text-violet",
+    formatDescActive: "text-violet/50",
+    selectedGenrePill: "bg-violet/10 border-violet/20 text-violet",
+    genrePillHover: "hover:border-violet/30 hover:text-violet hover:bg-violet/[0.04]",
+    genreToggleHover: "hover:text-violet",
+    ratingSelected: "bg-violet/10 border-violet/30 text-violet",
+    ratingDescActive: "text-violet/60",
+    submitBg: "bg-violet text-void",
+    submitHoverShadow: "0 0 30px color-mix(in srgb, var(--color-violet) 25%, transparent)",
+  },
+  teal: {
+    ambientBg: "radial-gradient(ellipse 60% 50% at 50% 35%, color-mix(in srgb, var(--color-teal) 8%, transparent) 0%, transparent 70%)",
+    ambientGlow: "0 0 140px color-mix(in srgb, var(--color-teal) 10%, transparent), 0 0 60px color-mix(in srgb, var(--color-teal) 5%, transparent)",
+    dragRing: "ring-2 ring-teal/50 ring-inset",
+    bookGenrePill: "bg-teal/15 border border-teal/20 text-teal",
+    inputFocus: "focus:border-teal/30",
+    synopsisFocus: "focus:border-teal/25",
+    formatSelected: "bg-teal/10 border-teal/30",
+    formatGlow: "0 0 20px color-mix(in srgb, var(--color-teal) 8%, transparent)",
+    formatTextActive: "text-teal",
+    formatDescActive: "text-teal/50",
+    selectedGenrePill: "bg-teal/10 border-teal/20 text-teal",
+    genrePillHover: "hover:border-teal/30 hover:text-teal hover:bg-teal/[0.04]",
+    genreToggleHover: "hover:text-teal",
+    ratingSelected: "bg-teal/10 border-teal/30 text-teal",
+    ratingDescActive: "text-teal/60",
+    submitBg: "bg-teal text-void",
+    submitHoverShadow: "0 0 30px color-mix(in srgb, var(--color-teal) 25%, transparent)",
+  },
+  amber: {
+    ambientBg: "radial-gradient(ellipse 60% 50% at 50% 35%, color-mix(in srgb, var(--color-amber) 8%, transparent) 0%, transparent 70%)",
+    ambientGlow: "0 0 140px color-mix(in srgb, var(--color-amber) 10%, transparent), 0 0 60px color-mix(in srgb, var(--color-amber) 5%, transparent)",
+    dragRing: "ring-2 ring-amber/50 ring-inset",
+    bookGenrePill: "bg-amber/15 border border-amber/20 text-amber",
+    inputFocus: "focus:border-amber/30",
+    synopsisFocus: "focus:border-amber/25",
+    formatSelected: "bg-amber/10 border-amber/30",
+    formatGlow: "0 0 20px color-mix(in srgb, var(--color-amber) 8%, transparent)",
+    formatTextActive: "text-amber",
+    formatDescActive: "text-amber/50",
+    selectedGenrePill: "bg-amber/10 border-amber/20 text-amber",
+    genrePillHover: "hover:border-amber/30 hover:text-amber hover:bg-amber/[0.04]",
+    genreToggleHover: "hover:text-amber",
+    ratingSelected: "bg-amber/10 border-amber/30 text-amber",
+    ratingDescActive: "text-amber/60",
+    submitBg: "bg-amber text-void",
+    submitHoverShadow: "0 0 30px color-mix(in srgb, var(--color-amber) 25%, transparent)",
+  },
+};
+
 // ── Main component ──────────────────────────────────────────
 
 type WritingMode = "solo" | "co-op" | "campaign" | null;
@@ -32,11 +117,10 @@ export default function CreatePage() {
 
   // Story details state
   const [title, setTitle] = useState("");
-  const [authorName, setAuthorName] = useState("");
   const [format, setFormat] = useState("novel");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [synopsis, setSynopsis] = useState("");
-  const [contentRating, setContentRating] = useState("G");
+  const [contentRating, setContentRating] = useState("everyone");
   const [contentNotes, setContentNotes] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -123,7 +207,8 @@ export default function CreatePage() {
   // ── Step 2: Story details ───────────────────────────────────
 
   const isCampaign = writingMode === "campaign";
-  const accentColor = isCampaign ? "violet" : writingMode === "co-op" ? "teal" : "amber";
+  const accentColor: AccentKey = isCampaign ? "violet" : writingMode === "co-op" ? "teal" : "amber";
+  const accent = ACCENT[accentColor];
   const modeData = MODES.find((m) => m.id === writingMode)!;
   const modeLabel = writingMode === "co-op" ? "Co-op" : isCampaign ? "Adventure" : "Solo";
 
@@ -144,9 +229,7 @@ export default function CreatePage() {
         />
         <div
           className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse 60% 50% at 50% 35%, var(--color-${accentColor}/0.08) 0%, transparent 70%)`,
-          }}
+          style={{ background: accent.ambientBg }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-void/50 via-transparent to-void/90" />
       </div>
@@ -189,7 +272,7 @@ export default function CreatePage() {
               {/* Ambient glow behind book */}
               <div
                 className="absolute -inset-10 rounded-3xl pointer-events-none"
-                style={{ boxShadow: `0 0 80px var(--color-${accentColor}/0.1)` }}
+                style={{ boxShadow: accent.ambientGlow }}
               />
 
               {/* Book container with page edges */}
@@ -243,7 +326,7 @@ export default function CreatePage() {
                         if (f) handleCoverFile(f);
                       }}
                       className={`absolute inset-0 cursor-pointer group transition-all duration-300 ${
-                        isDragging ? `ring-2 ring-${accentColor}/50 ring-inset` : ""
+                        isDragging ? accent.dragRing : ""
                       }`}
                     >
                       {coverPreview ? (
@@ -312,20 +395,6 @@ export default function CreatePage() {
                       className="w-full bg-transparent font-display text-lg text-paper outline-none placeholder:text-white/20 border-none leading-snug"
                     />
 
-                    {/* Author name on book */}
-                    <AnimatePresence>
-                      {authorName && (
-                        <motion.p
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="text-[11px] text-white/40 font-body mt-0.5 tracking-wide overflow-hidden"
-                        >
-                          by {authorName}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-
                     {/* Synopsis preview */}
                     <AnimatePresence>
                       {synopsisPreview && (
@@ -350,7 +419,7 @@ export default function CreatePage() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.7, y: -4 }}
                             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                            className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.08em] rounded-full bg-${accentColor}/15 border border-${accentColor}/20 text-${accentColor} font-body`}
+                            className={`px-2 py-0.5 text-[9px] uppercase tracking-[0.08em] rounded-full ${accent.bookGenrePill} font-body`}
                           >
                             {genre}
                           </motion.span>
@@ -393,7 +462,7 @@ export default function CreatePage() {
             {/* Ambient glow behind form */}
             <div
               className="absolute -inset-8 rounded-3xl pointer-events-none hidden lg:block"
-              style={{ boxShadow: `0 0 140px var(--color-${accentColor}/0.1), 0 0 60px var(--color-${accentColor}/0.05)` }}
+              style={{ boxShadow: accent.ambientGlow }}
             />
 
             {/* Form card */}
@@ -416,29 +485,8 @@ export default function CreatePage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={isCampaign ? "Untitled Adventure" : "Untitled Story"}
-                    className={`w-full font-display text-2xl text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-white/[0.06] pb-3 focus:border-${accentColor}/30 transition-colors`}
+                    className={`w-full font-display text-2xl text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-white/[0.06] pb-3 ${accent.inputFocus} transition-colors`}
                     required
-                  />
-                </motion.div>
-
-                {/* Author / Pen Name */}
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.24 }}
-                >
-                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-3 block font-body">
-                    Author Name
-                    <span className="text-text-ghost/40 ml-2 normal-case tracking-normal text-[11px]">
-                      pen name or real name
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    value={authorName}
-                    onChange={(e) => setAuthorName(e.target.value)}
-                    placeholder="Your name as it appears on the cover"
-                    className={`w-full font-body text-[15px] text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-white/[0.06] pb-3 focus:border-${accentColor}/30 transition-colors`}
                   />
                 </motion.div>
 
@@ -474,7 +522,7 @@ export default function CreatePage() {
                         : "A brief description of your story. What will draw readers in?"
                     }
                     rows={4}
-                    className={`w-full bg-elevated border border-border rounded-xl px-4 py-3.5 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 placeholder:italic transition-all resize-none leading-relaxed focus:border-${accentColor}/25`}
+                    className={`w-full bg-elevated border border-border rounded-xl px-4 py-3.5 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 placeholder:italic transition-all resize-none leading-relaxed ${accent.synopsisFocus}`}
                   />
                   <p className="text-[11px] text-text-ghost mt-1.5">{synopsis.length}/500</p>
                 </motion.div>
@@ -499,17 +547,18 @@ export default function CreatePage() {
                             onClick={() => setFormat(f.id)}
                             className={`relative flex flex-col items-center gap-2 px-3 py-4 rounded-xl border text-center transition-all duration-200 cursor-pointer ${
                               isSelected
-                                ? `bg-${accentColor}/10 border-${accentColor}/30 shadow-[0_0_20px_var(--color-${accentColor}/0.08)]`
+                                ? accent.formatSelected
                                 : "border-white/[0.08] hover:border-white/15 bg-elevated/70"
                             }`}
+                            style={isSelected ? { boxShadow: accent.formatGlow } : undefined}
                           >
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={isSelected ? `text-${accentColor}` : "text-text-secondary"}>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={isSelected ? accent.formatTextActive : "text-text-secondary"}>
                               <path d={f.icon} />
                             </svg>
-                            <span className={`text-[12px] font-medium font-body ${isSelected ? `text-${accentColor}` : "text-text-secondary"}`}>
+                            <span className={`text-[12px] font-medium font-body ${isSelected ? accent.formatTextActive : "text-text-secondary"}`}>
                               {f.label}
                             </span>
-                            <span className={`text-[10px] leading-tight font-body ${isSelected ? `text-${accentColor}/50` : "text-text-tertiary"}`}>
+                            <span className={`text-[10px] leading-tight font-body ${isSelected ? accent.formatDescActive : "text-text-tertiary"}`}>
                               {f.desc}
                             </span>
                           </button>
@@ -578,7 +627,7 @@ export default function CreatePage() {
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.8 }}
                             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-${accentColor}/10 border border-${accentColor}/20 text-${accentColor} text-[11px] font-body`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${accent.selectedGenrePill} text-[11px] font-body`}
                           >
                             {genre}
                             <button
@@ -605,7 +654,7 @@ export default function CreatePage() {
                       value={genreSearch}
                       onChange={(e) => { setGenreSearch(e.target.value); if (e.target.value) setShowAllGenres(true); }}
                       placeholder="Search genres..."
-                      className={`w-full bg-elevated border border-border rounded-lg pl-9 pr-3 py-2 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 focus:border-${accentColor}/25 transition-colors`}
+                      className={`w-full bg-elevated border border-border rounded-lg pl-9 pr-3 py-2 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 ${accent.synopsisFocus} transition-colors`}
                     />
                   </div>
 
@@ -620,7 +669,7 @@ export default function CreatePage() {
                         className={`px-3 py-1.5 rounded-full border text-[12px] font-body transition-all duration-200 cursor-pointer ${
                           selectedGenres.length >= 5
                             ? "border-white/[0.06] text-text-tertiary/40 cursor-default"
-                            : `border-white/[0.08] text-text-secondary hover:border-${accentColor}/30 hover:text-${accentColor} hover:bg-${accentColor}/[0.04]`
+                            : `border-white/[0.08] text-text-secondary ${accent.genrePillHover}`
                         }`}
                       >
                         {genre}
@@ -636,7 +685,7 @@ export default function CreatePage() {
                     <button
                       type="button"
                       onClick={() => setShowAllGenres(!showAllGenres)}
-                      className={`mt-2.5 text-[11px] text-text-ghost hover:text-${accentColor} transition-colors font-body cursor-pointer`}
+                      className={`mt-2.5 text-[11px] text-text-ghost ${accent.genreToggleHover} transition-colors font-body cursor-pointer`}
                     >
                       {showAllGenres ? "Show less" : `Browse all ${GENRES.length} genres \u2192`}
                     </button>
@@ -662,12 +711,12 @@ export default function CreatePage() {
                           onClick={() => setContentRating(rating.value)}
                           className={`px-4 py-2 rounded-xl border text-[12px] font-body transition-all duration-200 cursor-pointer flex flex-col items-start ${
                             isSelected
-                              ? `bg-${accentColor}/10 border-${accentColor}/30 text-${accentColor}`
+                              ? accent.ratingSelected
                               : "border-white/[0.08] text-text-secondary bg-elevated/70 hover:border-white/15"
                           }`}
                         >
                           <span className="font-medium">{rating.label}</span>
-                          <span className={`text-[10px] mt-0.5 ${isSelected ? `text-${accentColor}/60` : "text-text-tertiary"}`}>
+                          <span className={`text-[10px] mt-0.5 ${isSelected ? accent.ratingDescActive : "text-text-tertiary"}`}>
                             {rating.description}
                           </span>
                         </button>
@@ -730,11 +779,18 @@ export default function CreatePage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`group relative font-display font-semibold px-8 py-3.5 rounded-full transition-all duration-300 text-[14px] flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden cursor-pointer ${
+                    className={`group relative font-display font-semibold px-8 py-3.5 rounded-full transition-all duration-300 text-[14px] flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden cursor-pointer hover:scale-[1.02] ${
                       isCampaign
-                        ? "bg-violet text-white hover:shadow-[0_0_30px_rgba(126,94,158,0.25)] hover:scale-[1.02]"
-                        : `bg-${accentColor} text-void hover:shadow-[0_0_30px_var(--color-${accentColor}/0.25)] hover:scale-[1.02]`
+                        ? "bg-violet text-white"
+                        : accent.submitBg
                     }`}
+                    style={{ ["--submit-hover-shadow" as string]: accent.submitHoverShadow }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = accent.submitHoverShadow;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = "";
+                    }}
                   >
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                     <span className="relative z-10 flex items-center gap-2.5">
@@ -779,7 +835,7 @@ const MODES = [
   {
     id: "solo" as WritingMode,
     title: "The Study",
-    subtitle: "Write alone",
+    subtitle: "Write solo",
     description: "A quiet room. A desk by the window. Your story, your pace.",
     features: ["Rich prose editor", "Story bible", "Export anywhere"],
     image: "/solo_story_mode.png",
@@ -791,7 +847,7 @@ const MODES = [
   {
     id: "co-op" as WritingMode,
     title: "The Workshop",
-    subtitle: "Write together",
+    subtitle: "Collaborate on a story",
     description: "A long table. Maps and manuscripts. Stories charted side by side.",
     features: ["Invite collaborators", "Shared lore book", "Agreements & credit"],
     image: "/coop_story_mode.png",
@@ -803,7 +859,7 @@ const MODES = [
   {
     id: "campaign" as WritingMode,
     title: "The Tavern",
-    subtitle: "Adventure together",
+    subtitle: "Run an adventure",
     description: "A round table. Dice on wood. Heroes waiting for their tale.",
     features: ["GM narration & turns", "Character sheets", "Session adventures"],
     badge: "New",

@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters, playerCharacters, campaignSessions } from "@/server/db/schema";
 import { eq, ne, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
+import { LEGACY_RATING_MAP } from "@/config/genres";
 import { generateSlug } from "@/lib/utils";
 import { auth } from "@/server/auth";
 
@@ -232,8 +233,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, contentNotes, ...rest } = parsed.data;
+    const { title, contentNotes, contentRating, ...rest } = parsed.data;
     const slug = generateSlug(title);
+
+    // Normalize legacy G/PG/PG13/R/MA values to the canonical
+    // everyone/teen/mature/explicit scheme used by readers' comfort filter.
+    const normalizedRating = contentRating
+      ? (LEGACY_RATING_MAP[contentRating] ?? contentRating)
+      : undefined;
 
     const [story] = await db
       .insert(stories)
@@ -242,6 +249,7 @@ export async function POST(request: NextRequest) {
         slug,
         userId: session.user.id,
         ...rest,
+        ...(normalizedRating !== undefined && { contentRating: normalizedRating }),
         ...(contentNotes !== undefined && {
           contentNotes: JSON.stringify(contentNotes),
         }),

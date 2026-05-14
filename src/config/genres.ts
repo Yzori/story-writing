@@ -31,13 +31,25 @@ export const GENRES = [
   "Fanfiction",
 ] as const;
 
+// Values must match the comfortRating enum readers select in /welcome/preferences
+// and the RATING_LEVELS map in browse. Any drift here re-opens the safety bug
+// where R/MA stories slip past the all-ages filter.
 export const CONTENT_RATINGS = [
-  { value: "G", label: "General", description: "Suitable for all audiences" },
-  { value: "PG", label: "Guidance", description: "Mild themes, no explicit content" },
-  { value: "PG13", label: "Teen", description: "Some mature themes, mild language" },
-  { value: "R", label: "Mature", description: "Adult themes, violence, or strong language" },
-  { value: "MA", label: "Explicit", description: "Explicit content, adults only" },
+  { value: "everyone", label: "All Ages", description: "Family-friendly, no mature themes" },
+  { value: "teen", label: "Teen", description: "PG-13 territory: some mature themes, mild language" },
+  { value: "mature", label: "Mature", description: "Adult themes, violence, or strong language" },
+  { value: "explicit", label: "Explicit", description: "18+ explicit content" },
 ] as const;
+
+// Maps legacy rating codes (G/PG/PG13/R/MA) to the current scheme. Used by the
+// API on write to defend against any caller still sending old values.
+export const LEGACY_RATING_MAP: Record<string, string> = {
+  G: "everyone",
+  PG: "everyone",
+  PG13: "teen",
+  R: "mature",
+  MA: "explicit",
+};
 
 export const STORY_STATUSES = [
   { value: "draft", label: "Draft", color: "text-text-ghost" },

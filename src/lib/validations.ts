@@ -297,12 +297,36 @@ export const updateCampaignSessionSchema = z.object({
 
 // ── Campaign Turns ─────────────────────────────────────────
 
-export const createCampaignTurnSchema = z.object({
-  characterId: z.string().uuid().optional(),
-  type: z.enum(["narration", "consequence", "action", "dialogue", "reaction", "description", "roll", "roll-request", "ooc", "illustration"]),
-  content: z.string().min(1, "Content is required").max(10000),
-  metadata: z.string().max(5000).optional(),
-});
+// scene-break is a structural marker the GM drops between scenes; it can
+// have empty content (the metadata carries the title/mood). Prose types
+// (action/dialogue/etc.) still must have non-empty content.
+const TURN_TYPES_ALLOW_EMPTY = ["scene-break", "roll-request"] as const;
+
+export const createCampaignTurnSchema = z
+  .object({
+    characterId: z.string().uuid().optional(),
+    type: z.enum([
+      "narration",
+      "consequence",
+      "action",
+      "dialogue",
+      "reaction",
+      "description",
+      "roll",
+      "roll-request",
+      "ooc",
+      "illustration",
+      "scene-break",
+    ]),
+    content: z.string().max(10000),
+    metadata: z.string().max(5000).optional(),
+  })
+  .refine(
+    (data) =>
+      (TURN_TYPES_ALLOW_EMPTY as readonly string[]).includes(data.type) ||
+      data.content.length > 0,
+    { message: "Content is required", path: ["content"] },
+  );
 
 // ── Campaign Applications ───────────────────────────────────
 

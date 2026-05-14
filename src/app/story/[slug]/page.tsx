@@ -971,7 +971,7 @@ export default function StoryPage() {
                   )}
                   {!session?.user && (
                     <Link
-                      href="/register"
+                      href="/register?intent=read"
                       className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber text-void font-semibold text-[12px] hover:bg-amber-light transition-all duration-200"
                     >
                       Sign up to follow

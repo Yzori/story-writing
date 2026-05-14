@@ -139,7 +139,7 @@ function apiBibleToLocal(entries: ApiBibleEntry[]): StoryBible {
   return { characters, places, notes };
 }
 
-function parseDetails(details: string): Record<string, any> {
+function parseDetails(details: string): Record<string, unknown> {
   if (!details) return {};
   try {
     return JSON.parse(details);
@@ -304,6 +304,11 @@ export default function WriteStoryPage() {
   const pendingSaves = useRef<Map<string, { content: string; version: number }>>(new Map());
   const failedSaves = useRef<Map<string, { content: string; version: number }>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  // Active flush promise. Used to serialize flushes — concurrent callers
+  // chain onto the prior promise so they (a) never PATCH with overlapping
+  // stale baseVersions, and (b) await an actual save of *their* edits,
+  // not just whatever snapshot a prior caller happened to capture.
+  const flushPromise = useRef<Promise<boolean> | null>(null);
   const isRetrying = useRef(false);
   const isSwitching = useRef(false);
 
@@ -457,103 +462,29 @@ export default function WriteStoryPage() {
     loadStory();
   }, [storyId]);
 
-  // ── Debounced auto-save to API ────────────────────────────
+  // ── Editor settings persistence ───────────────────────────
+  // Goals + typography belong in localStorage, not on the server, so a quick
+  // best-effort write whenever those slices change. Narrow deps prevent this
+  // from firing on every keystroke.
   useEffect(() => {
     if (!project) return;
-
-    // Save editor-only settings to localStorage
     saveEditorSettings(storyId, {
       goals: project.goals,
       typography: project.typography,
     });
+  }, [storyId, project?.goals, project?.typography]);
 
-    // Flush pending chapter saves with retry
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const entries = Array.from(pendingSaves.current.entries());
-      if (entries.length === 0) return;
-
-      setSaveState("saving");
-      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-
-      const maxRetries = 3;
-      let lastError = false;
-
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        if (attempt > 0) {
-          await new Promise((r) => setTimeout(r, 2000));
-        }
-
-        try {
-          const saves = entries.map(([chapterId, { content, version }]) =>
-            fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content, baseVersion: version }),
-            })
-          );
-          const responses = await Promise.all(saves);
-          // Check for auth expiry
-          if (responses.some((r) => r.status === 401)) {
-            window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
-            return;
-          }
-          // Check for version conflict — preserve the user's work in localStorage
-          if (responses.some((r) => r.status === 409)) {
-            for (const [chId, { content: conflictContent }] of entries) {
-              try {
-                localStorage.setItem(
-                  `quiloria-conflict-${storyId}-${chId}`,
-                  JSON.stringify({ content: conflictContent, savedAt: new Date().toISOString() })
-                );
-              } catch { /* storage full */ }
-            }
-            pendingSaves.current.clear();
-            failedSaves.current.clear();
-            setSaveState("conflict");
-            toast("Another user edited this chapter. Your draft has been saved locally.", "error");
-            return;
-          }
-          if (responses.every((r) => r.ok)) {
-            // Update local chapter versions from server response
-            for (const res of responses) {
-              try {
-                const json = await res.clone().json();
-                if (json.data?.id && json.data?.version) {
-                  updateProject((prev) => ({
-                    ...prev,
-                    chapters: prev.chapters.map((c) =>
-                      c.id === json.data.id ? { ...c, version: json.data.version } : c
-                    ),
-                  }));
-                }
-              } catch { /* ignore parse errors */ }
-            }
-            pendingSaves.current.clear();
-            failedSaves.current.clear();
-            setSaveState("saved");
-            savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-            return;
-          }
-        } catch {
-          // will retry
-        }
-        lastError = true;
-      }
-
-      if (lastError) {
-        // Store failed entries for manual retry
-        for (const [chapterId, entry] of entries) {
-          failedSaves.current.set(chapterId, entry);
-        }
-        setSaveState("error");
-      }
-    }, 1000);
-
+  // ── Unmount-only flush ────────────────────────────────────
+  // The previous design tied this cleanup to `[project, storyId]`, so every
+  // keystroke ran the cleanup — which both cancelled the debounce AND fired
+  // keepalive PATCHes for every pending entry. Those PATCHes carried stale
+  // baseVersion (server had already incremented) and 409s were silently
+  // swallowed via `.catch(() => {})`, dropping user edits without warning.
+  // Now cleanup only runs when the storyId changes (i.e., real unmount).
+  useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-      // Fire-and-forget flush on unmount
       const entries = Array.from(pendingSaves.current.entries());
       for (const [chapterId, { content: chapterContent, version }] of entries) {
         fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
@@ -565,85 +496,151 @@ export default function WriteStoryPage() {
       }
       pendingSaves.current.clear();
     };
-  }, [project, storyId]);
+  }, [storyId]);
 
   // ── Flush pending saves immediately (reusable) ──────────
-  const flushPendingSaves = useCallback(async (): Promise<boolean> => {
-    // Clear the debounce timer so it doesn't fire after we flush
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
+  // Each call waits for the prior flush to complete, then runs its own.
+  // Callers (publish, chapter switch, Cmd+S) get a promise that resolves
+  // only after *their* call's flush has finished — never prematurely true
+  // because someone else's flush was already mid-flight.
+  //
+  // Per-chapter reconciliation after a successful save:
+  //   - If pendingSaves still matches the snapshot content, the save fully
+  //     consumed it → delete the entry.
+  //   - If content diverged (user typed more during flight), keep the entry
+  //     but bump its baseVersion to the new server version so the next
+  //     flush doesn't 409 on stale baseVersion.
+  const flushPendingSaves = useCallback((): Promise<boolean> => {
+    const doFlush = async (): Promise<boolean> => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
 
-    const entries = Array.from(pendingSaves.current.entries());
-    if (entries.length === 0) return true;
-
-    setSaveState("saving");
-    if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-
-    try {
-      const saves = entries.map(([chapterId, { content, version }]) =>
-        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, baseVersion: version }),
-        })
+      const snapshot = Array.from(pendingSaves.current.entries()).map(
+        ([chapterId, entry]) => ({
+          chapterId,
+          content: entry.content,
+          version: entry.version,
+        }),
       );
-      const responses = await Promise.all(saves);
-      // Check for auth expiry
-      if (responses.some((r) => r.status === 401)) {
-        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
-        return false;
-      }
-      // Check for version conflict — preserve work in localStorage
-      if (responses.some((r) => r.status === 409)) {
-        for (const [chId, { content: conflictContent }] of entries) {
-          try {
-            localStorage.setItem(
-              `quiloria-conflict-${storyId}-${chId}`,
-              JSON.stringify({ content: conflictContent, savedAt: new Date().toISOString() })
-            );
-          } catch { /* storage full */ }
+      if (snapshot.length === 0) return true;
+
+      setSaveState("saving");
+      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+
+      try {
+        const results = await Promise.all(
+          snapshot.map(async ({ chapterId, content, version }) => {
+            const r = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content, baseVersion: version }),
+            });
+            let json: { data?: { version?: number } } | null = null;
+            if (r.ok) {
+              try { json = await r.clone().json(); } catch { /* ignore */ }
+            }
+            return { chapterId, content, version, status: r.status, ok: r.ok, json };
+          }),
+        );
+
+        if (results.some((x) => x.status === 401)) {
+          window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+          return false;
         }
-        pendingSaves.current.clear();
-        failedSaves.current.clear();
-        setSaveState("conflict");
-        toast("Another user edited this chapter. Your draft has been saved locally.", "error");
-        return false;
-      }
-      if (responses.every((r) => r.ok)) {
-        // Update local chapter versions from server response
-        for (const res of responses) {
-          try {
-            const json = await res.clone().json();
-            if (json.data?.id && json.data?.version) {
+
+        if (results.some((x) => x.status === 409)) {
+          for (const { chapterId, content: snapshotContent, status } of results) {
+            if (status !== 409) continue;
+            const current = pendingSaves.current.get(chapterId);
+            if (current && current.content === snapshotContent) {
+              try {
+                localStorage.setItem(
+                  `quiloria-conflict-${storyId}-${chapterId}`,
+                  JSON.stringify({ content: snapshotContent, savedAt: new Date().toISOString() }),
+                );
+              } catch { /* storage full */ }
+              pendingSaves.current.delete(chapterId);
+            }
+          }
+          failedSaves.current.clear();
+          setSaveState("conflict");
+          toast("Another user edited this chapter. Your draft has been saved locally.", "error");
+          return false;
+        }
+
+        if (results.every((x) => x.ok)) {
+          for (const { chapterId, content: snapshotContent, json } of results) {
+            const newVersion = json?.data?.version;
+            if (typeof newVersion === "number") {
               updateProject((prev) => ({
                 ...prev,
                 chapters: prev.chapters.map((c) =>
-                  c.id === json.data.id ? { ...c, version: json.data.version } : c
+                  c.id === chapterId ? { ...c, version: newVersion } : c
                 ),
               }));
             }
-          } catch { /* ignore parse errors */ }
-        }
-        pendingSaves.current.clear();
-        failedSaves.current.clear();
-        setSaveState("saved");
-        savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-        return true;
-      }
-    } catch {
-      // fall through to error handling
-    }
+            const current = pendingSaves.current.get(chapterId);
+            if (!current) continue;
+            if (current.content === snapshotContent) {
+              pendingSaves.current.delete(chapterId);
+            } else if (typeof newVersion === "number") {
+              pendingSaves.current.set(chapterId, {
+                content: current.content,
+                version: newVersion,
+              });
+            }
+          }
+          failedSaves.current.clear();
 
-    // On failure, store for manual retry
-    for (const [chapterId, entry] of entries) {
-      failedSaves.current.set(chapterId, entry);
-    }
-    setSaveState("error");
-    return false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storyId, toast]);
+          if (pendingSaves.current.size > 0) {
+            // Newer edits arrived during flight. Schedule another flush so
+            // the indicator doesn't claim "saved" with work still queued.
+            if (saveTimer.current) clearTimeout(saveTimer.current);
+            saveTimer.current = setTimeout(() => { flushPendingSaves(); }, 1000);
+            setSaveState("saving");
+          } else {
+            setSaveState("saved");
+            savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+          }
+          return true;
+        }
+      } catch {
+        // fall through to failure handling below
+      }
+
+      // Network/other failure path.
+      for (const { chapterId, content, version } of snapshot) {
+        const current = pendingSaves.current.get(chapterId);
+        if (!current || current.content === content) {
+          failedSaves.current.set(chapterId, { content, version });
+        }
+      }
+      setSaveState("error");
+      return false;
+    };
+
+    // Chain onto any in-flight flush so callers always await an actual save.
+    // The `.catch(() => false)` shields fresh callers from a prior caller's
+    // rejection — we run our own attempt regardless.
+    const prior = flushPromise.current ?? Promise.resolve(true);
+    const next = prior.catch(() => false).then(doFlush);
+    flushPromise.current = next.finally(() => {
+      if (flushPromise.current === next) flushPromise.current = null;
+    });
+    return next;
+  }, [storyId, toast, updateProject]);
+
+  // Debounced save trigger. Called by content-edit handlers after they
+  // queue a pending save. 1s of idle = flush. Replaces the broken
+  // dep-array-driven debounce that fired keepalive flushes on every keystroke.
+  const scheduleSave = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      flushPendingSaves();
+    }, 1000);
+  }, [flushPendingSaves]);
 
   // ── Warn user about unsaved changes on navigation ──────
   useEffect(() => {
@@ -887,16 +884,14 @@ export default function WriteStoryPage() {
         toast("Couldn\u2019t create chapter", "error");
       }
     } catch {
-      // Fallback: add locally
-      const newChapter = createChapter(title);
-      updateProject((prev) => ({
-        ...prev,
-        chapters: [...prev.chapters, newChapter],
-        activeChapterId: newChapter.id,
-      }));
-      toast("Saved locally \u2014 will sync when connection returns", "info");
+      // Don't fabricate a local-only chapter on network failure: the previous
+      // implementation promised "will sync when connection returns" but there
+      // was no resync path, so subsequent content saves would PATCH a
+      // non-existent server chapter and fail silently. Surface the failure
+      // and let the user retry instead.
+      toast("Couldn\u2019t create chapter \u2014 check your connection and try again.", "error");
     }
-  }, [project?.chapters.length, updateProject, storyId, toast]);
+  }, [project?.chapters.length, storyFormat, updateProject, storyId, toast]);
 
   const handleReorderChapters = useCallback(
     (chapters: Chapter[]) => {
@@ -986,8 +981,16 @@ export default function WriteStoryPage() {
     if (!chapterId) return;
     setPublishDialog((p) => ({ ...p, phase: "publishing" }));
     try {
-      // Flush any unsaved content first so readers get the latest
-      await flushPendingSaves();
+      // Flush any unsaved content first so readers get the latest. If the
+      // flush fails (network down, conflict, etc.) we must NOT publish —
+      // doing so ships whatever the server already had, silently dropping
+      // the user's recent edits.
+      const flushed = await flushPendingSaves();
+      if (!flushed) {
+        toast("Couldn’t save your latest edits — publish cancelled.", "error");
+        setPublishDialog((p) => ({ ...p, open: false }));
+        return;
+      }
       const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1129,8 +1132,9 @@ export default function WriteStoryPage() {
           goals: getOrCreateSession(updated.goals, totalWords),
         };
       });
+      scheduleSave();
     },
-    [updateProject]
+    [updateProject, scheduleSave]
   );
 
   const handleUpdateStoryTitle = useCallback(
@@ -1346,8 +1350,9 @@ export default function WriteStoryPage() {
           ),
         };
       });
+      scheduleSave();
     },
-    [updateProject]
+    [updateProject, scheduleSave]
   );
 
   // ── Outline handler ─────────────────────────────────────
@@ -1388,8 +1393,9 @@ export default function WriteStoryPage() {
             : c
         ),
       }));
+      scheduleSave();
     },
-    [updateProject]
+    [updateProject, scheduleSave, project]
   );
 
   // ── Comment handlers ──────────────────────────────────────
