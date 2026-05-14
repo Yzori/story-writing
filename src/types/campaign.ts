@@ -1,9 +1,11 @@
+import type { CampaignTurnType } from "@/lib/campaign-turns";
+
 export interface Turn {
   id: string;
   sessionId: string;
   userId: string;
   characterId: string | null;
-  type: string;
+  type: CampaignTurnType;
   content: string;
   metadata: string | null;
   sortOrder: number;
@@ -62,6 +64,46 @@ export interface SessionRosterEntry {
   characterId: string;
   userId: string;
   status: "present" | "absent" | "introduced" | "spectating";
+}
+
+export type FloorRoundMode = "gm_pick" | "vote";
+export type FloorRoundStatus = "open" | "voting" | "closed" | "resolved" | "cancelled";
+
+export interface FloorSubmission {
+  id: string;
+  roundId: string;
+  userId: string;
+  characterId: string;
+  type: CampaignTurnType;
+  content: string;
+  status: "submitted" | "selected" | "rejected";
+  createdAt: string;
+  characterName: string | null;
+  user: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
+  voteCount: number;
+  isMine: boolean;
+}
+
+export interface FloorRound {
+  id: string;
+  sessionId: string;
+  openedBy: string;
+  prompt: string;
+  mode: FloorRoundMode;
+  status: FloorRoundStatus;
+  selectedSubmissionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  submissions: FloorSubmission[];
+  myVoteSubmissionId: string | null;
+  voteCount: number;
+  eligibleVoterCount: number;
+  allEligibleVotersVoted: boolean;
+  isVoteEligible: boolean;
 }
 
 export interface StoryData {
@@ -128,4 +170,3 @@ export function getPlayerColor(userId: string, allUserIds: string[]): string {
   const idx = allUserIds.indexOf(userId);
   return idx >= 0 ? PLAYER_COLORS[idx % PLAYER_COLORS.length] : "text-white/80";
 }
-

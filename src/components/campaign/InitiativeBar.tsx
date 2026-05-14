@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import type { PlayerCharacter } from "@/types/campaign";
+import { useState, useEffect, useRef } from "react";
+import type { FloorRound, PlayerCharacter } from "@/types/campaign";
 import { getPlayerColor } from "@/types/campaign";
+import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
 
 const DEFAULT_TURN_DURATION = 180; // 3 minutes
 
@@ -15,11 +16,11 @@ interface InitiativeBarProps {
   sessionStatus: string;
   turnDuration?: number;
   onPassTurn: (userId: string) => void;
-  onOpenFloor: () => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
   onExtendTimer?: () => void;
   rosterCharacters?: PlayerCharacter[];
+  floorRound?: FloorRound | null;
 }
 
 export default function InitiativeBar({
@@ -31,17 +32,17 @@ export default function InitiativeBar({
   sessionStatus,
   turnDuration = DEFAULT_TURN_DURATION,
   onPassTurn,
-  onOpenFloor,
   onEndSession,
   onTurnExpired,
   onExtendTimer,
   rosterCharacters,
+  floorRound = null,
 }: InitiativeBarProps) {
   const activeChars = rosterCharacters ?? characters.filter((c) => c.status === "active");
   const playerUserIds = activeChars.map((c) => c.userId);
   const isActive = sessionStatus === "active";
 
-  // Is a player currently active (not GM, not null/open floor)?
+  // Is a player currently active?
   const isPlayerTurn = activePlayerId !== null && activeChars.some((c) => c.userId === activePlayerId);
 
   // Is it the current user's turn?
@@ -54,8 +55,8 @@ export default function InitiativeBar({
 
   // Reset timer whenever active player changes
   useEffect(() => {
-    setSecondsLeft(turnDuration);
     expiredRef.current = false;
+    const resetTimeout = setTimeout(() => setSecondsLeft(turnDuration), 0);
 
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -64,7 +65,7 @@ export default function InitiativeBar({
         setSecondsLeft((prev) => {
           if (prev <= 1) {
             if (timerRef.current) clearInterval(timerRef.current);
-            if (!expiredRef.current) {
+            if (!expiredRef.current && isGM) {
               expiredRef.current = true;
               // Defer the callback to avoid state update during render
               setTimeout(() => onTurnExpired(), 0);
@@ -77,12 +78,13 @@ export default function InitiativeBar({
     }
 
     return () => {
+      clearTimeout(resetTimeout);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [activePlayerId, isPlayerTurn, isActive, turnDuration, onTurnExpired]);
+  }, [activePlayerId, isPlayerTurn, isActive, isGM, turnDuration, onTurnExpired]);
 
   // Handle timer extension
-  const handleExtendTimer = useCallback(() => {
+  const handleExtendTimer = () => {
     setSecondsLeft((prev) => prev + 180);
     expiredRef.current = false;
     // Restart the interval if it was cleared
@@ -91,7 +93,7 @@ export default function InitiativeBar({
         setSecondsLeft((prev) => {
           if (prev <= 1) {
             if (timerRef.current) clearInterval(timerRef.current);
-            if (!expiredRef.current) {
+            if (!expiredRef.current && isGM) {
               expiredRef.current = true;
               setTimeout(() => onTurnExpired(), 0);
             }
@@ -102,7 +104,7 @@ export default function InitiativeBar({
       }, 1000);
     }
     onExtendTimer?.();
-  }, [isPlayerTurn, isActive, onTurnExpired, onExtendTimer]);
+  };
 
   // Format MM:SS
   const minutes = Math.floor(secondsLeft / 60);
@@ -134,11 +136,14 @@ export default function InitiativeBar({
     color: getPlayerColor(c.userId, playerUserIds),
   }));
 
-  const stateLabel = !isActive
-    ? sessionStatus === "draft" ? "Preparing" : "Ended"
-    : activePlayerId
-      ? isPlayerTurn ? "Player's Turn" : "GM Narrating"
-      : "Open Floor";
+  const interactionState = getSessionInteractionState({
+    sessionStatus,
+    activePlayerId,
+    currentUserId,
+    isGM,
+    floorRound,
+  });
+  const stateLabel = interactionState.label;
 
   // Show extend button when timer < 60s and it's the current player's turn
   const showExtendButton = isMyTurn && isActive && secondsLeft > 0 && secondsLeft < 60;
@@ -158,7 +163,7 @@ export default function InitiativeBar({
             {sessionTitle}
           </span>
           <span className={`text-[9px] uppercase tracking-widest ${
-            !isActive ? "text-text-tertiary" : isPlayerTurn ? "text-amber/60" : activePlayerId ? "text-amber/60" : "text-emerald-400/60"
+            !isActive ? "text-text-tertiary" : floorRound ? "text-lavender/70" : isPlayerTurn ? "text-amber/60" : "text-amber/60"
           }`}>
             {stateLabel}
           </span>
@@ -179,9 +184,7 @@ export default function InitiativeBar({
               className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-lg relative z-10 transition-all duration-500
                 ${activePlayerId === p.userId
                   ? "bg-black ring-2 ring-amber text-amber shadow-[0_0_20px_rgba(200,150,60,0.5)]"
-                  : activePlayerId === null && isActive
-                    ? "bg-ink border border-emerald-500/30 text-text-secondary"
-                    : "bg-ink border border-border text-text-tertiary hover:border-border-active"
+                  : "bg-ink border border-border text-text-tertiary hover:border-border-active"
                 }`}
             >
               {p.initial}
@@ -250,15 +253,6 @@ export default function InitiativeBar({
 
       {/* GM Controls */}
       <div className="flex items-center gap-2">
-        {isGM && isActive && activePlayerId && isPlayerTurn && (
-          <button
-            onClick={onOpenFloor}
-            className="text-[10px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-3 py-1.5 rounded-full hover:bg-emerald-400 hover:text-black transition-all cursor-pointer"
-            title="Let anyone write"
-          >
-            Open Floor
-          </button>
-        )}
         {isGM && isActive && (
           <button
             onClick={onEndSession}

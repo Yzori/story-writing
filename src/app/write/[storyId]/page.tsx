@@ -14,7 +14,6 @@ import {
   TypographySettings,
   WritingGoals,
   createChapter,
-  createStoryProject,
   countWords,
 } from "@/types/editor";
 import { CommentThread, createCommentThread, addReply } from "@/client/comments";
@@ -52,6 +51,8 @@ import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
+import { useChapterAutosave } from "@/hooks/use-chapter-autosave";
+import { useApiMutation } from "@/hooks/use-api-mutation";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
 
@@ -196,9 +197,19 @@ export default function WriteStoryPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { mutateJson } = useApiMutation({ toast });
   const storyId = params.storyId as string;
 
   const [project, setProject] = useState<StoryProject | null>(null);
+  const updateProject = useCallback(
+    (updater: (prev: StoryProject) => StoryProject) => {
+      setProject((prev) => {
+        if (!prev) return prev;
+        return updater(prev);
+      });
+    },
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -296,20 +307,14 @@ export default function WriteStoryPage() {
   const [showChapterOutline, setShowChapterOutline] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Save state indicator
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error" | "conflict">("idle");
-  const savedFadeTimer = useRef<ReturnType<typeof setTimeout>>(null);
-
-  // Track which chapters have unsaved content changes (content + version for optimistic locking)
-  const pendingSaves = useRef<Map<string, { content: string; version: number }>>(new Map());
-  const failedSaves = useRef<Map<string, { content: string; version: number }>>(new Map());
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
-  // Active flush promise. Used to serialize flushes — concurrent callers
-  // chain onto the prior promise so they (a) never PATCH with overlapping
-  // stale baseVersions, and (b) await an actual save of *their* edits,
-  // not just whatever snapshot a prior caller happened to capture.
-  const flushPromise = useRef<Promise<boolean> | null>(null);
-  const isRetrying = useRef(false);
+  const {
+    saveState,
+    setSaveState,
+    queueSave,
+    scheduleSave,
+    flushPendingSaves,
+    retryFailedSaves,
+  } = useChapterAutosave({ storyId, updateProject, toast });
   const isSwitching = useRef(false);
 
   // ── Load story from API ──────────────────────────────────
@@ -474,245 +479,6 @@ export default function WriteStoryPage() {
     });
   }, [storyId, project?.goals, project?.typography]);
 
-  // ── Unmount-only flush ────────────────────────────────────
-  // The previous design tied this cleanup to `[project, storyId]`, so every
-  // keystroke ran the cleanup — which both cancelled the debounce AND fired
-  // keepalive PATCHes for every pending entry. Those PATCHes carried stale
-  // baseVersion (server had already incremented) and 409s were silently
-  // swallowed via `.catch(() => {})`, dropping user edits without warning.
-  // Now cleanup only runs when the storyId changes (i.e., real unmount).
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-      const entries = Array.from(pendingSaves.current.entries());
-      for (const [chapterId, { content: chapterContent, version }] of entries) {
-        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: chapterContent, baseVersion: version }),
-          keepalive: true,
-        }).catch(() => {});
-      }
-      pendingSaves.current.clear();
-    };
-  }, [storyId]);
-
-  // ── Flush pending saves immediately (reusable) ──────────
-  // Each call waits for the prior flush to complete, then runs its own.
-  // Callers (publish, chapter switch, Cmd+S) get a promise that resolves
-  // only after *their* call's flush has finished — never prematurely true
-  // because someone else's flush was already mid-flight.
-  //
-  // Per-chapter reconciliation after a successful save:
-  //   - If pendingSaves still matches the snapshot content, the save fully
-  //     consumed it → delete the entry.
-  //   - If content diverged (user typed more during flight), keep the entry
-  //     but bump its baseVersion to the new server version so the next
-  //     flush doesn't 409 on stale baseVersion.
-  const flushPendingSaves = useCallback((): Promise<boolean> => {
-    const doFlush = async (): Promise<boolean> => {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-      }
-
-      const snapshot = Array.from(pendingSaves.current.entries()).map(
-        ([chapterId, entry]) => ({
-          chapterId,
-          content: entry.content,
-          version: entry.version,
-        }),
-      );
-      if (snapshot.length === 0) return true;
-
-      setSaveState("saving");
-      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-
-      try {
-        const results = await Promise.all(
-          snapshot.map(async ({ chapterId, content, version }) => {
-            const r = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content, baseVersion: version }),
-            });
-            let json: { data?: { version?: number } } | null = null;
-            if (r.ok) {
-              try { json = await r.clone().json(); } catch { /* ignore */ }
-            }
-            return { chapterId, content, version, status: r.status, ok: r.ok, json };
-          }),
-        );
-
-        if (results.some((x) => x.status === 401)) {
-          window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
-          return false;
-        }
-
-        if (results.some((x) => x.status === 409)) {
-          for (const { chapterId, content: snapshotContent, status } of results) {
-            if (status !== 409) continue;
-            const current = pendingSaves.current.get(chapterId);
-            if (current && current.content === snapshotContent) {
-              try {
-                localStorage.setItem(
-                  `quiloria-conflict-${storyId}-${chapterId}`,
-                  JSON.stringify({ content: snapshotContent, savedAt: new Date().toISOString() }),
-                );
-              } catch { /* storage full */ }
-              pendingSaves.current.delete(chapterId);
-            }
-          }
-          failedSaves.current.clear();
-          setSaveState("conflict");
-          toast("Another user edited this chapter. Your draft has been saved locally.", "error");
-          return false;
-        }
-
-        if (results.every((x) => x.ok)) {
-          for (const { chapterId, content: snapshotContent, json } of results) {
-            const newVersion = json?.data?.version;
-            if (typeof newVersion === "number") {
-              updateProject((prev) => ({
-                ...prev,
-                chapters: prev.chapters.map((c) =>
-                  c.id === chapterId ? { ...c, version: newVersion } : c
-                ),
-              }));
-            }
-            const current = pendingSaves.current.get(chapterId);
-            if (!current) continue;
-            if (current.content === snapshotContent) {
-              pendingSaves.current.delete(chapterId);
-            } else if (typeof newVersion === "number") {
-              pendingSaves.current.set(chapterId, {
-                content: current.content,
-                version: newVersion,
-              });
-            }
-          }
-          failedSaves.current.clear();
-
-          if (pendingSaves.current.size > 0) {
-            // Newer edits arrived during flight. Schedule another flush so
-            // the indicator doesn't claim "saved" with work still queued.
-            if (saveTimer.current) clearTimeout(saveTimer.current);
-            saveTimer.current = setTimeout(() => { flushPendingSaves(); }, 1000);
-            setSaveState("saving");
-          } else {
-            setSaveState("saved");
-            savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-          }
-          return true;
-        }
-      } catch {
-        // fall through to failure handling below
-      }
-
-      // Network/other failure path.
-      for (const { chapterId, content, version } of snapshot) {
-        const current = pendingSaves.current.get(chapterId);
-        if (!current || current.content === content) {
-          failedSaves.current.set(chapterId, { content, version });
-        }
-      }
-      setSaveState("error");
-      return false;
-    };
-
-    // Chain onto any in-flight flush so callers always await it, but don't
-    // convert a failed prior flush into success. If the prior flush already
-    // handled/cleared the pending entry because of a conflict, a follow-up
-    // publish/delete/switch must see `false` instead of treating an empty
-    // queue as safely saved.
-    const prior = flushPromise.current;
-    const next = (async (): Promise<boolean> => {
-      const priorOk = prior ? await prior.catch(() => false) : true;
-      if (!priorOk && pendingSaves.current.size === 0) return false;
-      return doFlush();
-    })();
-
-    flushPromise.current = next;
-    next.finally(() => {
-      if (flushPromise.current === next) flushPromise.current = null;
-    });
-    return next;
-  }, [storyId, toast, updateProject]);
-
-  // Debounced save trigger. Called by content-edit handlers after they
-  // queue a pending save. 1s of idle = flush. Replaces the broken
-  // dep-array-driven debounce that fired keepalive flushes on every keystroke.
-  const scheduleSave = useCallback(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      flushPendingSaves();
-    }, 1000);
-  }, [flushPendingSaves]);
-
-  // ── Warn user about unsaved changes on navigation ──────
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (pendingSaves.current.size > 0) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
-
-  // ── Retry failed saves manually ─────────────────────────
-  const retryFailedSaves = useCallback(async () => {
-    if (isRetrying.current) return; // Prevent concurrent retries
-    isRetrying.current = true;
-    try {
-      const entries = Array.from(failedSaves.current.entries());
-      if (entries.length === 0) return;
-
-      setSaveState("saving");
-      const saves = entries.map(([chapterId, { content, version }]) =>
-        fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, baseVersion: version }),
-        })
-      );
-      const responses = await Promise.all(saves);
-      // Check for auth expiry
-      if (responses.some((r) => r.status === 401)) {
-        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
-        return;
-      }
-      // Check for version conflict — preserve work in localStorage
-      if (responses.some((r) => r.status === 409)) {
-        for (const [chId, { content: conflictContent }] of entries) {
-          try {
-            localStorage.setItem(
-              `quiloria-conflict-${storyId}-${chId}`,
-              JSON.stringify({ content: conflictContent, savedAt: new Date().toISOString() })
-            );
-          } catch { /* storage full */ }
-        }
-        failedSaves.current.clear();
-        setSaveState("conflict");
-        toast("Another user edited this chapter. Your draft has been saved locally.", "error");
-        return;
-      }
-      if (responses.every((r) => r.ok)) {
-        failedSaves.current.clear();
-        setSaveState("saved");
-        if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-        savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-      } else {
-        setSaveState("error");
-      }
-    } catch {
-      setSaveState("error");
-    } finally {
-      isRetrying.current = false;
-    }
-  }, [storyId]);
-
   // ── Right panel toggle ────────────────────────────────────
   const togglePanel = useCallback(
     (panel: RightPanel) => {
@@ -821,16 +587,6 @@ export default function WriteStoryPage() {
     [project?.chapters, project?.activeChapterId]
   );
 
-  const updateProject = useCallback(
-    (updater: (prev: StoryProject) => StoryProject) => {
-      setProject((prev) => {
-        if (!prev) return prev;
-        return updater(prev);
-      });
-    },
-    []
-  );
-
   // ── Chapter handlers ──────────────────────────────────────
 
   const handleSelectChapter = useCallback(
@@ -873,46 +629,36 @@ export default function WriteStoryPage() {
     const unit = unitLabels[storyFormat] || "Chapter";
     const title = `${unit} ${(project?.chapters.length ?? 0) + 1}`;
 
-    try {
-      const res = await fetch(`/api/stories/${storyId}/chapters`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
+    const json = await mutateJson<{ data?: ApiChapter }>(`/api/stories/${storyId}/chapters`, {
+      method: "POST",
+      body: { title },
+      errorMessage: "Couldn't create chapter",
+    });
 
-      if (res.ok) {
-        const json = await res.json();
-        const newChapter = apiChapterToLocal(json.data);
-        updateProject((prev) => ({
-          ...prev,
-          chapters: [...prev.chapters, newChapter],
-          activeChapterId: newChapter.id,
-        }));
-      } else {
-        toast("Couldn\u2019t create chapter", "error");
-      }
-    } catch {
-      // Don't fabricate a local-only chapter on network failure: the previous
-      // implementation promised "will sync when connection returns" but there
-      // was no resync path, so subsequent content saves would PATCH a
-      // non-existent server chapter and fail silently. Surface the failure
-      // and let the user retry instead.
-      toast("Couldn\u2019t create chapter \u2014 check your connection and try again.", "error");
+    if (json?.data) {
+      const newChapter = apiChapterToLocal(json.data);
+      updateProject((prev) => ({
+        ...prev,
+        chapters: [...prev.chapters, newChapter],
+        activeChapterId: newChapter.id,
+      }));
     }
-  }, [project?.chapters.length, storyFormat, updateProject, storyId, toast]);
+  }, [mutateJson, project?.chapters.length, storyFormat, updateProject, storyId]);
 
   const handleReorderChapters = useCallback(
     (chapters: Chapter[]) => {
+      const previousChapters = project?.chapters ?? [];
       updateProject((prev) => ({ ...prev, chapters }));
-      // Save new order to API
       const reorderData = chapters.map((ch, i) => ({ id: ch.id, sortOrder: i }));
-      fetch(`/api/stories/${storyId}/chapters/reorder`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapters: reorderData }),
-      }).catch(() => {});
+      void mutateJson(`/api/stories/${storyId}/chapters/reorder`, {
+        body: { chapters: reorderData },
+        errorMessage: "Couldn't reorder chapters",
+        rollback: () => {
+          updateProject((prev) => ({ ...prev, chapters: previousChapters }));
+        },
+      });
     },
-    [updateProject, storyId]
+    [mutateJson, project?.chapters, updateProject, storyId]
   );
 
   const handleRenameChapter = useCallback(
@@ -928,44 +674,46 @@ export default function WriteStoryPage() {
           ),
         };
       });
-      fetch(`/api/stories/${storyId}/chapters/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle }),
-      }).catch(() => {
-        // Revert on failure
-        updateProject((prev) => ({
-          ...prev,
-          chapters: prev.chapters.map((c) =>
-            c.id === id ? { ...c, title: oldTitle, updatedAt: Date.now() } : c
-          ),
-        }));
+      void mutateJson(`/api/stories/${storyId}/chapters/${id}`, {
+        body: { title: newTitle },
+        errorMessage: "Couldn't rename chapter",
+        rollback: () => {
+          updateProject((prev) => ({
+            ...prev,
+            chapters: prev.chapters.map((c) =>
+              c.id === id ? { ...c, title: oldTitle, updatedAt: Date.now() } : c
+            ),
+          }));
+        },
       });
     },
-    [updateProject, storyId]
+    [mutateJson, updateProject, storyId]
   );
 
   const handleUpdateChapterStatus = useCallback(
     async (id: string, status: "draft" | "published") => {
-      try {
-        const res = await fetch(`/api/stories/${storyId}/chapters/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        });
-        if (res.ok) {
+      const previousStatus = project?.chapters.find((chapter) => chapter.id === id)?.status ?? "draft";
+      updateProject((prev) => ({
+        ...prev,
+        chapters: prev.chapters.map((chapter) =>
+          chapter.id === id ? { ...chapter, status } : chapter
+        ),
+      }));
+
+      await mutateJson(`/api/stories/${storyId}/chapters/${id}`, {
+        body: { status },
+        errorMessage: "Couldn't update chapter status",
+        rollback: () => {
           updateProject((prev) => ({
             ...prev,
-            chapters: prev.chapters.map((c) =>
-              c.id === id ? { ...c, status } : c
+            chapters: prev.chapters.map((chapter) =>
+              chapter.id === id ? { ...chapter, status: previousStatus } : chapter
             ),
           }));
-        }
-      } catch (err) {
-        console.error("Failed to update chapter status:", err);
-      }
+        },
+      });
     },
-    [storyId, updateProject]
+    [mutateJson, project?.chapters, storyId, updateProject]
   );
 
   // ── Publish chapter flow (confirmation + share) ──────────
@@ -1111,7 +859,7 @@ export default function WriteStoryPage() {
         if (snapshot) setProject(snapshot);
       }
     },
-    [storyId, project, flushPendingSaves]
+    [storyId, project, flushPendingSaves, toast]
   );
 
   const handleUpdateContent = useCallback(
@@ -1120,7 +868,7 @@ export default function WriteStoryPage() {
         const chapterId = prev.activeChapterId;
         if (chapterId) {
           const chapter = prev.chapters.find((c) => c.id === chapterId);
-          pendingSaves.current.set(chapterId, { content, version: chapter?.version ?? 1 });
+          queueSave(chapterId, content, chapter?.version ?? 1);
         }
 
         const updated = {
@@ -1142,20 +890,20 @@ export default function WriteStoryPage() {
       });
       scheduleSave();
     },
-    [updateProject, scheduleSave]
+    [updateProject, scheduleSave, queueSave]
   );
 
   const handleUpdateStoryTitle = useCallback(
     (title: string) => {
+      const previousTitle = project?.title ?? "";
       updateProject((prev) => ({ ...prev, title }));
-      // Save to API
-      fetch(`/api/stories/${storyId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      }).catch(() => {});
+      void mutateJson(`/api/stories/${storyId}`, {
+        body: { title },
+        errorMessage: "Couldn't rename story",
+        rollback: () => updateProject((prev) => ({ ...prev, title: previousTitle })),
+      });
     },
-    [updateProject, storyId]
+    [mutateJson, project?.title, updateProject, storyId]
   );
 
   const handleEditorReady = useCallback((editor: Editor) => {
@@ -1166,8 +914,8 @@ export default function WriteStoryPage() {
 
   const handleUpdateMetadata = useCallback(
     (metadata: StoryMetadata) => {
+      const previousMetadata = project?.metadata;
       updateProject((prev) => ({ ...prev, metadata }));
-      // Sync key fields to API
       const patchBody: Record<string, unknown> = {
         synopsis: metadata.synopsis,
         hook: metadata.hook,
@@ -1183,13 +931,15 @@ export default function WriteStoryPage() {
       } else {
         patchBody.coverImageUrl = null;
       }
-      fetch(`/api/stories/${storyId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patchBody),
-      }).catch(() => {});
+      void mutateJson(`/api/stories/${storyId}`, {
+        body: patchBody,
+        errorMessage: "Couldn't save story details",
+        rollback: previousMetadata
+          ? () => updateProject((prev) => ({ ...prev, metadata: previousMetadata }))
+          : undefined,
+      });
     },
-    [updateProject, storyId]
+    [mutateJson, project?.metadata, updateProject, storyId]
   );
 
   // ── Bible handler ─────────────────────────────────────────
@@ -1214,38 +964,42 @@ export default function WriteStoryPage() {
 
   const handleUpdateFrontMatter = useCallback(
     (frontMatter: FrontMatter) => {
+      const previousFrontMatter = project?.frontMatter;
       updateProject((prev) => ({ ...prev, frontMatter }));
-      // Sync to API
-      fetch(`/api/stories/${storyId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      void mutateJson(`/api/stories/${storyId}`, {
+        body: {
           epigraph: frontMatter.epigraph,
           epigraphAttribution: frontMatter.epigraphAttribution,
           foreword: frontMatter.foreword,
           showToc: frontMatter.showToc,
-        }),
-      }).catch(() => {});
+        },
+        errorMessage: "Couldn't save front matter",
+        rollback: previousFrontMatter
+          ? () => updateProject((prev) => ({ ...prev, frontMatter: previousFrontMatter }))
+          : undefined,
+      });
     },
-    [updateProject, storyId]
+    [mutateJson, project?.frontMatter, updateProject, storyId]
   );
 
   // ── Typography handler ─────────────────────────────────
 
   const handleUpdateTypography = useCallback(
     (typography: TypographySettings) => {
+      const previousTypography = project?.typography;
       updateProject((prev) => ({ ...prev, typography }));
-      // Sync to API
-      fetch(`/api/stories/${storyId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      void mutateJson(`/api/stories/${storyId}`, {
+        body: {
           dropCaps: typography.dropCaps,
           sceneBreakStyle: typography.sceneBreakStyle,
-        }),
-      }).catch(() => {});
+        },
+        errorMessage: "Couldn't save typography settings",
+        rollback: previousTypography
+          ? () => updateProject((prev) => ({ ...prev, typography: previousTypography }))
+          : undefined,
+      });
     },
-    [updateProject, storyId]
+    [mutateJson, project?.typography, updateProject, storyId]
   );
 
   // ── Publish toggle handler ─────────────────────────────
@@ -1253,75 +1007,70 @@ export default function WriteStoryPage() {
   const handleTogglePublish = useCallback(() => {
     const newValue = !isPublic;
     setIsPublic(newValue);
-    fetch(`/api/stories/${storyId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isPublic: newValue }),
-    }).then((res) => {
-      if (res.ok) {
-        toast(newValue ? "Story published" : "Story unpublished", "success");
-      } else {
-        setIsPublic(!newValue);
-        toast("Couldn\u2019t update publish status", "error");
-      }
-    }).catch(() => {
-      setIsPublic(!newValue);
-      toast("Network error. Changes not saved.", "error");
+    void mutateJson(`/api/stories/${storyId}`, {
+      body: { isPublic: newValue },
+      successMessage: newValue ? "Story published" : "Story unpublished",
+      errorMessage: "Couldn't update publish status",
+      rollback: () => setIsPublic(!newValue),
     });
-  }, [isPublic, storyId, toast]);
+  }, [isPublic, mutateJson, storyId]);
 
   const handleDeleteStory = useCallback(async () => {
     if (!confirm("Are you sure you want to delete this story? This cannot be undone.")) return;
-    try {
-      const res = await fetch(`/api/stories/${storyId}`, { method: "DELETE" });
-      if (res.ok) {
+    await mutateJson(`/api/stories/${storyId}`, {
+      method: "DELETE",
+      errorMessage: "Couldn't delete story",
+      onSuccess: () => {
         toast("Story deleted", "info");
         router.push("/dashboard");
-      } else {
-        toast("Couldn\u2019t delete story", "error");
-      }
-    } catch {
-      toast("Network error. Try again.", "error");
-    }
-  }, [storyId, router, toast]);
+      },
+    });
+  }, [mutateJson, storyId, router, toast]);
 
   // ── Chapter settings handler ────────────────────────────
 
   const handleUpdateChapterFields = useCallback(
     (updates: Partial<Chapter>) => {
-      updateProject((prev) => {
-        const chapterId = prev.activeChapterId;
-        // Sync relevant fields to API
-        if (chapterId) {
-          const apiUpdates: Record<string, unknown> = {};
-          if (updates.status !== undefined) apiUpdates.status = updates.status;
-          if (updates.authorNoteBefore !== undefined) apiUpdates.authorNoteBefore = updates.authorNoteBefore;
-          if (updates.authorNoteAfter !== undefined) apiUpdates.authorNoteAfter = updates.authorNoteAfter;
-          if (updates.outline !== undefined) apiUpdates.outline = updates.outline;
-          if (Object.keys(apiUpdates).length > 0) {
-            fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(apiUpdates),
-            }).then(() => {
-              // Show roster nudge on first publish
-              if (updates.status === "published" && !rosterNudgeDismissed) {
-                setShowRosterNudge(true);
-              }
-            }).catch(() => {});
+      const chapterId = project?.activeChapterId;
+      if (!chapterId) return;
+      const previousChapter = project?.chapters.find((chapter) => chapter.id === chapterId);
+
+      updateProject((prev) => ({
+        ...prev,
+        chapters: prev.chapters.map((chapter) =>
+          chapter.id === chapterId
+            ? { ...chapter, ...updates, updatedAt: Date.now() }
+            : chapter
+        ),
+      }));
+
+      const apiUpdates: Record<string, unknown> = {};
+      if (updates.status !== undefined) apiUpdates.status = updates.status;
+      if (updates.authorNoteBefore !== undefined) apiUpdates.authorNoteBefore = updates.authorNoteBefore;
+      if (updates.authorNoteAfter !== undefined) apiUpdates.authorNoteAfter = updates.authorNoteAfter;
+      if (updates.outline !== undefined) apiUpdates.outline = updates.outline;
+
+      if (Object.keys(apiUpdates).length === 0) return;
+
+      void mutateJson(`/api/stories/${storyId}/chapters/${chapterId}`, {
+        body: apiUpdates,
+        errorMessage: "Couldn't save chapter settings",
+        rollback: previousChapter
+          ? () => updateProject((prev) => ({
+              ...prev,
+              chapters: prev.chapters.map((chapter) =>
+                chapter.id === chapterId ? previousChapter : chapter
+              ),
+            }))
+          : undefined,
+        onSuccess: () => {
+          if (updates.status === "published" && !rosterNudgeDismissed) {
+            setShowRosterNudge(true);
           }
-        }
-        return {
-          ...prev,
-          chapters: prev.chapters.map((c) =>
-            c.id === prev.activeChapterId
-              ? { ...c, ...updates, updatedAt: Date.now() }
-              : c
-          ),
-        };
+        },
       });
     },
-    [updateProject, storyId, rosterNudgeDismissed]
+    [mutateJson, project?.activeChapterId, project?.chapters, updateProject, storyId, rosterNudgeDismissed]
   );
 
   // ── AI Assistant handlers ─────────────────────────────────
@@ -1342,7 +1091,7 @@ export default function WriteStoryPage() {
         const chapterId = prev.activeChapterId;
         if (chapterId) {
           const chapter = prev.chapters.find((c) => c.id === chapterId);
-          pendingSaves.current.set(chapterId, { content: snapshot.content, version: chapter?.version ?? 1 });
+          queueSave(chapterId, snapshot.content, chapter?.version ?? 1);
         }
         return {
           ...prev,
@@ -1360,26 +1109,36 @@ export default function WriteStoryPage() {
       });
       scheduleSave();
     },
-    [updateProject, scheduleSave]
+    [updateProject, scheduleSave, queueSave]
   );
 
   // ── Outline handler ─────────────────────────────────────
 
   const handleUpdateOutline = useCallback(
     (chapterId: string, outline: string) => {
+      const previousOutline = project?.chapters.find((chapter) => chapter.id === chapterId)?.outline ?? "";
       updateProject((prev) => ({
         ...prev,
         chapters: prev.chapters.map((c) =>
           c.id === chapterId ? { ...c, outline, updatedAt: Date.now() } : c
         ),
       }));
-      fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outline }),
-      }).catch(() => {});
+      void mutateJson(`/api/stories/${storyId}/chapters/${chapterId}`, {
+        body: { outline },
+        errorMessage: "Couldn't save outline",
+        rollback: () => {
+          updateProject((prev) => ({
+            ...prev,
+            chapters: prev.chapters.map((chapter) =>
+              chapter.id === chapterId
+                ? { ...chapter, outline: previousOutline, updatedAt: Date.now() }
+                : chapter
+            ),
+          }));
+        },
+      });
     },
-    [updateProject, storyId]
+    [mutateJson, project?.chapters, updateProject, storyId]
   );
 
   // ── Search handler ────────────────────────────────────────
@@ -1387,7 +1146,7 @@ export default function WriteStoryPage() {
   const handleUpdateChapterContent = useCallback(
     (chapterId: string, content: string) => {
       const chapter = project?.chapters.find((c) => c.id === chapterId);
-      pendingSaves.current.set(chapterId, { content, version: chapter?.version ?? 1 });
+      queueSave(chapterId, content, chapter?.version ?? 1);
       updateProject((prev) => ({
         ...prev,
         chapters: prev.chapters.map((c) =>
@@ -1403,7 +1162,7 @@ export default function WriteStoryPage() {
       }));
       scheduleSave();
     },
-    [updateProject, scheduleSave, project]
+    [updateProject, scheduleSave, project, queueSave]
   );
 
   // ── Comment handlers ──────────────────────────────────────
@@ -1571,7 +1330,7 @@ export default function WriteStoryPage() {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
     }
-  }, [project, hasProAccess]);
+  }, [project, hasProAccess, setSaveState]);
 
   const handleExportEpub = useCallback(async () => {
     // Check Pro access for exports
@@ -1593,7 +1352,7 @@ export default function WriteStoryPage() {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
     }
-  }, [project, hasProAccess]);
+  }, [project, hasProAccess, setSaveState]);
 
   const handleExportDocx = useCallback(async () => {
     // Check Pro access for exports
@@ -1615,7 +1374,7 @@ export default function WriteStoryPage() {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
     }
-  }, [project, hasProAccess]);
+  }, [project, hasProAccess, setSaveState]);
 
   const totalWords = useMemo(() =>
     project?.chapters.reduce((s, c) => s + c.wordCount, 0) ?? 0,

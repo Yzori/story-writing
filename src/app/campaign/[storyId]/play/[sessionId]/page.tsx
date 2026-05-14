@@ -8,9 +8,16 @@ import { useCampaignSession } from "@/hooks/use-campaign-session";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
-import type { RollRequest } from "@/types/campaign";
+import type { FloorRoundMode, RollRequest } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
+import {
+  isLogTurnType,
+  isStoryTurnType,
+  parseRollRequestMetadata,
+  parseSceneBreakMetadata,
+} from "@/lib/campaign-turns";
+import { campaignJsonRequest } from "@/lib/campaign-api";
 
 export default function SessionPlayPage() {
   const params = useParams();
@@ -25,6 +32,7 @@ export default function SessionPlayPage() {
     characters,
     roster,
     rosterCharacters,
+    floorRound,
     loading,
     error,
     toast,
@@ -38,8 +46,14 @@ export default function SessionPlayPage() {
     setActivePlayer,
     updateSession,
     updateRoster,
+    editTurn,
+    createFloorRound,
+    submitFloorResponse,
+    voteFloorSubmission,
+    updateFloorRound,
     clocks,
     setClocks,
+    refreshClocks,
   } = useCampaignSession(storyId, sessionId);
 
   const [chatInput, setChatInput] = useState("");
@@ -65,19 +79,27 @@ export default function SessionPlayPage() {
       // Session began — play opening cinematic
       if (prev === "draft" && next === "active" && campaignSession?.opening) {
         const opening = campaignSession.opening;
-        setActiveStoryMoment({
-          mood: "calm",
-          text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
-          subtext: campaignSession?.title ?? "The story begins.",
-        });
+        const timeoutId = setTimeout(() => {
+          setActiveStoryMoment({
+            mood: "calm",
+            text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
+            subtext: campaignSession?.title ?? "The story begins.",
+          });
+        }, 0);
+        prevSessionStatusRef.current = next;
+        return () => clearTimeout(timeoutId);
       }
       // Session ended — play closing cinematic
       if (prev === "active" && next === "completed") {
-        setActiveStoryMoment({
-          mood: campaignSession?.closingMood ?? "calm",
-          text: campaignSession?.epilogue || "The story pauses here...",
-          subtext: "Until next time.",
-        });
+        const timeoutId = setTimeout(() => {
+          setActiveStoryMoment({
+            mood: campaignSession?.closingMood ?? "calm",
+            text: campaignSession?.epilogue || "The story pauses here...",
+            subtext: "Until next time.",
+          });
+        }, 0);
+        prevSessionStatusRef.current = next;
+        return () => clearTimeout(timeoutId);
       }
     }
     prevSessionStatusRef.current = next;
@@ -86,50 +108,40 @@ export default function SessionPlayPage() {
   // ── Turn routing ──────────────────────────────────────────
   // Left pillar: only meta/mechanical stuff (chat, dice, roll requests)
   const logTurns = useMemo(() => turns.filter((t) =>
-    ["ooc", "roll", "roll-request"].includes(t.type)
+    isLogTurnType(t.type)
   ), [turns]);
   // Center stage: all narrative content (no mechanical turns)
   const storyTurns = useMemo(() => turns.filter((t) =>
-    ["narration", "consequence", "action", "dialogue", "reaction", "description", "scene-break", "illustration"].includes(t.type)
+    isStoryTurnType(t.type)
   ), [turns]);
 
   // ── Pending roll request for the current player ───────────
-  const pendingRollRequest = useMemo((): RollRequest | null => {
+  const pendingRollRequest = ((): RollRequest | null => {
     if (!currentUserId || isGM) return null;
     // Find the most recent roll-request targeting this player (or "everyone")
     for (let i = turns.length - 1; i >= 0; i--) {
       const t = turns[i];
       if (t.type !== "roll-request" || !t.metadata) continue;
-      try {
-        const meta = JSON.parse(t.metadata) as {
-          targetUserId: string;
-          attribute: string;
-          reason: string;
-          onSuccess?: string;
-          onFailure?: string;
-          fatal?: boolean;
-        };
-        if (meta.targetUserId !== currentUserId && meta.targetUserId !== "everyone") continue;
-        const hasResponded = turns.some(
-          (r) => r.type === "roll" && r.userId === currentUserId && r.sortOrder > t.sortOrder
-        );
-        if (hasResponded) continue;
-        return {
-          targetUserId: meta.targetUserId,
-          attribute: meta.attribute,
-          reason: meta.reason,
-          onSuccess: meta.onSuccess ?? "",
-          onFailure: meta.onFailure ?? "",
-          fatal: meta.fatal === true,
-          turnId: t.id,
-          sortOrder: t.sortOrder,
-        };
-      } catch {
-        continue;
-      }
+      const meta = parseRollRequestMetadata(t.metadata);
+      if (!meta) continue;
+      if (meta.targetUserId !== currentUserId && meta.targetUserId !== "everyone") continue;
+      const hasResponded = turns.some(
+        (r) => r.type === "roll" && r.userId === currentUserId && r.sortOrder > t.sortOrder
+      );
+      if (hasResponded) continue;
+      return {
+        targetUserId: meta.targetUserId,
+        attribute: meta.attribute,
+        reason: meta.reason,
+        onSuccess: meta.onSuccess ?? "",
+        onFailure: meta.onFailure ?? "",
+        fatal: meta.fatal === true,
+        turnId: t.id,
+        sortOrder: t.sortOrder,
+      };
     }
     return null;
-  }, [turns, currentUserId, isGM]);
+  })();
 
   // ── Handlers ──────────────────────────────────────────────
 
@@ -174,14 +186,69 @@ export default function SessionPlayPage() {
     [setActivePlayer, showToast]
   );
 
-  // GM opens the floor (free-form)
-  const handleOpenFloor = useCallback(async () => {
-    try {
-      await setActivePlayer(null);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to open floor");
-    }
-  }, [setActivePlayer, showToast]);
+  const handleCreateFloorRound = useCallback(
+    async (prompt: string, mode: FloorRoundMode) => {
+      try {
+        await createFloorRound(prompt, mode);
+        try {
+          await setActivePlayer(null);
+        } catch {
+          // The floor round itself controls submissions; spotlight sync can recover on the next GM action.
+        }
+        showToast(mode === "vote" ? "Crossroads opened for table voting" : "Crossroads opened for GM pick");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to open Crossroads");
+      }
+    },
+    [createFloorRound, setActivePlayer, showToast],
+  );
+
+  const handleSubmitFloorResponse = useCallback(
+    async (roundId: string, body: { characterId: string; type: string; content: string }) => {
+      try {
+        await submitFloorResponse(roundId, body);
+        showToast("Response submitted");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to submit response");
+      }
+    },
+    [submitFloorResponse, showToast],
+  );
+
+  const handleVoteFloorSubmission = useCallback(
+    async (roundId: string, submissionId: string) => {
+      try {
+        await voteFloorSubmission(roundId, submissionId);
+        showToast("Vote cast");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to cast vote");
+      }
+    },
+    [voteFloorSubmission, showToast],
+  );
+
+  const handleUpdateFloorRound = useCallback(
+    async (
+      roundId: string,
+      body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
+    ) => {
+      try {
+        await updateFloorRound(roundId, body);
+        const label =
+          body.status === "voting"
+            ? "Voting is open"
+            : body.status === "closed"
+              ? "Voting closed"
+            : body.status === "resolved"
+              ? "Response canonized"
+              : "Crossroads closed";
+        showToast(label);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to update Crossroads");
+      }
+    },
+    [updateFloorRound, showToast],
+  );
 
   // GM ends the session — open confirmation modal
   const handleEndSession = useCallback(() => {
@@ -195,7 +262,7 @@ export default function SessionPlayPage() {
       let closingMood = "calm";
       for (let i = storyTurns.length - 1; i >= 0; i--) {
         if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
-          try { closingMood = JSON.parse(storyTurns[i].metadata!).mood ?? "calm"; } catch { /* ignore */ }
+          closingMood = parseSceneBreakMetadata(storyTurns[i].metadata)?.mood ?? "calm";
           break;
         }
       }
@@ -244,18 +311,14 @@ export default function SessionPlayPage() {
   const handleChangeCharacterStatus = useCallback(
     async (characterId: string, status: "active" | "retired" | "dead") => {
       try {
-        const res = await fetch(
+        await campaignJsonRequest(
           `/api/stories/${storyId}/campaign/characters/${characterId}`,
           {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
-          }
+            body: { status },
+            fallbackError: "Failed to update character",
+          },
         );
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error?.message ?? "Failed to update character");
-        }
         const char = characters.find((c) => c.id === characterId);
         const label = status === "dead" ? "has fallen" : status === "retired" ? "has retired" : "has been revived";
         showToast(`${char?.name ?? "Character"} ${label}`);
@@ -286,10 +349,17 @@ export default function SessionPlayPage() {
         const isFatal = pendingRollRequest?.fatal === true || (() => {
           // Fallback: check the roll-request turn metadata for fatal flag
           const rr = turns.find((t) => t.id === pendingRollRequest?.turnId);
-          if (!rr?.metadata) return false;
-          try { return JSON.parse(rr.metadata).fatal === true; } catch { return false; }
+          return parseRollRequestMetadata(rr?.metadata)?.fatal === true;
         })();
-        const metadata = JSON.stringify({ total, modifier, attribute, tier, die: "2d6", fatal: isFatal && tier === "failure" });
+        const metadata = JSON.stringify({
+          total,
+          modifier,
+          attribute,
+          tier,
+          die: "2d6",
+          fatal: isFatal && tier === "failure",
+          rollRequestTurnId: pendingRollRequest?.turnId,
+        });
         const tierLabel =
           tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
         const content =
@@ -298,48 +368,20 @@ export default function SessionPlayPage() {
             : `Rolled 2d6 = ${total} — ${tierLabel}`;
         await sendTurn("roll", content, characterId, metadata);
 
-        // Auto-post the stakes outcome as a consequence narration
-        // Skip for "everyone" rolls — GM writes the combined consequence manually
-        if (pendingRollRequest?.targetUserId !== "everyone") {
-          const isFatalRoll = pendingRollRequest?.fatal === true;
-          const genericOutcomes: Record<string, string> = {
-            success: isFatalRoll ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
-            partial: isFatalRoll ? "They cling to life — but barely. The cost is terrible." : "A partial success — but not without cost.",
-            failure: isFatalRoll ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
-          };
-
-          let outcomeText = "";
-          if (pendingRollRequest) {
-            outcomeText = tier === "failure"
-              ? (pendingRollRequest.onFailure || genericOutcomes.failure)
-              : tier === "success"
-                ? (pendingRollRequest.onSuccess || genericOutcomes.success)
-                : pendingRollRequest.onSuccess && pendingRollRequest.onFailure
-                  ? `${pendingRollRequest.onSuccess} — but ${pendingRollRequest.onFailure.charAt(0).toLowerCase()}${pendingRollRequest.onFailure.slice(1)}`
-                  : genericOutcomes.partial;
-          } else {
-            outcomeText = genericOutcomes[tier] ?? "";
-          }
-
-          if (outcomeText) {
-            await sendTurn("consequence", outcomeText);
-          }
-        }
-
-        // Fatal failure: auto-kill the character + cinematic moment
+        // Fatal failure: the server records the character death atomically
+        // with the roll response; the client only plays the local cinematic.
         if (isFatal && tier === "failure" && characterId) {
           setActiveStoryMoment({
             mood: "death",
             text: `${myCharacter?.name ?? "A hero"} has fallen`,
             subtext: "The dice have spoken.",
           });
-          await handleChangeCharacterStatus(characterId, "dead");
         }
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to record roll");
       }
     },
-    [sendTurn, myCharacter, showToast, pendingRollRequest, turns, handleChangeCharacterStatus]
+    [sendTurn, myCharacter, showToast, pendingRollRequest, turns]
   );
 
   // GM requests a roll from a player (with stakes, optionally fatal)
@@ -363,7 +405,7 @@ export default function SessionPlayPage() {
   const handleLastWords = useCallback(
     async (content: string) => {
       try {
-        await sendTurn("description", content, myCharacter?.id);
+        await sendTurn("description", content, myCharacter?.id, JSON.stringify({ lastWords: true }));
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to send last words");
       }
@@ -385,42 +427,35 @@ export default function SessionPlayPage() {
   const handleEditTurn = useCallback(
     async (turnId: string, newContent: string) => {
       try {
-        const res = await fetch(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}`,
-          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: newContent }) }
-        );
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message ?? "Failed to edit turn");
-        }
+        await editTurn(turnId, newContent);
         showToast("Turn updated");
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to edit turn");
       }
     },
-    [storyId, sessionId, showToast]
+    [editTurn, showToast]
   );
 
   // GM invites a player to create a new character (after death)
   const handleInviteNewCharacter = useCallback(
     async (userId: string) => {
       try {
-        await fetch(`/api/notifications`, {
+        await campaignJsonRequest(`/api/notifications`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: {
             userId,
             type: "campaign-invite-character",
             message: `The GM invites you to create a new character for "${story?.title ?? "the campaign"}"`,
             link: `/campaign/${storyId}`,
-          }),
+          },
+          fallbackError: "Failed to send invitation",
         });
         showToast("Invitation sent — the player can create a new character from the campaign hub.");
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to send invitation");
       }
     },
-    [storyId, story?.title, showToast]
+    [storyId, story, showToast]
   );
 
   // GM pushes a narrative event
@@ -479,75 +514,72 @@ export default function SessionPlayPage() {
   );
 
   // ── Clock API sync ────────────────────────────────────────
-  const clocksRef = useRef(clocks);
-  clocksRef.current = clocks;
-
   const handleClocksChange = useCallback(
     async (newClocks: ProgressClockData[]) => {
-      const prevClocks = clocksRef.current;
+      const prevClocks = clocks;
+      let committedClocks = newClocks;
 
       // Optimistic update
       setClocks(newClocks);
 
-      const prevMap = new Map(prevClocks.map((c) => [c.id, c]));
-      const newMap = new Map(newClocks.map((c) => [c.id, c]));
+      try {
+        const prevMap = new Map(prevClocks.map((c) => [c.id, c]));
+        const newMap = new Map(newClocks.map((c) => [c.id, c]));
 
-      // Deleted clocks (in prev but not in new)
-      for (const prev of prevClocks) {
-        if (!newMap.has(prev.id)) {
-          try {
-            await fetch(
+        // Deleted clocks (in prev but not in new)
+        for (const prev of prevClocks) {
+          if (!newMap.has(prev.id)) {
+            await campaignJsonRequest(
               `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks/${prev.id}`,
-              { method: "DELETE" }
+              { method: "DELETE", fallbackError: "Failed to delete clock" },
             );
-          } catch { /* ignore */ }
+          }
         }
-      }
 
-      // Added clocks (in new but not in prev — temp IDs start with "clock-")
-      for (const clock of newClocks) {
-        if (!prevMap.has(clock.id)) {
-          try {
-            const res = await fetch(
+        // Added clocks (in new but not in prev)
+        for (const clock of newClocks) {
+          if (!prevMap.has(clock.id)) {
+            const json = await campaignJsonRequest<ProgressClockData>(
               `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`,
               {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: clock.name, segments: clock.segments, type: clock.type }),
-              }
+                body: { name: clock.name, segments: clock.segments, type: clock.type },
+                fallbackError: "Failed to create clock",
+              },
             );
-            if (res.ok) {
-              const json = await res.json();
-              // Replace temp ID with real DB ID
-              setClocks((prev) =>
-                prev.map((c) => (c.id === clock.id ? { ...c, id: json.data.id } : c))
+            if (json.data) {
+              committedClocks = committedClocks.map((c) =>
+                c.id === clock.id ? { ...c, id: json.data!.id } : c,
               );
+              setClocks(committedClocks);
             }
-          } catch { /* ignore */ }
+          }
         }
-      }
 
-      // Updated clocks (same ID but filled/name changed)
-      for (const clock of newClocks) {
-        const prev = prevMap.get(clock.id);
-        if (prev && (prev.filled !== clock.filled || prev.name !== clock.name)) {
-          const updates: Record<string, unknown> = {};
-          if (prev.filled !== clock.filled) updates.filled = clock.filled;
-          if (prev.name !== clock.name) updates.name = clock.name;
-          try {
-            await fetch(
+        // Updated clocks (same ID but filled/name changed)
+        for (const clock of committedClocks) {
+          const prev = prevMap.get(clock.id);
+          if (prev && (prev.filled !== clock.filled || prev.name !== clock.name)) {
+            const updates: Record<string, unknown> = {};
+            if (prev.filled !== clock.filled) updates.filled = clock.filled;
+            if (prev.name !== clock.name) updates.name = clock.name;
+            await campaignJsonRequest(
               `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks/${clock.id}`,
               {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updates),
-              }
+                body: updates,
+                fallbackError: "Failed to update clock",
+              },
             );
-          } catch { /* ignore */ }
+          }
         }
+      } catch (err) {
+        setClocks(prevClocks);
+        showToast(err instanceof Error ? err.message : "Failed to sync clocks");
+        refreshClocks().catch(() => undefined);
       }
     },
-    [storyId, sessionId, setClocks]
+    [storyId, sessionId, clocks, setClocks, showToast, refreshClocks]
   );
 
   // ── Loading / Error ────────────────────────────────────────
@@ -755,6 +787,8 @@ export default function SessionPlayPage() {
         activePlayerId={campaignSession?.activePlayerId ?? null}
         currentUserId={currentUserId}
         isGM={isGM}
+        myCharacter={myCharacter}
+        floorRound={floorRound}
         sessionTitle={campaignSession?.title ?? "Session"}
         sessionStatus={campaignSession?.status ?? "draft"}
         sessionOpening={campaignSession?.opening ?? null}
@@ -772,8 +806,6 @@ export default function SessionPlayPage() {
                 text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
                 subtext: campaignSession?.title ?? "The story begins.",
               });
-              // Post the opening as the first narration turn
-              await sendTurn("narration", opening);
             } else {
               showToast("The story begins!");
             }
@@ -784,8 +816,11 @@ export default function SessionPlayPage() {
         showDiceRoller={showDiceRoller || !!pendingRollRequest}
         onCloseDiceRoller={() => setShowDiceRoller(false)}
         onCommitDraft={handleCommitDraft}
+        onCreateFloorRound={handleCreateFloorRound}
+        onSubmitFloorResponse={handleSubmitFloorResponse}
+        onVoteFloorSubmission={handleVoteFloorSubmission}
+        onUpdateFloorRound={handleUpdateFloorRound}
         onPassTurn={handlePassTurn}
-        onOpenFloor={handleOpenFloor}
         onEndSession={handleEndSession}
         onTurnExpired={handleTurnExpired}
         onExtendTimer={handleExtendTimer}

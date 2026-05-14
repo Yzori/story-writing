@@ -2,19 +2,24 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
+import type { FloorRound, FloorRoundMode, Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
 // getPlayerColor is used by TurnRenderer
+import AdventureDraftComposer from "./AdventureDraftComposer";
+import FloorRoundPanel from "./FloorRoundPanel";
+import IllustrationTurn from "./IllustrationTurn";
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
 import SessionLobby from "./SessionLobby";
 import LoreMap from "./LoreMap";
 import type { MapPin } from "./LoreMap";
-import SessionHighlights from "./StoryHighlights";
+import SceneBreakRenderer from "./SceneBreakRenderer";
+import SessionEndedBlock from "./SessionEndedBlock";
 import TurnRenderer from "./TurnRenderer";
+import { parseSceneBreakMetadata } from "@/lib/campaign-turns";
+import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
+import { useTurnEditing } from "@/hooks/use-turn-editing";
 import {
   groupIntoParagraphs,
-  SCENE_BREAK_MOOD_CLASSES,
-  DEFAULT_SCENE_BREAK_CLASSES,
   MOOD_TINT_COLORS,
   MOOD_VIGNETTE_COLORS,
 } from "./ProseAssembler";
@@ -29,6 +34,7 @@ interface StoryCanvasProps {
   activePlayerId: string | null;
   currentUserId: string | null;
   isGM: boolean;
+  myCharacter?: PlayerCharacter | null;
   sessionTitle: string;
   sessionStatus: string;
   sessionOpening: string | null;
@@ -36,7 +42,6 @@ interface StoryCanvasProps {
   onCloseDiceRoller: () => void;
   onCommitDraft: (content: string, type: string) => void;
   onPassTurn: (userId: string) => void;
-  onOpenFloor: () => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
   onExtendTimer?: () => void;
@@ -60,119 +65,17 @@ interface StoryCanvasProps {
   allCharacters?: PlayerCharacter[];
   onUpdateRoster?: (characterIds: string[]) => void;
   spectatorMode?: boolean;
-}
-
-// SessionHighlights and extractHighlights are now in StoryHighlights.tsx
-
-// ── Session Ended Block (compile to chapter) ────────────────
-
-function SessionEndedBlock({
-  sessionId,
-  storyId,
-  isGM,
-  storyTurns,
-  logTurns,
-}: {
-  sessionId: string;
-  storyId?: string;
-  isGM: boolean;
-  storyTurns: Turn[];
-  logTurns: Turn[];
-}) {
-  const [compileState, setCompileState] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [compiledChapterId, setCompiledChapterId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handleCompile = async () => {
-    if (!storyId) return;
-
-    // Demo mode — show a toast-style message instead of calling the API
-    if (storyId.startsWith("demo")) {
-      setCompileState("done");
-      setCompiledChapterId("demo-chapter");
-      return;
-    }
-
-    setCompileState("loading");
-    setErrorMessage(null);
-    try {
-      const res = await fetch(
-        `/api/stories/${storyId}/campaign/sessions/${sessionId}/compile`,
-        { method: "POST" }
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error?.message ?? "Compilation failed");
-      }
-      const { data } = await res.json();
-      setCompiledChapterId(data.chapterId);
-      setCompileState("done");
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
-      setCompileState("error");
-    }
-  };
-
-  return (
-    <>
-    <SessionHighlights storyTurns={storyTurns} logTurns={logTurns} />
-    <div className="w-full max-w-[650px] mt-4">
-      <div className="text-center py-8 border border-border-subtle rounded-2xl bg-subtle/20">
-        <p className="text-text-tertiary text-sm font-serif italic">This session has ended.</p>
-
-        {isGM && compileState === "idle" && (
-          <button
-            onClick={handleCompile}
-            className="mt-4 bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] cursor-pointer"
-          >
-            Compile to Chapter
-          </button>
-        )}
-
-        {compileState === "loading" && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-amber/60">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <span className="text-xs font-serif italic">Compiling session into prose...</span>
-          </div>
-        )}
-
-        {compileState === "done" && (
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <p className="text-sage text-sm font-serif italic">Chapter draft created!</p>
-            {compiledChapterId && !compiledChapterId.startsWith("demo") && storyId && (
-              <a
-                href={`/write/${storyId}`}
-                className="text-xs text-amber/60 hover:text-amber underline underline-offset-2 transition-colors"
-              >
-                Open in editor
-              </a>
-            )}
-            {compiledChapterId?.startsWith("demo") && (
-              <p className="text-xs text-text-tertiary">(Demo mode — no chapter was actually created)</p>
-            )}
-          </div>
-        )}
-
-        {compileState === "error" && (
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <p className="text-rose text-sm font-serif italic">
-              {errorMessage ?? "Failed to compile session"}
-            </p>
-            <button
-              onClick={() => setCompileState("idle")}
-              className="text-xs text-text-tertiary hover:text-text-secondary underline underline-offset-2 transition-colors cursor-pointer"
-            >
-              Try again
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-    </>
-  );
+  floorRound?: FloorRound | null;
+  onCreateFloorRound?: (prompt: string, mode: FloorRoundMode) => Promise<void>;
+  onSubmitFloorResponse?: (
+    roundId: string,
+    body: { characterId: string; type: string; content: string },
+  ) => Promise<void>;
+  onVoteFloorSubmission?: (roundId: string, submissionId: string) => Promise<void>;
+  onUpdateFloorRound?: (
+    roundId: string,
+    body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
+  ) => Promise<void>;
 }
 
 // ── Reaction System ──────────────────────────────────────────
@@ -188,6 +91,27 @@ const REACTIONS = [
 const REACTION_EMOJI_MAP: Record<string, string> = Object.fromEntries(
   REACTIONS.map((r) => [r.key, r.emoji])
 );
+
+interface CurrentSceneState {
+  currentMood: string | null;
+  currentSceneAspects: string[];
+}
+
+function getCurrentSceneState(storyTurns: Turn[]): CurrentSceneState {
+  for (let i = storyTurns.length - 1; i >= 0; i--) {
+    const turn = storyTurns[i];
+    if (turn?.type === "scene-break" && turn.metadata) {
+      const meta = parseSceneBreakMetadata(turn.metadata);
+      if (!meta) continue;
+      return {
+        currentMood: meta.mood ?? null,
+        currentSceneAspects: meta.aspects ?? [],
+      };
+    }
+  }
+
+  return { currentMood: null, currentSceneAspects: [] };
+}
 
 function FloatingReaction({
   emoji,
@@ -221,6 +145,7 @@ export default function StoryCanvas({
   activePlayerId,
   currentUserId,
   isGM,
+  myCharacter,
   sessionTitle,
   sessionStatus,
   sessionOpening,
@@ -228,7 +153,6 @@ export default function StoryCanvas({
   onCloseDiceRoller,
   onCommitDraft,
   onPassTurn,
-  onOpenFloor,
   onEndSession,
   onTurnExpired,
   onExtendTimer,
@@ -251,66 +175,18 @@ export default function StoryCanvas({
   rosterCharacters,
   allCharacters,
   onUpdateRoster,
+  floorRound = null,
+  onCreateFloorRound,
+  onSubmitFloorResponse,
+  onVoteFloorSubmission,
+  onUpdateFloorRound,
 }: StoryCanvasProps) {
   const TURNS_PER_BATCH = 50;
   const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
     Math.max(0, storyTurns.length - TURNS_PER_BATCH)
   );
-  const [draftContent, setDraftContent] = useState("");
-  const [draftType, setDraftType] = useState<string>(isGM ? "narration" : "action");
-  const [hydratedDraft, setHydratedDraft] = useState(false);
-
-  // Hydrate draft from localStorage after mount (avoids SSR mismatch)
-  useEffect(() => {
-    if (hydratedDraft) return;
-    try {
-      const savedContent = localStorage.getItem(`inkwell-draft-${sessionId}`);
-      const savedType = localStorage.getItem(`inkwell-draft-type-${sessionId}`);
-      if (savedContent) setDraftContent(savedContent);
-      if (savedType) setDraftType(savedType);
-    } catch { /* ignore */ }
-    setHydratedDraft(true);
-  }, [sessionId, hydratedDraft]);
-  const [draftSaved, setDraftSaved] = useState(false);
-  const [showTurnHelp, setShowTurnHelp] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Auto-dismiss turn help when user starts typing
-  const prevDraftContentRef = useRef(draftContent);
-  useEffect(() => {
-    if (prevDraftContentRef.current === "" && draftContent !== "") {
-      setShowTurnHelp(false);
-    }
-    prevDraftContentRef.current = draftContent;
-  }, [draftContent]);
-
-  // Debounce-save draft content to localStorage
-  useEffect(() => {
-    setDraftSaved(false);
-    const timer = setTimeout(() => {
-      try {
-        if (draftContent) {
-          localStorage.setItem(`inkwell-draft-${sessionId}`, draftContent);
-          setDraftSaved(true);
-        } else {
-          localStorage.removeItem(`inkwell-draft-${sessionId}`);
-        }
-      } catch { /* quota exceeded, ignore */ }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [draftContent, sessionId]);
-
-  // Save draft type immediately on change
-  useEffect(() => {
-    try {
-      if (draftType) {
-        localStorage.setItem(`inkwell-draft-type-${sessionId}`, draftType);
-      } else {
-        localStorage.removeItem(`inkwell-draft-type-${sessionId}`);
-      }
-    } catch { /* ignore */ }
-  }, [draftType, sessionId]);
 
   const isMyTurn = activePlayerId === currentUserId;
   const isActive = sessionStatus === "active";
@@ -324,7 +200,8 @@ export default function StoryCanvas({
   // Reset lastWordsSent when character is revived (status changes from dead/retired to active)
   useEffect(() => {
     if (!isCharGone) {
-      setLastWordsSent(false);
+      const timeoutId = setTimeout(() => setLastWordsSent(false), 0);
+      return () => clearTimeout(timeoutId);
     }
   }, [isCharGone]);
 
@@ -358,136 +235,30 @@ export default function StoryCanvas({
     setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  // ── 30-second edit window ──────────────────────────────────
-  const [editingTurnId, setEditingTurnId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const editWindowRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [lastSubmittedTurnId, setLastSubmittedTurnId] = useState<string | null>(null);
-  const [editWindowOpen, setEditWindowOpen] = useState(false);
+  const {
+    editableTurn,
+    editingTurnId,
+    editContent,
+    setEditContent,
+    handleEditClick,
+    handleEditSave,
+    handleEditCancel,
+  } = useTurnEditing({
+    storyTurns,
+    currentUserId,
+    activePlayerId,
+    onEditTurn,
+  });
 
-  // Track the most recent turn submitted by this user (within 30s)
-  const editableTurn = storyTurns.length > 0
-    ? (() => {
-        const last = storyTurns[storyTurns.length - 1];
-        if (last.id === lastSubmittedTurnId && last.userId === currentUserId && editWindowOpen) {
-          return last;
-        }
-        return null;
-      })()
-    : null;
-
-  // Close edit window when active player changes (GM passed the turn)
-  useEffect(() => {
-    if (editWindowOpen) {
-      setEditWindowOpen(false);
-      setEditingTurnId(null);
-      setEditContent("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlayerId]);
-
-  const startEditWindow = useCallback((turnId: string) => {
-    setLastSubmittedTurnId(turnId);
-    setEditWindowOpen(true);
-    // Auto-close after 30 seconds
-    if (editWindowRef.current) clearTimeout(editWindowRef.current);
-    editWindowRef.current = setTimeout(() => {
-      setEditWindowOpen(false);
-      setEditingTurnId(null);
-      setEditContent("");
-    }, 30000);
-  }, []);
-
-  const handleEditClick = useCallback((turn: Turn) => {
-    setEditingTurnId(turn.id);
-    setEditContent(turn.content);
-  }, []);
-
-  const handleEditSave = useCallback(() => {
-    if (!editingTurnId || !editContent.trim()) return;
-    onEditTurn?.(editingTurnId, editContent.trim());
-    setEditingTurnId(null);
-    setEditContent("");
-    // Keep the window open for further edits until 30s expires
-  }, [editingTurnId, editContent, onEditTurn]);
-
-  const handleEditCancel = useCallback(() => {
-    setEditingTurnId(null);
-    setEditContent("");
-  }, []);
-
-  // ── Voice-to-text (Speech Recognition) ─────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  type SpeechRecognitionInstance = any;
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionInstance>(null);
-  const [hasSpeechSupport, setHasSpeechSupport] = useState(false);
-
-  useEffect(() => {
-    setHasSpeechSupport("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
-  }, []);
-
-  const toggleListening = useCallback(() => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
-    const SpeechRecognitionAPI = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) return;
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    let finalTranscript = "";
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const text = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += text;
-        } else {
-          interim = text;
-        }
-      }
-      // Append finalized text to draft, show interim as preview
-      setDraftContent((prev) => {
-        const base = prev.endsWith(" ") || prev === "" ? prev : prev + " ";
-        const finalized = finalTranscript ? base + finalTranscript : prev;
-        finalTranscript = ""; // Reset after applying
-        return interim ? finalized + (finalized.endsWith(" ") || finalized === "" ? "" : " ") + interim : finalized;
-      });
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [isListening]);
-
-  // Stop listening when component unmounts or draft is submitted
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-    };
-  }, []);
-
-  // GM can always write. Players can write when it's their turn or floor is open. Dead/retired characters can't.
-  const canWrite = isActive && !isCharGone && (isGM || isMyTurn || !activePlayerId);
+  const interactionState = getSessionInteractionState({
+    sessionStatus,
+    activePlayerId,
+    currentUserId,
+    isGM,
+    myCharacterStatus,
+    floorRound,
+  });
+  const canWrite = interactionState.canWriteDirect;
 
   // Find who's currently writing for the lock screen
   const activeChar = characters.find((c) => c.userId === activePlayerId);
@@ -506,7 +277,11 @@ export default function StoryCanvas({
   const prevTotalTurnsRef = useRef(storyTurns.length);
   useEffect(() => {
     if (storyTurns.length < prevTotalTurnsRef.current) {
-      setVisibleStartIndex(Math.max(0, storyTurns.length - TURNS_PER_BATCH));
+      const timeoutId = setTimeout(() => {
+        setVisibleStartIndex(Math.max(0, storyTurns.length - TURNS_PER_BATCH));
+      }, 0);
+      prevTotalTurnsRef.current = storyTurns.length;
+      return () => clearTimeout(timeoutId);
     }
     prevTotalTurnsRef.current = storyTurns.length;
   }, [storyTurns.length]);
@@ -528,98 +303,8 @@ export default function StoryCanvas({
     });
   }, []);
 
-  // Detect when this user's new turn appears → start the 30s edit window
-  const prevTurnCountRef = useRef(storyTurns.length);
-  useEffect(() => {
-    if (storyTurns.length > prevTurnCountRef.current) {
-      const newest = storyTurns[storyTurns.length - 1];
-      if (newest.userId === currentUserId && newest.type !== "scene-break") {
-        startEditWindow(newest.id);
-      }
-    }
-    prevTurnCountRef.current = storyTurns.length;
-  }, [storyTurns.length, storyTurns, currentUserId, startEditWindow]);
-
   // Find the current player's character name for the preview
   const myCharName = characters.find((c) => c.userId === currentUserId)?.name ?? null;
-
-  const handleCommit = () => {
-    if (!draftContent.trim()) return;
-    let content = draftContent.trim();
-    // Auto-strip character name if the player typed it at the start
-    if (!isGM && myCharName) {
-      const namePattern = new RegExp(`^${myCharName}\\s*`, "i");
-      content = content.replace(namePattern, "");
-      if (!content) return; // nothing left after stripping
-    }
-    // Stop voice recording if active
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    }
-    onCommitDraft(content, draftType);
-    setDraftContent("");
-    setDraftSaved(false);
-    try {
-      localStorage.removeItem(`inkwell-draft-${sessionId}`);
-      localStorage.removeItem(`inkwell-draft-type-${sessionId}`);
-    } catch { /* ignore */ }
-  };
-
-  // Preview hints showing how the turn will render
-  const renderPreview: Record<string, string> = myCharName ? {
-    action: `${myCharName} [your text]`,
-    dialogue: `${myCharName} said, "[your text]"`,
-    reaction: `${myCharName} [your text] (italic)`,
-    description: "[your text] (italic, no name)",
-    narration: "[your text]",
-    consequence: "[your text]",
-  } : {};
-
-  // Turn type options
-  const GM_TYPES = [
-    { key: "narration", label: "Narrate", hint: "Set the scene" },
-    { key: "consequence", label: "Consequence", hint: "React to player" },
-  ];
-
-  const PLAYER_TYPES = [
-    { key: "action", label: "Act", hint: "What you do" },
-    { key: "dialogue", label: "Speak", hint: "What you say" },
-    { key: "reaction", label: "React", hint: "Your response" },
-    { key: "description", label: "Describe", hint: "Color & mood" },
-  ];
-
-  const draftTypes = isGM ? GM_TYPES : PLAYER_TYPES;
-
-  const draftPlaceholders: Record<string, string> = {
-    narration: "Describe the scene, introduce stakes, set the tone...",
-    consequence: "What happens as a result of the player's action?",
-    action: "What does your character do?",
-    dialogue: "What does your character say?",
-    reaction: "Your character's immediate response — a gasp, a flinch, a smile...",
-    description: "Set the mood. Describe what it looks, sounds, or feels like...",
-  };
-
-  // Turn type help — examples and descriptions for new players
-  const TURN_EXAMPLES: Record<string, string> = {
-    action: "draws her blade and steps into the light, eyes scanning the shadows for movement.",
-    dialogue: "We don't have much time. Whatever we do, we do it now.",
-    reaction: "A chill runs down her spine. She'd heard stories about this place — none of them good.",
-    description: "The torchlight catches the edges of something metallic embedded in the wall — ancient, ornate, and unmistakably deliberate.",
-    narration: "The corridor stretches ahead, its walls slick with moisture. From somewhere below, a rhythmic drumming echoes.",
-    consequence: "The ground gives way beneath their feet — not a collapse, but a design. Someone built this trap centuries ago, and it still works perfectly.",
-  };
-
-  const TURN_DESCRIPTIONS: Record<string, string> = {
-    action: "What your character physically does — movement, combat, interaction.",
-    dialogue: "What your character says aloud. Auto-wrapped in quotes.",
-    reaction: "Your character's immediate emotional or instinctive response.",
-    description: "Set the mood. Describe what the scene looks, sounds, or feels like.",
-    narration: "Set the scene, describe the world, introduce what happens next.",
-    consequence: "What happens as a direct result of a player's action or choice.",
-  };
-
-  const isPlayerTurnType = (type: string) => ["action", "dialogue", "reaction"].includes(type);
 
   // ── Prose Assembly (imported from ProseAssembler.tsx) ──────
 
@@ -633,20 +318,7 @@ export default function StoryCanvas({
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
 
   // ── Mood & Aspects — derive from latest scene-break ──────────
-  const { currentMood, currentSceneAspects } = useMemo(() => {
-    for (let i = storyTurns.length - 1; i >= 0; i--) {
-      if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
-        try {
-          const meta = JSON.parse(storyTurns[i].metadata!);
-          return {
-            currentMood: meta.mood ?? null,
-            currentSceneAspects: (meta.aspects as string[]) ?? [],
-          };
-        } catch { /* ignore */ }
-      }
-    }
-    return { currentMood: null, currentSceneAspects: [] };
-  }, [storyTurns]);
+  const { currentMood, currentSceneAspects } = getCurrentSceneState(storyTurns);
 
   const moodTint = currentMood ? MOOD_TINT_COLORS[currentMood] ?? null : null;
   const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
@@ -703,10 +375,10 @@ export default function StoryCanvas({
         sessionTitle={sessionTitle}
         sessionStatus={sessionStatus}
         onPassTurn={onPassTurn}
-        onOpenFloor={onOpenFloor}
         onEndSession={onEndSession}
         onTurnExpired={onTurnExpired}
         onExtendTimer={onExtendTimer}
+        floorRound={floorRound}
       />
 
       {/* Scene Aspect Tags — floating pills below initiative bar */}
@@ -823,67 +495,12 @@ export default function StoryCanvas({
 
                 // Scene-break turns render as ornamental dividers
                 if (group[0].type === "scene-break") {
-                  let mood = "";
-                  let title = "";
-                  try {
-                    const meta = group[0].metadata ? JSON.parse(group[0].metadata) : {};
-                    mood = meta.mood ?? "";
-                    title = meta.title ?? "";
-                  } catch { /* ignore */ }
-                  const classes = SCENE_BREAK_MOOD_CLASSES[mood] ?? DEFAULT_SCENE_BREAK_CLASSES;
-
-                  return (
-                    <div key={group[0].id} className="flex items-center gap-4 my-12 px-4">
-                      <div className={`flex-1 h-px bg-gradient-to-r from-transparent ${classes.line} to-transparent`} />
-                      {title ? (
-                        <span className={`text-[10px] uppercase tracking-[0.3em] font-display ${classes.text}`}>
-                          {title}
-                        </span>
-                      ) : mood ? (
-                        <span className={`text-[10px] uppercase tracking-[0.3em] font-display ${classes.textFaded} italic`}>
-                          {mood}
-                        </span>
-                      ) : null}
-                      <div className={`flex-1 h-px bg-gradient-to-r from-transparent ${classes.line} to-transparent`} />
-                    </div>
-                  );
+                  return <SceneBreakRenderer key={group[0].id} turn={group[0]} />;
                 }
 
                 // Illustration turns render as visual breaks in the prose
                 if (group[0].type === "illustration") {
-                  let imageUrl = "";
-                  let caption = "";
-                  try {
-                    const meta = group[0].metadata ? JSON.parse(group[0].metadata) : {};
-                    imageUrl = meta.imageUrl ?? "";
-                    caption = meta.caption ?? "";
-                  } catch { /* ignore */ }
-
-                  if (!imageUrl) return null;
-
-                  return (
-                    <motion.figure
-                      key={group[0].id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                      className="my-10 flex flex-col items-center"
-                    >
-                      <div className="max-w-full rounded-xl overflow-hidden border border-border shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
-                        <img
-                          src={imageUrl}
-                          alt={caption || "Illustration"}
-                          loading="lazy"
-                          className="max-w-full block"
-                        />
-                      </div>
-                      {caption && (
-                        <figcaption className="mt-3 text-sm text-paper/50 font-serif italic text-center max-w-md">
-                          {caption}
-                        </figcaption>
-                      )}
-                    </motion.figure>
-                  );
+                  return <IllustrationTurn key={group[0].id} turn={group[0]} />;
                 }
 
                 const groupHasEditable = editableTurn && group.some((t) => t.id === editableTurn.id);
@@ -958,126 +575,25 @@ export default function StoryCanvas({
           )}
         </div>
 
+        <FloorRoundPanel
+          floorRound={floorRound}
+          isGM={isGM}
+          myCharacter={myCharacter ?? null}
+          isActive={isActive}
+          onCreateRound={onCreateFloorRound ?? (async () => {})}
+          onSubmitResponse={onSubmitFloorResponse ?? (async () => {})}
+          onVoteSubmission={onVoteFloorSubmission ?? (async () => {})}
+          onUpdateRound={onUpdateFloorRound ?? (async () => {})}
+        />
+
         {/* Draft Box */}
         {canWrite && (
-          <div className="w-full max-w-[650px] mt-auto">
-            <div className="bg-ink border border-amber/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
-              <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-amber">
-                {isGM ? "Narrator" : "Your Turn"}
-              </div>
-
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
-                {draftTypes.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setDraftType(t.key)}
-                    className={`px-3.5 py-1.5 text-[12px] uppercase tracking-[0.08em] font-semibold rounded-full border transition-all cursor-pointer ${
-                      draftType === t.key
-                        ? "bg-amber/15 text-amber border-amber/40 shadow-[0_0_10px_rgba(200,150,60,0.15)]"
-                        : "bg-subtle/30 text-text-tertiary border-border hover:text-text-secondary"
-                    }`}
-                    title={t.hint}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setShowTurnHelp((v) => !v)}
-                  className={`w-6 h-6 rounded-full border text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center ${
-                    showTurnHelp
-                      ? "bg-subtle/50 border-border-active text-text-secondary"
-                      : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary hover:bg-subtle/50"
-                  }`}
-                  title="Show turn type help"
-                >
-                  ?
-                </button>
-              </div>
-
-              {/* Turn type help panel */}
-              <AnimatePresence>
-                {showTurnHelp && TURN_DESCRIPTIONS[draftType] && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="bg-subtle/20 border border-border-subtle rounded-xl p-4 mb-3">
-                      <div className="text-[10px] uppercase tracking-widest text-amber/60 font-bold mb-1">
-                        {draftTypes.find((t) => t.key === draftType)?.label ?? draftType}
-                      </div>
-                      <div className="text-xs text-text-tertiary mb-2">
-                        {TURN_DESCRIPTIONS[draftType]}
-                      </div>
-                      <div className="text-sm text-text-ghost font-serif italic leading-relaxed">
-                        {isPlayerTurnType(draftType) && myCharName && (
-                          <span className="text-text-tertiary not-italic">{myCharName} </span>
-                        )}
-                        {TURN_EXAMPLES[draftType]}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Render preview — shows how the turn will appear in the story */}
-              {!isGM && renderPreview[draftType] && (
-                <div className="mb-2 px-1 text-[11px] text-text-ghost font-serif italic">
-                  Appears as: {renderPreview[draftType]}
-                </div>
-              )}
-
-              <textarea
-                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[120px] placeholder:text-text-ghost"
-                placeholder={draftPlaceholders[draftType] ?? "Write..."}
-                value={draftContent}
-                onChange={(e) => setDraftContent(e.target.value)}
-              />
-
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border-subtle">
-                <div className="text-xs text-text-tertiary font-serif italic flex items-center gap-3">
-                  <span>{isGM ? "The narrator sets the stage." : "Take your time. The party is waiting."}</span>
-                  {draftSaved && draftContent && (
-                    <span className="text-text-ghost text-[10px] not-italic">Draft saved</span>
-                  )}
-                  {isListening && (
-                    <span className="text-rose/60 text-[10px] not-italic flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-rose animate-pulse" />
-                      Listening...
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {hasSpeechSupport && (
-                    <button
-                      onClick={toggleListening}
-                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
-                        isListening
-                          ? "bg-rose/20 border-rose/40 text-rose shadow-[0_0_12px_rgba(244,63,94,0.3)]"
-                          : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary hover:bg-subtle/50"
-                      }`}
-                      title={isListening ? "Stop dictation" : "Voice dictation"}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" x2="12" y1="19" y2="22" />
-                      </svg>
-                    </button>
-                  )}
-                  <button
-                    onClick={handleCommit}
-                    disabled={!draftContent.trim()}
-                    className="bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] disabled:opacity-50 disabled:hover:bg-amber/10 disabled:hover:text-amber disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    Post Turn
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AdventureDraftComposer
+            sessionId={sessionId}
+            isGM={isGM}
+            myCharName={myCharName}
+            onCommitDraft={onCommitDraft}
+          />
         )}
 
         {/* Waiting state — replaces draft box when player is locked out */}

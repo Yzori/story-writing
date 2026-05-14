@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CAMPAIGN_TURN_TYPES, CAMPAIGN_TURN_TYPES_ALLOW_EMPTY } from "@/lib/campaign-turns";
 
 // ── Stories ──────────────────────────────────────────────────
 
@@ -300,33 +301,39 @@ export const updateCampaignSessionSchema = z.object({
 // scene-break is a structural marker the GM drops between scenes; it can
 // have empty content (the metadata carries the title/mood). Prose types
 // (action/dialogue/etc.) still must have non-empty content.
-const TURN_TYPES_ALLOW_EMPTY = ["scene-break", "roll-request"] as const;
-
 export const createCampaignTurnSchema = z
   .object({
     characterId: z.string().uuid().optional(),
-    type: z.enum([
-      "narration",
-      "consequence",
-      "action",
-      "dialogue",
-      "reaction",
-      "description",
-      "roll",
-      "roll-request",
-      "ooc",
-      "illustration",
-      "scene-break",
-    ]),
+    type: z.enum(CAMPAIGN_TURN_TYPES),
     content: z.string().max(10000),
     metadata: z.string().max(5000).optional(),
   })
   .refine(
     (data) =>
-      (TURN_TYPES_ALLOW_EMPTY as readonly string[]).includes(data.type) ||
+      (CAMPAIGN_TURN_TYPES_ALLOW_EMPTY as readonly string[]).includes(data.type) ||
       data.content.length > 0,
     { message: "Content is required", path: ["content"] },
   );
+
+export const createFloorRoundSchema = z.object({
+  prompt: z.string().min(1, "Prompt is required").max(1000),
+  mode: z.enum(["gm_pick", "vote"]).default("gm_pick"),
+});
+
+export const updateFloorRoundSchema = z.object({
+  status: z.enum(["voting", "closed", "resolved", "cancelled"]),
+  selectedSubmissionId: z.string().uuid().optional(),
+});
+
+export const createFloorSubmissionSchema = z.object({
+  characterId: z.string().uuid(),
+  type: z.enum(["action", "dialogue", "reaction", "description"]),
+  content: z.string().min(1, "Content is required").max(10000),
+});
+
+export const createFloorVoteSchema = z.object({
+  submissionId: z.string().uuid(),
+});
 
 // ── Campaign Applications ───────────────────────────────────
 

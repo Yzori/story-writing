@@ -1,13 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignTurns, campaignSessions, playerCharacters, users } from "@/server/db/schema";
+import { campaignTurns, campaignSessions, playerCharacters, sessionRoster, users } from "@/server/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
+import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollRequestMetadata } from "@/lib/campaign-turns";
+import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
+
+function parseJsonObject(metadata: string | null | undefined): Record<string, unknown> | null {
+  if (!metadata) return null;
+  try {
+    const parsed = JSON.parse(metadata);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/stories/[storyId]/campaign/sessions/[sessionId]/turns
@@ -168,31 +182,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Only GM (story owner) can post narration and consequence
     const isStoryOwner = check.story?.userId === session.user.id;
-    const gmOnlyTypes = ["narration", "consequence", "roll-request", "illustration", "scene-break"];
-    if (gmOnlyTypes.includes(parsed.data.type) && !isStoryOwner) {
+    if (isGmOnlyTurnType(parsed.data.type) && !isStoryOwner) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can narrate" } },
         { status: 403 }
       );
     }
 
-    // Enforce turn order: when activePlayerId is set, only that player can post
-    // story turns. GM narration/consequence bypass turn order (GM can always interject).
+    const turnMetadata = parseJsonObject(parsed.data.metadata);
+    const isLastWords = parsed.data.type === "description" && turnMetadata?.lastWords === true;
+
+    // Enforce turn order: players can only post direct-to-canon story turns
+    // when assigned the spotlight. Multi-player proposals go through Crossroads
+    // floor rounds instead of writing directly while activePlayerId is null.
+    // GM narration/consequence bypass turn order (GM can always interject).
     // OOC and rolls are always allowed regardless of turn.
-    const playerStoryTypes = ["action", "dialogue", "reaction", "description"];
-    const isPlayerStoryTurn = playerStoryTypes.includes(parsed.data.type);
-    if (
-      campaignSession.activePlayerId &&
-      isPlayerStoryTurn &&
-      campaignSession.activePlayerId !== session.user.id
-    ) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "It is not your turn" } },
-        { status: 403 }
-      );
+    const isPlayerStoryTurn = isPlayerStoryTurnType(parsed.data.type);
+    if (isPlayerStoryTurn) {
+      const permission = canPostDirectStoryTurn({
+        isGM: isStoryOwner,
+        activePlayerId: campaignSession.activePlayerId,
+        currentUserId: session.user.id,
+        isLastWords,
+      });
+      if (!permission.allowed) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: permission.message } },
+          { status: 403 }
+        );
+      }
     }
 
     // Validate character ownership if characterId provided
+    let turnCharacter: typeof playerCharacters.$inferSelect | null = null;
     if (parsed.data.characterId) {
       const char = await db.query.playerCharacters.findFirst({
         where: and(
@@ -205,6 +227,82 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json(
           { error: { code: "FORBIDDEN", message: "Character not found or not yours" } },
           { status: 403 }
+        );
+      }
+      turnCharacter = char;
+    }
+
+    if (isPlayerStoryTurn) {
+      if (!turnCharacter) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "Player story turns require one of your characters" } },
+          { status: 403 }
+        );
+      }
+
+      const characterCanSpeak = turnCharacter.status === "active" || (
+        isLastWords && (turnCharacter.status === "dead" || turnCharacter.status === "retired")
+      );
+
+      if (!characterCanSpeak) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "This character is not active" } },
+          { status: 403 }
+        );
+      }
+    }
+
+    const rollMetadata = parsed.data.type === "roll"
+      ? parseJsonObject(parsed.data.metadata)
+      : null;
+    const rollRequestTurnId = typeof rollMetadata?.rollRequestTurnId === "string"
+      ? rollMetadata.rollRequestTurnId
+      : null;
+    let rollRequestMeta: ReturnType<typeof parseRollRequestMetadata> = null;
+    let rollRequestTurn: typeof campaignTurns.$inferSelect | null = null;
+
+    if (parsed.data.type === "roll" && rollRequestTurnId) {
+      rollRequestTurn = await db.query.campaignTurns.findFirst({
+        where: and(
+          eq(campaignTurns.id, rollRequestTurnId),
+          eq(campaignTurns.sessionId, sessionId),
+          eq(campaignTurns.type, "roll-request"),
+        ),
+      }) ?? null;
+
+      if (!rollRequestTurn) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Roll request not found" } },
+          { status: 400 }
+        );
+      }
+
+      rollRequestMeta = parseRollRequestMetadata(rollRequestTurn.metadata);
+      if (!rollRequestMeta) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Roll request metadata is invalid" } },
+          { status: 400 }
+        );
+      }
+
+      if (rollRequestMeta.targetUserId !== session.user.id && rollRequestMeta.targetUserId !== "everyone") {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "This roll request is not for you" } },
+          { status: 403 }
+        );
+      }
+
+      const existingResponse = await db.query.campaignTurns.findFirst({
+        where: sql`${campaignTurns.sessionId} = ${sessionId}
+          AND ${campaignTurns.userId} = ${session.user.id}
+          AND ${campaignTurns.type} = 'roll'
+          AND ${campaignTurns.sortOrder} > ${rollRequestTurn.sortOrder}`,
+      });
+
+      if (existingResponse) {
+        return NextResponse.json(
+          { error: { code: "CONFLICT", message: "You already answered this roll request" } },
+          { status: 409 }
         );
       }
     }
@@ -224,26 +322,75 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    // Hand the spotlight back to the GM after a player posts a story turn —
-    // whether they were assigned the floor (activePlayerId === user) or it
-    // was open (activePlayerId is null). Without this, assigned-player turns
-    // get stuck on the player because the client cannot reassign (the
-    // active-player endpoint is GM-only). Skip when the GM themselves posted.
+    // Hand the spotlight back to the GM after an assigned player posts a
+    // story turn. Without this, assigned-player turns get stuck on the player
+    // because the client cannot reassign (the active-player endpoint is
+    // GM-only). Skip when the GM themselves posted.
     const posterIsPlayer = session.user.id !== check.story!.userId;
-    const playerCedesFloor =
-      !campaignSession.activePlayerId ||
-      campaignSession.activePlayerId === session.user.id;
+    const playerCedesAssignedTurn = campaignSession.activePlayerId === session.user.id;
     let nextActivePlayerId: string | null = campaignSession.activePlayerId ?? null;
     if (
       posterIsPlayer &&
-      playerCedesFloor &&
-      playerStoryTypes.includes(parsed.data.type)
+      playerCedesAssignedTurn &&
+      isPlayerStoryTurnType(parsed.data.type)
     ) {
       nextActivePlayerId = check.story!.userId;
       await db
         .update(campaignSessions)
         .set({ activePlayerId: nextActivePlayerId })
         .where(eq(campaignSessions.id, sessionId));
+    }
+
+    if (
+      parsed.data.type === "roll" &&
+      rollRequestMeta &&
+      rollRequestTurn &&
+      rollRequestMeta.targetUserId !== "everyone"
+    ) {
+      const tier = typeof rollMetadata?.tier === "string" ? rollMetadata.tier : "";
+      const fatalFailure = rollRequestMeta.fatal === true && tier === "failure";
+      const genericOutcomes: Record<string, string> = {
+        success: rollRequestMeta.fatal ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
+        partial: rollRequestMeta.fatal ? "They cling to life - but barely. The cost is terrible." : "A partial success - but not without cost.",
+        failure: rollRequestMeta.fatal ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
+      };
+      const outcomeText = tier === "failure"
+        ? (rollRequestMeta.onFailure || genericOutcomes.failure)
+        : tier === "success"
+          ? (rollRequestMeta.onSuccess || genericOutcomes.success)
+          : rollRequestMeta.onSuccess && rollRequestMeta.onFailure
+            ? `${rollRequestMeta.onSuccess} - but ${rollRequestMeta.onFailure.charAt(0).toLowerCase()}${rollRequestMeta.onFailure.slice(1)}`
+            : genericOutcomes.partial;
+
+      if (outcomeText) {
+        await db
+          .insert(campaignTurns)
+          .values({
+            sessionId,
+            userId: check.story!.userId,
+            characterId: null,
+            type: "consequence",
+            content: outcomeText,
+            metadata: JSON.stringify({ rollRequestTurnId: rollRequestTurn.id, rollTurnId: created.id, generated: true }),
+            sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
+          });
+      }
+
+      if (fatalFailure && parsed.data.characterId) {
+        await db
+          .update(playerCharacters)
+          .set({ status: "dead", updatedAt: new Date() })
+          .where(eq(playerCharacters.id, parsed.data.characterId));
+        await db
+          .update(sessionRoster)
+          .set({ status: "spectating" })
+          .where(
+            and(
+              eq(sessionRoster.sessionId, sessionId),
+              eq(sessionRoster.characterId, parsed.data.characterId),
+            ),
+          );
+      }
     }
 
     // Re-fetch with user/character joins so the client gets a complete Turn object

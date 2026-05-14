@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry } from "@/types/campaign";
+import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry, FloorRound, FloorRoundMode } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
+import { campaignJsonRequest } from "@/lib/campaign-api";
 
 export function useCampaignSession(storyId: string, sessionId: string) {
   const { data: authSession } = useSession();
@@ -19,12 +20,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   const [previousMood, setPreviousMood] = useState<string | null>(null);
   const [roster, setRoster] = useState<SessionRosterEntry[]>([]);
   const [clocks, setClocks] = useState<ProgressClockData[]>([]);
+  const [floorRound, setFloorRound] = useState<FloorRound | null>(null);
 
   const maxSortRef = useRef(-1);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
+  const floorRoundsUrl = `/api/stories/${storyId}/campaign/sessions/${sessionId}/floor-rounds`;
 
   // Characters present in this session's roster (present or introduced)
   const rosterCharacters = useMemo(() => {
@@ -107,6 +110,11 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           } catch { /* graceful fallback */ }
         }
 
+        try {
+          const floorJson = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
+          setFloorRound(floorJson.data ?? null);
+        } catch { /* non-critical */ }
+
         // Fetch previous session's epilogue for "Previously on..." in lobby
         try {
           const sessionsRes = await fetch(`/api/stories/${storyId}/campaign/sessions`);
@@ -129,7 +137,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     };
 
     fetchInitial();
-  }, [storyId, sessionId]);
+  }, [storyId, sessionId, floorRoundsUrl]);
 
   // ── Poll for new turns + refresh characters ────────────────
   useEffect(() => {
@@ -174,6 +182,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           });
         }
 
+        try {
+          const floorRes = await fetch(floorRoundsUrl, { signal: controller.signal });
+          if (floorRes.ok) {
+            const floorJson = await floorRes.json();
+            setFloorRound(floorJson.data ?? null);
+          }
+        } catch { /* non-critical */ }
+
         // Refresh character list + roster every 6th poll (~30s)
         charPollCount++;
         if (charPollCount >= 6) {
@@ -209,7 +225,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       controller.abort();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [storyId, sessionId, loading]);
+  }, [storyId, sessionId, loading, floorRoundsUrl]);
 
   // ── Send turn ──────────────────────────────────────────────
   const sendTurn = useCallback(
@@ -221,21 +237,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
         metadata,
       };
 
-      const res = await fetch(
+      const json = await campaignJsonRequest<Turn>(
         `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
+          body,
+          fallbackError: "Failed to send",
+        },
       );
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message ?? "Failed to send");
-      }
-
-      const json = await res.json();
       const newTurn = json.data as Turn;
 
       setTurns((prev) => {
@@ -264,20 +273,15 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   // ── Set active player ──────────────────────────────────────
   const setActivePlayer = useCallback(
     async (playerId: string | null) => {
-      const res = await fetch(
+      const json = await campaignJsonRequest<CampaignSession>(
         `/api/stories/${storyId}/campaign/sessions/${sessionId}/active-player`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ activePlayerId: playerId }),
-        }
+          body: { activePlayerId: playerId },
+          fallbackError: "Failed to update active player",
+        },
       );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message ?? "Failed to update active player");
-      }
-      const json = await res.json();
-      setCampaignSession(json.data);
+      if (json.data) setCampaignSession(json.data);
     },
     [storyId, sessionId]
   );
@@ -285,8 +289,10 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   // ── Update roster (GM sets who's present) ────────────────────
   const updateRoster = useCallback(
     async (characterIds: string[]) => {
+      let previousRoster: SessionRosterEntry[] = [];
       // Optimistic update: mark listed characters as present, others as absent
       setRoster((prev) => {
+        previousRoster = prev;
         if (prev.length === 0) return prev;
         return prev.map((entry) => ({
           ...entry,
@@ -295,52 +301,150 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       });
 
       try {
-        const res = await fetch(
+        const json = await campaignJsonRequest<SessionRosterEntry[]>(
           `/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ characterIds }),
-          }
+            body: { characterIds },
+            fallbackError: "Failed to update roster",
+          },
         );
-        if (res.ok) {
-          const json = await res.json();
-          setRoster(json.data ?? []);
-        }
-      } catch {
-        // Revert on error by re-fetching
-        try {
-          const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`);
-          if (res.ok) {
-            const json = await res.json();
-            setRoster(json.data ?? []);
-          }
-        } catch { /* ignore */ }
+        setRoster(json.data ?? []);
+      } catch (err) {
+        setRoster(previousRoster);
+        showToast(err instanceof Error ? err.message : "Failed to update roster");
       }
     },
-    [storyId, sessionId]
+    [storyId, sessionId, showToast]
   );
+
+  const refreshClocks = useCallback(async () => {
+    const json = await campaignJsonRequest<ProgressClockData[]>(
+      `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`,
+      { fallbackError: "Failed to refresh clocks" },
+    );
+    setClocks(json.data ?? []);
+    return json.data ?? [];
+  }, [storyId, sessionId]);
 
   // ── Update session (status, title, etc.) ───────────────────
   const updateSession = useCallback(
     async (data: Record<string, unknown>) => {
-      const res = await fetch(
+      const json = await campaignJsonRequest<CampaignSession>(
         `/api/stories/${storyId}/campaign/sessions/${sessionId}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        }
+          body: data,
+          fallbackError: "Failed to update session",
+        },
       );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message ?? "Failed to update session");
-      }
-      const json = await res.json();
-      setCampaignSession(json.data);
+      if (json.data) setCampaignSession(json.data);
       return json.data as CampaignSession;
     },
     [storyId, sessionId]
+  );
+
+  const editTurn = useCallback(
+    async (turnId: string, newContent: string) => {
+      const trimmed = newContent.trim();
+      let previousTurns: Turn[] = [];
+
+      setTurns((prev) => {
+        previousTurns = prev;
+        return prev.map((turn) =>
+          turn.id === turnId ? { ...turn, content: trimmed } : turn,
+        );
+      });
+
+      try {
+        const json = await campaignJsonRequest<Turn>(
+          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}`,
+          {
+            method: "PATCH",
+            body: { content: trimmed },
+            fallbackError: "Failed to edit turn",
+          },
+        );
+        if (json.data) {
+          setTurns((prev) => prev.map((turn) => (turn.id === turnId ? json.data as Turn : turn)));
+        }
+        return json.data as Turn;
+      } catch (err) {
+        setTurns(previousTurns);
+        throw err;
+      }
+    },
+    [storyId, sessionId],
+  );
+
+  const refreshFloorRound = useCallback(async () => {
+    const json = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
+    setFloorRound(json.data ?? null);
+    return json.data ?? null;
+  }, [floorRoundsUrl]);
+
+  const createFloorRound = useCallback(async (prompt: string, mode: FloorRoundMode) => {
+    const json = await campaignJsonRequest<FloorRound>(
+      floorRoundsUrl,
+      {
+        method: "POST",
+        body: { prompt, mode },
+        fallbackError: "Failed to open Crossroads",
+      },
+    );
+    setFloorRound(json.data ?? null);
+    return json.data ?? null;
+  }, [floorRoundsUrl]);
+
+  const submitFloorResponse = useCallback(
+    async (roundId: string, body: { characterId: string; type: string; content: string }) => {
+      const json = await campaignJsonRequest<FloorRound>(
+        `${floorRoundsUrl}/${roundId}/submissions`,
+        {
+          method: "POST",
+          body,
+          fallbackError: "Failed to submit response",
+        },
+      );
+      setFloorRound(json.data ?? null);
+      return json.data ?? null;
+    },
+    [floorRoundsUrl],
+  );
+
+  const voteFloorSubmission = useCallback(async (roundId: string, submissionId: string) => {
+    const json = await campaignJsonRequest<FloorRound>(
+      `${floorRoundsUrl}/${roundId}/votes`,
+      {
+        method: "POST",
+        body: { submissionId },
+        fallbackError: "Failed to cast vote",
+      },
+    );
+    setFloorRound(json.data ?? null);
+    return json.data ?? null;
+  }, [floorRoundsUrl]);
+
+  const updateFloorRound = useCallback(
+    async (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => {
+      const json = await campaignJsonRequest<FloorRound | null>(
+        `${floorRoundsUrl}/${roundId}`,
+        {
+          method: "PATCH",
+          body,
+          fallbackError: "Failed to update floor round",
+        },
+      );
+      setFloorRound(json.data ?? null);
+      const responseWithTurn = json as typeof json & { turn?: Turn };
+      if (responseWithTurn.turn) {
+        const newTurn = responseWithTurn.turn;
+        setTurns((prev) => prev.some((turn) => turn.id === newTurn.id) ? prev : [...prev, newTurn]);
+        maxSortRef.current = Math.max(maxSortRef.current, newTurn.sortOrder);
+      }
+      return json.data ?? null;
+    },
+    [floorRoundsUrl],
   );
 
   return {
@@ -349,6 +453,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     turns,
     characters,
     roster,
+    floorRound,
     rosterCharacters,
     loading,
     error,
@@ -363,7 +468,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     setActivePlayer,
     updateSession,
     updateRoster,
+    editTurn,
+    refreshFloorRound,
+    createFloorRound,
+    submitFloorResponse,
+    voteFloorSubmission,
+    updateFloorRound,
     clocks,
     setClocks,
+    refreshClocks,
   };
 }

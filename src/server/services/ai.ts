@@ -63,7 +63,7 @@ export async function generateAIAssistance(
 
   try {
     const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022", // Latest Claude 3.5 Sonnet
+      model: "claude-3-5-haiku-20241022", // Claude 3.5 Haiku (budget-friendly)
       max_tokens: getMaxTokens(request.promptType),
       temperature: 0.7,
       system: systemPrompt,
@@ -101,7 +101,7 @@ export async function generateStoryIntelligence(
 
   try {
     const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022", // Use Claude 3.5 Sonnet for analysis
+      model: "claude-3-5-haiku-20241022", // Claude 3.5 Haiku for analysis
       max_tokens: 2000, // More tokens for detailed analysis
       temperature: 0.3, // Lower temperature for analytical tasks
       system: systemPrompt,

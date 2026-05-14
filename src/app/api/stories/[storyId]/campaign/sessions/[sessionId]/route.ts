@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, stories, playerCharacters } from "@/server/db/schema";
+import { campaignSessions, campaignTurns, stories, playerCharacters } from "@/server/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
@@ -155,6 +155,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           `/campaign/${storyId}/play/${sessionId}`
         );
       }
+    }
+
+    if (
+      parsed.data.status === "active" &&
+      campaignSession.status !== "active" &&
+      updated.opening?.trim()
+    ) {
+      await db
+        .insert(campaignTurns)
+        .values({
+          sessionId,
+          userId: session.user.id,
+          characterId: null,
+          type: "narration",
+          content: updated.opening.trim(),
+          metadata: JSON.stringify({ opening: true }),
+          sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
+        });
     }
 
     return NextResponse.json({ data: updated });

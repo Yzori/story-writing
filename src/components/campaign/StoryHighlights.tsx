@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { Turn } from "@/types/campaign";
+import { parseRollMetadata, parseSceneBreakMetadata } from "@/lib/campaign-turns";
 
 // ── Session Highlights ───────────────────────────────────────
 
@@ -32,31 +33,30 @@ export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlig
 
     // Scene break highlights (scenes, story moments, deaths)
     if (t.type === "scene-break" && t.metadata) {
-      try {
-        const meta = JSON.parse(t.metadata);
-        if (meta.cinematic && meta.title) {
-          highlights.push({
-            icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
-            label: "Story Moment",
-            text: meta.title,
-            color: meta.mood === "death" ? "text-rose" : "text-amber",
-          });
-        } else if (meta.mood === "death" && !meta.cinematic) {
-          highlights.push({
-            icon: "\u2020",
-            label: "Fallen",
-            text: meta.title || "A hero has fallen",
-            color: "text-rose",
-          });
-        } else if (meta.title) {
-          highlights.push({
-            icon: "\uD83C\uDFAC",
-            label: "Scene",
-            text: meta.title,
-            color: "text-text-secondary",
-          });
-        }
-      } catch { /* ignore */ }
+      const meta = parseSceneBreakMetadata(t.metadata);
+      if (!meta) continue;
+      if (meta.cinematic && meta.title) {
+        highlights.push({
+          icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
+          label: "Story Moment",
+          text: meta.title,
+          color: meta.mood === "death" ? "text-rose" : "text-amber",
+        });
+      } else if (meta.mood === "death" && !meta.cinematic) {
+        highlights.push({
+          icon: "\u2020",
+          label: "Fallen",
+          text: meta.title || "A hero has fallen",
+          color: "text-rose",
+        });
+      } else if (meta.title) {
+        highlights.push({
+          icon: "\uD83C\uDFAC",
+          label: "Scene",
+          text: meta.title,
+          color: "text-text-secondary",
+        });
+      }
     }
   }
 
@@ -66,28 +66,27 @@ export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlig
     if (t.type !== "roll") continue;
     rollCount++;
     if (!t.metadata) continue;
-    try {
-      const meta = JSON.parse(t.metadata);
-      const total = meta.total ?? 0;
-      const tier = meta.tier ?? "";
-      const charName = t.characterName ?? t.user?.displayName ?? "Someone";
+    const meta = parseRollMetadata(t.metadata);
+    if (!meta) continue;
+    const total = meta.total ?? meta.result ?? 0;
+    const tier = meta.tier ?? "";
+    const charName = t.characterName ?? t.user?.displayName ?? "Someone";
 
-      if (tier === "success" && total >= 11) {
-        highlights.push({
-          icon: "\uD83C\uDFB2",
-          label: "Critical Roll",
-          text: `${charName} rolled ${total} \u2014 a triumphant success`,
-          color: "text-amber",
-        });
-      } else if (tier === "failure" && total <= 4) {
-        highlights.push({
-          icon: "\uD83C\uDFB2",
-          label: "Dramatic Failure",
-          text: `${charName} rolled ${total} \u2014 a devastating miss`,
-          color: "text-red-400",
-        });
-      }
-    } catch { /* ignore */ }
+    if (tier === "success" && total >= 11) {
+      highlights.push({
+        icon: "\uD83C\uDFB2",
+        label: "Critical Roll",
+        text: `${charName} rolled ${total} \u2014 a triumphant success`,
+        color: "text-amber",
+      });
+    } else if (tier === "failure" && total <= 4) {
+      highlights.push({
+        icon: "\uD83C\uDFB2",
+        label: "Dramatic Failure",
+        text: `${charName} rolled ${total} \u2014 a devastating miss`,
+        color: "text-red-400",
+      });
+    }
   }
 
   // Session stats summary

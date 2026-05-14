@@ -3,6 +3,7 @@
 import { useRef, useEffect, useMemo } from "react";
 import type { Turn } from "@/types/campaign";
 import { getPlayerColor } from "@/types/campaign";
+import { parseRollMetadata, parseRollRequestMetadata } from "@/lib/campaign-turns";
 
 interface SessionLogProps {
   turns: Turn[];
@@ -122,19 +123,12 @@ export default function SessionLog({
 
             {/* Roll Requests (GM asking for a roll) */}
             {turn.type === "roll-request" && (() => {
-              let attribute = "";
-              let reason = "";
-              let onSuccess = "";
-              let onFailure = "";
-              let fatal = false;
-              try {
-                const meta = JSON.parse(turn.metadata ?? "{}");
-                attribute = meta.attribute ?? "";
-                reason = meta.reason ?? "";
-                onSuccess = meta.onSuccess ?? "";
-                onFailure = meta.onFailure ?? "";
-                fatal = meta.fatal === true;
-              } catch { /* ignore */ }
+              const meta = parseRollRequestMetadata(turn.metadata);
+              const attribute = meta?.attribute ?? "";
+              const reason = meta?.reason ?? "";
+              const onSuccess = meta?.onSuccess ?? "";
+              const onFailure = meta?.onFailure ?? "";
+              const fatal = meta?.fatal === true;
 
               return (
                 <div className="flex flex-col items-center my-2">
@@ -159,19 +153,11 @@ export default function SessionLog({
 
             {/* Dice Rolls */}
             {turn.type === "roll" && (() => {
-              let total: number | null = null;
-              let tier = "";
-              let attribute = "";
-              let modifier = 0;
-              if (turn.metadata) {
-                try {
-                  const meta = JSON.parse(turn.metadata);
-                  total = meta.total ?? meta.result ?? null;
-                  tier = meta.tier ?? "";
-                  attribute = meta.attribute ?? "";
-                  modifier = meta.modifier ?? 0;
-                } catch { /* ignore */ }
-              }
+              const meta = parseRollMetadata(turn.metadata);
+              const total: number | null = meta?.total ?? meta?.result ?? null;
+              const tier = meta?.tier ?? "";
+              const attribute = meta?.attribute ?? "";
+              const modifier = meta?.modifier ?? 0;
 
               const tierColor = tier === "success"
                 ? "text-amber drop-shadow-[0_0_10px_rgba(200,150,60,0.8)]"

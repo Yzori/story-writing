@@ -17,6 +17,7 @@ import FloatingReactions from "@/components/campaign/spectator/FloatingReactions
 import TipButton from "@/components/campaign/spectator/TipButton";
 import TipModal from "@/components/campaign/spectator/TipModal";
 import TipEntry from "@/components/campaign/spectator/TipEntry";
+import type { PlayerCharacter } from "@/types/campaign";
 
 export default function WatchSessionPage() {
   const params = useParams();
@@ -70,6 +71,24 @@ export default function WatchSessionPage() {
   const logTurns = useMemo(
     () => turns.filter((t) => t.type === "ooc" || t.type === "roll" || t.type === "roll-request"),
     [turns]
+  );
+  const canvasCharacters = useMemo<PlayerCharacter[]>(
+    () => characters.map((character) => ({
+      id: character.id,
+      userId: character.userId ?? "",
+      name: character.name,
+      portrait: character.portrait,
+      description: "",
+      traits: "",
+      stats: null,
+      status: "active",
+      user: {
+        id: character.userId ?? "",
+        displayName: character.displayName,
+        avatarUrl: null,
+      },
+    })),
+    [characters],
   );
 
   const isSessionEnded = campaignSession?.status === "completed";
@@ -205,7 +224,7 @@ export default function WatchSessionPage() {
             sessionId={sessionId}
             storyId={storyId}
             storyTurns={storyTurns}
-            characters={characters as any}
+            characters={canvasCharacters}
             activePlayerId={campaignSession?.activePlayerId ?? null}
             currentUserId={null}
             isGM={false}
@@ -216,7 +235,6 @@ export default function WatchSessionPage() {
             onCloseDiceRoller={() => {}}
             onCommitDraft={() => {}}
             onPassTurn={() => {}}
-            onOpenFloor={() => {}}
             onEndSession={() => {}}
             onTurnExpired={() => {}}
             onRollComplete={() => {}}

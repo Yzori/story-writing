@@ -1,4 +1,5 @@
 import "server-only";
+import { isLogTurnType, parseIllustrationMetadata, parseSceneBreakMetadata } from "@/lib/campaign-turns";
 /**
  * Session-to-Chapter Compilation
  *
@@ -152,9 +153,7 @@ export function compileSessionToHTML(options: CompileOptions): string {
   }
 
   // Filter out non-story turns
-  const storyTurns = turns.filter(
-    (t) => !["ooc", "roll", "roll-request"].includes(t.type)
-  );
+  const storyTurns = turns.filter((turn) => !isLogTurnType(turn.type));
 
   const paragraphs = groupIntoParagraphs(storyTurns);
 
@@ -162,13 +161,7 @@ export function compileSessionToHTML(options: CompileOptions): string {
   for (const group of paragraphs) {
     // Scene-break turns render as an HR with optional title
     if (group[0].type === "scene-break") {
-      let title = "";
-      try {
-        const meta = group[0].metadata ? JSON.parse(group[0].metadata) : {};
-        title = meta.title ?? "";
-      } catch {
-        /* ignore */
-      }
+      const title = parseSceneBreakMetadata(group[0].metadata)?.title ?? "";
 
       if (title) {
         parts.push(
@@ -183,15 +176,9 @@ export function compileSessionToHTML(options: CompileOptions): string {
 
     // Illustration turns render as figures
     if (group[0].type === "illustration") {
-      let imageUrl = "";
-      let caption = "";
-      try {
-        const meta = group[0].metadata ? JSON.parse(group[0].metadata) : {};
-        imageUrl = meta.imageUrl ?? "";
-        caption = meta.caption ?? "";
-      } catch {
-        /* ignore */
-      }
+      const meta = parseIllustrationMetadata(group[0].metadata);
+      const imageUrl = meta?.imageUrl ?? "";
+      const caption = meta?.caption ?? "";
 
       if (imageUrl) {
         const figcaption = caption

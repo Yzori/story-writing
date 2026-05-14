@@ -8,6 +8,7 @@ import {
   date,
   unique,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -404,7 +405,7 @@ export const comments = pgTable("comments", {
   storyId: uuid("story_id")
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
-  parentId: uuid("parent_id").references((): any => comments.id, { onDelete: "cascade" }),
+  parentId: uuid("parent_id").references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   circleOnly: boolean("circle_only").notNull().default(false), // visible only to Circle subscribers
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -1214,6 +1215,121 @@ export const progressClocksRelations = relations(progressClocks, ({ one }) => ({
   session: one(campaignSessions, {
     fields: [progressClocks.sessionId],
     references: [campaignSessions.id],
+  }),
+}));
+
+// ── Campaign Floor Rounds ───────────────────────────────────
+
+export const campaignFloorRounds = pgTable("campaign_floor_rounds", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => campaignSessions.id, { onDelete: "cascade" }),
+  openedBy: uuid("opened_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  prompt: text("prompt").notNull(),
+  mode: text("mode").notNull().default("gm_pick"), // 'gm_pick' | 'vote'
+  status: text("status").notNull().default("open"), // 'open' | 'voting' | 'closed' | 'resolved' | 'cancelled'
+  selectedSubmissionId: uuid("selected_submission_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  index("idx_campaign_floor_rounds_session_status").on(table.sessionId, table.status),
+]);
+
+export const campaignFloorSubmissions = pgTable("campaign_floor_submissions", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  roundId: uuid("round_id")
+    .notNull()
+    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  characterId: uuid("character_id")
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: "cascade" }),
+  type: text("type").notNull().default("action"),
+  content: text("content").notNull(),
+  status: text("status").notNull().default("submitted"), // 'submitted' | 'selected' | 'rejected'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  unique("campaign_floor_submission_round_user_unique").on(table.roundId, table.userId),
+  index("idx_campaign_floor_submissions_round").on(table.roundId),
+]);
+
+export const campaignFloorVotes = pgTable("campaign_floor_votes", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  roundId: uuid("round_id")
+    .notNull()
+    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
+  submissionId: uuid("submission_id")
+    .notNull()
+    .references(() => campaignFloorSubmissions.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  unique("campaign_floor_vote_round_user_unique").on(table.roundId, table.userId),
+  index("idx_campaign_floor_votes_submission").on(table.submissionId),
+]);
+
+export const campaignFloorRoundsRelations = relations(campaignFloorRounds, ({ one, many }) => ({
+  session: one(campaignSessions, {
+    fields: [campaignFloorRounds.sessionId],
+    references: [campaignSessions.id],
+  }),
+  opener: one(users, {
+    fields: [campaignFloorRounds.openedBy],
+    references: [users.id],
+  }),
+  submissions: many(campaignFloorSubmissions),
+  votes: many(campaignFloorVotes),
+}));
+
+export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissions, ({ one, many }) => ({
+  round: one(campaignFloorRounds, {
+    fields: [campaignFloorSubmissions.roundId],
+    references: [campaignFloorRounds.id],
+  }),
+  user: one(users, {
+    fields: [campaignFloorSubmissions.userId],
+    references: [users.id],
+  }),
+  character: one(playerCharacters, {
+    fields: [campaignFloorSubmissions.characterId],
+    references: [playerCharacters.id],
+  }),
+  votes: many(campaignFloorVotes),
+}));
+
+export const campaignFloorVotesRelations = relations(campaignFloorVotes, ({ one }) => ({
+  round: one(campaignFloorRounds, {
+    fields: [campaignFloorVotes.roundId],
+    references: [campaignFloorRounds.id],
+  }),
+  submission: one(campaignFloorSubmissions, {
+    fields: [campaignFloorVotes.submissionId],
+    references: [campaignFloorSubmissions.id],
+  }),
+  user: one(users, {
+    fields: [campaignFloorVotes.userId],
+    references: [users.id],
   }),
 }));
 
