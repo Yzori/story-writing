@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import Navbar from "@/components/shared/Navbar";
 import StoryCard from "@/components/shared/StoryCard";
 
 interface StaffPickStory {
@@ -58,8 +57,6 @@ export default function ShowcasePage() {
 
   return (
     <main className="min-h-screen bg-void">
-      <Navbar />
-
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border-subtle">
         <div className="absolute inset-0 pointer-events-none">

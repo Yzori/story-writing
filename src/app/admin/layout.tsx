@@ -2,7 +2,6 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import Navbar from "@/components/shared/Navbar";
 import Link from "next/link";
 
 export default async function AdminLayout({
@@ -15,7 +14,6 @@ export default async function AdminLayout({
   if (!session?.user?.id) {
     return (
       <div className="min-h-screen bg-void">
-        <Navbar />
         <main className="pt-16 flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <h1 className="text-2xl font-display text-paper mb-4">
@@ -51,7 +49,6 @@ export default async function AdminLayout({
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-void">
-        <Navbar />
         <main className="pt-16 flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <h1 className="text-2xl font-display text-paper mb-4">
@@ -74,7 +71,6 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-void">
-      <Navbar />
       <main className="pt-16">{children}</main>
     </div>
   );

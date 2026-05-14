@@ -1,4 +1,3 @@
-import Navbar from "@/components/shared/Navbar";
 import InteractiveSplitLayout from "@/components/landing/InteractiveSplitLayout";
 import TrendingHome from "@/components/home/TrendingHome";
 import { auth } from "@/server/auth";
@@ -22,7 +21,6 @@ export default async function Home() {
 
   return (
     <main className="bg-void overflow-x-hidden w-full min-h-screen">
-      <Navbar />
       <InteractiveSplitLayout featured={featured} shelf={shelf} />
     </main>
   );

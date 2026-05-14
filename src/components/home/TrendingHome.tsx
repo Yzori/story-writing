@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import Navbar from "@/components/shared/Navbar";
 
 /**
  * TrendingHome — the signed-in / page.
@@ -313,7 +312,6 @@ export default function TrendingHome() {
 
   return (
     <main className="min-h-screen bg-void">
-      <Navbar />
       <div className="pt-14 pb-20">
         {/* Live activity ticker */}
         {data && data.activity.length > 0 && (

@@ -1,4 +1,3 @@
-import Navbar from "@/components/shared/Navbar";
 
 export default function RosterLayout({
   children,
@@ -7,7 +6,6 @@ export default function RosterLayout({
 }) {
   return (
     <div className="min-h-screen bg-void">
-      <Navbar />
       <main className="pt-16">{children}</main>
     </div>
   );

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import Navbar from "@/components/shared/Navbar";
 
 // ── Mock data (shared with v1) ──────────────────────────────
 
@@ -1209,7 +1208,6 @@ function MockupBadge() {
 export default function MockupHomepageV2() {
   return (
     <main className="bg-void min-h-screen overflow-x-hidden font-body text-text">
-      <Navbar />
       <Hero />
       <VideoBand />
       <Bento />

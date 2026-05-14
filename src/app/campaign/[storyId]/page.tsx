@@ -8,7 +8,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { ApiStoryData } from "@/types/api";
-import Navbar from "@/components/shared/Navbar";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -535,7 +534,6 @@ export default function CampaignPage() {
 
   return (
     <div className="min-h-screen bg-void">
-      <Navbar />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-24 pb-10 space-y-8">
         {/* ── Header ─────────────────────────────────────── */}
         <motion.div

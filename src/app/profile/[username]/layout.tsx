@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import Navbar from "@/components/shared/Navbar";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -45,7 +44,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function ProfileLayout({ children }: Props) {
   return (
     <div className="min-h-screen bg-void">
-      <Navbar />
       <main className="pt-16">{children}</main>
     </div>
   );

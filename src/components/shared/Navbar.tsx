@@ -2,12 +2,34 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import ThemeToggle from "@/components/editor/ThemeToggle";
 
+// Routes where the global Navbar should not appear. The root layout
+// always mounts <Navbar />; this list is the single place to opt a
+// surface out of chrome (auth flows, onboarding, full-screen editor
+// demos, in-session play/watch views).
+const HIDE_NAVBAR_PATTERNS: RegExp[] = [
+  /^\/login(\/|$)/,
+  /^\/register(\/|$)/,
+  /^\/forgot-password(\/|$)/,
+  /^\/reset-password(\/|$)/,
+  /^\/welcome(\/|$)/,
+  /^\/demo\//,
+  /^\/campaign\/[^/]+\/(play|watch)\//,
+];
+
 export default function Navbar() {
+  const pathname = usePathname();
+  if (pathname && HIDE_NAVBAR_PATTERNS.some((re) => re.test(pathname))) {
+    return null;
+  }
+  return <NavbarInner />;
+}
+
+function NavbarInner() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Plus_Jakarta_Sans, Literata, IBM_Plex_Mono, Playfair_Display, DM_Sans } from "next/font/google";
 import Providers from "@/components/providers";
+import Navbar from "@/components/shared/Navbar";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -77,7 +78,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable} ${playfair.variable} ${dmSans.variable}`}>
-      <body className="antialiased"><Providers>{children}</Providers></body>
+      <body className="antialiased"><Providers><Navbar />{children}</Providers></body>
     </html>
   );
 }

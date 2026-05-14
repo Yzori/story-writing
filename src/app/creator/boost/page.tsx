@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import Navbar from "@/components/shared/Navbar";
 
 /**
  * /creator/boost — boost marketplace.
@@ -147,7 +146,6 @@ export default function BoostMarketplace() {
 
   return (
     <main className="min-h-screen bg-void">
-      <Navbar />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-16 sm:pb-20">
         <motion.div
           initial={{ opacity: 0, y: 10 }}

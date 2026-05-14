@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import Navbar from "@/components/shared/Navbar";
 
 // ── Mock data ───────────────────────────────────────────────
 // Mirrors the production homepage's brand voice. Replace with real
@@ -872,7 +871,6 @@ function MockupBadge() {
 export default function MockupHomepage() {
   return (
     <main className="bg-void min-h-screen overflow-x-hidden font-body text-text">
-      <Navbar />
       <Hero />
       <VideoBand />
       <Bento />

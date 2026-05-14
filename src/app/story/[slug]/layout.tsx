@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { db } from "@/server/db";
 import { stories, users } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import Navbar from "@/components/shared/Navbar";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -50,7 +49,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function StoryLayout({ children }: Props) {
   return (
     <div className="min-h-screen bg-void">
-      <Navbar />
       <main className="pt-14">{children}</main>
     </div>
   );
