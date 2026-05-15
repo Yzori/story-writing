@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { stories, chapters, users } from "@/server/db/schema";
+import { stories, chapters, users, collaborators } from "@/server/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 
@@ -28,6 +28,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const isOwner = session?.user?.id === story.userId;
+    let isCollaborator = false;
+    if (!isOwner && session?.user?.id && story.writingMode !== "solo") {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, story.id),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      isCollaborator = !!collab;
+    }
+    const canReadDrafts = isOwner || isCollaborator;
+
+    if (!canReadDrafts && (!story.isPublic || story.status !== "published")) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
 
     const [author] = await db
       .select({
@@ -48,7 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     ];
 
     // Non-owners only see published chapters
-    if (!isOwner) {
+    if (!canReadDrafts) {
       chapterConditions.push(eq(chapters.status, "published"));
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { stories, chapters, bibleEntries, users } from "@/server/db/schema";
+import { stories, chapters, bibleEntries, users, collaborators } from "@/server/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { updateStorySchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
@@ -15,12 +15,34 @@ type RouteParams = { params: Promise<{ storyId: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { storyId } = await params;
+    const session = await auth();
 
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
 
     if (!story) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+
+    const isOwner = session?.user?.id === story.userId;
+    let isCollaborator = false;
+    if (!isOwner && session?.user?.id && story.writingMode !== "solo") {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      isCollaborator = !!collab;
+    }
+    const canReadDrafts = isOwner || isCollaborator;
+
+    if (!canReadDrafts && (!story.isPublic || story.status !== "published")) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
@@ -41,6 +63,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(eq(users.id, story.userId))
       .limit(1);
 
+    const chapterConditions = [eq(chapters.storyId, storyId), isNull(chapters.deletedAt)];
+    if (!canReadDrafts) {
+      chapterConditions.push(eq(chapters.status, "published"));
+    }
+
     const storyChapters = await db
       .select({
         id: chapters.id,
@@ -56,14 +83,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         updatedAt: chapters.updatedAt,
       })
       .from(chapters)
-      .where(and(eq(chapters.storyId, storyId), isNull(chapters.deletedAt)))
+      .where(and(...chapterConditions))
       .orderBy(asc(chapters.sortOrder));
 
-    const storyBibleEntries = await db
-      .select()
-      .from(bibleEntries)
-      .where(eq(bibleEntries.storyId, storyId))
-      .orderBy(asc(bibleEntries.sortOrder));
+    const storyBibleEntries = canReadDrafts
+      ? await db
+          .select()
+          .from(bibleEntries)
+          .where(eq(bibleEntries.storyId, storyId))
+          .orderBy(asc(bibleEntries.sortOrder))
+      : [];
 
     // Parse contentNotes JSON string to array
     let parsedContentNotes: string[] = [];

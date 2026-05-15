@@ -19,9 +19,9 @@ const ROLE_COLORS: Record<string, string> = {
 
 interface ProfileData {
   displayName: string;
-  bio: string;
+  bio: string | null;
   role: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
 }
 
 export default function EditProfilePage() {
@@ -103,9 +103,9 @@ export default function EditProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           displayName: displayName.trim(),
-          bio: bio.trim() || undefined,
+          bio: bio.trim(),
           role,
-          ...(avatarUrl ? { avatarUrl } : {}),
+          avatarUrl: avatarUrl || null,
         }),
       });
 

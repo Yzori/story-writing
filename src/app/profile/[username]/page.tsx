@@ -3,16 +3,43 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { motion } from "framer-motion";
 import Link from "next/link";
-import GenreAtmosphere from "@/components/profile/GenreAtmosphere";
-import HalfTitle from "@/components/profile/HalfTitle";
-import Frontispiece from "@/components/profile/Frontispiece";
-import Epigraph from "@/components/profile/Epigraph";
-import FeaturedWork from "@/components/profile/FeaturedWork";
-import Bookshelf from "@/components/profile/Bookshelf";
-import Colophon from "@/components/profile/Colophon";
+import { Sparkles, ChevronRight } from "lucide-react";
+import StudyAtmosphere from "@/components/profile/StudyAtmosphere";
+import AuthorDesk from "@/components/profile/AuthorDesk";
+import FeaturedManuscript from "@/components/profile/FeaturedManuscript";
+import CollectedWorks from "@/components/profile/CollectedWorks";
+import StudioRail from "@/components/profile/StudioRail";
+import Threshold from "@/components/profile/Threshold";
+import InTheInkwell from "@/components/profile/InTheInkwell";
+import ReadingTaste from "@/components/profile/ReadingTaste";
+import DeskNotes from "@/components/profile/DeskNotes";
 import type { ApiStory } from "@/types/api";
+
+interface ProfileInsights {
+  audienceCount: number;
+  followerCount: number;
+  sparksGiven: number;
+  topReadingGenres: { genre: string; count: number }[];
+  recentSparksGiven: {
+    storyId: string;
+    title: string;
+    slug: string | null;
+    sparkedAt: string;
+  }[];
+  inkDropsReceived: number;
+  tipCount: number;
+  readingStreakDays: number;
+  readingStreakBest: number;
+  latestChapter: {
+    storyId: string;
+    storyTitle: string;
+    storySlug: string | null;
+    title: string;
+    sortOrder: number;
+    publishedAt: string;
+  } | null;
+}
 
 interface UserProfile {
   id: string;
@@ -22,6 +49,7 @@ interface UserProfile {
   role: string;
   createdAt: string;
   stories: ApiStory[];
+  insights?: ProfileInsights;
 }
 
 interface ProfileOffering {
@@ -33,40 +61,6 @@ interface ProfileOffering {
   priceMax: number;
   deliveryDays: number;
   completedCount: number;
-}
-
-const CRAFT_LABELS: Record<string, string> = {
-  "custom-chapter": "Custom Chapter",
-  ghostwriting: "Ghostwriting",
-  poetry: "Poetry",
-  "screenplay-coverage": "Screenplay Coverage",
-  editing: "Editing",
-  "cover-art": "Cover Art",
-  "character-art": "Character Art",
-  "webtoon-panels": "Webtoon Panels",
-  "scene-illustration": "Scene Illustration",
-  worldbuilding: "Worldbuilding",
-  "gm-for-hire": "GM for Hire",
-  "story-bible": "Story Bible",
-};
-
-const CRAFT_COLORS: Record<string, { text: string; bg: string; border: string }> = {
-  "custom-chapter": { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
-  ghostwriting: { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
-  poetry: { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
-  "screenplay-coverage": { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
-  editing: { text: "text-gold", bg: "bg-gold/10", border: "border-gold/30" },
-  "cover-art": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
-  "character-art": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
-  "webtoon-panels": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
-  "scene-illustration": { text: "text-amethyst", bg: "bg-amethyst/10", border: "border-amethyst/30" },
-  worldbuilding: { text: "text-teal", bg: "bg-teal/10", border: "border-teal/30" },
-  "gm-for-hire": { text: "text-teal", bg: "bg-teal/10", border: "border-teal/30" },
-  "story-bible": { text: "text-teal", bg: "bg-teal/10", border: "border-teal/30" },
-};
-
-function getCraftColor(craft: string) {
-  return CRAFT_COLORS[craft] ?? { text: "text-text-secondary", bg: "bg-surface/50", border: "border-border" };
 }
 
 interface FollowedStory {
@@ -104,11 +98,9 @@ function getTopGenre(stories: ApiStory[]): string | null {
 }
 
 function getFeatured(stories: ApiStory[]): ApiStory | null {
-  const published = stories.filter((s) => s.status !== "draft");
+  const published = stories.filter((s) => s.status === "published");
   if (published.length === 0) return null;
-  return published.reduce((best, s) =>
-    s.sparkCount > best.sparkCount ? s : best
-  );
+  return published.reduce((best, s) => (s.sparkCount > best.sparkCount ? s : best));
 }
 
 export default function ProfilePage() {
@@ -126,55 +118,89 @@ export default function ProfilePage() {
   const [studioLoaded, setStudioLoaded] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchProfile() {
+      setLoading(true);
+      setError(null);
+      setProfile(null);
+      setFollowedStories([]);
+      setFollowedLoaded(false);
+      setHasRosterProfile(null);
+      setStudioOfferings([]);
+      setStudioLoaded(false);
+
       try {
         const res = await fetch(`/api/users/${userId}`);
         const json = await res.json();
+        if (cancelled) return;
         if (!res.ok) {
           setError(json.error?.message || "User not found");
           return;
         }
         setProfile(json.data);
       } catch {
+        if (cancelled) return;
         setError("Failed to load profile");
       } finally {
+        if (cancelled) return;
         setLoading(false);
       }
     }
     fetchProfile();
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
-  // Check if own profile has a roster card
   useEffect(() => {
     if (!isOwnProfile) return;
+    let cancelled = false;
     fetch("/api/roster/me")
       .then((res) => res.json())
-      .then((json) => setHasRosterProfile(!!json.data))
+      .then((json) => {
+        if (!cancelled) setHasRosterProfile(!!json.data);
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [isOwnProfile]);
 
-  // Fetch studio offerings
   useEffect(() => {
     if (!profile || studioLoaded) return;
+    let cancelled = false;
     fetch(`/api/scriptorium/offerings?artisanId=${userId}&limit=50`)
       .then((res) => res.json())
       .then((json) => {
+        if (cancelled) return;
         if (json.offerings) setStudioOfferings(json.offerings);
         setStudioLoaded(true);
       })
-      .catch(() => setStudioLoaded(true));
+      .catch(() => {
+        if (!cancelled) setStudioLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [profile, userId, studioLoaded]);
 
-  // Fetch reading list for owner
   useEffect(() => {
     if (!isOwnProfile || followedLoaded) return;
+    let cancelled = false;
     fetch(`/api/users/${userId}/following`)
       .then((res) => res.json())
       .then((json) => {
+        if (cancelled) return;
         if (json.data?.stories) setFollowedStories(json.data.stories);
         setFollowedLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setFollowedLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOwnProfile, userId, followedLoaded]);
 
   const topGenre = useMemo(
@@ -203,7 +229,7 @@ export default function ProfilePage() {
   );
 
   const publishedCount = useMemo(
-    () => profile?.stories.filter((s) => s.status !== "draft").length || 0,
+    () => profile?.stories.filter((s) => s.status === "published").length || 0,
     [profile]
   );
 
@@ -218,9 +244,7 @@ export default function ProfilePage() {
   if (error || !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-        <h2 className="font-display text-2xl text-paper mb-2">
-          User not found
-        </h2>
+        <h2 className="font-display text-2xl text-paper mb-2">User not found</h2>
         <p className="text-text-secondary text-[13px]">{error}</p>
       </div>
     );
@@ -228,7 +252,6 @@ export default function ProfilePage() {
 
   const displayName = profile.displayName || "Anonymous";
 
-  // Convert followed stories to bookshelf format
   const readingShelfStories = followedStories.map((s) => ({
     id: s.id,
     title: s.title,
@@ -242,205 +265,112 @@ export default function ProfilePage() {
   }));
 
   return (
-    <div className="relative">
-      <GenreAtmosphere genre={topGenre} />
+    <div className="relative min-h-screen">
+      <StudyAtmosphere genre={topGenre} />
 
-      {/* 1. Half-Title */}
-      <HalfTitle
-        displayName={displayName}
-        role={profile.role}
-        createdAt={profile.createdAt}
-        genre={topGenre}
-        isOwner={isOwnProfile}
-        userId={userId}
-      />
-
-      {/* 2. Frontispiece */}
-      <Frontispiece
-        avatarUrl={profile.avatarUrl}
-        displayName={displayName}
-        genre={topGenre}
-      />
-
-      {/* 3. Epigraph */}
-      <Epigraph bio={profile.bio} displayName={displayName} />
-
-      {/* 4. Featured Work */}
-      {featured && (
-        <FeaturedWork story={featured} isOwner={isOwnProfile} />
-      )}
-
-      {/* 5. The Bookshelf */}
-      <Bookshelf
-        stories={remainingStories}
-        isOwner={isOwnProfile}
-        showDrafts
-      />
-
-      {/* 6. Reading Shelf (owner only) */}
-      {isOwnProfile && (
-        <Bookshelf
-          stories={readingShelfStories}
+      <div className="relative pb-16">
+        <AuthorDesk
+          displayName={displayName}
+          avatarUrl={profile.avatarUrl}
+          bio={profile.bio}
+          role={profile.role}
+          createdAt={profile.createdAt}
+          genre={topGenre}
           isOwner={isOwnProfile}
-          label="On the Nightstand"
-          emptyText="The nightstand is empty. Browse the stacks?"
-          emptyLink={{ text: "Browse stories", href: "/browse" }}
-          variant="nightstand"
+          userId={userId}
+          storyCount={publishedCount}
+          totalWords={totalWords}
+          totalSparks={totalSparks}
+          readingStreakDays={profile.insights?.readingStreakDays ?? 0}
+          readingStreakBest={profile.insights?.readingStreakBest ?? 0}
+          audienceCount={profile.insights?.audienceCount ?? 0}
+          inkDropsReceived={profile.insights?.inkDropsReceived ?? 0}
         />
-      )}
 
-      {/* 7. Studio — Scriptorium Offerings */}
-      {(studioOfferings.length > 0 || isOwnProfile) && studioLoaded && (
-        <section className="px-6 pb-10 max-w-4xl mx-auto">
-          {/* Section header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="h-px w-8 bg-gradient-to-r from-transparent to-border" />
-              <h2 className="font-display text-lg text-paper tracking-tight">
-                Studio
-              </h2>
-              <div className="h-px w-8 bg-gradient-to-l from-transparent to-border" />
-            </div>
-            {isOwnProfile && studioOfferings.length > 0 && (
-              <Link
-                href="/scriptorium/offerings"
-                className="text-[12px] text-text-ghost hover:text-text-secondary transition-colors"
-              >
-                Manage offerings
-              </Link>
-            )}
-          </div>
+        {isOwnProfile && (
+          <Threshold
+            hasBio={!!profile.bio}
+            hasAvatar={!!profile.avatarUrl}
+            hasStory={profile.stories.length > 0}
+            hasFollowing={followedLoaded ? followedStories.length > 0 : true}
+            userId={userId}
+          />
+        )}
 
-          {studioOfferings.length === 0 ? (
-            /* Empty state */
-            <div className="rounded-xl border border-border/60 bg-ink/30 p-8 text-center">
-              <p className="text-text-ghost text-[13px] mb-3">
-                {isOwnProfile
-                  ? "You haven't listed any offerings yet."
-                  : `This writer hasn't listed any offerings yet.`}
-              </p>
-              {isOwnProfile && (
+        <DeskNotes
+          userId={userId}
+          isOwner={isOwnProfile}
+          ownerName={displayName}
+          ownStories={profile.stories}
+        />
+
+        {isOwnProfile && <InTheInkwell stories={profile.stories} />}
+
+        {featured && <FeaturedManuscript story={featured} isOwner={isOwnProfile} />}
+
+        <CollectedWorks
+          stories={remainingStories}
+          isOwner={isOwnProfile}
+          showDrafts={isOwnProfile}
+          label={featured ? "More from the shelves" : "Collected works"}
+          eyebrow={featured ? "Also on display" : "The shelves"}
+          emptyText={
+            isOwnProfile
+              ? "The shelves are empty. Begin a manuscript when you're ready."
+              : "More volumes forthcoming."
+          }
+          emptyLink={isOwnProfile ? { text: "Start writing", href: "/create" } : undefined}
+        />
+
+        {profile.insights && (
+          <ReadingTaste
+            isOwner={isOwnProfile}
+            sparksGiven={profile.insights.sparksGiven}
+            topGenres={profile.insights.topReadingGenres}
+            recentSparks={profile.insights.recentSparksGiven}
+            ownerName={displayName}
+          />
+        )}
+
+        {isOwnProfile && (
+          <CollectedWorks
+            stories={readingShelfStories}
+            isOwner
+            label="On the nightstand"
+            eyebrow="What you're reading"
+            emptyText="The nightstand is empty. Wander the stacks?"
+            emptyLink={{ text: "Browse stories", href: "/browse" }}
+            variant="nightstand"
+          />
+        )}
+
+        {studioLoaded && (
+          <StudioRail offerings={studioOfferings} isOwner={isOwnProfile} />
+        )}
+
+        {isOwnProfile && hasRosterProfile === false && publishedCount > 0 && (
+          <section className="relative mx-auto mt-8 max-w-5xl px-5 lg:px-8">
+            <div className="relative overflow-hidden rounded-2xl border border-amber/20 bg-amber/[0.04] p-5 text-center backdrop-blur-xl">
+              <div className="absolute -top-8 left-1/2 h-16 w-16 -translate-x-1/2 rounded-full bg-amber/[0.18] blur-2xl" aria-hidden />
+              <div className="relative">
+                <Sparkles size={16} className="mx-auto mb-2 text-amber" />
+                <p className="text-[13px] text-text-secondary">
+                  You have {publishedCount} published {publishedCount === 1 ? "story" : "stories"}
+                  {totalSparks > 0 ? ` and ${totalSparks} sparks` : ""}.
+                </p>
+                <p className="text-[12px] text-text-ghost">Let collaborators discover your work.</p>
                 <Link
-                  href="/scriptorium/offerings"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gold/10 text-gold border border-gold/25 text-[12px] font-medium hover:bg-gold/20 transition-colors"
+                  href="/roster/setup"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber px-4 py-1.5 text-[12px] font-semibold text-void transition-colors hover:bg-amber-light"
                 >
-                  List your first offering
+                  Post your card on the Roster
+                  <ChevronRight size={12} />
                 </Link>
-              )}
+              </div>
             </div>
-          ) : (
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-40px" }}
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.06 } },
-              }}
-            >
-              {studioOfferings.map((offering) => {
-                const colors = getCraftColor(offering.craft);
-                return (
-                  <motion.div
-                    key={offering.id}
-                    variants={{
-                      hidden: { opacity: 0, y: 10 },
-                      visible: { opacity: 1, y: 0 },
-                    }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Link
-                      href="/scriptorium"
-                      className="block rounded-xl border border-border bg-ink/50 p-5 hover:border-text-ghost/30 transition-colors group"
-                    >
-                      {/* Craft badge + trust badge */}
-                      <div className="flex items-center gap-2 flex-wrap mb-2.5">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-[0.1em] font-semibold border ${colors.text} ${colors.bg} ${colors.border}`}
-                        >
-                          {CRAFT_LABELS[offering.craft] ?? offering.craft}
-                        </span>
-                        {offering.completedCount >= 10 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gold/10 text-gold border border-gold/25">
-                            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" stroke="none">
-                              <path d="M8 1l2.2 4.5L15 6.3l-3.5 3.4.8 4.8L8 12.2 3.7 14.5l.8-4.8L1 6.3l4.8-.8z" />
-                            </svg>
-                            Master Artisan
-                          </span>
-                        ) : offering.completedCount >= 5 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber/8 text-amber border border-amber/20">
-                            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" stroke="none">
-                              <path d="M8 1l2.2 4.5L15 6.3l-3.5 3.4.8 4.8L8 12.2 3.7 14.5l.8-4.8L1 6.3l4.8-.8z" />
-                            </svg>
-                            Trusted Artisan
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* Title */}
-                      <h3 className="font-display text-paper text-[15px] mb-1.5 leading-snug group-hover:text-gold/90 transition-colors">
-                        {offering.title}
-                      </h3>
-
-                      {/* Meta row */}
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-ghost">
-                        <span>
-                          {offering.priceMin === offering.priceMax
-                            ? `${offering.priceMin} drops`
-                            : `${offering.priceMin}--${offering.priceMax} drops`}
-                        </span>
-                        <span className="text-border">|</span>
-                        <span>~{offering.deliveryDays} days</span>
-                        {offering.completedCount > 0 && (
-                          <>
-                            <span className="text-border">|</span>
-                            <span className="text-sage font-medium inline-flex items-center gap-0.5">
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M3 8l3 3 7-7" />
-                              </svg>
-                              {offering.completedCount} completed
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
-        </section>
-      )}
-
-      {/* Roster nudge for own profile */}
-      {isOwnProfile && hasRosterProfile === false && publishedCount > 0 && (
-        <div className="mb-8 mx-auto max-w-md">
-          <div className="relative rounded-xl border border-amber/15 bg-amber/[0.03] p-5 text-center">
-            <p className="text-text-secondary text-[13px] mb-1">
-              You have {publishedCount} published {publishedCount === 1 ? "story" : "stories"}{totalSparks > 0 ? ` and ${totalSparks} sparks` : ""}.
-            </p>
-            <p className="text-text-ghost text-[12px] mb-3">
-              Let collaborators discover your work.
-            </p>
-            <a
-              href="/roster/setup"
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-amber text-void font-semibold text-[12px] rounded-full hover:bg-amber-light transition-all"
-            >
-              Post Your Card on the Roster
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* 7. Colophon */}
-      <Colophon
-        storyCount={publishedCount}
-        totalWords={totalWords}
-        totalSparks={totalSparks}
-        topGenre={topGenre}
-        memberSince={profile.createdAt}
-      />
+          </section>
+        )}
+      </div>
     </div>
   );
 }
