@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
 import { applyRateLimit } from "@/server/api-utils";
+import { normalizeEmail } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,9 +24,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedEmail = normalizeEmail(email);
+
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email) || email.length > 254) {
+    if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 254) {
       return NextResponse.json(
         { error: "Please enter a valid email address" },
         { status: 400 }
@@ -57,13 +60,13 @@ export async function POST(request: NextRequest) {
     const [existing] = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.email, email))
+      .where(sql`lower(${users.email}) = ${normalizedEmail}`)
       .limit(1);
 
     if (existing) {
       return NextResponse.json(
-        { error: "If this email is available, your account has been created. Check your email." },
-        { status: 200 }
+        { error: "An account with this email already exists" },
+        { status: 409 }
       );
     }
 
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
     const [newUser] = await db
       .insert(users)
       .values({
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         displayName: displayName || null,
         name: displayName || null,

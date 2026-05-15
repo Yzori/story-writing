@@ -52,15 +52,14 @@ describe("Password Hashing", () => {
     expect(await verifyPassword(password, hash)).toBe(true);
   });
 
-  it("returns base64-encoded string", async () => {
+  it("returns hex-encoded string", async () => {
     const hash = await hashPassword("test");
-    // Base64 only contains these characters
-    expect(hash).toMatch(/^[A-Za-z0-9+/=]+$/);
+    expect(hash).toMatch(/^[0-9a-f]+$/);
   });
 
   it("hash contains salt + hash (48 bytes = 16 salt + 32 hash)", async () => {
     const hash = await hashPassword("test");
-    const decoded = Uint8Array.from(atob(hash), (c) => c.charCodeAt(0));
+    const decoded = Uint8Array.from(Buffer.from(hash, "hex"));
     expect(decoded.length).toBe(48); // 16-byte salt + 32-byte SHA-256 hash
   });
 });

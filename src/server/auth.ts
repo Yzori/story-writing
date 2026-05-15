@@ -5,9 +5,16 @@ import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { verifyPassword } from "@/server/password";
 import { env } from "@/server/env";
+import {
+  clearLoginAttempts,
+  getLoginAttemptKey,
+  getLoginLockoutSeconds,
+  normalizeEmail,
+  recordFailedLogin,
+} from "@/server/auth-utils";
 
 declare module "next-auth" {
   interface Session {
@@ -51,23 +58,34 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        const email = credentials?.email as string | undefined;
+      async authorize(credentials, request) {
+        const rawEmail = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
 
-        if (!email || !password) return null;
+        if (!rawEmail || !password) return null;
+
+        const email = normalizeEmail(rawEmail);
+        const attemptKey = getLoginAttemptKey(email, request);
+        if (getLoginLockoutSeconds(attemptKey) > 0) return null;
 
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.email, email))
+          .where(sql`lower(${users.email}) = ${email}`)
           .limit(1);
 
-        if (!user || !user.password) return null;
+        if (!user || !user.password) {
+          recordFailedLogin(attemptKey);
+          return null;
+        }
 
         const isValid = await verifyPassword(password, user.password);
-        if (!isValid) return null;
+        if (!isValid) {
+          recordFailedLogin(attemptKey);
+          return null;
+        }
 
+        clearLoginAttempts(attemptKey);
         return {
           id: user.id,
           email: user.email,

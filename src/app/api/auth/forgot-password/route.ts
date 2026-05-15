@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
 import { sendEmail, passwordResetEmail } from "@/server/services/email";
+import { normalizeEmail } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedEmail = normalizeEmail(email);
+
     // Always return 200 to prevent email enumeration
     const successResponse = NextResponse.json({
       message: "If an account exists with that email, a reset link has been sent.",
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
     const [user] = await db
       .select({ id: users.id, email: users.email })
       .from(users)
-      .where(eq(users.email, email.toLowerCase().trim()))
+      .where(sql`lower(${users.email}) = ${normalizedEmail}`)
       .limit(1);
 
     if (!user) {
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
     sendEmail(user.email, subject, html); // fire-and-forget
 
     return successResponse;
-  } catch (error) {
+  } catch {
     console.error("Forgot password error");
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
