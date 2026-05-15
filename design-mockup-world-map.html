@@ -1,0 +1,1737 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>World Map — Redesign Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================ */
+/* Lamplight tokens — synced with src/app/globals.css            */
+/* ============================================================ */
+:root {
+  --t-void: #0F0E13;
+  --t-ink: #171621;
+  --t-surface: #1E1D2A;
+  --t-elevated: #272636;
+  --t-subtle: #302F40;
+
+  --t-paper: #EDE8D8;
+  --t-text: #B8B2A0;
+  --t-text-secondary: #918B7E;
+  --t-text-tertiary: #8C8678; /* lifted to AA */
+  --t-text-ghost: #6E6962;
+
+  --t-gold: #D4A843;
+  --t-gold-soft: rgba(212, 168, 67, 0.15);
+  --t-gold-glow: rgba(212, 168, 67, 0.08);
+  --t-gold-light: #E8BE5E;
+
+  /* Mood palette — promoted to tokens, no more inline hex */
+  --mood-tense: #B8697A;
+  --mood-calm: #7BA28A;
+  --mood-ominous: #9B8EC4;
+  --mood-triumphant: #D4A843;
+  --mood-melancholy: #818CF8;
+  --mood-chaotic: #E89968;
+  --mood-mysterious: #6BA5A5;
+  --mood-romantic: #E78FB3;
+
+  --t-border: rgba(255, 255, 255, 0.06);
+  --t-border-subtle: rgba(255, 255, 255, 0.04);
+  --t-border-active: rgba(255, 255, 255, 0.14);
+
+  --radius-pill: 9999px;
+  --radius-card: 14px;
+  --radius-input: 10px;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-reading: "Literata", Georgia, serif;
+
+  --shadow-card: 0 0 0 1px var(--t-border), 0 18px 40px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 0 0 1px rgba(255,255,255,0.10), 0 28px 60px rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--t-void);
+  color: var(--t-text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Universal focus ring */
+button:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--t-gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ============================================================ */
+/* Demo banner                                                  */
+/* ============================================================ */
+.banner {
+  position: relative;
+  z-index: 100;
+  border-bottom: 1px solid var(--t-border);
+  background: linear-gradient(180deg, rgba(212,168,67,0.07), rgba(212,168,67,0.02));
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+}
+.banner .demo {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-gold);
+  font-weight: 700;
+}
+.banner .sub {
+  color: var(--t-text-secondary);
+  margin-left: 12px;
+}
+.banner .role-toggle {
+  display: flex; gap: 4px;
+}
+.banner .role-toggle button {
+  background: transparent;
+  border: 1px solid var(--t-border);
+  color: var(--t-text-secondary);
+  font: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.banner .role-toggle button:hover { color: var(--t-text); border-color: var(--t-border-active); }
+.banner .role-toggle button.active {
+  background: var(--t-gold-soft);
+  border-color: rgba(212, 168, 67, 0.5);
+  color: var(--t-gold-light);
+  font-weight: 600;
+}
+
+/* ============================================================ */
+/* App shell                                                    */
+/* ============================================================ */
+.shell {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: calc(100vh - 42px);
+  position: relative;
+  transition: grid-template-columns .25s ease;
+}
+.shell.sidebar-collapsed {
+  grid-template-columns: 56px 1fr;
+}
+
+/* ============================================================ */
+/* SIDEBAR — Locations inspector                                */
+/* ============================================================ */
+.sidebar {
+  background: var(--t-void);
+  border-right: 1px solid var(--t-border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+}
+.sidebar-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--t-border);
+  background: rgba(0,0,0,0.25);
+}
+.sidebar-header .title {
+  font: 600 14px var(--font-display);
+  color: var(--t-paper);
+  letter-spacing: 0.02em;
+  flex: 1;
+}
+.sidebar-header .count {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--t-text-tertiary);
+  background: var(--t-subtle);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+}
+.sidebar-header .collapse-btn {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--t-border);
+  border-radius: 6px;
+  color: var(--t-text-tertiary);
+  cursor: pointer;
+  transition: all .15s;
+}
+.sidebar-header .collapse-btn:hover { color: var(--t-paper); border-color: var(--t-border-active); }
+.sidebar-header .collapse-btn svg { width: 14px; height: 14px; }
+
+/* Search */
+.sidebar-search {
+  padding: 12px 16px 8px;
+}
+.sidebar-search-wrap {
+  position: relative;
+  display: flex; align-items: center;
+}
+.sidebar-search-wrap svg {
+  position: absolute; left: 10px;
+  width: 13px; height: 13px;
+  color: var(--t-text-tertiary);
+  pointer-events: none;
+}
+.sidebar-search input {
+  width: 100%;
+  background: var(--t-ink);
+  border: 1px solid var(--t-border);
+  color: var(--t-paper);
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 10px 7px 30px;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color .15s;
+}
+.sidebar-search input::placeholder { color: var(--t-text-tertiary); }
+.sidebar-search input:focus { border-color: rgba(212, 168, 67, 0.4); }
+.sidebar-search-kbd {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  font: 10px var(--font-body);
+  color: var(--t-text-tertiary);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--t-border);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* Filter chips */
+.sidebar-filters {
+  padding: 6px 16px 10px;
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent;
+  border: 1px solid var(--t-border);
+  color: var(--t-text-tertiary);
+  font: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.filter-chip:hover { color: var(--t-text); border-color: var(--t-border-active); }
+.filter-chip.active {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--t-border-active);
+  color: var(--t-paper);
+}
+.filter-chip .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+}
+
+/* Location list */
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+}
+.sidebar-list::-webkit-scrollbar { width: 6px; }
+.sidebar-list::-webkit-scrollbar-thumb { background: var(--t-subtle); border-radius: 3px; }
+
+.loc-card {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  margin: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all .15s;
+  position: relative;
+}
+.loc-card:hover {
+  background: rgba(255,255,255,0.03);
+  border-color: var(--t-border);
+}
+.loc-card.selected {
+  background: var(--t-gold-soft);
+  border-color: rgba(212, 168, 67, 0.35);
+}
+.loc-card.current::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 18px;
+  border-radius: 2px;
+  background: var(--t-gold);
+}
+.loc-card .glyph {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.04);
+}
+.loc-card .glyph svg { width: 13px; height: 13px; }
+.loc-card .info { min-width: 0; }
+.loc-card .name {
+  font: 500 12.5px var(--font-body);
+  color: var(--t-paper);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loc-card .meta {
+  font-size: 10px;
+  color: var(--t-text-tertiary);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.loc-card .meta .here {
+  color: var(--t-gold);
+  font-weight: 600;
+}
+.loc-card .order {
+  font: 600 10px "JetBrains Mono", monospace;
+  color: var(--t-text-tertiary);
+  background: rgba(255,255,255,0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--t-border);
+}
+
+/* Inspector (selected pin detail at bottom of sidebar) */
+.inspector {
+  border-top: 1px solid var(--t-border);
+  background: rgba(0,0,0,0.25);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inspector .ins-head {
+  display: flex; align-items: center; gap: 10px;
+}
+.inspector .ins-mood-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+  font-weight: 600;
+}
+.inspector .ins-mood-tag svg { width: 10px; height: 10px; }
+.inspector .ins-title {
+  flex: 1;
+  font: 600 16px var(--font-display);
+  color: var(--t-paper);
+  line-height: 1.2;
+}
+.inspector .ins-desc {
+  font: italic 13px var(--font-reading);
+  color: var(--t-text);
+  line-height: 1.55;
+  margin: 0;
+}
+.inspector .ins-empty {
+  font: italic 12px var(--font-reading);
+  color: var(--t-text-tertiary);
+}
+.inspector .ins-actions {
+  display: flex; gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--t-border-subtle);
+}
+.inspector .ins-actions button {
+  background: transparent;
+  border: 1px solid var(--t-border);
+  color: var(--t-text-secondary);
+  font: 600 10px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.inspector .ins-actions button:hover { color: var(--t-paper); border-color: var(--t-border-active); }
+.inspector .ins-actions .primary {
+  background: var(--t-gold);
+  color: var(--t-void);
+  border-color: var(--t-gold);
+}
+.inspector .ins-actions .primary:hover { background: var(--t-gold-light); color: var(--t-void); }
+.inspector .ins-actions .danger { color: var(--mood-tense); border-color: rgba(184, 105, 122, 0.3); }
+.inspector .ins-actions .danger:hover { background: rgba(184, 105, 122, 0.1); border-color: var(--mood-tense); }
+
+/* Sidebar collapsed mini-rail */
+.shell.sidebar-collapsed .sidebar-header .title,
+.shell.sidebar-collapsed .sidebar-header .count,
+.shell.sidebar-collapsed .sidebar-search,
+.shell.sidebar-collapsed .sidebar-filters,
+.shell.sidebar-collapsed .sidebar-list,
+.shell.sidebar-collapsed .inspector { display: none; }
+.shell.sidebar-collapsed .sidebar-header { justify-content: center; padding: 14px 10px; }
+
+/* ============================================================ */
+/* MAP — Canvas viewport                                        */
+/* ============================================================ */
+.map {
+  position: relative;
+  background: var(--t-void);
+  overflow: hidden;
+  cursor: grab;
+}
+.map.dragging { cursor: grabbing; }
+.map.gm-mode { cursor: crosshair; }
+.map.gm-mode.dragging { cursor: grabbing; }
+
+/* Edge vignette — atmospheric without clipping content */
+.map::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow: inset 0 0 140px 60px rgba(8, 7, 12, 0.65);
+}
+
+/* Pannable canvas wrapper */
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.map-canvas.no-transition { transition: none; }
+
+/* Parchment surface */
+.parchment {
+  position: absolute;
+  /* Larger than viewport so pan + zoom have headroom */
+  left: -20%; top: -20%;
+  width: 140%; height: 140%;
+  background:
+    radial-gradient(ellipse at 40% 30%, rgba(212, 168, 67, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(139, 69, 19, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, #1c1510 0%, #15100c 45%, #0d0a08 100%);
+}
+.parchment::before {
+  content: "";
+  position: absolute; inset: 0;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/></svg>");
+  background-size: 200px 200px;
+}
+
+/* Cartography SVG fills the parchment */
+.cartography {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+}
+
+/* Pins live in their own absolute layer, positioned by % */
+.pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 10;
+}
+.pin .pin-body {
+  position: relative;
+  display: flex; flex-direction: column;
+  align-items: center;
+  transition: transform .15s;
+}
+.pin:hover .pin-body,
+.pin:focus-visible .pin-body { transform: translateY(-2px); }
+.pin .pin-marker {
+  width: 32px; height: 40px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+}
+.pin .pin-label {
+  margin-top: 4px;
+  padding: 3px 8px;
+  background: rgba(15, 14, 19, 0.85);
+  border: 1px solid var(--t-border-active);
+  border-radius: var(--radius-pill);
+  font: 600 10px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--t-paper);
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  transition: opacity .15s;
+}
+.pin.selected .pin-marker {
+  filter: drop-shadow(0 0 12px var(--t-gold)) drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+}
+.pin.selected .pin-label {
+  border-color: var(--t-gold);
+  color: var(--t-gold-light);
+}
+.pin.current .pulse-ring {
+  position: absolute;
+  bottom: -2px; left: 50%;
+  transform: translateX(-50%);
+  width: 36px; height: 36px;
+  border: 2px solid var(--t-gold);
+  border-radius: 50%;
+  animation: pulse 2s infinite ease-out;
+}
+@keyframes pulse {
+  0%   { transform: translateX(-50%) scale(0.8); opacity: 0.9; }
+  100% { transform: translateX(-50%) scale(1.6); opacity: 0; }
+}
+
+/* ============================================================ */
+/* Top toolbar                                                  */
+/* ============================================================ */
+.toolbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 30;
+  display: flex; align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+.toolbar .title-block {
+  pointer-events: auto;
+}
+.toolbar h1 {
+  margin: 0;
+  font: 600 22px var(--font-display);
+  color: var(--t-paper);
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+}
+.toolbar .subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-gold);
+  opacity: 0.85;
+}
+.toolbar .spacer { flex: 1; }
+.toolbar .tool-group {
+  pointer-events: auto;
+  display: inline-flex;
+  background: rgba(15, 14, 19, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--t-border);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 2px;
+}
+.tool-btn {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--t-text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all .15s;
+  position: relative;
+}
+.tool-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--t-paper);
+}
+.tool-btn.active {
+  background: var(--t-gold-soft);
+  color: var(--t-gold);
+}
+.tool-btn svg { width: 16px; height: 16px; }
+.tool-btn .zoom-label {
+  font: 600 11px "JetBrains Mono", monospace;
+  letter-spacing: 0;
+  text-transform: none;
+  min-width: 40px;
+  display: inline-block;
+  text-align: center;
+  color: var(--t-text);
+}
+
+/* Tooltip on toolbar buttons */
+.tool-btn[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 100%; left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: var(--t-elevated);
+  border: 1px solid var(--t-border-active);
+  color: var(--t-paper);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: var(--shadow-modal);
+}
+
+/* ============================================================ */
+/* Mood legend (toggle popover)                                 */
+/* ============================================================ */
+.mood-legend {
+  position: absolute;
+  top: 70px; right: 16px;
+  z-index: 35;
+  width: 240px;
+  background: rgba(15, 14, 19, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--t-border-active);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-modal);
+  display: none;
+}
+.mood-legend.open { display: block; }
+.mood-legend h3 {
+  margin: 0 0 8px 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-gold);
+  font-weight: 700;
+}
+.mood-legend-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+.mood-legend-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px;
+  color: var(--t-text);
+  text-transform: capitalize;
+}
+.mood-legend-item .swatch {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.04);
+}
+.mood-legend-item .swatch svg { width: 11px; height: 11px; }
+.mood-legend p.note {
+  margin: 10px 0 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--t-border);
+  font: italic 11px var(--font-reading);
+  color: var(--t-text-tertiary);
+  line-height: 1.45;
+}
+
+/* ============================================================ */
+/* Pin form popover                                             */
+/* ============================================================ */
+.pin-form {
+  position: absolute;
+  z-index: 40;
+  width: 280px;
+  background: rgba(15, 14, 19, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--t-border-active);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: var(--shadow-modal);
+}
+.pin-form .pf-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.pin-form .pf-head .label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 700 10px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-gold);
+}
+.pin-form .pf-close {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--t-text-tertiary);
+  cursor: pointer;
+  transition: all .15s;
+}
+.pin-form .pf-close:hover { color: var(--t-paper); border-color: var(--t-border); }
+.pin-form label {
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--t-text-tertiary);
+  margin-bottom: 5px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+.pin-form input, .pin-form textarea {
+  width: 100%;
+  background: var(--t-ink);
+  border: 1px solid var(--t-border);
+  color: var(--t-paper);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color .15s;
+}
+.pin-form input::placeholder, .pin-form textarea::placeholder { color: var(--t-text-tertiary); }
+.pin-form input:focus, .pin-form textarea:focus { border-color: rgba(212, 168, 67, 0.4); }
+.pin-form textarea {
+  resize: vertical;
+  min-height: 50px;
+  font-family: var(--font-reading);
+  line-height: 1.5;
+}
+.pin-form .mood-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.pin-form .mood-pick {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  padding: 6px 4px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--t-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .15s;
+  color: var(--t-text-tertiary);
+}
+.pin-form .mood-pick:hover {
+  border-color: var(--t-border-active);
+  color: var(--t-text);
+}
+.pin-form .mood-pick.active {
+  border-color: currentColor;
+  background: rgba(255,255,255,0.05);
+}
+.pin-form .mood-pick svg { width: 13px; height: 13px; }
+.pin-form .mood-pick .lbl {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.pin-form .pf-actions {
+  display: flex; justify-content: flex-end; gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--t-border-subtle);
+}
+.pin-form .pf-cancel {
+  background: transparent;
+  border: 1px solid var(--t-border);
+  color: var(--t-text-secondary);
+  font: 600 10px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 7px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.pin-form .pf-cancel:hover { color: var(--t-paper); border-color: var(--t-border-active); }
+.pin-form .pf-save {
+  background: var(--t-gold);
+  color: var(--t-void);
+  border: 1px solid var(--t-gold);
+  font: 700 10px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.pin-form .pf-save:hover { background: var(--t-gold-light); }
+.pin-form .pf-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ============================================================ */
+/* Bottom-right keyboard hint                                   */
+/* ============================================================ */
+.keymap {
+  position: absolute;
+  bottom: 16px; right: 16px;
+  z-index: 28;
+  background: rgba(15, 14, 19, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--t-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--t-text-tertiary);
+  display: flex; align-items: center; gap: 10px;
+  pointer-events: none;
+}
+.keymap kbd {
+  display: inline-block;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--t-border-active);
+  color: var(--t-text);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  margin: 0 2px;
+}
+
+/* ============================================================ */
+/* Toast (after delete, etc.)                                   */
+/* ============================================================ */
+.toast {
+  position: absolute;
+  bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--t-elevated);
+  border: 1px solid var(--t-border-active);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12px;
+  color: var(--t-paper);
+  box-shadow: var(--shadow-modal);
+  opacity: 0;
+  transition: all .25s;
+  pointer-events: none;
+  z-index: 50;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.toast .undo {
+  background: transparent;
+  border: 1px solid var(--t-border-active);
+  color: var(--t-gold);
+  font: 600 10px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.toast .undo:hover { background: var(--t-gold-soft); }
+
+/* Annotations toggle */
+.ann-toggle {
+  position: fixed;
+  bottom: 16px; left: 16px;
+  z-index: 100;
+  background: var(--t-elevated);
+  border: 1px solid var(--t-border-active);
+  color: var(--t-text);
+  font: 600 11px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow-modal);
+}
+.ann-toggle:hover { color: var(--t-gold); border-color: rgba(212, 168, 67, 0.4); }
+.ann-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--t-gold); box-shadow: 0 0 8px var(--t-gold); }
+
+.annotation {
+  position: absolute;
+  z-index: 60;
+  pointer-events: none;
+}
+.annotation .note {
+  background: rgba(15, 14, 19, 0.95);
+  border: 1px solid rgba(212, 168, 67, 0.4);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--t-paper);
+  max-width: 230px;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.5);
+}
+.annotation .note b {
+  display: block;
+  color: var(--t-gold);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 3px;
+  font-weight: 700;
+}
+body.no-annotations .annotation { display: none; }
+body.no-annotations .ann-toggle .dot { background: var(--t-text-tertiary); box-shadow: none; }
+
+</style>
+</head>
+<body class="no-annotations">
+
+<!-- =================== Demo banner =================== -->
+<div class="banner">
+  <div>
+    <span class="demo">Demo · World Map — Redesign</span>
+    <span class="sub">Scroll-wheel to zoom · drag to pan · click a pin · type / to search · GM mode unlocks placing pins</span>
+  </div>
+  <div class="role-toggle">
+    <button class="active" data-role="gm">GM</button>
+    <button data-role="player">Player</button>
+  </div>
+</div>
+
+<!-- =================== Shell =================== -->
+<div class="shell" id="shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="title">Known World</div>
+      <span class="count" id="loc-count">5 marked</span>
+      <button class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar" data-tip="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+
+    <div class="sidebar-search">
+      <div class="sidebar-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search" placeholder="Search locations…" aria-label="Search locations" />
+        <span class="sidebar-search-kbd">/</span>
+      </div>
+    </div>
+
+    <div class="sidebar-filters" id="filters">
+      <button class="filter-chip active" data-mood="all">All</button>
+      <button class="filter-chip" data-mood="tense"><span class="dot" style="background:var(--mood-tense)"></span>Tense</button>
+      <button class="filter-chip" data-mood="ominous"><span class="dot" style="background:var(--mood-ominous)"></span>Ominous</button>
+      <button class="filter-chip" data-mood="mysterious"><span class="dot" style="background:var(--mood-mysterious)"></span>Mysterious</button>
+      <button class="filter-chip" data-mood="triumphant"><span class="dot" style="background:var(--mood-triumphant)"></span>Triumphant</button>
+    </div>
+
+    <div class="sidebar-list" id="loc-list">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Inspector — selected pin detail -->
+    <div class="inspector" id="inspector">
+      <!-- Populated by JS -->
+    </div>
+  </aside>
+
+  <!-- ============ MAP ============ -->
+  <main class="map gm-mode" id="map" tabindex="0" aria-label="World map canvas">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="title-block">
+        <h1>Known World</h1>
+        <div class="subtitle">Tales of the Shattered City</div>
+      </div>
+      <div class="spacer"></div>
+
+      <div class="tool-group" role="toolbar" aria-label="Zoom controls">
+        <button class="tool-btn" id="zoom-out" aria-label="Zoom out" data-tip="Zoom out (–)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <span class="tool-btn"><span class="zoom-label" id="zoom-label">100%</span></span>
+        <button class="tool-btn" id="zoom-in" aria-label="Zoom in" data-tip="Zoom in (+)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        </button>
+        <button class="tool-btn" id="reset-view" aria-label="Reset view" data-tip="Reset view (0)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 4 3 10 9 10"/></svg>
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn" id="legend-toggle" aria-label="Toggle mood legend" data-tip="Mood legend (L)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <button class="tool-btn" id="fit-pins" aria-label="Fit all pins" data-tip="Fit all pins (F)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 8 4 4 8 4"/><polyline points="20 8 20 4 16 4"/><polyline points="4 16 4 20 8 20"/><polyline points="20 16 20 20 16 20"/></svg>
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn" id="close-btn" aria-label="Close map" data-tip="Close (Esc)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mood legend -->
+    <div class="mood-legend" id="mood-legend" role="region" aria-label="Mood legend">
+      <h3>Mood Glyphs</h3>
+      <div class="mood-legend-grid" id="mood-legend-grid">
+        <!-- Populated by JS -->
+      </div>
+      <p class="note">Pins use both color and shape so the map stays legible for color-blind eyes and at small zoom levels.</p>
+    </div>
+
+    <!-- The pannable / zoomable canvas -->
+    <div class="map-canvas" id="canvas">
+
+      <div class="parchment"></div>
+
+      <!-- Cartography SVG -->
+      <svg class="cartography" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(212,168,67,0.10)" stroke-width="0.5" />
+          </pattern>
+          <pattern id="mapHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(-22)">
+            <path d="M0 0 L0 10" stroke="rgba(212,168,67,0.10)" stroke-width="1" />
+          </pattern>
+          <filter id="paper">
+            <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="5" />
+            <feDisplacementMap in="SourceGraphic" scale="1.5" />
+          </filter>
+        </defs>
+
+        <rect width="100%" height="100%" fill="url(#grid)" opacity="0.4" />
+
+        <!-- Continent -->
+        <g filter="url(#paper)">
+          <path
+            d="M129 482 C176 426 223 404 298 421 C371 438 398 395 464 338 C539 273 629 250 719 281 C811 313 869 384 884 472 C798 464 737 493 675 541 C609 592 525 599 467 555 C394 500 312 522 238 565 C190 592 146 560 129 482Z"
+            fill="rgba(212,168,67,0.05)"
+            stroke="rgba(212,168,67,0.30)"
+            stroke-width="2"
+          />
+          <!-- River -->
+          <path
+            d="M252 170 C303 220 333 269 339 319 C346 380 309 418 265 466"
+            fill="none"
+            stroke="rgba(107, 165, 165, 0.30)"
+            stroke-width="12"
+            stroke-linecap="round"
+          />
+          <path
+            d="M252 170 C303 220 333 269 339 319 C346 380 309 418 265 466"
+            fill="none"
+            stroke="rgba(237,232,216,0.10)"
+            stroke-width="2"
+            stroke-dasharray="4 10"
+            stroke-linecap="round"
+          />
+          <!-- Trade road -->
+          <path
+            d="M178 535 C246 493 326 466 419 508 C515 552 610 543 687 486 C755 435 810 416 873 424"
+            fill="none"
+            stroke="rgba(237,232,216,0.18)"
+            stroke-width="2.5"
+            stroke-dasharray="9 11"
+            stroke-linecap="round"
+          />
+          <!-- Forbidden path -->
+          <path
+            d="M598 124 C626 170 646 227 646 285 C646 339 678 384 744 420"
+            fill="none"
+            stroke="rgba(184, 105, 122, 0.32)"
+            stroke-width="2"
+            stroke-dasharray="10 6"
+            stroke-linecap="round"
+          />
+        </g>
+
+        <!-- Mountains -->
+        <g opacity="0.6">
+          <g fill="rgba(15,14,19,0.4)" stroke="rgba(212,168,67,0.32)" stroke-width="1.4">
+            <path d="M540 240 L566 210 L592 240 M553 232 L566 220 L579 232" />
+            <path d="M578 224 L598 200 L618 224 M588 218 L598 210 L608 218" />
+            <path d="M610 250 L628 222 L646 250 M619 245 L628 235 L637 245" />
+            <path d="M642 226 L655 208 L668 226" />
+            <path d="M678 264 L694 240 L710 264 M686 258 L694 250 L702 258" />
+            <path d="M708 232 L718 218 L728 232" />
+            <path d="M732 280 L745 260 L758 280" />
+          </g>
+        </g>
+
+        <!-- Ruins -->
+        <g opacity="0.45">
+          <g transform="translate(430 292) rotate(-6)" fill="rgba(15,14,19,0.32)" stroke="rgba(237,232,216,0.18)">
+            <rect x="-9" y="-11" width="18" height="22" /><path d="M-12 12 L12 12" stroke-width="1"/>
+          </g>
+          <g transform="translate(465 280) rotate(8)" fill="rgba(15,14,19,0.32)" stroke="rgba(237,232,216,0.18)">
+            <rect x="-7" y="-10" width="14" height="20" />
+          </g>
+          <g transform="translate(500 295) rotate(-4)" fill="rgba(15,14,19,0.32)" stroke="rgba(237,232,216,0.18)">
+            <rect x="-8" y="-11" width="16" height="22" />
+          </g>
+          <g transform="translate(530 277)" fill="rgba(15,14,19,0.32)" stroke="rgba(237,232,216,0.18)">
+            <rect x="-6" y="-9" width="12" height="18" />
+          </g>
+        </g>
+
+        <!-- Region of interest hatching -->
+        <ellipse cx="650" cy="342" rx="160" ry="100" fill="url(#mapHatch)" opacity="0.5" />
+        <ellipse cx="650" cy="342" rx="160" ry="100" fill="none" stroke="rgba(184, 105, 122, 0.22)" stroke-width="1.5" stroke-dasharray="8 9" />
+
+        <!-- Region labels (baked into map at low opacity) -->
+        <g font-family="serif" font-size="22" letter-spacing="7" fill="rgba(237,232,216,0.18)" text-anchor="middle">
+          <text x="480" y="230" transform="rotate(-8 480 230)">SHATTERED CITY</text>
+          <text x="300" y="510" transform="rotate(-18 300 510)">ASHEN CAUSEWAY</text>
+          <text x="700" y="270" transform="rotate(9 700 270)">CROWN DEPTHS</text>
+          <text x="760" y="490" transform="rotate(-5 760 490)">WHISPERING WARRENS</text>
+        </g>
+
+        <!-- Compass rose — STATIC. No spinning. -->
+        <g transform="translate(900 620)" opacity="0.35">
+          <circle r="36" fill="none" stroke="rgba(212,168,67,0.4)" stroke-width="1" />
+          <circle r="28" fill="none" stroke="rgba(212,168,67,0.3)" stroke-width="0.7" />
+          <path d="M0 -34 L4 0 L0 34 L-4 0 Z" fill="rgba(212,168,67,0.6)" />
+          <path d="M-34 0 L0 -4 L34 0 L0 4 Z" fill="rgba(212,168,67,0.35)" />
+          <text y="-42" text-anchor="middle" font-family="serif" font-size="11" fill="rgba(212,168,67,0.7)" letter-spacing="2">N</text>
+          <text y="46" text-anchor="middle" font-family="serif" font-size="11" fill="rgba(212,168,67,0.5)" letter-spacing="2">S</text>
+          <text x="-42" y="4" text-anchor="middle" font-family="serif" font-size="11" fill="rgba(212,168,67,0.5)" letter-spacing="2">W</text>
+          <text x="42" y="4" text-anchor="middle" font-family="serif" font-size="11" fill="rgba(212,168,67,0.5)" letter-spacing="2">E</text>
+        </g>
+      </svg>
+
+      <!-- Journey path SVG (drawn dynamically) -->
+      <svg class="cartography journey-path" id="journey-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" aria-hidden="true" style="z-index:2; pointer-events:none;">
+        <path id="journey-d" d="" fill="none" stroke="rgba(15,14,19,0.6)" stroke-width="10" stroke-linecap="round" stroke-opacity="0.5" />
+        <path id="journey-d2" d="" fill="none" stroke="var(--t-gold)" stroke-width="2.5" stroke-dasharray="6 8" stroke-linecap="round" />
+      </svg>
+
+      <!-- Pin layer — populated by JS -->
+      <div class="pin-layer" id="pin-layer"></div>
+    </div>
+
+    <!-- Keymap hint -->
+    <div class="keymap" id="keymap">
+      <span><kbd>+</kbd>/<kbd>−</kbd> zoom</span>
+      <span><kbd>↑↓</kbd> pins</span>
+      <span><kbd>/</kbd> search</span>
+      <span><kbd>Esc</kbd> close</span>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+      <span id="toast-msg">Pin deleted.</span>
+      <button class="undo" id="undo-btn">Undo</button>
+    </div>
+
+  </main>
+</div>
+
+<!-- =================== Annotations =================== -->
+<span class="annotation" style="left: 340px; top: 90px;"><span class="note"><b>Unified inspector</b>One sidebar replaces the original's three competing panels (top-left header, bottom-left ledger, bottom-right details). Search, filter, list, and the selected-pin detail all live here.</span></span>
+
+<span class="annotation" style="left: 50%; top: 16px; transform: translateX(-50%);"><span class="note"><b>Real zoom + pan</b>Original had pan but a hardcoded <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px">scale = 1</code>. Wheel to zoom, drag to pan, +/− buttons, Reset view, Fit-all-pins.</span></span>
+
+<span class="annotation" style="right: 16px; top: 320px;"><span class="note"><b>Mood = color + glyph</b>Each mood gets a distinct shape (skull, leaf, eye, crown…). Works for color-blind users and at low zoom where small color differences blur.</span></span>
+
+<span class="annotation" style="left: 360px; top: 50%;"><span class="note"><b>Static compass</b>Original compass spins every 120s. Compasses don't spin. Plus it violated <code style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:3px">prefers-reduced-motion</code>. Now: a quiet stamp in the map's bottom-right corner.</span></span>
+
+<span class="annotation" style="right: 16px; bottom: 50px;"><span class="note"><b>Undo, not confirm</b>GM right-click was a destructive action with no confirmation. Now: delete → toast with Undo, gone after 6s. Forgiving by default.</span></span>
+
+<button class="ann-toggle" id="ann-toggle" title="Toggle explanatory callouts">
+  <span class="dot"></span>
+  Show callouts
+</button>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+const MOODS = {
+  tense:       { color: 'var(--mood-tense)',       hex: '#B8697A', glyph: 'skull',  label: 'Tense' },
+  calm:        { color: 'var(--mood-calm)',        hex: '#7BA28A', glyph: 'leaf',   label: 'Calm' },
+  ominous:     { color: 'var(--mood-ominous)',     hex: '#9B8EC4', glyph: 'eye',    label: 'Ominous' },
+  triumphant:  { color: 'var(--mood-triumphant)',  hex: '#D4A843', glyph: 'crown',  label: 'Triumphant' },
+  melancholy:  { color: 'var(--mood-melancholy)',  hex: '#818CF8', glyph: 'moon',   label: 'Melancholy' },
+  chaotic:     { color: 'var(--mood-chaotic)',     hex: '#E89968', glyph: 'flame',  label: 'Chaotic' },
+  mysterious:  { color: 'var(--mood-mysterious)',  hex: '#6BA5A5', glyph: 'wave',   label: 'Mysterious' },
+  romantic:    { color: 'var(--mood-romantic)',    hex: '#E78FB3', glyph: 'heart',  label: 'Romantic' },
+};
+
+// Mood glyphs as SVG path data (each fits in 24x24)
+const GLYPHS = {
+  skull:  '<circle cx="12" cy="10" r="6"/><rect x="9" y="14" width="6" height="5" rx="1"/><circle cx="10" cy="10" r="1" fill="currentColor"/><circle cx="14" cy="10" r="1" fill="currentColor"/>',
+  leaf:   '<path d="M5 19 C 5 12, 12 5, 19 5 C 19 12, 12 19, 5 19 Z M5 19 L 12 12"/>',
+  eye:    '<path d="M2 12 C 5 7, 9 5, 12 5 C 15 5, 19 7, 22 12 C 19 17, 15 19, 12 19 C 9 19, 5 17, 2 12 Z"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
+  crown:  '<path d="M3 18 L 5 8 L 9 13 L 12 6 L 15 13 L 19 8 L 21 18 Z"/>',
+  moon:   '<path d="M21 12.79 A 9 9 0 1 1 11.21 3 A 7 7 0 0 0 21 12.79 Z"/>',
+  flame:  '<path d="M12 2 C 12 8, 18 10, 18 16 A 6 6 0 1 1 6 16 C 6 12, 9 11, 9 7 C 11 9, 12 5, 12 2 Z"/>',
+  wave:   '<path d="M2 12 Q 6 8, 10 12 T 18 12 T 22 12 M2 18 Q 6 14, 10 18 T 18 18 T 22 18"/>',
+  heart:  '<path d="M12 21 C 12 21, 3 14, 3 8 A 5 5 0 0 1 12 5 A 5 5 0 0 1 21 8 C 21 14, 12 21, 12 21 Z"/>',
+};
+
+function glyphSvg(name, size = 14) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[name] || ''}</svg>`;
+}
+
+let pins = [
+  { id: 'p1', x: 48, y: 38, label: 'Throne Room',         mood: 'ominous',    description: 'Where the altar stirs. The Crown waits.', current: true },
+  { id: 'p2', x: 30, y: 65, label: 'Ashen Bridge',        mood: 'melancholy', description: 'They crossed at dawn, with the river running grey beneath their feet.' },
+  { id: 'p3', x: 70, y: 45, label: 'Crown Depths Cavern', mood: 'mysterious', description: 'Air moves below. A passage survived.' },
+  { id: 'p4', x: 76, y: 70, label: 'Whispering Warrens',  mood: 'tense',      description: 'The dead speak loudest here.' },
+  { id: 'p5', x: 86, y: 32, label: 'The High Watch',      mood: 'triumphant', description: 'A vantage Lyra is determined to reach before nightfall.' },
+];
+let selectedId = 'p1';
+let currentId = 'p1';
+let role = 'gm';
+let filterMood = 'all';
+let searchQuery = '';
+let scale = 1;
+let panX = 0, panY = 0;
+let isDragging = false;
+let dragStart = { x: 0, y: 0, panX: 0, panY: 0 };
+let dragMoved = false;
+let creatingPin = null; // { x, y, screenX, screenY }
+let lastDeleted = null;
+let undoTimer = null;
+
+// ============================================================
+// Render
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const shell = $('shell');
+const sidebar = $('sidebar');
+const map = $('map');
+const canvas = $('canvas');
+const locList = $('loc-list');
+const pinLayer = $('pin-layer');
+const inspector = $('inspector');
+const zoomLabel = $('zoom-label');
+const journeyD = $('journey-d');
+const journeyD2 = $('journey-d2');
+const moodLegend = $('mood-legend');
+const moodLegendGrid = $('mood-legend-grid');
+const locCount = $('loc-count');
+
+function applyTransform(animate = true) {
+  if (!animate) canvas.classList.add('no-transition');
+  else canvas.classList.remove('no-transition');
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+  if (!animate) {
+    // re-enable transitions on the next frame
+    requestAnimationFrame(() => canvas.classList.remove('no-transition'));
+  }
+}
+
+function getVisiblePins() {
+  return pins.filter(p => {
+    if (filterMood !== 'all' && p.mood !== filterMood) return false;
+    if (searchQuery && !p.label.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function renderLocList() {
+  const visible = getVisiblePins();
+  locCount.textContent = `${pins.length} marked`;
+  locList.innerHTML = visible.map((p, idx) => {
+    const mood = MOODS[p.mood] || MOODS.mysterious;
+    const isCurrent = p.id === currentId;
+    const isSel = p.id === selectedId;
+    return `
+      <button class="loc-card ${isSel ? 'selected' : ''} ${isCurrent ? 'current' : ''}" data-id="${p.id}" tabindex="0">
+        <span class="glyph" style="color:${mood.color}">${glyphSvg(mood.glyph, 13)}</span>
+        <span class="info">
+          <span class="name">${escapeHtml(p.label)}</span>
+          <span class="meta">${isCurrent ? '<span class="here">Here</span> · ' : ''}${mood.label}</span>
+        </span>
+        <span class="order">${String(pins.indexOf(p) + 1).padStart(2, '0')}</span>
+      </button>
+    `;
+  }).join('');
+
+  if (visible.length === 0) {
+    locList.innerHTML = `<div style="padding: 24px 12px; text-align: center; color: var(--t-text-tertiary); font-size: 12px; font-style: italic; font-family: var(--font-reading);">No locations match.</div>`;
+  }
+}
+
+function renderInspector() {
+  const sel = pins.find(p => p.id === selectedId);
+  if (!sel) {
+    inspector.innerHTML = `<p class="ins-empty">Select a pin to see details.</p>`;
+    return;
+  }
+  const mood = MOODS[sel.mood] || MOODS.mysterious;
+  const isCurrent = sel.id === currentId;
+  const isGM = role === 'gm';
+  inspector.innerHTML = `
+    <div class="ins-head">
+      <div class="ins-title">${escapeHtml(sel.label)}</div>
+      <span class="ins-mood-tag" style="color:${mood.color}">${glyphSvg(mood.glyph, 10)}${mood.label}</span>
+    </div>
+    <p class="${sel.description ? 'ins-desc' : 'ins-empty'}">${sel.description ? '"' + escapeHtml(sel.description) + '"' : 'No table notes here yet.'}</p>
+    <div class="ins-actions">
+      <button onclick="flyToPin('${sel.id}')">Center</button>
+      ${isGM && !isCurrent ? `<button class="primary" onclick="setCurrent('${sel.id}')">Set as current</button>` : ''}
+      ${isGM ? `<button onclick="editPin('${sel.id}')">Edit</button>` : ''}
+      ${isGM ? `<button class="danger" onclick="deletePin('${sel.id}')">Delete</button>` : ''}
+    </div>
+  `;
+}
+
+function renderPins() {
+  pinLayer.innerHTML = pins.map(p => {
+    const mood = MOODS[p.mood] || MOODS.mysterious;
+    const isCurrent = p.id === currentId;
+    const isSel = p.id === selectedId;
+    return `
+      <div class="pin ${isSel ? 'selected' : ''} ${isCurrent ? 'current' : ''}"
+           data-id="${p.id}"
+           style="left:${p.x}%;top:${p.y}%"
+           tabindex="0"
+           role="button"
+           aria-label="${escapeHtml(p.label)}, mood ${mood.label}${isCurrent ? ', current scene' : ''}">
+        ${isCurrent ? '<span class="pulse-ring"></span>' : ''}
+        <div class="pin-body">
+          <svg class="pin-marker" viewBox="0 0 32 40" width="32" height="40" aria-hidden="true">
+            <path d="M16 2 C 8 2, 2 8, 2 16 C 2 22, 9 30, 14.5 38 a 2 2 0 0 0 3 0 C 23 30, 30 22, 30 16 C 30 8, 24 2, 16 2 Z"
+                  fill="${mood.hex}"
+                  stroke="rgba(15,14,19,0.6)" stroke-width="1.5" />
+            <g transform="translate(8 6) scale(0.67)" fill="none" stroke="rgba(15,14,19,0.85)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              ${GLYPHS[mood.glyph] || ''}
+            </g>
+          </svg>
+          <span class="pin-label">${escapeHtml(p.label)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderJourney() {
+  if (pins.length < 2) { journeyD.setAttribute('d',''); journeyD2.setAttribute('d',''); return; }
+  // We're drawing in the 1000x700 viewBox so positions are p.x/100 * 1000, p.y/100 * 700
+  const pts = pins.map(p => ({ x: p.x * 10, y: p.y * 7 }));
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i+1];
+    const cx = (a.x + b.x) / 2 - (b.y - a.y) * 0.12;
+    const cy = (a.y + b.y) / 2 + (b.x - a.x) * 0.12;
+    d += ` Q ${cx} ${cy} ${b.x} ${b.y}`;
+  }
+  journeyD.setAttribute('d', d);
+  journeyD2.setAttribute('d', d);
+}
+
+function renderMoodLegend() {
+  moodLegendGrid.innerHTML = Object.entries(MOODS).map(([k, m]) => `
+    <div class="mood-legend-item">
+      <span class="swatch" style="color:${m.color}">${glyphSvg(m.glyph, 11)}</span>
+      ${m.label}
+    </div>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderAll() {
+  renderLocList();
+  renderInspector();
+  renderPins();
+  renderJourney();
+}
+
+// ============================================================
+// Pan & Zoom
+// ============================================================
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 2.5;
+
+map.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * delta));
+  if (newScale === scale) return;
+  // Zoom toward the cursor
+  const rect = map.getBoundingClientRect();
+  const mx = e.clientX - rect.left - rect.width / 2;
+  const my = e.clientY - rect.top - rect.height / 2;
+  const ratio = newScale / scale;
+  panX = mx + (panX - mx) * ratio;
+  panY = my + (panY - my) * ratio;
+  scale = newScale;
+  applyTransform(false);
+}, { passive: false });
+
+map.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.pin') || e.target.closest('.pin-form') || e.target.closest('.toolbar') || e.target.closest('.mood-legend') || e.target.closest('.keymap')) return;
+  isDragging = true;
+  dragMoved = false;
+  dragStart = { x: e.clientX, y: e.clientY, panX, panY };
+  map.classList.add('dragging');
+});
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - dragStart.x;
+  const dy = e.clientY - dragStart.y;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+  panX = dragStart.panX + dx;
+  panY = dragStart.panY + dy;
+  applyTransform(false);
+});
+window.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  map.classList.remove('dragging');
+});
+
+$('zoom-in').onclick  = () => { scale = Math.min(MAX_SCALE, scale * 1.25); applyTransform(); };
+$('zoom-out').onclick = () => { scale = Math.max(MIN_SCALE, scale / 1.25); applyTransform(); };
+$('reset-view').onclick = () => { scale = 1; panX = 0; panY = 0; applyTransform(); };
+$('fit-pins').onclick = () => fitAllPins();
+
+function fitAllPins() {
+  if (pins.length === 0) return;
+  const minX = Math.min(...pins.map(p => p.x));
+  const maxX = Math.max(...pins.map(p => p.x));
+  const minY = Math.min(...pins.map(p => p.y));
+  const maxY = Math.max(...pins.map(p => p.y));
+  const padding = 0.15;
+  const w = (maxX - minX) + padding * 100;
+  const h = (maxY - minY) + padding * 100;
+  const targetScale = Math.min(2, Math.min(100 / w, 100 / h) * 0.95);
+  scale = Math.max(MIN_SCALE, targetScale);
+  // Center of pin bounds (in %)
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  // Translate canvas so that (cx, cy)% maps to viewport center
+  const rect = map.getBoundingClientRect();
+  panX = (50 - cx) / 100 * rect.width * scale;
+  panY = (50 - cy) / 100 * rect.height * scale;
+  applyTransform();
+}
+
+function flyToPin(id) {
+  const p = pins.find(x => x.id === id);
+  if (!p) return;
+  selectedId = id;
+  // Don't change zoom; center the pin
+  const rect = map.getBoundingClientRect();
+  panX = (50 - p.x) / 100 * rect.width * scale;
+  panY = (50 - p.y) / 100 * rect.height * scale;
+  applyTransform();
+  renderAll();
+}
+
+// ============================================================
+// Pin clicks / map click (GM creation)
+// ============================================================
+pinLayer.addEventListener('click', (e) => {
+  const pin = e.target.closest('.pin');
+  if (!pin) return;
+  e.stopPropagation();
+  selectedId = pin.dataset.id;
+  renderAll();
+});
+
+pinLayer.addEventListener('keydown', (e) => {
+  const pin = e.target.closest('.pin');
+  if (!pin) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    selectedId = pin.dataset.id;
+    renderAll();
+  }
+});
+
+map.addEventListener('click', (e) => {
+  if (dragMoved) { dragMoved = false; return; }
+  if (e.target.closest('.pin') || e.target.closest('.pin-form') || e.target.closest('.toolbar') || e.target.closest('.mood-legend') || e.target.closest('.keymap')) return;
+  if (role !== 'gm') return;
+
+  // Convert screen coords to canvas % (account for scale/pan)
+  const rect = map.getBoundingClientRect();
+  // Apply inverse of: translate(panX, panY) then scale(scale) from origin = center
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const localX = (e.clientX - rect.left - cx - panX) / scale + cx;
+  const localY = (e.clientY - rect.top - cy - panY) / scale + cy;
+  const xPct = (localX / rect.width) * 100;
+  const yPct = (localY / rect.height) * 100;
+  if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return;
+
+  showPinForm(xPct, yPct, e.clientX, e.clientY);
+});
+
+// ============================================================
+// Pin form
+// ============================================================
+function showPinForm(xPct, yPct, screenX, screenY) {
+  closePinForm();
+  const form = document.createElement('div');
+  form.className = 'pin-form';
+  form.id = 'pin-form';
+  form.innerHTML = `
+    <div class="pf-head">
+      <span class="label">${glyphSvg('flame', 11)} Mark location</span>
+      <button class="pf-close" type="button" aria-label="Cancel">✕</button>
+    </div>
+    <label for="pf-label">Name</label>
+    <input id="pf-label" type="text" placeholder="The Sunken Temple" autocomplete="off" />
+    <label>Mood</label>
+    <div class="mood-grid">
+      ${Object.entries(MOODS).map(([k, m]) => `
+        <button type="button" class="mood-pick" data-mood="${k}" style="color:${m.color}">
+          ${glyphSvg(m.glyph, 13)}
+          <span class="lbl">${m.label}</span>
+        </button>
+      `).join('')}
+    </div>
+    <label for="pf-desc">Notes (optional)</label>
+    <textarea id="pf-desc" placeholder="What does the party find here?"></textarea>
+    <div class="pf-actions">
+      <button type="button" class="pf-cancel">Cancel</button>
+      <button type="button" class="pf-save" disabled>Place pin</button>
+    </div>
+  `;
+  // Position near click point
+  const formW = 280;
+  const formH = 380;
+  const mapRect = map.getBoundingClientRect();
+  let left = screenX - mapRect.left + 18;
+  let top = screenY - mapRect.top - 20;
+  if (left + formW > mapRect.width - 16) left = screenX - mapRect.left - formW - 18;
+  if (top + formH > mapRect.height - 16) top = mapRect.height - formH - 16;
+  if (top < 80) top = 80;
+  if (left < 16) left = 16;
+  form.style.left = left + 'px';
+  form.style.top = top + 'px';
+  map.appendChild(form);
+
+  let selectedMood = null;
+  const labelInput = form.querySelector('#pf-label');
+  const saveBtn = form.querySelector('.pf-save');
+
+  labelInput.focus();
+  labelInput.addEventListener('input', () => { saveBtn.disabled = !labelInput.value.trim(); });
+
+  form.querySelectorAll('.mood-pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      form.querySelectorAll('.mood-pick').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedMood = btn.dataset.mood;
+    });
+  });
+
+  form.querySelector('.pf-cancel').onclick = closePinForm;
+  form.querySelector('.pf-close').onclick  = closePinForm;
+  saveBtn.onclick = () => {
+    const label = labelInput.value.trim();
+    if (!label) return;
+    const desc = form.querySelector('#pf-desc').value.trim();
+    const id = 'p' + (Date.now() % 100000);
+    pins.push({ id, x: xPct, y: yPct, label, mood: selectedMood || 'mysterious', description: desc || undefined });
+    selectedId = id;
+    closePinForm();
+    renderAll();
+  };
+
+  creatingPin = { x: xPct, y: yPct };
+}
+function closePinForm() {
+  const existing = document.getElementById('pin-form');
+  if (existing) existing.remove();
+  creatingPin = null;
+}
+
+// ============================================================
+// Inspector actions
+// ============================================================
+window.flyToPin = flyToPin;
+window.setCurrent = (id) => {
+  currentId = id;
+  renderAll();
+  showToast(`"${pins.find(p => p.id === id).label}" is now the current scene.`, false);
+};
+window.editPin = (id) => {
+  const p = pins.find(x => x.id === id);
+  if (!p) return;
+  // For brevity, prompt-based edit. In product this would reuse the pin form.
+  const newLabel = prompt('Rename pin:', p.label);
+  if (newLabel && newLabel.trim()) {
+    p.label = newLabel.trim();
+    renderAll();
+  }
+};
+window.deletePin = (id) => {
+  const idx = pins.findIndex(p => p.id === id);
+  if (idx < 0) return;
+  lastDeleted = { pin: pins[idx], index: idx };
+  pins.splice(idx, 1);
+  if (selectedId === id) selectedId = pins[0]?.id;
+  if (currentId === id) currentId = pins[0]?.id;
+  renderAll();
+  showToast(`"${lastDeleted.pin.label}" deleted.`, true);
+};
+function showToast(msg, withUndo) {
+  const toast = $('toast');
+  $('toast-msg').textContent = msg;
+  $('undo-btn').style.display = withUndo ? '' : 'none';
+  toast.classList.add('show');
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { toast.classList.remove('show'); lastDeleted = null; }, 6000);
+}
+$('undo-btn').onclick = () => {
+  if (!lastDeleted) return;
+  pins.splice(lastDeleted.index, 0, lastDeleted.pin);
+  selectedId = lastDeleted.pin.id;
+  lastDeleted = null;
+  $('toast').classList.remove('show');
+  renderAll();
+};
+
+// ============================================================
+// Sidebar interactions
+// ============================================================
+locList.addEventListener('click', (e) => {
+  const card = e.target.closest('.loc-card');
+  if (!card) return;
+  selectedId = card.dataset.id;
+  flyToPin(selectedId);
+});
+locList.addEventListener('keydown', (e) => {
+  const card = e.target.closest('.loc-card');
+  if (!card) return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedId = card.dataset.id; flyToPin(selectedId); }
+});
+
+$('search').addEventListener('input', (e) => {
+  searchQuery = e.target.value;
+  renderLocList();
+});
+
+$('filters').addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  filterMood = chip.dataset.mood;
+  renderLocList();
+});
+
+$('collapse-btn').onclick = () => {
+  shell.classList.toggle('sidebar-collapsed');
+};
+
+// Mood legend toggle
+$('legend-toggle').onclick = () => {
+  moodLegend.classList.toggle('open');
+  $('legend-toggle').classList.toggle('active');
+};
+document.addEventListener('click', (e) => {
+  if (!moodLegend.classList.contains('open')) return;
+  if (e.target.closest('.mood-legend') || e.target.closest('#legend-toggle')) return;
+  moodLegend.classList.remove('open');
+  $('legend-toggle').classList.remove('active');
+});
+
+// Close button — visual only
+$('close-btn').onclick = () => {
+  alert('In product, this returns to the story canvas.');
+};
+
+// Role toggle
+document.querySelectorAll('.role-toggle button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.role-toggle button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    role = b.dataset.role;
+    map.classList.toggle('gm-mode', role === 'gm');
+    closePinForm();
+    renderInspector();
+  });
+});
+
+// Annotations toggle
+$('ann-toggle').onclick = () => {
+  document.body.classList.toggle('no-annotations');
+};
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    if (e.key === 'Escape') { e.target.blur(); }
+    return;
+  }
+  if (e.key === '/') { e.preventDefault(); $('search').focus(); }
+  if (e.key === '+' || e.key === '=') { $('zoom-in').click(); }
+  if (e.key === '-') { $('zoom-out').click(); }
+  if (e.key === '0') { $('reset-view').click(); }
+  if (e.key.toLowerCase() === 'l') { $('legend-toggle').click(); }
+  if (e.key.toLowerCase() === 'f') { $('fit-pins').click(); }
+  if (e.key === 'Escape') { closePinForm(); moodLegend.classList.remove('open'); $('legend-toggle').classList.remove('active'); }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const visible = getVisiblePins();
+    if (visible.length === 0) return;
+    let idx = visible.findIndex(p => p.id === selectedId);
+    idx = (idx + (e.key === 'ArrowDown' ? 1 : -1) + visible.length) % visible.length;
+    selectedId = visible[idx].id;
+    renderAll();
+  }
+});
+
+// ============================================================
+// Initial render
+// ============================================================
+renderMoodLegend();
+renderAll();
+applyTransform(false);
+</script>
+
+</body>
+</html>

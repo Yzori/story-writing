@@ -1,15 +1,13 @@
 import InteractiveSplitLayout from "@/components/landing/InteractiveSplitLayout";
-import TrendingHome from "@/components/home/TrendingHome";
+import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
 import { getFeaturedStory, getShelfStories } from "@/lib/landing-data";
 
-export default async function Home() {
+export default async function Page() {
   const session = await auth();
 
-  // Signed-in → trending home dashboard with hero carousel + rows.
-  // Anon → marketing landing (with the video + interactive canvas).
   if (session?.user?.id) {
-    return <TrendingHome />;
+    redirect("/dashboard");
   }
 
   // Pull real featured + shelf data on the server so the anon homepage

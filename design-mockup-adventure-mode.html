@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Adventure Mode — Redesign Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================ */
+/* Lamplight tokens — synced with src/app/globals.css            */
+/* ============================================================ */
+:root {
+  --t-void: #0F0E13;
+  --t-ink: #171621;
+  --t-surface: #1E1D2A;
+  --t-elevated: #272636;
+  --t-subtle: #302F40;
+
+  --t-paper: #EDE8D8;
+  --t-text: #B8B2A0;
+  --t-text-secondary: #918B7E;
+  /* LIFTED from #6E6962 (3.5:1) to clear WCAG AA body 4.5:1 against --t-void */
+  --t-text-tertiary: #8C8678;
+  --t-text-ghost: #6E6962;
+
+  --t-gold: #D4A843;
+  --t-gold-soft: rgba(212, 168, 67, 0.15);
+  --t-gold-glow: rgba(212, 168, 67, 0.08);
+  --t-gold-light: #E8BE5E;
+  --t-gold-dark: #A88030;
+
+  --t-ruby: #B8697A;
+  --t-emerald: #7BA28A;
+  --t-amethyst: #9B8EC4;
+  --t-copper: #B8917A;
+  --t-teal: #6BA5A5;
+
+  --t-border: rgba(255, 255, 255, 0.06);
+  --t-border-subtle: rgba(255, 255, 255, 0.04);
+  --t-border-active: rgba(255, 255, 255, 0.14);
+
+  --t-veil: rgba(15, 14, 19, 0.5);
+
+  /* Typography scale — replaces text-[9px] / [10px] / [11px] / [13px] / [17px] / [19px] zoo */
+  --type-eyebrow: 10px;     /* uppercase tracking labels */
+  --type-meta: 11px;        /* small metadata, tags, vote counts */
+  --type-ui: 13px;          /* button labels, body UI */
+  --type-card: 14px;        /* card primary copy */
+  --type-prose: 19px;       /* the story */
+  --type-h-card: 15px;      /* card title */
+  --type-h-section: 11px;   /* section eyebrows */
+
+  --radius-pill: 9999px;
+  --radius-card: 14px;
+  --radius-input: 10px;
+
+  --shadow-card: 0 0 0 1px var(--t-border), 0 18px 40px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 0 0 1px rgba(255,255,255,0.10), 0 28px 60px rgba(0, 0, 0, 0.55);
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-reading: "Literata", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--t-void);
+  color: var(--t-text);
+  font-family: var(--font-body);
+  font-size: var(--type-ui);
+  line-height: 1.55;
+  overflow: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Warm vignette — atmospheric, doesn't reduce edge contrast */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(8, 7, 12, 0.4) 100%);
+}
+
+/* Subtle paper grain */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 256px 256px;
+}
+
+/* ============================================================ */
+/* Demo banner                                                  */
+/* ============================================================ */
+.banner {
+  position: relative;
+  z-index: 60;
+  border-bottom: 1px solid var(--t-border);
+  background: linear-gradient(180deg, rgba(212,168,67,0.07), rgba(212,168,67,0.02));
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+}
+.banner-label {
+  display: flex; align-items: center; gap: 12px;
+  font-size: var(--type-meta);
+}
+.banner-label .demo {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-gold);
+  font-weight: 700;
+}
+.banner-label .sub {
+  color: var(--t-text-secondary);
+}
+.view-as {
+  display: flex; align-items: center; gap: 6px;
+}
+.view-as-eyebrow {
+  font-size: var(--type-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--t-text-tertiary);
+  margin-right: 6px;
+}
+.view-as button {
+  background: transparent;
+  border: 1px solid var(--t-border);
+  color: var(--t-text-secondary);
+  font: inherit;
+  font-size: var(--type-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.view-as button:hover { color: var(--t-text); border-color: var(--t-border-active); }
+.view-as button.active {
+  background: var(--t-gold-soft);
+  border-color: rgba(212, 168, 67, 0.5);
+  color: var(--t-gold-light);
+  font-weight: 600;
+}
+
+/* Universal focus ring — keyboard users get a clear indicator */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--t-gold);
+  outline-offset: 2px;
+  border-radius: var(--radius-pill);
+}
+
+/* ============================================================ */
+/* Layout — 3 panes                                             */
+/* ============================================================ */
+.shell {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 340px 1fr 320px;
+  height: calc(100vh - 44px);
+  min-height: 600px;
+}
+
+/* ============================================================ */
+/* LEFT — Session Log                                           */
+/* ============================================================ */
+.session-log {
+  background: var(--t-void);
+  border-right: 1px solid var(--t-border);
+  display: flex; flex-direction: column;
+  position: relative;
+  z-index: 4;
+  box-shadow: 14px 0 36px rgba(0,0,0,0.45);
+}
+.session-log header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--t-border);
+  background: rgba(0,0,0,0.25);
+}
+.session-log h2 {
+  margin: 0 0 4px 0;
+  font: 600 var(--type-h-section) var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--t-gold);
+}
+.session-log header p {
+  margin: 0;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: var(--type-meta);
+  color: var(--t-text-secondary);
+}
+.log-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 20px;
+  display: flex; flex-direction: column;
+  gap: 16px;
+}
+.log-body::-webkit-scrollbar { width: 6px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--t-subtle); border-radius: 3px; }
+
+/* Roll request — bigger, more emphatic, FULL-OPACITY stakes copy */
+.roll-request {
+  position: relative;
+  background: rgba(155, 142, 196, 0.08);
+  border: 1px solid rgba(155, 142, 196, 0.35);
+  border-radius: var(--radius-card);
+  padding: 14px 14px 12px;
+}
+.roll-request .tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--type-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-amethyst);
+  font-weight: 700;
+}
+.roll-request .tag svg { width: 12px; height: 12px; }
+.roll-request .check {
+  margin: 8px 0 2px 0;
+  font: 500 var(--type-card) var(--font-display);
+  color: var(--t-paper);
+  letter-spacing: 0.01em;
+}
+.roll-request .reason {
+  font-family: var(--font-reading);
+  font-size: var(--type-ui);
+  color: var(--t-text);
+  margin: 2px 0 12px 0;
+  line-height: 1.5;
+}
+.roll-request .stakes {
+  display: grid; gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 10px;
+}
+.stake {
+  display: grid; grid-template-columns: 18px 1fr; gap: 8px;
+  align-items: start;
+}
+.stake .ico {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.stake.win .ico { background: rgba(123, 162, 138, 0.18); color: var(--t-emerald); }
+.stake.lose .ico { background: rgba(184, 105, 122, 0.18); color: var(--t-ruby); }
+.stake-text { font-size: var(--type-meta); line-height: 1.5; }
+.stake.win .stake-text { color: var(--t-emerald); }
+.stake.lose .stake-text { color: var(--t-ruby); }
+.stake-text b {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 9px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  opacity: 0.85;
+}
+
+.roll-request .gm-controls {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 10px;
+}
+.btn-quiet {
+  background: transparent;
+  border: 1px solid var(--t-border);
+  color: var(--t-text-secondary);
+  font: 600 9px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-quiet:hover { border-color: var(--t-border-active); color: var(--t-text); }
+.btn-danger {
+  border-color: rgba(184, 105, 122, 0.4);
+  color: var(--t-ruby);
+}
+.btn-danger:hover { background: rgba(184, 105, 122, 0.1); }
+
+/* Chat message — OOC */
+.msg {
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.msg.mine { align-items: flex-end; }
+.msg .who {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--t-text-tertiary);
+  opacity: 0.85;
+}
+.msg .who .player { color: var(--t-amethyst); font-weight: 600; }
+.msg .bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: var(--type-ui);
+  line-height: 1.5;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--t-border);
+  color: var(--t-text);
+}
+.msg.mine .bubble {
+  background: var(--t-gold-soft);
+  border-color: rgba(212, 168, 67, 0.3);
+  color: var(--t-paper);
+}
+
+/* Chat input — WITH VISIBLE SEND BUTTON */
+.chat-input {
+  padding: 14px 16px;
+  border-top: 1px solid var(--t-border);
+  background: rgba(0,0,0,0.25);
+}
+.chat-input form {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--t-ink);
+  border: 1px solid var(--t-border);
+  border-radius: var(--radius-input);
+  padding: 4px 4px 4px 12px;
+  transition: border-color .15s;
+}
+.chat-input form:focus-within {
+  border-color: rgba(212, 168, 67, 0.4);
+}
+.chat-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--t-paper);
+  font: inherit;
+  font-size: var(--type-ui);
+  padding: 8px 0;
+  outline: none;
+}
+.chat-input input::placeholder { color: var(--t-text-tertiary); }
+.send-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  background: var(--t-gold-soft);
+  border: 1px solid rgba(212, 168, 67, 0.3);
+  border-radius: 8px;
+  color: var(--t-gold);
+  cursor: pointer;
+  transition: all .15s;
+}
+.send-btn:hover {
+  background: rgba(212, 168, 67, 0.25);
+  color: var(--t-gold-light);
+}
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.send-btn svg { width: 14px; height: 14px; }
+
+/* ============================================================ */
+/* CENTER — Story Canvas                                        */
+/* ============================================================ */
+.canvas {
+  position: relative;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.canvas-bg {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.canvas-bg::before {
+  content: "";
+  position: absolute;
+  top: -100px; left: 50%;
+  transform: translateX(-50%);
+  width: 600px; height: 600px;
+  background: rgba(212, 168, 67, 0.03);
+  filter: blur(120px);
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+
+/* World Map button — clean top-right corner */
+.canvas-tools {
+  position: absolute;
+  top: 18px; right: 22px;
+  z-index: 5;
+}
+.tool-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(15, 14, 19, 0.6);
+  border: 1px solid var(--t-border);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  font-size: var(--type-meta);
+  color: var(--t-text-secondary);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all .15s;
+}
+.tool-btn:hover { color: var(--t-paper); border-color: var(--t-border-active); }
+.tool-btn svg { width: 13px; height: 13px; }
+
+.canvas-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 60px 64px 240px; /* extra bottom padding so floor-round overlay never covers content */
+  position: relative;
+  z-index: 1;
+}
+.canvas-scroll::-webkit-scrollbar { width: 6px; }
+.canvas-scroll::-webkit-scrollbar-thumb { background: var(--t-subtle); border-radius: 3px; }
+
+.story {
+  max-width: 650px;
+  margin: 0 auto;
+}
+.story h1 {
+  margin: 0 0 4px 0;
+  font: 600 38px var(--font-display);
+  color: var(--t-paper);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+.story .session-meta {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 6px;
+  font-size: var(--type-meta);
+  color: var(--t-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.story .session-meta::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(212,168,67,0.35), transparent);
+  margin-left: 8px;
+  max-width: 120px;
+}
+.story .opening {
+  margin: 32px 0 28px 0;
+  padding-left: 24px;
+  border-left: 2px solid rgba(212, 168, 67, 0.35);
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: var(--type-prose);
+  line-height: 2.0;
+  color: rgba(237, 232, 216, 0.7);
+}
+.story .prose {
+  font-family: var(--font-reading);
+  font-size: var(--type-prose);
+  line-height: 2.05;
+  color: var(--t-paper);
+}
+.story .prose p { margin: 0 0 22px 0; }
+.story .prose .lyra { color: var(--t-ruby); font-weight: 500; }
+.story .prose .kaelen { color: var(--t-amethyst); font-weight: 500; }
+.story .prose .elara { color: var(--t-emerald); font-weight: 500; }
+.story .prose em { color: var(--t-paper); }
+.caret {
+  display: inline-block;
+  width: 2px; height: 0.95em;
+  vertical-align: -2px;
+  margin-left: 4px;
+  background: var(--t-gold);
+  opacity: 0.55;
+  animation: blink 1.1s infinite;
+}
+@keyframes blink {
+  0%, 50% { opacity: 0.55; }
+  50.01%, 100% { opacity: 0; }
+}
+
+/* Floor Round — pinned to viewport bottom (the fix) */
+.floor-round-shelf {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 6;
+  display: flex; justify-content: center;
+  padding: 18px 64px 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(15, 14, 19, 0.85) 25%, rgba(15, 14, 19, 0.95));
+  backdrop-filter: blur(2px);
+}
+.floor-round {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 650px;
+  background: var(--t-ink);
+  border: 1px solid rgba(155, 142, 196, 0.3);
+  border-radius: var(--radius-card);
+  padding: 16px 18px 14px;
+  box-shadow: var(--shadow-card);
+}
+.floor-round .head {
+  display: flex; align-items: start; justify-content: space-between;
+  gap: 14px; margin-bottom: 12px;
+}
+.floor-round .head .label {
+  font: 700 var(--type-meta) var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--t-amethyst);
+}
+.floor-round .head .prompt {
+  margin-top: 4px;
+  font-family: var(--font-reading);
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--t-paper);
+}
+.floor-round .status-pill {
+  flex-shrink: 0;
+  font-size: var(--type-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--t-amethyst);
+  background: rgba(155, 142, 196, 0.12);
+  border: 1px solid rgba(155, 142, 196, 0.3);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+}
+
+/* Vote tally — primary number gets weight; audience pulse subordinate */
+.vote-tally {
+  display: flex; align-items: baseline; gap: 12px;
+  margin: 4px 0 12px 0;
+  font-size: var(--type-meta);
+}
+.vote-tally .primary {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--t-gold);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.vote-tally .label-votes {
+  color: var(--t-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.vote-tally .pulse {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--t-amethyst);
+  opacity: 0.8;
+}
+.vote-tally .pulse .num { font-weight: 600; font-variant-numeric: tabular-nums; }
+.vote-tally .pulse .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; }
+
+.submissions {
+  display: grid; gap: 8px;
+}
+.submission {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--t-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.submission:hover {
+  border-color: var(--t-border-active);
+  background: rgba(255,255,255,0.045);
+}
+.submission.leading {
+  border-color: rgba(212, 168, 67, 0.4);
+  background: rgba(212, 168, 67, 0.04);
+}
+.submission .who {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--t-text-tertiary);
+}
+.submission .who .name { font-weight: 700; }
+.submission .who.kaelen .name { color: var(--t-amethyst); }
+.submission .who.elara .name { color: var(--t-emerald); }
+.submission .content {
+  font-family: var(--font-reading);
+  font-size: var(--type-card);
+  line-height: 1.5;
+  color: var(--t-paper);
+}
+.submission .meta {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 2px;
+  min-width: 56px;
+}
+.submission .meta .votes {
+  font: 700 14px var(--font-display);
+  color: var(--t-gold);
+  line-height: 1;
+}
+.submission.zero .meta .votes { color: var(--t-text-tertiary); }
+.submission .meta .vote-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--t-text-tertiary);
+}
+.submission .meta .pulse-mini {
+  font-size: 9px;
+  color: var(--t-amethyst);
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+.floor-round .actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--t-border);
+}
+.btn-primary {
+  background: var(--t-gold);
+  color: var(--t-void);
+  border: none;
+  font: 700 var(--type-meta) var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-primary:hover { background: var(--t-gold-light); transform: translateY(-1px); }
+
+/* ============================================================ */
+/* RIGHT — GM Dashboard                                         */
+/* ============================================================ */
+.gm-dash {
+  background: var(--t-void);
+  border-left: 1px solid var(--t-border);
+  display: flex; flex-direction: column;
+  position: relative;
+  z-index: 4;
+  box-shadow: -14px 0 36px rgba(0,0,0,0.45);
+}
+.gm-dash header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--t-border);
+  background: rgba(0,0,0,0.25);
+  display: flex; align-items: center; gap: 10px;
+}
+.gm-dash header .badge {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--t-gold-soft);
+  border: 1px solid rgba(212, 168, 67, 0.35);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--t-gold);
+}
+.gm-dash header .badge svg { width: 14px; height: 14px; }
+.gm-dash header .title {
+  font: 600 var(--type-h-card) var(--font-display);
+  color: var(--t-paper);
+  line-height: 1.1;
+}
+.gm-dash header .role {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--t-text-tertiary);
+  margin-top: 3px;
+}
+.gm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 20px 24px;
+  display: flex; flex-direction: column;
+  gap: 22px;
+}
+.gm-body::-webkit-scrollbar { width: 6px; }
+.gm-body::-webkit-scrollbar-thumb { background: var(--t-subtle); border-radius: 3px; }
+
+/* Section eyebrow — one consistent treatment, used sparingly */
+.section-eyebrow {
+  display: flex; align-items: center; gap: 10px;
+  font: 600 var(--type-h-section) var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--t-text-secondary);
+}
+.section-eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--t-border);
+}
+
+/* Tension clocks — empty state is a single quiet affordance */
+.clocks-empty {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent;
+  border: 1px dashed rgba(255,255,255,0.1);
+  color: var(--t-text-tertiary);
+  font-size: var(--type-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all .15s;
+}
+.clocks-empty:hover { color: var(--t-text); border-color: var(--t-border-active); }
+.clocks-empty svg { width: 12px; height: 12px; }
+
+/* Party — tighter cards, kebab for destructive actions */
+.party { display: grid; gap: 8px; }
+.party-card {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--t-border);
+  border-radius: var(--radius-card);
+  transition: all .15s;
+}
+.party-card:hover { border-color: var(--t-border-active); }
+.party-card .avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 700 12px var(--font-display);
+  border: 1px solid;
+}
+.party-card.lyra .avatar { background: rgba(184, 105, 122, 0.15); color: var(--t-ruby); border-color: rgba(184, 105, 122, 0.4); }
+.party-card.kaelen .avatar { background: rgba(155, 142, 196, 0.15); color: var(--t-amethyst); border-color: rgba(155, 142, 196, 0.4); }
+.party-card.elara .avatar { background: rgba(123, 162, 138, 0.15); color: var(--t-emerald); border-color: rgba(123, 162, 138, 0.4); }
+.party-card .info { min-width: 0; }
+.party-card .name {
+  font: 600 var(--type-card) var(--font-body);
+  color: var(--t-paper);
+  line-height: 1.2;
+}
+.party-card .quote {
+  font: italic 11px var(--font-reading);
+  color: var(--t-text-tertiary);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kebab {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--t-text-tertiary);
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+.kebab:hover { background: rgba(255,255,255,0.06); color: var(--t-text); border-color: var(--t-border); }
+.kebab svg { width: 14px; height: 14px; }
+.kebab-menu {
+  position: absolute;
+  top: calc(100% + 4px); right: 0;
+  width: 160px;
+  background: var(--t-elevated);
+  border: 1px solid var(--t-border-active);
+  border-radius: 10px;
+  padding: 6px;
+  display: none;
+  z-index: 20;
+  box-shadow: var(--shadow-modal);
+}
+.kebab.open .kebab-menu { display: block; }
+.kebab-menu button {
+  display: block; width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--t-text);
+  font: 500 var(--type-ui) var(--font-body);
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.kebab-menu button:hover { background: rgba(255,255,255,0.06); color: var(--t-paper); }
+.kebab-menu button.danger { color: var(--t-ruby); }
+.kebab-menu button.danger:hover { background: rgba(184, 105, 122, 0.12); }
+
+/* Direct Actions — grouped into Action / Pacing / Atmosphere */
+.actions-group { display: grid; gap: 8px; }
+.group-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--t-text-tertiary);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+/* Action card — base */
+.action {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 12px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--t-border);
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: all .15s;
+}
+.action:hover {
+  border-color: var(--t-border-active);
+  background: rgba(255,255,255,0.045);
+  transform: translateY(-1px);
+}
+.action .icon-tile {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: var(--t-text-secondary);
+  border: 1px solid var(--t-border);
+}
+.action .icon-tile svg { width: 14px; height: 14px; }
+.action .copy { min-width: 0; }
+.action .copy .title {
+  font: 600 var(--type-card) var(--font-body);
+  color: var(--t-paper);
+  line-height: 1.2;
+}
+.action .copy .desc {
+  font-size: var(--type-meta);
+  color: var(--t-text-tertiary);
+  margin-top: 2px;
+}
+.action .chev {
+  color: var(--t-text-tertiary);
+  transition: transform .15s;
+}
+.action .chev svg { width: 12px; height: 12px; }
+.action:hover .chev { transform: translateX(2px); color: var(--t-text); }
+
+/* Primary action — Moment of Truth gets elevated treatment */
+.action.primary {
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.12), rgba(212, 168, 67, 0.04));
+  border-color: rgba(212, 168, 67, 0.4);
+  box-shadow: 0 0 0 1px rgba(212, 168, 67, 0.05), 0 12px 24px rgba(0,0,0,0.35);
+}
+.action.primary:hover {
+  border-color: rgba(212, 168, 67, 0.6);
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.18), rgba(212, 168, 67, 0.06));
+}
+.action.primary .icon-tile {
+  background: var(--t-gold-soft);
+  border-color: rgba(212, 168, 67, 0.4);
+  color: var(--t-gold);
+}
+.action.primary .copy .title { color: var(--t-gold-light); }
+.action.primary .copy .desc { color: var(--t-text-secondary); }
+.action.primary .chev { color: var(--t-gold); }
+
+/* Compact spacing variant used inside grouped section */
+.actions-list { display: grid; gap: 8px; }
+
+/* Roll request — when GM expands it inline */
+.action.expanded { /* would be wired up with JS but for the mock we show one state */ }
+
+/* ============================================================ */
+/* Small UI bits — flags, hints                                */
+/* ============================================================ */
+.hint {
+  font-size: var(--type-meta);
+  color: var(--t-text-tertiary);
+  font-style: italic;
+}
+
+/* ============================================================ */
+/* Annotations (the floating callouts that explain the redesign)*/
+/* ============================================================ */
+.annotation {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+}
+.annotation .note {
+  background: rgba(15, 14, 19, 0.92);
+  border: 1px solid rgba(212, 168, 67, 0.4);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--t-paper);
+  max-width: 220px;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.5);
+}
+.annotation .note b {
+  display: block;
+  color: var(--t-gold);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 3px;
+  font-weight: 700;
+}
+
+/* Toggle for annotations */
+.annotations-toggle {
+  position: fixed;
+  bottom: 16px; right: 20px;
+  z-index: 100;
+  background: var(--t-elevated);
+  border: 1px solid var(--t-border-active);
+  color: var(--t-text);
+  font: 600 var(--type-meta) var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow-modal);
+}
+.annotations-toggle:hover { color: var(--t-gold); border-color: rgba(212, 168, 67, 0.4); }
+.annotations-toggle .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--t-gold);
+  box-shadow: 0 0 8px var(--t-gold);
+}
+body.no-annotations .annotation { display: none; }
+body.no-annotations .annotations-toggle .dot { background: var(--t-text-tertiary); box-shadow: none; }
+</style>
+</head>
+<body class="no-annotations">
+
+<!-- =================== Demo banner =================== -->
+<div class="banner">
+  <div class="banner-label">
+    <span class="demo">Demo · Adventure Mode — Redesign</span>
+    <span class="sub">Self-contained mockup. Click pills, kebabs, the chat input to feel the surface.</span>
+  </div>
+  <div class="view-as" role="tablist" aria-label="View as">
+    <span class="view-as-eyebrow">View as</span>
+    <button class="active" data-view="gm">GM</button>
+    <button data-view="lyra">Lyra</button>
+    <button data-view="kaelen">Kaelen</button>
+    <button data-view="elara">Elara</button>
+    <button data-view="audience">Audience</button>
+  </div>
+</div>
+
+<!-- =================== Layout =================== -->
+<div class="shell">
+
+  <!-- ============ LEFT: Session Log ============ -->
+  <aside class="session-log" aria-label="Session Log">
+    <header>
+      <h2>Session Log</h2>
+      <p>Tales of the Shattered City — The Obsidian Crown, Session I</p>
+    </header>
+
+    <div class="log-body">
+
+      <!-- Roll request — full-opacity stakes copy -->
+      <div class="roll-request" role="region" aria-label="Roll requested for Lyra">
+        <span class="tag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Roll Requested
+        </span>
+        <p class="check">Keen check — Lyra</p>
+        <p class="reason">Decipher the rune sequence before the altar finishes waking.</p>
+
+        <div class="stakes">
+          <div class="stake win">
+            <span class="ico" aria-hidden="true">✓</span>
+            <div class="stake-text"><b>Win</b>You read the binding clear and find a way to bend the awakening to your will.</div>
+          </div>
+          <div class="stake lose">
+            <span class="ico" aria-hidden="true">✕</span>
+            <div class="stake-text"><b>Lose</b>The runes burn your skin. The altar wakes on its own terms.</div>
+          </div>
+        </div>
+
+        <div class="gm-controls">
+          <button class="btn-quiet">Close</button>
+          <button class="btn-quiet btn-danger">Cancel</button>
+        </div>
+
+        <span class="annotation" style="top:-8px; right:-216px;">
+          <span class="note"><b>Fix · Stakes copy</b>Win/lose lines now read at full contrast. They were at /50 opacity (~2.8:1) — too quiet for the line that says you might die.</span>
+        </span>
+      </div>
+
+      <!-- OOC chat -->
+      <div class="msg">
+        <span class="who"><span class="player" style="color:var(--t-amethyst)">James</span> · Kaelen</span>
+        <div class="bubble">careful w/ those runes lyra, last time we got "free" magic it ate a finger 🫠</div>
+      </div>
+
+      <div class="msg mine">
+        <span class="who"><span class="player" style="color:var(--t-gold)">Alex (GM)</span></span>
+        <div class="bubble">Take your time. The altar isn't going anywhere — yet.</div>
+      </div>
+
+    </div>
+
+    <!-- Chat input with VISIBLE send button -->
+    <div class="chat-input">
+      <form id="chat-form" onsubmit="event.preventDefault();">
+        <input type="text" id="chat-text" placeholder="Message party (OOC)…" aria-label="Message party out of character" />
+        <button class="send-btn" type="submit" aria-label="Send message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </form>
+      <span class="annotation" style="bottom:60px; right:-220px;">
+        <span class="note"><b>Fix · Visible send</b>Was Enter-only with no affordance. New users couldn't find how to send.</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER: Story Canvas ============ -->
+  <main class="canvas">
+    <div class="canvas-bg" aria-hidden="true"></div>
+
+    <div class="canvas-tools">
+      <button class="tool-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+        World Map
+      </button>
+    </div>
+
+    <div class="canvas-scroll">
+      <article class="story">
+        <h1>The Obsidian Crown — Session&nbsp;I</h1>
+        <div class="session-meta"><span>Active · Tales of the Shattered City</span></div>
+
+        <p class="opening">The Obsidian Crown had been lost for three hundred years, buried with its last king beneath the Shattered City. Tonight, prophecy says, it stirs.</p>
+
+        <div class="prose">
+          <p>Moonlight filters through cracked arches across the throne room floor. At the far end, a stone altar pulses with a faint, sickly light. Carved runes wind across its base, dim but waiting.</p>
+          <p><span class="lyra">Lyra</span> <em>approaches the altar slowly, fingertips brushing the runes as if testing the temperature of a flame.</em></p>
+          <p><span class="kaelen">Kaelen</span> called out, "Is that blood on the blade?"<span class="caret"></span></p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Floor Round — pinned to VIEWPORT bottom, not scroll bottom -->
+    <div class="floor-round-shelf">
+      <div class="floor-round">
+        <div class="head">
+          <div>
+            <div class="label">Crossroads · Table Vote + Audience Pulse</div>
+            <p class="prompt">The altar splits open. What does the party do?</p>
+          </div>
+          <span class="status-pill">Voting</span>
+        </div>
+
+        <div class="vote-tally">
+          <span class="primary">1<span style="color:var(--t-text-tertiary); font-weight:400;"> / 3</span></span>
+          <span class="label-votes">Table votes</span>
+          <span class="pulse">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span class="num">30</span><span class="label">audience</span>
+          </span>
+        </div>
+
+        <div class="submissions">
+          <div class="submission leading">
+            <span class="who kaelen">Kaelen · <span class="name">Action</span></span>
+            <p class="content">draws his blade and steps between Lyra and the altar, ready for whatever crawls out of the dark.</p>
+            <div class="meta">
+              <span class="votes">1</span>
+              <span class="vote-label">Vote</span>
+              <span class="pulse-mini">⌁ 12</span>
+            </div>
+          </div>
+          <div class="submission zero">
+            <span class="who elara">Elara · <span class="name">Describe</span></span>
+            <p class="content">The dead in the walls start whispering at once. Elara raises a hand — not to fight, but to listen.</p>
+            <div class="meta">
+              <span class="votes">0</span>
+              <span class="vote-label">Votes</span>
+              <span class="pulse-mini">⌁ 18</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn-quiet">Close vote</button>
+          <button class="btn-primary">Canonize leading</button>
+        </div>
+
+        <span class="annotation" style="top:-14px; left:50%; transform:translate(-50%, -100%);">
+          <span class="note"><b>Fix · Vote hierarchy</b>Table votes are the decision — now they get display-serif weight in gold. Audience pulse sits subordinate in amethyst. Reading "who's winning" no longer requires squinting at 10px tags.</span>
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ RIGHT: GM Dashboard ============ -->
+  <aside class="gm-dash" aria-label="Game Master dashboard">
+    <header>
+      <div class="badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div class="title">Game Master</div>
+        <div class="role">Dashboard</div>
+      </div>
+    </header>
+
+    <div class="gm-body">
+
+      <!-- Tension Clocks — empty state demoted to a one-line affordance -->
+      <section>
+        <button class="clocks-empty" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add tension clock
+        </button>
+        <span class="annotation" style="right:330px; top:18px;">
+          <span class="note"><b>Fix · Demoted empty state</b>"No tension clocks yet." was eating an 80px section. Now it's one quiet button that promotes itself when used.</span>
+        </span>
+      </section>
+
+      <!-- Party Status — compact cards, kebab for destructive actions -->
+      <section>
+        <div class="section-eyebrow">Party</div>
+        <div class="party" style="margin-top:10px;">
+
+          <div class="party-card lyra">
+            <span class="avatar">L</span>
+            <div class="info">
+              <div class="name">Lyra Varen</div>
+              <div class="quote">"Trusts chemicals more than people"</div>
+            </div>
+            <button class="kebab" aria-label="More for Lyra" data-kebab>
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              <div class="kebab-menu">
+                <button type="button">View sheet</button>
+                <button type="button">Pass the spotlight</button>
+                <button type="button" class="danger">They depart…</button>
+                <button type="button" class="danger">Their story ends…</button>
+              </div>
+            </button>
+          </div>
+
+          <div class="party-card kaelen">
+            <span class="avatar">K</span>
+            <div class="info">
+              <div class="name">Kaelen Vex</div>
+              <div class="quote">"Wears his oaths heavier than his sword"</div>
+            </div>
+            <button class="kebab" aria-label="More for Kaelen" data-kebab>
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              <div class="kebab-menu">
+                <button type="button">View sheet</button>
+                <button type="button">Pass the spotlight</button>
+                <button type="button" class="danger">They depart…</button>
+                <button type="button" class="danger">Their story ends…</button>
+              </div>
+            </button>
+          </div>
+
+          <div class="party-card elara">
+            <span class="avatar">E</span>
+            <div class="info">
+              <div class="name">Elara Moss</div>
+              <div class="quote">"Walks with one foot in the world after"</div>
+            </div>
+            <button class="kebab" aria-label="More for Elara" data-kebab>
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              <div class="kebab-menu">
+                <button type="button">View sheet</button>
+                <button type="button">Pass the spotlight</button>
+                <button type="button" class="danger">They depart…</button>
+                <button type="button" class="danger">Their story ends…</button>
+              </div>
+            </button>
+          </div>
+
+        </div>
+        <span class="annotation" style="right:330px; top:160px;">
+          <span class="note"><b>Fix · Destructive actions tucked</b>"They depart" and "Their story ends" used to sit at the same affordance level as "Approaches." Now they require a kebab + confirm.</span>
+        </span>
+      </section>
+
+      <!-- Direct Actions — grouped, elevated primary -->
+      <section>
+        <div class="section-eyebrow">Direct Actions</div>
+
+        <!-- Group 1: Action (primary) -->
+        <div style="margin-top:14px;">
+          <div class="group-label">Call</div>
+          <div class="actions-list">
+            <button class="action primary" type="button">
+              <span class="icon-tile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </span>
+              <span class="copy">
+                <span class="title">Moment of Truth</span>
+                <span class="desc">Request a roll · with stakes</span>
+              </span>
+              <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Group 2: Pacing -->
+        <div style="margin-top:16px;">
+          <div class="group-label">Pacing</div>
+          <div class="actions-list">
+            <button class="action" type="button">
+              <span class="icon-tile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="9 6 4 12 9 18"/><polyline points="15 6 20 12 15 18"/></svg>
+              </span>
+              <span class="copy">
+                <span class="title">Scene Break</span>
+                <span class="desc">Mark a new beat · set mood + aspects</span>
+              </span>
+              <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </button>
+            <button class="action" type="button">
+              <span class="icon-tile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </span>
+              <span class="copy">
+                <span class="title">Story Moment</span>
+                <span class="desc">Cinematic overlay · for big beats</span>
+              </span>
+              <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Group 3: Atmosphere -->
+        <div style="margin-top:16px;">
+          <div class="group-label">Atmosphere</div>
+          <div class="actions-list">
+            <button class="action" type="button">
+              <span class="icon-tile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </span>
+              <span class="copy">
+                <span class="title">Set the Scene</span>
+                <span class="desc">Drop an illustration</span>
+              </span>
+              <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </button>
+            <button class="action" type="button">
+              <span class="icon-tile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 13 10 21 10"/><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              </span>
+              <span class="copy">
+                <span class="title">Force an Event</span>
+                <span class="desc">Inject an unexpected turn</span>
+              </span>
+              <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </button>
+          </div>
+        </div>
+
+        <span class="annotation" style="right:330px; top:360px;">
+          <span class="note"><b>Fix · Grouped &amp; elevated</b>Five identical-weight CTAs flattened. Now: Call (primary, gold), Pacing, Atmosphere. Each has an icon for shape-level recognition, not just color.</span>
+        </span>
+      </section>
+
+    </div>
+  </aside>
+
+</div>
+
+<!-- =================== Annotations toggle =================== -->
+<button class="annotations-toggle" type="button" id="ann-toggle" title="Toggle explanatory callouts on each change">
+  <span class="dot"></span>
+  Show callouts
+</button>
+
+<script>
+// View-as switching (visual only — toggles active state)
+document.querySelectorAll('.view-as button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.view-as button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Kebab menus — close on outside click
+document.querySelectorAll('[data-kebab]').forEach(k => {
+  k.addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.kebab.open').forEach(o => { if (o !== k) o.classList.remove('open'); });
+    k.classList.toggle('open');
+  });
+});
+document.addEventListener('click', () => {
+  document.querySelectorAll('.kebab.open').forEach(o => o.classList.remove('open'));
+});
+
+// Chat — visual feedback that send works
+const chatForm = document.getElementById('chat-form');
+const chatText = document.getElementById('chat-text');
+chatForm.addEventListener('submit', () => {
+  const v = chatText.value.trim();
+  if (!v) return;
+  const log = document.querySelector('.log-body');
+  const div = document.createElement('div');
+  div.className = 'msg mine';
+  div.innerHTML = '<span class="who"><span class="player" style="color:var(--t-gold)">You</span></span><div class="bubble"></div>';
+  div.querySelector('.bubble').textContent = v;
+  log.appendChild(div);
+  chatText.value = '';
+  log.scrollTop = log.scrollHeight;
+});
+
+// Vote submissions — visual click feedback
+document.querySelectorAll('.submission').forEach(s => {
+  s.addEventListener('click', () => {
+    document.querySelectorAll('.submission').forEach(o => o.classList.remove('leading'));
+    s.classList.add('leading');
+    s.classList.remove('zero');
+  });
+});
+
+// Annotations toggle
+const annToggle = document.getElementById('ann-toggle');
+annToggle.addEventListener('click', () => {
+  document.body.classList.toggle('no-annotations');
+});
+</script>
+
+</body>
+</html>

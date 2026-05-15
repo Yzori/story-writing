@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Editor UI Structure Mock-up</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --void: #0d0b0a;
+        --ink: #14100e;
+        --surface: #1c1714;
+        --elevated: #261f1a;
+        --subtle: #332a23;
+        --paper: #f4ead8;
+        --text: #d8c9b4;
+        --muted: #a8957d;
+        --ghost: #6f6254;
+        --border: rgba(244, 234, 216, 0.09);
+        --amber: #d6a84f;
+        --sage: #88a77a;
+        --rose: #d47a7a;
+        --lavender: #a89ad8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 20% 0%, rgba(214, 168, 79, 0.08), transparent 30%),
+          linear-gradient(135deg, var(--void), #090807 60%, #100d0b);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      textarea,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 56px 284px minmax(440px, 1fr) 360px;
+        grid-template-rows: 56px 1fr 58px;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .rail {
+        grid-row: 1 / 4;
+        border-right: 1px solid var(--border);
+        background: rgba(13, 11, 10, 0.82);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px 8px;
+        gap: 10px;
+      }
+
+      .mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        color: var(--void);
+        background: var(--amber);
+        font-family: Georgia, serif;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+
+      .rail-button {
+        width: 38px;
+        height: 38px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--ghost);
+        display: grid;
+        place-items: center;
+        transition: 160ms ease;
+      }
+
+      .rail-button:hover,
+      .rail-button.active {
+        color: var(--paper);
+        background: rgba(244, 234, 216, 0.06);
+        border-color: var(--border);
+      }
+
+      .rail-button.active {
+        color: var(--amber);
+        box-shadow: inset 0 0 0 1px rgba(214, 168, 79, 0.22);
+      }
+
+      .topbar {
+        grid-column: 2 / 5;
+        border-bottom: 1px solid var(--border);
+        background: rgba(20, 16, 14, 0.76);
+        backdrop-filter: blur(20px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 18px;
+      }
+
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .book-title {
+        color: var(--paper);
+        font-family: Georgia, serif;
+        font-size: 17px;
+        white-space: nowrap;
+      }
+
+      .chapter-title {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(244, 234, 216, 0.04);
+        color: var(--muted);
+        padding: 7px 10px;
+        font-size: 12px;
+      }
+
+      .primary {
+        border: 1px solid rgba(214, 168, 79, 0.35);
+        color: var(--amber);
+        background: rgba(214, 168, 79, 0.1);
+      }
+
+      .chapters {
+        grid-column: 2;
+        grid-row: 2 / 4;
+        border-right: 1px solid var(--border);
+        background: rgba(28, 23, 20, 0.76);
+        padding: 18px;
+        overflow: auto;
+      }
+
+      .section-label {
+        color: var(--ghost);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin: 0 0 10px;
+      }
+
+      .chapter-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .chapter-row {
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--muted);
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        padding: 10px;
+        text-align: left;
+      }
+
+      .chapter-row.active {
+        border-color: rgba(214, 168, 79, 0.28);
+        background: rgba(214, 168, 79, 0.07);
+        color: var(--paper);
+      }
+
+      .chapter-row:hover {
+        background: rgba(244, 234, 216, 0.05);
+      }
+
+      .chapter-number {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--ghost);
+        font-size: 11px;
+      }
+
+      .chapter-name {
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .word-count {
+        color: var(--ghost);
+        font-size: 11px;
+      }
+
+      .workspace {
+        grid-column: 3;
+        grid-row: 2;
+        overflow: auto;
+        padding: 44px 52px 90px;
+      }
+
+      .paper {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
+      .chapter-kicker {
+        color: var(--amber);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        margin-bottom: 12px;
+      }
+
+      h1 {
+        margin: 0 0 28px;
+        color: var(--paper);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(34px, 4vw, 54px);
+        line-height: 1.04;
+        font-weight: 500;
+      }
+
+      .manuscript {
+        color: #e8dcc8;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 21px;
+        line-height: 1.84;
+      }
+
+      .manuscript p {
+        margin: 0 0 24px;
+      }
+
+      .sidepanel {
+        grid-column: 4;
+        grid-row: 2 / 4;
+        border-left: 1px solid var(--border);
+        background: rgba(28, 23, 20, 0.9);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .panel-head {
+        padding: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .panel-title {
+        color: var(--paper);
+        font-size: 14px;
+        font-weight: 650;
+        margin: 0;
+      }
+
+      .panel-copy {
+        color: var(--ghost);
+        font-size: 12px;
+        line-height: 1.5;
+        margin: 5px 0 0;
+      }
+
+      .panel-body {
+        padding: 18px;
+        overflow: auto;
+        display: grid;
+        gap: 14px;
+      }
+
+      .tool-card {
+        border: 1px solid var(--border);
+        background: rgba(244, 234, 216, 0.035);
+        border-radius: 12px;
+        padding: 13px;
+      }
+
+      .tool-card strong {
+        color: var(--paper);
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      .tool-card span,
+      .tool-card p {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .beat {
+        border-left: 1px solid rgba(214, 168, 79, 0.32);
+        padding-left: 12px;
+      }
+
+      .beat + .beat {
+        margin-top: 12px;
+      }
+
+      .beat-title {
+        color: var(--paper);
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+
+      .beat-note {
+        color: var(--ghost);
+        font-size: 12px;
+        line-height: 1.4;
+        margin: 0;
+      }
+
+      .statusbar {
+        grid-column: 3;
+        grid-row: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .status-pill {
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        border: 1px solid var(--border);
+        background: rgba(20, 16, 14, 0.82);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+        border-radius: 999px;
+        padding: 10px 16px;
+      }
+
+      .metric {
+        display: grid;
+        gap: 2px;
+      }
+
+      .metric b {
+        color: var(--paper);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+      }
+
+      .metric span {
+        color: var(--ghost);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--sage);
+        box-shadow: 0 0 16px rgba(136, 167, 122, 0.5);
+      }
+
+      .map-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .map-row {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 30px 1fr;
+        gap: 10px;
+      }
+
+      .small-button {
+        border: 1px solid var(--border);
+        background: rgba(244, 234, 216, 0.04);
+        color: var(--muted);
+        border-radius: 9px;
+        padding: 8px 10px;
+        font-size: 12px;
+        text-align: left;
+      }
+
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: 52px 230px minmax(360px, 1fr);
+        }
+
+        .sidepanel {
+          position: fixed;
+          right: 16px;
+          top: 72px;
+          bottom: 72px;
+          width: 340px;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+        }
+
+        .topbar {
+          grid-column: 2 / 4;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <nav class="rail" aria-label="Editor modes">
+        <div class="mark">I</div>
+        <button class="rail-button active" data-mode="write" title="Write" aria-label="Write">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+            <path d="M13 7l4 4" />
+          </svg>
+        </button>
+        <button class="rail-button" data-mode="plan" title="Plan" aria-label="Plan">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M5 5h14M5 12h14M5 19h9" />
+          </svg>
+        </button>
+        <button class="rail-button" data-mode="review" title="Review" aria-label="Review">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9z" />
+          </svg>
+        </button>
+        <button class="rail-button" data-mode="prepare" title="Prepare" aria-label="Prepare">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 3h12l4 4v14H4V3z" />
+            <path d="M16 3v5h5M8 13h8M8 17h5" />
+          </svg>
+        </button>
+        <button class="rail-button" data-mode="publish" title="Publish" aria-label="Publish">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3v13" />
+            <path d="M7 8l5-5 5 5" />
+            <path d="M5 21h14" />
+          </svg>
+        </button>
+      </nav>
+
+      <header class="topbar">
+        <div class="crumb">
+          <div class="book-title">The Lantern Archive</div>
+          <div class="chapter-title">Chapter 04: The Door Under Rain</div>
+        </div>
+        <div class="top-actions">
+          <button class="pill">Search</button>
+          <button class="pill">Command K</button>
+          <button class="pill primary">Share draft</button>
+        </div>
+      </header>
+
+      <aside class="chapters" aria-label="Book navigation">
+        <p class="section-label">Book navigation</p>
+        <div class="chapter-list">
+          <button class="chapter-row">
+            <span class="chapter-number">01</span>
+            <span class="chapter-name">Ash in the Library</span>
+            <span class="word-count">2.4k</span>
+          </button>
+          <button class="chapter-row">
+            <span class="chapter-number">02</span>
+            <span class="chapter-name">A Bell Without a Tower</span>
+            <span class="word-count">3.1k</span>
+          </button>
+          <button class="chapter-row">
+            <span class="chapter-number">03</span>
+            <span class="chapter-name">The Orchard Pact</span>
+            <span class="word-count">2.8k</span>
+          </button>
+          <button class="chapter-row active">
+            <span class="chapter-number">04</span>
+            <span class="chapter-name">The Door Under Rain</span>
+            <span class="word-count">1.9k</span>
+          </button>
+          <button class="chapter-row">
+            <span class="chapter-number">05</span>
+            <span class="chapter-name">Salt Names</span>
+            <span class="word-count">0.6k</span>
+          </button>
+        </div>
+
+        <div style="height: 22px"></div>
+        <p class="section-label">Story map preview</p>
+        <div class="tool-card">
+          <strong>Act I is 68 percent drafted</strong>
+          <span>Use Plan mode for chapter structure and continuity.</span>
+        </div>
+      </aside>
+
+      <section class="workspace" aria-label="Writing canvas">
+        <article class="paper">
+          <div class="chapter-kicker">Draft chapter</div>
+          <h1>The Door Under Rain</h1>
+          <div class="manuscript" contenteditable="true" aria-label="Manuscript editor">
+            <p>
+              Mira waited until the last lamp in the arcade guttered out. Rain gathered in the glass roof above her,
+              making a trembling ceiling of black water and gold reflections.
+            </p>
+            <p>
+              The door was not there when she looked directly at it. It preferred the corner of the eye, the half-held
+              breath, the moment when a person was almost brave enough to leave.
+            </p>
+            <p>
+              In her pocket, the sealed letter warmed like a coal. She had promised not to open it. She had also
+              promised not to come here alone.
+            </p>
+          </div>
+        </article>
+      </section>
+
+      <aside class="sidepanel" aria-label="Context panel">
+        <div class="panel-head">
+          <p class="panel-title" id="panel-title">Chapter beats</p>
+          <p class="panel-copy" id="panel-copy">Private scene notes for this chapter only.</p>
+        </div>
+        <div class="panel-body" id="panel-body"></div>
+      </aside>
+
+      <footer class="statusbar" aria-label="Writing status">
+        <div class="status-pill">
+          <div class="metric">
+            <b>842 / 1,000</b>
+            <span>Today</span>
+          </div>
+          <div class="metric">
+            <b>1,943</b>
+            <span>Chapter</span>
+          </div>
+          <div class="metric">
+            <b>10,842</b>
+            <span>Total</span>
+          </div>
+          <div class="metric">
+            <b style="display: flex; align-items: center; gap: 7px"><i class="status-dot"></i> Saved</b>
+            <span>Status</span>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const panels = {
+        write: {
+          title: "Chapter beats",
+          copy: "Private scene notes for this chapter only.",
+          body: `
+            <div class="beat">
+              <p class="beat-title">Mira reaches the hidden arcade</p>
+              <p class="beat-note">Re-establish the rain motif and her guilt about coming alone.</p>
+            </div>
+            <div class="beat">
+              <p class="beat-title">The letter reacts to the door</p>
+              <p class="beat-note">Make this feel uncanny, not technical. The promise matters.</p>
+            </div>
+            <div class="tool-card">
+              <strong>Add beat</strong>
+              <span>Example: The door asks for a childhood memory.</span>
+            </div>
+          `,
+        },
+        plan: {
+          title: "Plan",
+          copy: "Structure, continuity, and reference material live here.",
+          body: `
+            <button class="small-button">Story map: plan the whole book by chapter</button>
+            <button class="small-button">Story bible: characters, places, lore</button>
+            <button class="small-button">Chapter beats: private notes for this chapter</button>
+            <div class="map-grid">
+              <div class="map-row"><span class="chapter-number">01</span><div><strong>Ash in the Library</strong><p>Inciting mystery, archive rules, first omen.</p></div></div>
+              <div class="map-row"><span class="chapter-number">04</span><div><strong>The Door Under Rain</strong><p>Mira crosses from investigation into consequence.</p></div></div>
+            </div>
+          `,
+        },
+        review: {
+          title: "Review",
+          copy: "Feedback, comments, snapshots, and recovery.",
+          body: `
+            <div class="tool-card"><strong>2 open comments</strong><span>One note on pacing, one continuity question.</span></div>
+            <div class="tool-card"><strong>Version history</strong><span>Last snapshot created 18 minutes ago.</span></div>
+            <div class="tool-card"><strong>Collaborator notes</strong><span>No unresolved team suggestions.</span></div>
+          `,
+        },
+        prepare: {
+          title: "Prepare",
+          copy: "Packaging tools for a manuscript that is almost ready.",
+          body: `
+            <button class="small-button">Cover and details</button>
+            <button class="small-button">Front matter</button>
+            <button class="small-button">Typography</button>
+            <button class="small-button">Export PDF, EPUB, DOCX</button>
+          `,
+        },
+        publish: {
+          title: "Publish",
+          copy: "Visibility, audience, monetization, and launch actions.",
+          body: `
+            <div class="tool-card"><strong>Draft visibility</strong><span>This story is private.</span></div>
+            <button class="small-button">Publish settings</button>
+            <button class="small-button">Reader monetization</button>
+            <button class="small-button">Workshop and open calls</button>
+          `,
+        },
+      };
+
+      const title = document.querySelector("#panel-title");
+      const copy = document.querySelector("#panel-copy");
+      const body = document.querySelector("#panel-body");
+      const buttons = Array.from(document.querySelectorAll("[data-mode]"));
+
+      function setMode(mode) {
+        const panel = panels[mode];
+        title.textContent = panel.title;
+        copy.textContent = panel.copy;
+        body.innerHTML = panel.body;
+        buttons.forEach((button) => {
+          button.classList.toggle("active", button.dataset.mode === mode);
+        });
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => setMode(button.dataset.mode));
+      });
+
+      setMode("write");
+    </script>
+  </body>
+</html>

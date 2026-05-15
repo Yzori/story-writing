@@ -9,7 +9,12 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:dev:migrate": "node scripts/baseline-dev-migrations.mjs && npm run db:migrate && node scripts/apply-dev-migrations.mjs",
+    "db:check": "drizzle-kit check",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
@@ -50,6 +55,7 @@
     "drizzle-kit": "^0.31.9",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "playwright": "^1.60.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.0"

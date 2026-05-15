@@ -124,102 +124,121 @@ html, html.theme-dark {
   color-scheme: dark;
 }
 
-/* ─── Gallery Studio (light) ───────────────────────────────── */
-/*   Apple-minimal. Cool-neutral zinc backgrounds, pure-white    */
-/*   cards, crisp thin borders, soft diffuse shadows. No texture */
-/*   overlay, no radial bloom — the content is the content. The  */
-/*   gold signature reads as refined aged brass, not candlelit.  */
+/* ─── Morning Manuscript (light) ────────────────────────────── */
+/*   Daylight on paper: warm editorial surfaces, umber ink,      */
+/*   archival cards, and brass accents. This keeps the platform  */
+/*   literary without the eye strain or smoky dark-mode residue. */
 
 html.theme-light {
   /* ── Surface layers (back → front) ── */
-  --t-void: #FAFAFA;        /* page bg — zinc-50, barely-there grey */
-  --t-ink: #F4F4F5;         /* subtle zone bg — zinc-100 */
-  --t-surface: #FFFFFF;     /* cards — pure crisp white */
-  --t-elevated: #FFFFFF;    /* modals, popovers — pure white */
-  --t-subtle: #E4E4E7;      /* pills, hover states — zinc-200 */
+  --t-void: #F3EDE2;        /* page bg — warm manuscript paper */
+  --t-ink: #EDE4D6;         /* app zones — slightly deeper vellum */
+  --t-surface: #FBF7EF;     /* panels — clean ivory */
+  --t-elevated: #FFFDF8;    /* cards, inputs, modals — lifted paper */
+  --t-subtle: #E6D9C8;      /* pills, hover states, dividers */
 
-  /* ── Text hierarchy (strongest → ghost) — cool zinc neutrals ── */
-  --t-paper: #09090B;       /* primary — zinc-950 near-black */
-  --t-text: #3F3F46;        /* body — zinc-700 */
-  --t-text-secondary: #71717A;  /* secondary — zinc-500 */
-  --t-text-tertiary: #A1A1AA;   /* tertiary — zinc-400 */
-  --t-text-ghost: #D4D4D8;      /* muted — zinc-300 (decorative only) */
+  /* ── Text hierarchy (strongest → ghost) — warm ink neutrals ── */
+  --t-paper: #201813;       /* primary — deep umber ink */
+  --t-text: #4A3D33;        /* body — readable warm brown */
+  --t-text-secondary: #75675A;
+  --t-text-tertiary: #9A8C7C;
+  --t-text-ghost: #B8AA98;
 
-  /* ── Gold signature — refined aged brass, slightly cooler to
-        sit gracefully on a zinc-neutral palette ── */
-  --t-gold: #A8822C;        /* aged brass — quieter than candlelit gold */
-  --t-gold-soft: #A8822C1A;
-  --t-gold-glow: #A8822C0D;
-  --t-gold-light: #C69A3A;
-  --t-gold-dark: #7D6220;
+  /* ── Brass signature — editorial, aged, not neon candlelight ── */
+  --t-gold: #A66F18;
+  --t-gold-soft: #A66F181F;
+  --t-gold-glow: #A66F1812;
+  --t-gold-light: #C58B2A;
+  --t-gold-dark: #73480E;
 
-  /* ── Accents — restrained saturation, precise on white ── */
-  --t-ruby: #B04456;
-  --t-emerald: #2F7A50;
-  --t-amethyst: #6B4FA8;
-  --t-copper: #B85A2E;
-  --t-teal: #1E6F7A;
+  /* ── Accents — natural ink colors on paper ── */
+  --t-ruby: #A84D5F;
+  --t-emerald: #4F7D62;
+  --t-amethyst: #6F5AA8;
+  --t-copper: #A45C32;
+  --t-teal: #467D82;
 
-  /* ── Legacy slots — aligned to the zinc palette so older
-        components don't introduce warm biscuit pockets ── */
-  --t-charcoal: #F4F4F5;    /* was dark-alt bg → light zone (zinc-100) */
-  --t-espresso: #E4E4E7;    /* was deeper bg → zinc-200 */
-  --t-walnut: #D4D4D8;      /* scrollbar thumb → zinc-300 */
-  --t-linen: #09090B;       /* inverts — now dark accent (zinc-950) */
-  --t-cream: #18181B;       /* inverts — zinc-900 */
-  --t-parchment: #52525B;   /* warm mid → zinc-600 */
+  /* ── Legacy slots — warm equivalents for older components ── */
+  --t-charcoal: #EDE4D6;
+  --t-espresso: #DFD1BD;
+  --t-walnut: #CBB89F;
+  --t-linen: #201813;
+  --t-cream: #33261D;
+  --t-parchment: #6B5B4D;
 
-  /* ── Borders — thin, precise, cool neutral ── */
-  --t-border: rgba(9, 9, 11, 0.08);
-  --t-border-subtle: rgba(9, 9, 11, 0.05);
-  --t-border-active: rgba(9, 9, 11, 0.16);
+  /* ── Borders — printed edges, not grey wireframes ── */
+  --t-border: rgba(74, 54, 30, 0.13);
+  --t-border-subtle: rgba(74, 54, 30, 0.08);
+  --t-border-active: rgba(74, 54, 30, 0.24);
   --t-backdrop-opacity: 0.40;
 
-  /* ── Shadows — soft, diffuse, Apple-hardware feel ── */
+  /* ── Shadows — soft paper lift ── */
   --t-shadow-card:
-    0 1px 2px rgba(9, 9, 11, 0.04),
-    0 4px 16px rgba(9, 9, 11, 0.04);
+    0 1px 2px rgba(74, 54, 30, 0.05),
+    0 8px 24px rgba(74, 54, 30, 0.06);
   --t-shadow-card-hover:
-    0 2px 4px rgba(9, 9, 11, 0.05),
-    0 12px 32px rgba(9, 9, 11, 0.08),
-    0 24px 64px rgba(9, 9, 11, 0.06);
+    0 2px 4px rgba(74, 54, 30, 0.06),
+    0 16px 38px rgba(74, 54, 30, 0.10);
   --t-shadow-elevated:
-    0 1px 3px rgba(9, 9, 11, 0.05),
-    0 8px 24px rgba(9, 9, 11, 0.06);
+    0 1px 3px rgba(74, 54, 30, 0.06),
+    0 10px 28px rgba(74, 54, 30, 0.08);
   --t-shadow-modal:
-    0 2px 6px rgba(9, 9, 11, 0.06),
-    0 16px 48px rgba(9, 9, 11, 0.10),
-    0 48px 96px rgba(9, 9, 11, 0.14),
-    0 0 0 1px rgba(9, 9, 11, 0.05);
+    0 2px 6px rgba(74, 54, 30, 0.08),
+    0 20px 52px rgba(74, 54, 30, 0.14),
+    0 0 0 1px rgba(74, 54, 30, 0.07);
 
   /* ── Overlays & effects ── */
   --t-vignette: transparent;
-  --t-card-bg: rgba(255, 255, 255, 0.72);
-  --t-card-bg-fallback: linear-gradient(135deg, #FFFFFF, #FAFAFA);
-  --t-veil: #09090B;
-  --t-veil-50: rgba(9, 9, 11, 0.45);
-  --t-veil-40: rgba(9, 9, 11, 0.35);
-  --t-veil-90: rgba(9, 9, 11, 0.85);
+  --t-card-bg: rgba(255, 253, 248, 0.78);
+  --t-card-bg-fallback: linear-gradient(135deg, #FFFDF8, #FBF7EF);
+  --t-veil: #201813;
+  --t-veil-50: rgba(32, 24, 19, 0.42);
+  --t-veil-40: rgba(32, 24, 19, 0.32);
+  --t-veil-90: rgba(32, 24, 19, 0.82);
 
   color-scheme: light;
 }
 
-/* ── Light-mode: flat, minimal, no atmospheric effects ── */
-/*    Apple-premium means restraint. No radial glows, no paper     */
-/*    grain — let shadows and typography carry the weight.         */
+/* ── Light-mode: warm paper atmosphere ── */
 
 html.theme-light body {
-  background: #FAFAFA;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(166, 111, 24, 0.08), transparent 36rem),
+    linear-gradient(180deg, #F8F2E8 0%, #F3EDE2 100%);
 }
 
 html.theme-light body::before {
-  /* Kill the radial vignette entirely in light mode */
+  /* No dark edge vignette in light mode */
   background: none;
 }
 
 html.theme-light body::after {
-  /* Kill the paper grain — it fights the minimal aesthetic */
-  opacity: 0;
+  /* A barely visible fiber texture keeps large writing surfaces tactile. */
+  opacity: 0.018;
+}
+
+/* ── Light-mode compatibility for dark-mode glass utilities ── */
+/* Many older surfaces were designed on dark backgrounds with bg-black/*.
+   In Morning Manuscript those should read as translucent paper, while
+   full-screen backdrops and image treatments can keep their own intent. */
+
+html.theme-light [class*="bg-black/"]:not([class*="fixed"]):not([class*="inset-0"]) {
+  background-color: rgba(255, 253, 248, 0.72) !important;
+}
+
+html.theme-light [class*="hover:bg-black/"]:hover {
+  background-color: rgba(237, 228, 214, 0.82) !important;
+}
+
+html.theme-light [class*="shadow-"][class*="inset_0_0"] {
+  box-shadow: none !important;
+}
+
+html.theme-light input,
+html.theme-light textarea,
+html.theme-light select {
+  background-color: var(--t-elevated);
+  color: var(--t-paper);
 }
 
 /* ── Theme-aware card image filters ── */
@@ -1300,3 +1319,83 @@ body::after {
 
 .bubble-shout[data-tail="top-left"]::after { left: 15%; }
 .bubble-shout[data-tail="top-right"]::after { right: 15%; }
+
+/* ── Adventure Mode light pass ─────────────────────────────── */
+/* The campaign table is atmospheric in dark mode. In light mode the same
+   smoke, black glass, and inset shadows turn muddy, so this route gets a
+   warmer parchment table treatment while preserving the shared theme tokens. */
+
+html.theme-light .adventure-mode {
+  --adventure-paper-bg: #f3eee5;
+  --adventure-panel-bg: rgba(255, 252, 246, 0.92);
+  --adventure-panel-bg-solid: #fffaf2;
+  --adventure-soft-bg: rgba(120, 88, 42, 0.07);
+  --adventure-ink: #211b16;
+  --adventure-muted: #756d63;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(168, 130, 44, 0.10), transparent 34rem),
+    linear-gradient(180deg, #f8f3ea 0%, var(--adventure-paper-bg) 100%);
+}
+
+html.theme-light .adventure-mode .bg-void,
+html.theme-light .adventure-mode .bg-ink,
+html.theme-light .adventure-mode .bg-surface {
+  background-color: var(--adventure-panel-bg-solid) !important;
+}
+
+html.theme-light .adventure-mode .bg-elevated {
+  background-color: #fffdf8 !important;
+}
+
+html.theme-light .adventure-mode .adventure-cinematic-glow,
+html.theme-light .adventure-mode .adventure-cinematic-shadow,
+html.theme-light .adventure-mode .adventure-mood-vignette {
+  display: none !important;
+}
+
+html.theme-light .adventure-mode .adventure-mood-tint {
+  opacity: 0.18 !important;
+}
+
+html.theme-light .adventure-mode .text-paper {
+  color: var(--adventure-ink) !important;
+}
+
+html.theme-light .adventure-mode .text-text,
+html.theme-light .adventure-mode .text-text-secondary {
+  color: var(--adventure-muted) !important;
+}
+
+html.theme-light .adventure-mode [class*="bg-black/"]:not([class*="fixed"]) {
+  background-color: rgba(255, 250, 242, 0.70) !important;
+}
+
+html.theme-light .adventure-mode [class*="shadow-"][class*="inset_0_0"],
+html.theme-light .adventure-mode [style*="box-shadow"][class*="absolute"][class*="inset-0"] {
+  box-shadow: none !important;
+}
+
+html.theme-light .adventure-mode [class*="shadow-"][class*="-20px_0_50px"],
+html.theme-light .adventure-mode [class*="shadow-"][class*="20px_0_50px"] {
+  box-shadow: none !important;
+}
+
+html.theme-light .adventure-mode [class*="shadow-[0_20px_60px"],
+html.theme-light .adventure-mode [class*="shadow-[0_16px_50px"],
+html.theme-light .adventure-mode [class*="shadow-[0_10px_40px"] {
+  box-shadow:
+    0 1px 2px rgba(74, 54, 30, 0.06),
+    0 18px 46px rgba(74, 54, 30, 0.12) !important;
+}
+
+html.theme-light .adventure-mode .border-border,
+html.theme-light .adventure-mode .border-border-subtle {
+  border-color: rgba(74, 54, 30, 0.12) !important;
+}
+
+html.theme-light .adventure-mode input,
+html.theme-light .adventure-mode textarea,
+html.theme-light .adventure-mode select {
+  background-color: #fffdf8 !important;
+  color: var(--adventure-ink) !important;
+}
