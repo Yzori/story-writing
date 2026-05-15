@@ -80,6 +80,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   guildProfile: one(guildProfiles),
   sentTips: many(inkDropTransactions, { relationName: "sentTips" }),
   receivedTips: many(inkDropTransactions, { relationName: "receivedTips" }),
+  deskNotes: many(deskNotes),
 }));
 
 // ── Stories ──────────────────────────────────────────────────
@@ -2429,5 +2430,54 @@ export const crossroadsVotesRelations = relations(crossroadsVotes, ({ one }) => 
   user: one(users, {
     fields: [crossroadsVotes.userId],
     references: [users.id],
+  }),
+}));
+
+// ── Desk Notes ──────────────────────────────────────────────
+// Short literary posts an author pins to their profile — the
+// commonplace book / margins of the desk. Optional reference to
+// one of their own stories.
+
+export const deskNotes = pgTable(
+  "desk_notes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    storyId: uuid("story_id").references(() => stories.id, {
+      onDelete: "set null",
+    }),
+    isPinned: boolean("is_pinned").notNull().default(false),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_desk_notes_user_feed").on(
+      table.userId,
+      table.deletedAt,
+      table.isPinned,
+      table.createdAt
+    ),
+  ]
+);
+
+export const deskNotesRelations = relations(deskNotes, ({ one }) => ({
+  author: one(users, {
+    fields: [deskNotes.userId],
+    references: [users.id],
+  }),
+  story: one(stories, {
+    fields: [deskNotes.storyId],
+    references: [stories.id],
   }),
 }));
