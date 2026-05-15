@@ -179,12 +179,13 @@ export default function StoryBiblePanel({
   );
 
   useEffect(() => {
+    const timers = patchTimers.current;
     return () => {
       // Cancel all pending debounced patches on unmount
-      for (const timer of patchTimers.current.values()) {
+      for (const timer of timers.values()) {
         clearTimeout(timer);
       }
-      patchTimers.current.clear();
+      timers.clear();
     };
   }, []);
 
@@ -356,6 +357,21 @@ export default function StoryBiblePanel({
     return notes;
   }, [bible.notes, noteFilter, matchesSearch, matchesTags]);
 
+  const totalEntries = bible.characters.length + bible.places.length + bible.notes.length;
+  const currentTab = tabs.find((t) => t.key === tab) ?? tabs[0];
+  const addCurrentEntry =
+    tab === "characters"
+      ? handleAddCharacter
+      : tab === "places"
+        ? handleAddPlace
+        : handleAddNote;
+  const addCurrentLabel =
+    tab === "characters"
+      ? "New character"
+      : tab === "places"
+        ? "New place"
+        : "New note";
+
   return (
     <motion.aside
       initial={{ width: 0, opacity: 0 }}
@@ -366,11 +382,17 @@ export default function StoryBiblePanel({
     >
       <div className="min-w-[360px] flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h3 className="text-sm font-medium text-paper">Story Bible</h3>
+        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border">
+          <div>
+            <h3 className="text-sm font-medium text-paper">Story Bible</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
+              Reference characters, places, and continuity while you write.
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
+            aria-label="Close Story Bible"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <line x1="4" y1="4" x2="10" y2="10" />
@@ -379,16 +401,33 @@ export default function StoryBiblePanel({
           </button>
         </div>
 
+        <div className="px-5 py-3 border-b border-border">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-border bg-elevated/40 px-2.5 py-2">
+              <p className="text-[13px] font-mono text-paper">{bible.characters.length}</p>
+              <p className="text-[9px] uppercase tracking-[0.12em] text-text-ghost">Characters</p>
+            </div>
+            <div className="rounded-lg border border-border bg-elevated/40 px-2.5 py-2">
+              <p className="text-[13px] font-mono text-paper">{bible.places.length}</p>
+              <p className="text-[9px] uppercase tracking-[0.12em] text-text-ghost">Places</p>
+            </div>
+            <div className="rounded-lg border border-border bg-elevated/40 px-2.5 py-2">
+              <p className="text-[13px] font-mono text-paper">{bible.notes.length}</p>
+              <p className="text-[9px] uppercase tracking-[0.12em] text-text-ghost">Notes</p>
+            </div>
+          </div>
+        </div>
+
         {/* Tabs */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border bg-void/20 px-2 pt-2">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex-1 px-3 py-2.5 text-[11px] transition-all relative ${
+              className={`flex-1 rounded-t-lg px-3 py-2.5 text-[11px] transition-all relative ${
                 tab === t.key
-                  ? "text-amber"
-                  : "text-text-ghost hover:text-text-secondary"
+                  ? "bg-surface text-amber"
+                  : "text-text-ghost hover:bg-paper/[0.03] hover:text-text-secondary"
               }`}
             >
               {t.label}
@@ -409,7 +448,18 @@ export default function StoryBiblePanel({
         </div>
 
         {/* Search & Tag Filters */}
-        <div className="px-3 pt-2 pb-1 space-y-1.5 border-b border-border">
+        <div className="px-5 pt-3 pb-3 space-y-2 border-b border-border">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">
+              {currentTab.label}
+            </p>
+            <button
+              onClick={addCurrentEntry}
+              className="rounded-full border border-amber/25 bg-amber/[0.06] px-2.5 py-1 text-[11px] font-medium text-amber hover:bg-amber/[0.1] transition-colors"
+            >
+              + {addCurrentLabel}
+            </button>
+          </div>
           {/* Search input */}
           <div className="relative">
             <svg
@@ -429,7 +479,7 @@ export default function StoryBiblePanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${tab}...`}
-              className="w-full h-8 bg-surface border border-border-active rounded-md pl-7 pr-7 text-[12px] text-paper placeholder:text-text-ghost outline-none focus:border-amber/30 transition-colors"
+              className="w-full h-9 bg-elevated border border-border rounded-lg pl-7 pr-7 text-[12px] text-paper placeholder:text-text-ghost outline-none focus:border-amber/30 transition-colors"
             />
             {searchQuery && (
               <button
@@ -482,7 +532,7 @@ export default function StoryBiblePanel({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="flex-1 overflow-y-auto py-3">
           {/* Characters tab */}
           {tab === "characters" && (
             <>
@@ -523,7 +573,6 @@ export default function StoryBiblePanel({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <AddButton label="Add Character" onClick={handleAddCharacter} />
             </>
           )}
 
@@ -565,7 +614,6 @@ export default function StoryBiblePanel({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <AddButton label="Add Place" onClick={handleAddPlace} />
             </>
           )}
 
@@ -626,9 +674,18 @@ export default function StoryBiblePanel({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <AddButton label="Add Note" onClick={handleAddNote} />
             </>
           )}
+        </div>
+
+        <div className="border-t border-border px-5 py-3">
+          <button
+            onClick={addCurrentEntry}
+            className="w-full rounded-xl border border-dashed border-border bg-elevated/30 py-2.5 text-[12px] text-text-secondary hover:border-amber/30 hover:text-amber transition-colors"
+          >
+            + {addCurrentLabel}
+            {totalEntries === 0 && <span className="text-text-ghost"> to start your bible</span>}
+          </button>
         </div>
       </div>
     </motion.aside>
@@ -671,19 +728,6 @@ function NoMatchesState({ onClear }: { onClear: () => void }) {
   );
 }
 
-function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <div className="px-3 py-2">
-      <button
-        onClick={onClick}
-        className="w-full py-2.5 rounded-lg border border-dashed border-border text-[12px] text-text-ghost hover:text-text-secondary hover:border-text-ghost transition-colors"
-      >
-        + {label}
-      </button>
-    </div>
-  );
-}
-
 function CharacterCard({
   character,
   isEditing,
@@ -710,7 +754,9 @@ function CharacterCard({
   };
 
   return (
-    <div data-bible-entry={character.id} className="mx-2 mb-1 rounded-lg border border-transparent hover:bg-subtle/20 transition-all">
+    <div data-bible-entry={character.id} className={`mx-3 mb-2 rounded-xl border bg-elevated/35 transition-all ${
+      isEditing ? "border-amber/25" : "border-border hover:border-border-active hover:bg-elevated/50"
+    }`}>
       {/* Summary row */}
       <button
         onClick={onToggleEdit}
@@ -734,7 +780,7 @@ function CharacterCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] text-text-secondary truncate">
+          <p className="text-[13px] font-medium text-text-secondary truncate">
             {character.name || "Unnamed character"}
           </p>
           {character.description && (
@@ -878,7 +924,9 @@ function PlaceCard({
   };
 
   return (
-    <div className="mx-2 mb-1 rounded-lg border border-transparent hover:bg-subtle/20 transition-all">
+    <div className={`mx-3 mb-2 rounded-xl border bg-elevated/35 transition-all ${
+      isEditing ? "border-amber/25" : "border-border hover:border-border-active hover:bg-elevated/50"
+    }`}>
       <button
         onClick={onToggleEdit}
         className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
@@ -897,7 +945,7 @@ function PlaceCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] text-text-secondary truncate">
+          <p className="text-[13px] font-medium text-text-secondary truncate">
             {place.name || "Unnamed place"}
           </p>
           {place.description && (
@@ -986,7 +1034,9 @@ function NoteCard({
   };
 
   return (
-    <div className="mx-2 mb-1 rounded-lg border border-transparent hover:bg-subtle/20 transition-all">
+    <div className={`mx-3 mb-2 rounded-xl border bg-elevated/35 transition-all ${
+      isEditing ? "border-amber/25" : "border-border hover:border-border-active hover:bg-elevated/50"
+    }`}>
       <button
         onClick={onToggleEdit}
         className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
@@ -999,7 +1049,7 @@ function NoteCard({
           {note.category}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] text-text-secondary truncate">
+          <p className="text-[13px] font-medium text-text-secondary truncate">
             {note.title || "Untitled note"}
           </p>
           {note.content && (

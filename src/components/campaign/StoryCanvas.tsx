@@ -57,8 +57,10 @@ interface StoryCanvasProps {
   onBeginSession?: () => void;
   mapImage?: string | null;
   mapPins?: MapPin[];
+  currentMapPinId?: string | null;
   onAddMapPin?: (pin: Omit<MapPin, "id">) => void;
   onRemoveMapPin?: (pinId: string) => void;
+  onSetCurrentMapPin?: (pinId: string) => void;
   logTurns?: Turn[];
   roster?: SessionRosterEntry[];
   rosterCharacters?: PlayerCharacter[];
@@ -168,13 +170,16 @@ export default function StoryCanvas({
   onBeginSession,
   mapImage,
   mapPins,
+  currentMapPinId,
   onAddMapPin,
   onRemoveMapPin,
+  onSetCurrentMapPin,
   logTurns = [],
   roster,
   rosterCharacters,
   allCharacters,
   onUpdateRoster,
+  spectatorMode = false,
   floorRound = null,
   onCreateFloorRound,
   onSubmitFloorResponse,
@@ -322,34 +327,47 @@ export default function StoryCanvas({
 
   const moodTint = currentMood ? MOOD_TINT_COLORS[currentMood] ?? null : null;
   const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
+  const currentMapPin = mapPins?.find((pin) => pin.id === currentMapPinId) ?? mapPins?.[0] ?? null;
 
   return (
     <div className="flex-1 h-full flex flex-col relative bg-void">
       {/* Map Toggle */}
-      <div className="absolute top-24 right-4 z-50 flex gap-2">
-        <button
-          onClick={() => setShowMap(!showMap)}
-          className={`border rounded-full px-4 py-1.5 text-xs transition-colors flex items-center gap-2 backdrop-blur-md cursor-pointer ${
-            showMap ? "bg-amber text-black border-amber" : "bg-subtle/30 text-text-secondary border-border hover:text-paper hover:bg-subtle/50"
-          }`}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-            <line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" />
-          </svg>
-          {showMap ? "Close Map" : "World Map"}
-        </button>
-      </div>
+      {!showMap && (
+        <div className="absolute right-3 top-3 z-50 flex max-w-[calc(100%-2rem)] flex-col items-end gap-2 sm:right-4 sm:top-28">
+          <button
+            onClick={() => setShowMap(true)}
+            className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-border bg-black/45 px-3 py-2 text-xs text-text-secondary backdrop-blur-md transition-colors hover:bg-subtle/50 hover:text-paper sm:min-h-10 sm:bg-subtle/30 sm:px-4"
+            aria-label={`World Map${mapPins?.length ? ` · ${mapPins.length}` : ""}`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+              <line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" />
+            </svg>
+            <span className="hidden sm:inline">{`World Map${mapPins?.length ? ` · ${mapPins.length}` : ""}`}</span>
+          </button>
+          {currentMapPin && (
+            <button
+              type="button"
+              onClick={() => setShowMap(true)}
+              className="hidden max-w-[260px] rounded-xl border border-amber/20 bg-black/45 px-3 py-2 text-left shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors hover:border-amber/35 hover:bg-amber/10 sm:block"
+              title="Open world map"
+            >
+              <span className="block text-[9px] uppercase tracking-[0.2em] text-amber">Current Location</span>
+              <span className="mt-0.5 block truncate text-[12px] font-medium text-paper">{currentMapPin.label}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Cinematic Background */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-amber/[0.02] blur-[100px] rounded-full mix-blend-screen" />
-        <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]" />
+        <div className="adventure-cinematic-glow absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-amber/[0.02] blur-[100px] rounded-full mix-blend-screen" />
+        <div className="adventure-cinematic-shadow absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]" />
 
         {/* Mood tint overlay — shifts color based on current scene mood */}
         {moodTint && (
           <div
-            className="absolute inset-0 transition-all duration-[3000ms] ease-in-out"
+            className="adventure-mood-tint absolute inset-0 transition-all duration-[3000ms] ease-in-out"
             style={{ backgroundColor: moodTint }}
           />
         )}
@@ -357,7 +375,7 @@ export default function StoryCanvas({
         {/* Mood vignette — darker, more dramatic moods get an edge vignette */}
         {moodVignette && (
           <div
-            className="absolute inset-0 transition-all duration-[3000ms] ease-in-out"
+            className="adventure-mood-vignette absolute inset-0 transition-all duration-[3000ms] ease-in-out"
             style={{
               boxShadow: `inset 0 0 150px 40px ${moodVignette}`,
             }}
@@ -420,7 +438,7 @@ export default function StoryCanvas({
       </AnimatePresence>
 
       {/* Story Canvas */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-16 pb-64 px-12 flex flex-col items-center z-10 relative scroll-smooth" style={{ scrollbarWidth: "none" }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-10 pb-28 px-4 sm:px-8 lg:px-12 flex flex-col items-center z-10 relative scroll-smooth sm:pt-16 sm:pb-36 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
 
         {/* Floating reaction bubbles — positioned above story content */}
         <AnimatePresence>
@@ -453,14 +471,14 @@ export default function StoryCanvas({
 
         {/* Story Content */}
         <div className="w-full max-w-[650px] mb-8">
-          <div className="mb-12">
-            <h1 className="text-4xl font-display text-paper">{sessionTitle}</h1>
-            <div className="w-24 h-[1px] bg-gradient-to-r from-amber/40 to-transparent mt-6 mb-12" />
+          <div className="mb-8 sm:mb-12">
+            <h1 className="text-2xl font-display text-paper sm:text-4xl">{sessionTitle}</h1>
+            <div className="mt-4 mb-8 h-[1px] w-20 bg-gradient-to-r from-amber/40 to-transparent sm:mt-6 sm:mb-12 sm:w-24" />
           </div>
 
           {/* Opening narration */}
           {sessionOpening && (
-            <div className="mb-10 text-[19px] leading-[2.1] font-serif text-paper/60 italic border-l-2 border-amber/20 pl-6">
+            <div className="mb-8 border-l-2 border-amber/20 pl-4 font-serif text-[16px] leading-[1.8] text-paper/60 italic sm:mb-10 sm:pl-6 sm:text-[19px] sm:leading-[2.1]">
               {sessionOpening}
             </div>
           )}
@@ -472,7 +490,7 @@ export default function StoryCanvas({
               </p>
             </div>
           ) : (
-            <div className="text-[19px] leading-[2.1] font-serif space-y-6 break-words">
+            <div className="space-y-5 break-words font-serif text-[17px] leading-[1.85] sm:space-y-6 sm:text-[19px] sm:leading-[2.1]">
               {/* Load earlier turns */}
               {hasEarlierTurns && (
                 <div className="flex justify-center !mb-8">
@@ -517,13 +535,13 @@ export default function StoryCanvas({
                       {groupHasEditable && editingTurnId !== editableTurn.id && (
                         <button
                           onClick={() => handleEditClick(editableTurn)}
-                          className="inline-flex items-center gap-1 ml-2 align-middle opacity-0 group-hover/para:opacity-100 transition-opacity cursor-pointer"
+                          className="inline-flex items-center gap-1 ml-2 align-middle opacity-70 group-hover/para:opacity-100 transition-opacity cursor-pointer"
                           title="Edit (30s window)"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
                             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                           </svg>
-                          <span className="text-[9px] text-amber/30 uppercase tracking-wider">edit</span>
+                          <span className="text-[11px] text-amber/70 uppercase tracking-wider">edit</span>
                         </button>
                       )}
                     </p>
@@ -575,16 +593,18 @@ export default function StoryCanvas({
           )}
         </div>
 
-        <FloorRoundPanel
-          floorRound={floorRound}
-          isGM={isGM}
-          myCharacter={myCharacter ?? null}
-          isActive={isActive}
-          onCreateRound={onCreateFloorRound ?? (async () => {})}
-          onSubmitResponse={onSubmitFloorResponse ?? (async () => {})}
-          onVoteSubmission={onVoteFloorSubmission ?? (async () => {})}
-          onUpdateRound={onUpdateFloorRound ?? (async () => {})}
-        />
+        {!spectatorMode && (
+          <FloorRoundPanel
+            floorRound={floorRound}
+            isGM={isGM}
+            myCharacter={myCharacter ?? null}
+            isActive={isActive}
+            onCreateRound={onCreateFloorRound ?? (async () => {})}
+            onSubmitResponse={onSubmitFloorResponse ?? (async () => {})}
+            onVoteSubmission={onVoteFloorSubmission ?? (async () => {})}
+            onUpdateRound={onUpdateFloorRound ?? (async () => {})}
+          />
+        )}
 
         {/* Draft Box */}
         {canWrite && (
@@ -737,15 +757,17 @@ export default function StoryCanvas({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="absolute inset-x-8 inset-y-8 z-40 bg-ink rounded-3xl border border-amber/20 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+            className="absolute inset-0 z-40 flex flex-col overflow-hidden border border-amber/20 bg-ink shadow-[0_20px_60px_rgba(0,0,0,0.8)] sm:inset-x-8 sm:inset-y-8 sm:rounded-3xl"
           >
             <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] pointer-events-none" />
             <LoreMap
               mapImage={mapImage ?? null}
               pins={mapPins ?? []}
               isGM={isGM}
+              currentPinId={currentMapPinId}
               onAddPin={onAddMapPin ?? (() => {})}
               onRemovePin={onRemoveMapPin}
+              onSetCurrentPin={onSetCurrentMapPin}
               onClose={() => setShowMap(false)}
             />
           </motion.div>

@@ -111,7 +111,7 @@ export default function CharacterSheetSection({
                       else next.add(c.id);
                       setExpandedStats(next);
                     }}
-                    className="flex items-center gap-1 mt-1.5 ml-3 text-[9px] text-text-ghost hover:text-text-tertiary transition-colors cursor-pointer"
+                    className="flex min-h-8 items-center gap-1 mt-1.5 ml-3 text-[9px] text-text-secondary hover:text-paper transition-colors cursor-pointer"
                   >
                     <svg
                       width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -143,13 +143,13 @@ export default function CharacterSheetSection({
                 <div className="flex gap-2 mt-2 pt-2 border-t border-border-subtle relative">
                   <button
                     onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "retired" })}
-                    className="text-[9px] text-lavender/50 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
+                    className="min-h-8 rounded-md px-1 text-[9px] text-lavender/80 hover:text-lavender uppercase tracking-wider cursor-pointer transition-colors"
                   >
                     They Depart
                   </button>
                   <button
                     onClick={() => setConfirmAction({ characterId: c.id, characterName: c.name, status: "dead" })}
-                    className="text-[9px] text-rose/50 hover:text-rose uppercase tracking-wider cursor-pointer transition-colors"
+                    className="min-h-8 rounded-md px-1 text-[9px] text-rose/80 hover:text-rose uppercase tracking-wider cursor-pointer transition-colors"
                   >
                     Their Story Ends
                   </button>
@@ -159,7 +159,7 @@ export default function CharacterSheetSection({
                 <div className="flex gap-2 mt-2 pt-2 border-t border-border-subtle">
                   <button
                     onClick={() => onChangeCharacterStatus(c.id, "active")}
-                    className="text-[9px] text-sage/50 hover:text-sage uppercase tracking-wider cursor-pointer transition-colors"
+                    className="min-h-8 rounded-md px-1 text-[9px] text-sage/80 hover:text-sage uppercase tracking-wider cursor-pointer transition-colors"
                   >
                     Revive
                   </button>

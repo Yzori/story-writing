@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { motion, AnimatePresence, useAnimation, useMotionValue } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Compass, MapPin as MapPinIcon, X, Plus } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────
@@ -20,8 +20,10 @@ interface LoreMapProps {
   mapImage: string | null;
   pins: MapPin[];
   isGM: boolean;
+  currentPinId?: string | null;
   onAddPin: (pin: Omit<MapPin, "id">) => void;
   onRemovePin?: (pinId: string) => void;
+  onSetCurrentPin?: (pinId: string) => void;
   onClose: () => void;
 }
 
@@ -55,6 +57,19 @@ function getMoodStyle(mood?: string) {
 
 const MOODS = ["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic"] as const;
 
+const MAP_REGIONS = [
+  { label: "Shattered City", x: 48, y: 33, rotate: -8 },
+  { label: "Ashen Causeway", x: 30, y: 72, rotate: -18 },
+  { label: "Crown Depths", x: 70, y: 39, rotate: 9 },
+  { label: "Whispering Warrens", x: 76, y: 70, rotate: -5 },
+] as const;
+
+const MAP_RUMORS = [
+  "The Crown wakes where royal blood dried.",
+  "Air moving below means a passage survived.",
+  "The dead speak loudest near broken thrones.",
+] as const;
+
 // ── Background Cartography Grid ──────────────────────────────
 
 function NauticalGrid() {
@@ -74,6 +89,124 @@ function NauticalGrid() {
       </defs>
       <rect width="100%" height="100%" fill="url(#grid)" />
       <rect width="100%" height="100%" fill="url(#rhumb)" />
+    </svg>
+  );
+}
+
+function WorldCartography() {
+  return (
+    <svg className="absolute inset-0 h-full w-full pointer-events-none z-0" viewBox="0 0 1000 700" preserveAspectRatio="none">
+      <defs>
+        <filter id="mapInkBleed">
+          <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="7" />
+          <feDisplacementMap in="SourceGraphic" scale="2.5" />
+        </filter>
+        <pattern id="mapHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(-22)">
+          <path d="M0 0 L0 10" stroke="rgba(212,168,67,0.12)" strokeWidth="1" />
+        </pattern>
+      </defs>
+
+      <g filter="url(#mapInkBleed)">
+        <path
+          d="M129 482 C176 426 223 404 298 421 C371 438 398 395 464 338 C539 273 629 250 719 281 C811 313 869 384 884 472 C798 464 737 493 675 541 C609 592 525 599 467 555 C394 500 312 522 238 565 C190 592 146 560 129 482Z"
+          fill="rgba(212,168,67,0.055)"
+          stroke="rgba(212,168,67,0.28)"
+          strokeWidth="2"
+        />
+        <path
+          d="M178 535 C246 493 326 466 419 508 C515 552 610 543 687 486 C755 435 810 416 873 424"
+          fill="none"
+          stroke="rgba(237,232,216,0.16)"
+          strokeWidth="3"
+          strokeDasharray="10 12"
+          strokeLinecap="round"
+        />
+        <path
+          d="M252 170 C303 220 333 269 339 319 C346 380 309 418 265 466"
+          fill="none"
+          stroke="rgba(58,110,122,0.22)"
+          strokeWidth="16"
+          strokeLinecap="round"
+        />
+        <path
+          d="M252 170 C303 220 333 269 339 319 C346 380 309 418 265 466"
+          fill="none"
+          stroke="rgba(237,232,216,0.10)"
+          strokeWidth="2"
+          strokeDasharray="4 10"
+          strokeLinecap="round"
+        />
+        <path
+          d="M598 124 C626 170 646 227 646 285 C646 339 678 384 744 420"
+          fill="none"
+          stroke="rgba(225,29,72,0.16)"
+          strokeWidth="22"
+          strokeLinecap="round"
+        />
+        <path
+          d="M598 124 C626 170 646 227 646 285 C646 339 678 384 744 420"
+          fill="none"
+          stroke="rgba(225,29,72,0.26)"
+          strokeWidth="2"
+          strokeDasharray="12 8"
+          strokeLinecap="round"
+        />
+      </g>
+
+      <g opacity="0.54">
+        {[
+          [566, 240, 30], [598, 214, 26], [628, 246, 34], [655, 220, 24],
+          [694, 260, 31], [718, 231, 22], [745, 278, 25],
+        ].map(([x, y, size], index) => (
+          <path
+            key={`peak-${index}`}
+            d={`M${x - size} ${y + size * 0.7} L${x} ${y - size} L${x + size} ${y + size * 0.7} M${x - size * 0.32} ${y + size * 0.2} L${x} ${y - size * 0.22} L${x + size * 0.32} ${y + size * 0.2}`}
+            fill="rgba(15,14,19,0.22)"
+            stroke="rgba(212,168,67,0.26)"
+            strokeWidth="1.6"
+          />
+        ))}
+      </g>
+
+      <g opacity="0.5">
+        {[
+          [430, 292], [458, 278], [492, 292], [520, 274], [548, 296],
+          [452, 336], [482, 325], [520, 342],
+        ].map(([x, y], index) => (
+          <g key={`ruin-${index}`} transform={`translate(${x} ${y}) rotate(${index % 2 ? 8 : -6})`}>
+            <rect x="-8" y="-10" width="16" height="20" fill="rgba(15,14,19,0.32)" stroke="rgba(237,232,216,0.16)" />
+            <path d="M-12 12 L12 12 M-4 -10 L-4 12 M5 -10 L5 12" stroke="rgba(212,168,67,0.18)" />
+          </g>
+        ))}
+      </g>
+
+      <g opacity="0.38">
+        <path d="M155 608 C230 625 305 604 368 632" fill="none" stroke="rgba(237,232,216,0.18)" strokeWidth="1.5" strokeDasharray="4 7" />
+        <path d="M721 561 C771 537 812 548 860 522" fill="none" stroke="rgba(237,232,216,0.16)" strokeWidth="1.5" strokeDasharray="4 7" />
+        <path d="M107 355 C170 333 238 342 289 301" fill="none" stroke="rgba(237,232,216,0.13)" strokeWidth="1.5" strokeDasharray="4 7" />
+      </g>
+
+      <g>
+        <ellipse cx="650" cy="342" rx="162" ry="104" fill="url(#mapHatch)" opacity="0.5" />
+        <ellipse cx="650" cy="342" rx="162" ry="104" fill="none" stroke="rgba(225,29,72,0.18)" strokeWidth="1.5" strokeDasharray="8 9" />
+        <ellipse cx="305" cy="460" rx="142" ry="84" fill="none" stroke="rgba(129,140,248,0.15)" strokeWidth="1.5" strokeDasharray="6 10" />
+      </g>
+
+      {MAP_REGIONS.map((region) => (
+        <text
+          key={region.label}
+          x={region.x * 10}
+          y={region.y * 7}
+          transform={`rotate(${region.rotate} ${region.x * 10} ${region.y * 7})`}
+          textAnchor="middle"
+          fill="rgba(237,232,216,0.18)"
+          fontSize="22"
+          letterSpacing="7"
+          fontFamily="serif"
+        >
+          {region.label.toUpperCase()}
+        </text>
+      ))}
     </svg>
   );
 }
@@ -104,6 +237,9 @@ function JourneyPaths({ pins, canvasWidth, canvasHeight }: { pins: MapPin[], can
   }, [pins, canvasWidth, canvasHeight]);
 
   if (!pathD) return null;
+  const travelDotStyle: React.CSSProperties & { offsetPath?: string } = {
+    offsetPath: `path('${pathD}')`,
+  };
 
   return (
     <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))' }}>
@@ -111,9 +247,20 @@ function JourneyPaths({ pins, canvasWidth, canvasHeight }: { pins: MapPin[], can
       <motion.path
         d={pathD}
         fill="none"
-        stroke="#78350f"
-        strokeWidth="6"
-        strokeOpacity="0.2"
+        stroke="#1b120b"
+        strokeWidth="10"
+        strokeOpacity="0.42"
+        strokeLinecap="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 2, ease: "easeInOut" }}
+      />
+      <motion.path
+        d={pathD}
+        fill="none"
+        stroke="#f4ebd8"
+        strokeWidth="4"
+        strokeOpacity="0.28"
         strokeLinecap="round"
         initial={{ pathLength: 0 }}
         animate={{ pathLength: 1 }}
@@ -131,6 +278,19 @@ function JourneyPaths({ pins, canvasWidth, canvasHeight }: { pins: MapPin[], can
         animate={{ pathLength: 1 }}
         transition={{ duration: 2, ease: "easeInOut" }}
       />
+      {pins.map((pin, index) => (
+        <text
+          key={`route-step-${pin.id}`}
+          x={(pin.x / 100) * canvasWidth + 20}
+          y={(pin.y / 100) * canvasHeight - 18}
+          fill="rgba(237,232,216,0.34)"
+          fontSize="10"
+          letterSpacing="2"
+          fontFamily="monospace"
+        >
+          {String(index + 1).padStart(2, "0")}
+        </text>
+      ))}
       {/* Animated travel dot */}
       <motion.circle
         r="4"
@@ -139,7 +299,7 @@ function JourneyPaths({ pins, canvasWidth, canvasHeight }: { pins: MapPin[], can
         initial={{ offsetDistance: "0%" }}
         animate={{ offsetDistance: "100%" }}
         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-        style={{ offsetPath: `path('${pathD}')` } as any}
+        style={travelDotStyle}
       />
     </svg>
   );
@@ -295,7 +455,7 @@ function PinTooltip({
       animate={{ opacity: 1, y: 0, rotate: 0 }}
       exit={{ opacity: 0, y: 10, rotate: 2 }}
       transition={{ duration: 0.2, type: "spring", stiffness: 400, damping: 25 }}
-      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 z-40 pointer-events-auto origin-bottom"
+      className="absolute bottom-full left-1/2 z-40 mb-4 hidden -translate-x-1/2 origin-bottom pointer-events-auto sm:block"
     >
       <div className="relative bg-[#f4ebd8] text-[#2c241b] rounded-sm px-5 py-4 min-w-[180px] max-w-[260px] shadow-[0_20px_40px_rgba(0,0,0,0.6),inset_0_0_20px_rgba(0,0,0,0.05)] border border-[#d2c4a7]"
            style={{
@@ -329,7 +489,7 @@ function PinTooltip({
 
         {/* Mood pill (like a wax stamp or strong ink) */}
         {pin.mood && (
-          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[9px] uppercase tracking-wider font-bold text-paper border border-black/20 shadow-sm mb-2`} style={{ backgroundColor: style.fill }}>
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[9px] uppercase tracking-wider font-bold text-paper border border-black/20 shadow-sm mb-2" style={{ backgroundColor: style.fill }}>
             <span className="w-1.5 h-1.5 rounded-full bg-subtle/300" />
             {pin.mood}
           </span>
@@ -338,7 +498,7 @@ function PinTooltip({
         {/* Description in handwritten-ish serif */}
         {pin.description && (
           <p className="text-[13px] text-[#4a3f35] leading-relaxed font-serif italic" style={{ textShadow: "0 1px 0 rgba(255,255,255,0.5)" }}>
-            "{pin.description}"
+            &ldquo;{pin.description}&rdquo;
           </p>
         )}
 
@@ -359,21 +519,33 @@ function PinTooltip({
 function MapPinMarker({
   pin,
   isGM,
+  isCurrent,
+  isSelected,
+  onSelect,
   onRemove,
 }: {
   pin: MapPin;
   isGM: boolean;
+  isCurrent: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
   onRemove?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const style = getMoodStyle(pin.mood);
+  const labelText = isCurrent ? "Here" : pin.label;
 
   return (
     <div
+      data-pin
       className="absolute -translate-x-1/2 -translate-y-1/2 z-20 group"
       style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -382,7 +554,7 @@ function MapPinMarker({
     >
       {/* Tooltip */}
       <AnimatePresence>
-        {hovered && (
+        {(hovered || isSelected) && (
           <PinTooltip pin={pin} isGM={isGM} onRemove={onRemove} />
         )}
       </AnimatePresence>
@@ -396,6 +568,14 @@ function MapPinMarker({
         whileHover={{ scale: 1.15, y: -2 }}
         whileTap={{ scale: 0.95 }}
       >
+        {isCurrent && (
+          <motion.div
+            className="absolute -inset-2 rounded-full border border-amber/70"
+            initial={{ opacity: 0.4, scale: 0.9 }}
+            animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.95, 1.18, 0.95] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+          />
+        )}
         <svg width="32" height="40" viewBox="0 0 32 40" className="drop-shadow-xl" style={{ filter: `drop-shadow(0 8px 6px ${style.stroke})` }}>
           {/* Subtle under-glow */}
            <circle cx="16" cy="36" r="8" fill={style.fill} opacity="0.2" filter="blur(4px)" className="animate-pulse" />
@@ -413,8 +593,12 @@ function MapPinMarker({
       </motion.div>
 
       {/* Embedded Label below pin */}
-      <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-0.5 rounded backdrop-blur-sm bg-black/40 border ${style.border} whitespace-nowrap text-[10px] uppercase tracking-widest font-serif font-bold ${style.text} transition-opacity duration-300 ${hovered ? 'opacity-0' : 'opacity-80'}`} style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>
-        {pin.label}
+      <div
+        className={`absolute left-1/2 top-full mt-1 max-w-[11rem] -translate-x-1/2 truncate rounded border bg-black/40 px-2 py-0.5 font-serif text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm ${style.border} ${style.text} transition-opacity duration-300 ${hovered ? 'opacity-0' : 'opacity-80'} ${isCurrent ? "" : "hidden sm:block"}`}
+        style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}
+        title={labelText}
+      >
+        {labelText}
       </div>
     </div>
   );
@@ -426,14 +610,23 @@ export default function LoreMap({
   mapImage,
   pins,
   isGM,
+  currentPinId,
   onAddPin,
   onRemovePin,
+  onSetCurrentPin,
   onClose,
 }: LoreMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [creatingPin, setCreatingPin] = useState<{ x: number; y: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [pinFormRects, setPinFormRects] = useState<{ container: DOMRect | null; canvas: DOMRect | null }>({
+    container: null,
+    canvas: null,
+  });
+  const [selectedPinId, setSelectedPinId] = useState<string | null>(currentPinId ?? pins[0]?.id ?? null);
+  const selectedPin = pins.find((pin) => pin.id === selectedPinId) ?? null;
+  const currentPin = pins.find((pin) => pin.id === currentPinId) ?? null;
 
   // Pan & Zoom state through framer-motion values
   const [isDragging, setIsDragging] = useState(false);
@@ -451,6 +644,10 @@ export default function LoreMap({
 
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
+      setPinFormRects({
+        container: containerRef.current?.getBoundingClientRect() ?? null,
+        canvas: rect,
+      });
       setCreatingPin({ x, y });
     },
     [isGM, isDragging]
@@ -473,7 +670,7 @@ export default function LoreMap({
         });
     }
     const observer = new ResizeObserver((entries) => {
-        for (let entry of entries) {
+        for (const entry of entries) {
             setCanvasSize({
                 width: entry.contentRect.width,
                 height: entry.contentRect.height
@@ -485,22 +682,27 @@ export default function LoreMap({
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-void" ref={containerRef}>
+    <div className="relative flex flex-col h-full bg-void" ref={containerRef}>
       {/* Floating Header UI */}
-      <div className="absolute top-6 left-6 right-6 z-30 flex justify-between items-start pointer-events-none">
+      <div className="absolute left-3 right-3 top-3 z-30 flex items-start justify-between gap-4 pointer-events-none sm:left-6 sm:right-6 sm:top-6">
          <div className="pointer-events-auto">
-            <h2 className="text-2xl font-display text-amber tracking-[0.3em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            <h2 className="font-display text-base uppercase tracking-[0.18em] text-amber drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] sm:text-2xl sm:tracking-[0.3em]">
                 Known World
             </h2>
-            <div className="h-0.5 w-16 bg-gradient-to-r from-amber to-transparent mt-1" />
+            <div className="mt-1 h-0.5 w-12 bg-gradient-to-r from-amber to-transparent sm:w-16" />
             
             {/* Legend / Info */}
-            <div className="mt-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-xs font-serif text-amber/70 italic drop-shadow-md">
-                   <div className="w-4 h-0.5 bg-amber" /> The party's trail
+            <div className="mt-2 flex flex-col gap-2 sm:mt-4">
+                <div className="hidden items-center gap-2 font-serif text-xs italic text-amber/70 drop-shadow-md sm:flex">
+                   <div className="w-4 h-0.5 bg-amber" /> The party&apos;s trail
                 </div>
+                {currentPin && (
+                  <div className="max-w-[190px] truncate rounded-full border border-amber/25 bg-black/50 px-2.5 py-1 text-[8px] uppercase tracking-widest text-amber backdrop-blur-sm sm:max-w-none sm:px-3 sm:py-1.5 sm:text-[10px]">
+                    Current scene: {currentPin.label}
+                  </div>
+                )}
                 {isGM && (
-                   <div className="flex items-center gap-2 text-[10px] text-text-tertiary uppercase tracking-widest bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border-subtle w-fit mt-2">
+                   <div className="mt-2 hidden w-fit items-center gap-2 rounded-full border border-border-subtle bg-black/40 px-3 py-1.5 text-[10px] uppercase tracking-widest text-text-tertiary backdrop-blur-sm sm:flex">
                      <Plus size={12} className="text-amber" /> Click to map location
                    </div>
                 )}
@@ -509,26 +711,130 @@ export default function LoreMap({
 
          <button 
            onClick={onClose} 
-           className="pointer-events-auto w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-border hover:border-amber/50 hover:bg-amber/10 flex items-center justify-center text-text-secondary hover:text-amber transition-all cursor-pointer shadow-lg"
+           className="pointer-events-auto flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-border bg-black/60 text-text-secondary shadow-lg backdrop-blur-md transition-all hover:border-amber/50 hover:bg-amber/10 hover:text-amber sm:h-10 sm:w-10"
          >
            <X size={20} />
          </button>
       </div>
 
+      {/* Location ledger */}
+      <div className="absolute bottom-6 left-6 z-30 hidden w-[min(360px,calc(100%-3rem))] rounded-xl border border-border bg-black/55 p-3 shadow-[0_16px_50px_rgba(0,0,0,0.65)] backdrop-blur-md sm:block">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-amber font-bold">Known Locations</p>
+          <span className="rounded-full border border-border bg-subtle/20 px-2 py-0.5 text-[9px] uppercase tracking-wider text-text-secondary">
+            {pins.length} marked
+          </span>
+        </div>
+        <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.25)_transparent]">
+          {pins.map((pin) => {
+            const style = getMoodStyle(pin.mood);
+            const isCurrent = pin.id === currentPinId;
+            const isSelected = pin.id === selectedPinId;
+            return (
+              <button
+                key={pin.id}
+                type="button"
+                onClick={() => setSelectedPinId(pin.id)}
+                className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                  isSelected ? "border-amber/35 bg-amber/10" : "border-border-subtle bg-subtle/10 hover:border-border hover:bg-subtle/20"
+                }`}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[12px] font-medium text-paper">{pin.label}</span>
+                    <span className="mt-0.5 block truncate text-[10px] text-text-secondary">
+                      {pin.description ?? "No notes yet."}
+                    </span>
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] uppercase tracking-wider ${isCurrent ? "bg-amber/20 text-amber" : style.pill}`}>
+                    {isCurrent ? "Here" : pin.mood ?? "Known"}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {selectedPin && isGM && onSetCurrentPin && selectedPin.id !== currentPinId && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedPinId(selectedPin.id);
+              onSetCurrentPin(selectedPin.id);
+            }}
+            className="mt-3 min-h-9 w-full rounded-lg border border-amber/25 bg-amber/10 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-amber transition-colors hover:bg-amber hover:text-black"
+          >
+            Set Current Scene Here
+          </button>
+        )}
+      </div>
+
+      {selectedPin && (
+        <div className="absolute bottom-20 left-3 right-3 z-30 rounded-xl border border-border bg-black/65 p-3 shadow-[0_16px_50px_rgba(0,0,0,0.65)] backdrop-blur-md sm:hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[8px] uppercase tracking-[0.18em] text-text-ghost">
+                {selectedPin.id === currentPinId ? "Current Scene" : `${pins.length} Known Locations`}
+              </p>
+              <h3 className="mt-1 truncate text-[13px] font-medium text-paper">{selectedPin.label}</h3>
+              <p className="mt-0.5 truncate font-serif text-[11px] italic text-text-secondary">
+                {selectedPin.description ?? "No notes yet."}
+              </p>
+            </div>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] uppercase tracking-wider ${selectedPin.id === currentPinId ? "bg-amber/20 text-amber" : getMoodStyle(selectedPin.mood).pill}`}>
+              {selectedPin.id === currentPinId ? "Here" : selectedPin.mood ?? "Known"}
+            </span>
+          </div>
+          {isGM && onSetCurrentPin && selectedPin.id !== currentPinId && (
+            <button
+              type="button"
+              onClick={() => onSetCurrentPin(selectedPin.id)}
+              className="mt-2 min-h-8 w-full rounded-lg border border-amber/25 bg-amber/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-amber transition-colors hover:bg-amber hover:text-black"
+            >
+              Set Current Scene
+            </button>
+          )}
+        </div>
+      )}
+
+      {selectedPin && (
+        <div className="absolute bottom-6 right-6 z-30 hidden w-[min(330px,calc(100%-3rem))] rounded-xl border border-amber/20 bg-black/55 p-4 shadow-[0_16px_50px_rgba(0,0,0,0.65)] backdrop-blur-md xl:block">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] uppercase tracking-[0.2em] text-text-secondary">
+                {selectedPin.id === currentPinId ? "Current Scene" : "Mapped Location"}
+              </p>
+              <h3 className="mt-1 truncate font-display text-xl text-paper">{selectedPin.label}</h3>
+            </div>
+            <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] uppercase tracking-wider ${selectedPin.id === currentPinId ? "bg-amber/20 text-amber" : getMoodStyle(selectedPin.mood).pill}`}>
+              {selectedPin.id === currentPinId ? "Here" : selectedPin.mood ?? "Known"}
+            </span>
+          </div>
+          <p className="mt-3 font-serif text-[13px] italic leading-relaxed text-text">
+            {selectedPin.description ?? "No table notes have been etched here yet."}
+          </p>
+          <div className="mt-4 border-t border-border-subtle pt-3">
+            <p className="text-[9px] uppercase tracking-[0.2em] text-amber">Map Rumor</p>
+            <p className="mt-2 font-serif text-[12px] leading-relaxed text-text-secondary">
+              {MAP_RUMORS[Math.abs(selectedPin.label.length + Math.round(selectedPin.x)) % MAP_RUMORS.length]}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Map Viewport */}
       <div className="flex-1 relative z-10 overflow-hidden cursor-grab active:cursor-grabbing">
          {/* Vignette/Fog of War - stationary overlay */}
-         <div className="absolute inset-0 pointer-events-none z-20 shadow-[inset_0_0_150px_100px_rgba(10,8,6,0.95)]" />
+         <div className="absolute inset-0 pointer-events-none z-20 shadow-[inset_0_0_70px_42px_rgba(10,8,6,0.9)] sm:shadow-[inset_0_0_150px_100px_rgba(10,8,6,0.95)]" />
          
          {/* Draggable/Zoomable Canvas */}
          <motion.div
            ref={canvasRef}
-           className="relative w-[150vw] h-[150vh] origin-center -translate-x-[25vw] -translate-y-[25vh]" // Make canvas larger than viewport to pan around
+           className="relative h-full w-full origin-center"
            drag
            dragConstraints={containerRef}
            dragElastic={0.1}
            onDragStart={() => setIsDragging(true)}
-           onDragEnd={(e, i) => { 
+           onDragEnd={() => { 
                 // Small delay to prevent drag release from counting as a click
                 setTimeout(() => setIsDragging(false), 100);
            }}
@@ -554,6 +860,7 @@ export default function LoreMap({
                     }}
                />
                <NauticalGrid />
+               <WorldCartography />
                {mapImage && (
                  <img
                    src={mapImage}
@@ -573,6 +880,9 @@ export default function LoreMap({
                 key={pin.id}
                 pin={pin}
                 isGM={isGM}
+                isCurrent={pin.id === currentPinId}
+                isSelected={pin.id === selectedPinId}
+                onSelect={() => setSelectedPinId(pin.id)}
                 onRemove={isGM && onRemovePin ? () => onRemovePin(pin.id) : undefined}
               />
             ))}
@@ -586,8 +896,8 @@ export default function LoreMap({
                     <PinCreationForm
                       x={creatingPin.x}
                       y={creatingPin.y}
-                      containerRect={containerRef.current?.getBoundingClientRect() ?? null}
-                      canvasRect={canvasRef.current?.getBoundingClientRect() ?? null}
+                      containerRect={pinFormRects.container}
+                      canvasRect={pinFormRects.canvas}
                       scale={1} // Assuming 1 for now unless implementing wheel zoom
                       pan={{x: 0, y: 0}} // Framer motion drag handles actual transform of element, so relative coords are local!
                       onSubmit={handlePinSubmit}
@@ -600,7 +910,7 @@ export default function LoreMap({
          </motion.div>
          
          {/* Decorative Compass Overlay (fixed relative to viewport) */}
-         <div className="absolute bottom-8 right-8 z-30 pointer-events-none opacity-[0.15]">
+         <div className="absolute bottom-8 right-8 z-20 hidden pointer-events-none opacity-[0.15] sm:block">
             <motion.div
                animate={{ rotate: 360 }}
                transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
@@ -616,4 +926,3 @@ export default function LoreMap({
     </div>
   );
 }
-

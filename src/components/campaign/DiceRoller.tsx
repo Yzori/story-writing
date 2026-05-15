@@ -278,16 +278,16 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
                   <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border transition-all duration-500 ${
                     total !== null && !rolling && total >= 7 ? "bg-emerald-500/15 border-emerald-500/30" : "bg-subtle/20 border-border-subtle"
                   }`}>
-                    <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 transition-colors ${total !== null && !rolling && total >= 7 ? "text-emerald-400" : "text-emerald-400/40"}`}>Win</span>
-                    <span className={`text-[11px] leading-relaxed transition-colors ${total !== null && !rolling && total >= 7 ? "text-text" : "text-text-tertiary"}`}>{rollOnSuccess}</span>
+                    <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 transition-colors ${total !== null && !rolling && total >= 7 ? "text-sage" : "text-sage/80"}`}>Win</span>
+                    <span className="text-[11px] leading-relaxed text-text transition-colors">{rollOnSuccess}</span>
                   </div>
                 )}
                 {rollOnFailure && (
                   <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border transition-all duration-500 ${
                     total !== null && !rolling && total < 7 ? "bg-red-500/15 border-red-500/30" : "bg-subtle/20 border-border-subtle"
                   }`}>
-                    <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 transition-colors ${total !== null && !rolling && total < 7 ? "text-red-400" : "text-red-400/40"}`}>Lose</span>
-                    <span className={`text-[11px] leading-relaxed transition-colors ${total !== null && !rolling && total < 7 ? "text-text" : "text-text-tertiary"}`}>{rollOnFailure}</span>
+                    <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 mt-0.5 transition-colors ${total !== null && !rolling && total < 7 ? "text-rose" : "text-rose/80"}`}>Lose</span>
+                    <span className="text-[11px] leading-relaxed text-text transition-colors">{rollOnFailure}</span>
                   </div>
                 )}
               </div>
@@ -395,7 +395,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
                 className="flex flex-col items-center"
               >
                 <motion.div
-                  className="text-3xl font-display font-bold text-paper mb-1 relative"
+                className="text-3xl font-display font-bold text-paper mb-1 relative"
                   initial={{ textShadow: "0 0 0px transparent" }}
                   animate={{
                     textShadow: total >= 10
@@ -416,7 +416,7 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
               <p className="text-[10px] text-amber/30 mt-2">Click the dice to roll</p>
             )}
 
-            <button onClick={onClose} className="text-xs text-text-tertiary hover:text-paper cursor-pointer mt-6">
+            <button onClick={onClose} className="min-h-9 px-4 text-xs text-text-secondary hover:text-paper cursor-pointer mt-6">
               {total !== null ? "Close" : "Cancel"}
             </button>
           </div>

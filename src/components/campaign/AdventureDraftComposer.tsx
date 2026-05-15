@@ -128,7 +128,7 @@ export default function AdventureDraftComposer({
             <button
               key={t.key}
               onClick={() => setDraftType(t.key)}
-              className={`px-3.5 py-1.5 text-[12px] uppercase tracking-[0.08em] font-semibold rounded-full border transition-all cursor-pointer ${
+              className={`min-h-9 px-3.5 py-2 text-[12px] uppercase tracking-[0.08em] font-semibold rounded-full border transition-all cursor-pointer ${
                 draftType === t.key
                   ? "bg-amber/15 text-amber border-amber/40 shadow-[0_0_10px_rgba(200,150,60,0.15)]"
                   : "bg-subtle/30 text-text-tertiary border-border hover:text-text-secondary"
@@ -140,7 +140,7 @@ export default function AdventureDraftComposer({
           ))}
           <button
             onClick={() => setShowTurnHelp((v) => !v)}
-            className={`w-6 h-6 rounded-full border text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center ${
+            className={`h-9 w-9 rounded-full border text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center ${
               showTurnHelp
                 ? "bg-subtle/50 border-border-active text-text-secondary"
                 : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary hover:bg-subtle/50"
@@ -192,7 +192,7 @@ export default function AdventureDraftComposer({
         />
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-border-subtle">
-          <div className="text-xs text-text-tertiary font-serif italic flex items-center gap-3">
+          <div className="text-xs text-text-secondary font-serif italic flex items-center gap-3">
             <span>{isGM ? "The narrator sets the stage." : "Take your time. The party is waiting."}</span>
             {draftSaved && draftContent && (
               <span className="text-text-ghost text-[10px] not-italic">Draft saved</span>
@@ -225,7 +225,7 @@ export default function AdventureDraftComposer({
             <button
               onClick={handleCommit}
               disabled={!draftContent.trim()}
-              className="bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] disabled:opacity-50 disabled:hover:bg-amber/10 disabled:hover:text-amber disabled:cursor-not-allowed cursor-pointer"
+              className="min-h-10 bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] disabled:opacity-50 disabled:hover:bg-amber/10 disabled:hover:text-amber disabled:cursor-not-allowed cursor-pointer"
             >
               Post Turn
             </button>

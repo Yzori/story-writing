@@ -18,6 +18,7 @@ interface FirstChapterCoachProps {
   onOpenSetup?: () => void;
   /** Total story word count — used to suppress the coach for established stories. */
   totalWords: number;
+  variant?: "floating" | "inline";
 }
 
 /**
@@ -35,6 +36,7 @@ export default function FirstChapterCoach({
   state,
   onOpenSetup,
   totalWords,
+  variant = "floating",
 }: FirstChapterCoachProps) {
   const [dismissed, setDismissed] = useState<boolean | null>(null);
   const [expanded, setExpanded] = useState(true);
@@ -51,22 +53,42 @@ export default function FirstChapterCoach({
   const allDone = completedCount === items.length;
 
   useEffect(() => {
-    try {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
-    } catch {
-      setDismissed(false);
-    }
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+      } catch {
+        setDismissed(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Show a brief celebration when the user just completed everything.
   useEffect(() => {
     if (allDone && !celebrated) {
-      setCelebrated(true);
+      let cancelled = false;
+
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setCelebrated(true);
+        }
+      });
+
       const t = setTimeout(() => {
+        if (cancelled) return;
         try { localStorage.setItem(DISMISS_KEY, "1"); } catch {}
         setDismissed(true);
       }, 4000);
-      return () => clearTimeout(t);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
     }
   }, [allDone, celebrated]);
 
@@ -80,6 +102,11 @@ export default function FirstChapterCoach({
     setDismissed(true);
   };
 
+  const containerClass =
+    variant === "inline"
+      ? "w-full bg-elevated/45 border border-amber/15 rounded-xl overflow-hidden"
+      : "fixed bottom-6 left-6 z-40 max-w-[280px] bg-surface/95 border border-amber/15 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/30 overflow-hidden";
+
   return (
     <AnimatePresence>
       <motion.div
@@ -87,7 +114,7 @@ export default function FirstChapterCoach({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.96 }}
         transition={{ type: "spring", stiffness: 320, damping: 28 }}
-        className="fixed bottom-6 left-6 z-40 max-w-[280px] bg-surface/95 border border-amber/15 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/30 overflow-hidden"
+        className={containerClass}
       >
         {/* Compact header — clickable to expand/collapse */}
         <button
@@ -199,8 +226,8 @@ export default function FirstChapterCoach({
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className="text-[10px] text-text-ghost hover:text-text-secondary transition-colors"
-                >
+                className="text-[10px] text-text-ghost hover:text-text-secondary transition-colors"
+              >
                   Hide checklist
                 </button>
               </div>

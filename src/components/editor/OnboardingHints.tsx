@@ -42,7 +42,7 @@ const hints: Hint[] = [
     id: "status",
     title: "Track your progress",
     message:
-      "Your words are auto-saved. Use the status bar for quick access to goals, story bible, and settings.",
+      "Your words are auto-saved here. Open Tools when you need comments, goals, story bible, history, or settings.",
     position: { bottom: "72px", left: "50%" },
     arrowDirection: "down",
   },
@@ -108,26 +108,36 @@ export default function OnboardingHints({ onComplete }: OnboardingHintsProps) {
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem(ONBOARDING_KEY);
-    if (seen === "true") {
-      setCurrentStep(null);
-      return;
-    }
+    let cancelled = false;
 
-    const savedStep = localStorage.getItem(ONBOARDING_STEP_KEY);
-    const step = savedStep ? parseInt(savedStep, 10) : 0;
+    queueMicrotask(() => {
+      if (cancelled) return;
 
-    if (step >= hints.length) {
-      localStorage.setItem(ONBOARDING_KEY, "true");
-      setCurrentStep(null);
-      return;
-    }
+      const seen = localStorage.getItem(ONBOARDING_KEY);
+      if (seen === "true") {
+        setCurrentStep(null);
+        return;
+      }
 
-    setCurrentStep(step);
+      const savedStep = localStorage.getItem(ONBOARDING_STEP_KEY);
+      const step = savedStep ? parseInt(savedStep, 10) : 0;
 
-    if (typeof navigator !== "undefined" && /Mac/.test(navigator.platform)) {
-      setIsMac(true);
-    }
+      if (step >= hints.length) {
+        localStorage.setItem(ONBOARDING_KEY, "true");
+        setCurrentStep(null);
+        return;
+      }
+
+      setCurrentStep(step);
+
+      if (typeof navigator !== "undefined" && /Mac/.test(navigator.platform)) {
+        setIsMac(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const dismiss = useCallback(() => {

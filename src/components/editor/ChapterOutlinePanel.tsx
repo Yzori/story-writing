@@ -14,6 +14,7 @@ interface ChapterOutlinePanelProps {
   chapter: Chapter;
   onUpdateOutline: (outline: string) => void;
   onClose: () => void;
+  docked?: boolean;
 }
 
 function parseOutlineNodes(outline: string): OutlineNode[] {
@@ -43,6 +44,7 @@ export default function ChapterOutlinePanel({
   chapter,
   onUpdateOutline,
   onClose,
+  docked = false,
 }: ChapterOutlinePanelProps) {
   const [nodes, setNodes] = useState<OutlineNode[]>(() =>
     parseOutlineNodes(chapter.outline)
@@ -100,16 +102,26 @@ export default function ChapterOutlinePanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: "100%", opacity: 0 }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="absolute top-4 bottom-32 right-4 w-72 rounded-2xl bg-paper/[0.02] border border-paper/5 backdrop-blur-2xl shadow-2xl p-5 flex flex-col z-40"
+      className={
+        docked
+          ? "h-full w-full bg-surface border-l border-border p-5 flex flex-col"
+          : "absolute top-4 bottom-32 right-4 w-80 rounded-2xl bg-surface/90 border border-border backdrop-blur-2xl shadow-2xl p-5 flex flex-col z-40"
+      }
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 px-2">
-        <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber/60">
-          Chapter Outline
-        </h3>
+      <div className="flex items-start justify-between gap-4 mb-5 px-1">
+        <div>
+          <h3 className="text-[13px] font-medium text-paper">
+            Chapter beats
+          </h3>
+          <p className="text-[11px] text-text-ghost mt-1 leading-relaxed">
+            Private scene notes for this chapter only.
+          </p>
+        </div>
         <button
           onClick={onClose}
-          className="text-paper/30 hover:text-paper transition-colors"
+          className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
+          aria-label="Close chapter beats"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
@@ -120,9 +132,12 @@ export default function ChapterOutlinePanel({
       {/* Timeline nodes */}
       <div className="flex-1 overflow-y-auto no-scrollbar font-body text-sm text-paper/60 space-y-4">
         {nodes.length === 0 && (
-          <p className="text-[12px] text-paper/30 text-center py-8">
-            No outline yet. Jot down scene beats below.
-          </p>
+          <div className="rounded-xl border border-border bg-elevated/40 px-4 py-5 text-center">
+            <p className="text-[12px] font-medium text-text-secondary">No beats yet</p>
+            <p className="text-[11px] text-text-ghost mt-1 leading-relaxed">
+              Add the next scene, reveal, conflict, or emotional turn below.
+            </p>
+          </div>
         )}
         {nodes.map((node) => {
           const isActive = node.id === activeNodeId;
@@ -168,7 +183,7 @@ export default function ChapterOutlinePanel({
                   value={node.note}
                   onChange={(e) => handleUpdateNote(node.id, e.target.value)}
                   className="w-full bg-transparent text-[12px] text-paper/40 mt-1 outline-none resize-none placeholder:text-paper/20"
-                  placeholder="Add a note..."
+                  placeholder="What should this beat accomplish?"
                   rows={2}
                   onClick={(e) => e.stopPropagation()}
                 />
@@ -182,7 +197,10 @@ export default function ChapterOutlinePanel({
       </div>
 
       {/* Quick jot */}
-      <div className="mt-4">
+      <div className="mt-4 border-t border-border pt-4">
+        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
+          Add beat
+        </label>
         <textarea
           value={quickJot}
           onChange={(e) => setQuickJot(e.target.value)}
@@ -192,9 +210,10 @@ export default function ChapterOutlinePanel({
               handleAddNode();
             }
           }}
-          className="w-full h-20 bg-paper/[0.03] border border-paper/10 rounded-lg p-3 text-[13px] text-paper/80 outline-none focus:border-amber/40 resize-none font-body"
-          placeholder="Quick jot... (Enter to add)"
+          className="w-full h-20 bg-elevated border border-border rounded-lg px-3 py-2.5 text-[13px] text-text leading-relaxed outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors resize-none"
+          placeholder="Example: Mira discovers the sealed letter"
         />
+        <p className="mt-2 text-[10px] text-text-ghost">Press Enter to add, Shift+Enter for a new line.</p>
       </div>
     </motion.div>
   );

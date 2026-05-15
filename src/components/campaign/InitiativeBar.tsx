@@ -144,44 +144,76 @@ export default function InitiativeBar({
     floorRound,
   });
   const stateLabel = interactionState.label;
+  const activeCharacter = activeChars.find((c) => c.userId === activePlayerId) ?? null;
+  const activeCharacterName = activeCharacter?.name ?? null;
+  const phaseLabel = floorRound
+    ? floorRound.status === "open"
+      ? "Crossroads: collecting responses"
+      : floorRound.status === "voting"
+        ? "Crossroads: table voting"
+        : floorRound.status === "closed"
+          ? "Crossroads: GM resolving"
+          : stateLabel
+    : isPlayerTurn && activeCharacterName
+      ? `${activeCharacterName} is writing`
+      : stateLabel;
+  const phaseHint = floorRound
+    ? floorRound.status === "open"
+      ? isGM ? "Resolve or cancel Crossroads before passing the spotlight." : "Write your proposed turn in the Crossroads card."
+      : floorRound.status === "voting"
+        ? isGM ? "Close the vote, then canonize a response before passing the spotlight." : "Choose the response you want to become canon."
+        : isGM ? "Canonize a response or cancel before passing the spotlight." : "The table is waiting for the GM to choose canon."
+    : isPlayerTurn && activeCharacterName
+      ? isMyTurn ? "Your turn is live." : `Waiting on ${activeCharacterName}.`
+      : isGM ? "Click a player below to pass the spotlight." : "Waiting for the GM to pass the spotlight.";
+  const canAssignTurn = isGM && isActive && !floorRound;
 
   // Show extend button when timer < 60s and it's the current player's turn
   const showExtendButton = isMyTurn && isActive && secondsLeft > 0 && secondsLeft < 60;
 
   return (
-    <div className="w-full min-h-20 border-b border-border-subtle bg-black/40 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-2 z-30 shrink-0">
-      <div className="flex items-center gap-3">
+    <div className="w-full border-b border-border-subtle bg-black/40 backdrop-blur-xl flex flex-col gap-2 px-3 py-2 z-30 shrink-0 sm:min-h-24 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:px-6 md:px-8 sm:py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:min-w-[220px] sm:gap-3">
         {/* GM badge */}
         {isGM && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber/10 border border-amber/20 rounded-full mr-2">
+          <div className="mr-1 flex shrink-0 items-center gap-2 rounded-full border border-amber/20 bg-amber/10 px-3 py-1.5 sm:mr-2">
             <div className="w-2 h-2 rounded-full bg-amber shadow-[0_0_8px_rgba(200,150,60,0.5)]" />
             <span className="text-[10px] uppercase font-display tracking-[0.15em] text-amber font-bold">GM</span>
           </div>
         )}
-        <div className="flex flex-col">
-          <span className="text-[10px] uppercase font-display tracking-[0.2em] text-text-secondary">
+        <div className="flex min-w-0 flex-col">
+          <span className="max-w-[210px] truncate text-[9px] uppercase font-display tracking-[0.18em] text-text-secondary sm:max-w-[360px] sm:text-[10px] sm:tracking-[0.2em]">
             {sessionTitle}
           </span>
-          <span className={`text-[9px] uppercase tracking-widest ${
-            !isActive ? "text-text-tertiary" : floorRound ? "text-lavender/70" : isPlayerTurn ? "text-amber/60" : "text-amber/60"
+          <span className={`mt-0.5 truncate text-[11px] uppercase tracking-widest sm:mt-1 ${
+            !isActive ? "text-text-secondary" : floorRound ? "text-lavender" : isPlayerTurn ? "text-amber" : "text-amber"
           }`}>
-            {stateLabel}
+            {phaseLabel}
+          </span>
+          <span className="mt-0.5 hidden truncate text-[10px] text-text-secondary sm:block">
+            {phaseHint}
           </span>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4 max-w-full overflow-x-auto scrollbar-hide" role="group" aria-label="Turn order">
+      <div className="-mx-1 flex max-w-full items-center justify-start gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:items-start sm:justify-center sm:gap-3 sm:px-0" role="group" aria-label="Turn order">
         {initiativeList.map((p) => (
           <button
             key={p.id}
             type="button"
-            className="flex flex-col items-center gap-2 group relative bg-transparent border-none p-0 cursor-pointer"
-            onClick={() => isGM && isActive ? onPassTurn(p.userId) : undefined}
+            className={`group relative flex min-w-[88px] shrink-0 items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors sm:min-w-[70px] sm:flex-col sm:gap-1 sm:rounded-xl sm:px-2 ${
+              activePlayerId === p.userId
+                ? "border-amber/40 bg-amber/10"
+                : currentUserId === p.userId
+                  ? "border-lavender/30 bg-lavender/10"
+                  : "border-transparent bg-transparent hover:border-border hover:bg-subtle/20"
+            } ${canAssignTurn ? "cursor-pointer" : "cursor-default"}`}
+            onClick={() => canAssignTurn ? onPassTurn(p.userId) : undefined}
             aria-label={`${p.name} — ${p.character}${activePlayerId === p.userId ? " (writing)" : ""}`}
-            title={isGM && isActive ? `Give turn to ${p.character}` : `${p.name} — ${p.character}`}
+            title={canAssignTurn ? `Pass spotlight to ${p.character}` : floorRound ? "Resolve Crossroads before passing the spotlight" : `${p.name} — ${p.character}`}
           >
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-display text-lg relative z-10 transition-all duration-500
+              className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full font-display text-sm transition-all duration-500 sm:h-11 sm:w-11 sm:text-lg
                 ${activePlayerId === p.userId
                   ? "bg-black ring-2 ring-amber text-amber shadow-[0_0_20px_rgba(200,150,60,0.5)]"
                   : "bg-ink border border-border text-text-tertiary hover:border-border-active"
@@ -196,16 +228,33 @@ export default function InitiativeBar({
               )}
             </div>
 
-            {/* "Writing..." indicator for active player */}
-            {activePlayerId === p.userId && isActive && (
-              <div className="absolute -bottom-5 flex items-center gap-1 whitespace-nowrap">
-                <div className="w-1 h-1 rounded-full bg-amber/60 animate-pulse" />
-                <span className="text-[8px] uppercase tracking-widest text-amber/40 font-display">Writing...</span>
-              </div>
-            )}
+            <span className="min-w-0 text-left sm:text-center">
+              <span className={`block max-w-[58px] truncate text-[10px] font-medium sm:max-w-[82px] ${activePlayerId === p.userId ? "text-amber" : "text-text"}`}>
+                {p.character}
+              </span>
+              <span className={`block text-[8px] uppercase tracking-widest ${
+                activePlayerId === p.userId
+                  ? "text-amber"
+                  : currentUserId === p.userId
+                    ? "text-lavender"
+                    : floorRound
+                      ? "text-text-secondary"
+                      : "text-text-tertiary"
+              }`}>
+                {activePlayerId === p.userId
+                  ? "Writing"
+                  : currentUserId === p.userId
+                    ? "You"
+                    : floorRound?.status === "voting"
+                      ? "Voting"
+                      : floorRound?.status === "open"
+                        ? "Responding"
+                        : "Ready"}
+              </span>
+            </span>
 
             {/* Tooltip */}
-            <div className="absolute top-12 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity bg-black border border-border rounded px-2 py-1 flex flex-col items-center whitespace-nowrap pointer-events-none z-50">
+            <div className="absolute top-20 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity bg-black border border-border rounded px-2 py-1 flex flex-col items-center whitespace-nowrap pointer-events-none z-50">
               <span className={`text-[10px] font-bold ${p.color}`}>{p.name}</span>
               <span className="text-[9px] text-text-secondary">{p.character}</span>
             </div>
@@ -218,7 +267,7 @@ export default function InitiativeBar({
 
         {/* Turn Timer — only visible when a player has the turn */}
         {isPlayerTurn && isActive && (
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ml-2 transition-all ${timerBg}`}>
+          <div className={`ml-1 flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 transition-all sm:ml-2 ${timerBg}`}>
             {/* Circular progress indicator */}
             <div className="relative w-5 h-5">
               <svg className="w-5 h-5 -rotate-90" viewBox="0 0 20 20">
@@ -241,7 +290,7 @@ export default function InitiativeBar({
             {showExtendButton && (
               <button
                 onClick={handleExtendTimer}
-                className="text-[9px] uppercase tracking-wider text-amber/60 hover:text-amber border border-amber/20 hover:border-amber/40 rounded-full px-2 py-0.5 transition-all cursor-pointer"
+                className="min-h-8 text-[9px] uppercase tracking-wider text-amber/70 hover:text-amber border border-amber/20 hover:border-amber/40 rounded-full px-3 py-1 transition-all cursor-pointer"
                 title="Add 3 more minutes"
               >
                 Extend +3min
@@ -252,11 +301,11 @@ export default function InitiativeBar({
       </div>
 
       {/* GM Controls */}
-      <div className="flex items-center gap-2">
+      <div className="hidden items-center gap-2 sm:flex">
         {isGM && isActive && (
           <button
             onClick={onEndSession}
-            className="text-[10px] uppercase tracking-widest text-text-tertiary border border-border px-3 py-1.5 rounded-full hover:bg-rose/20 hover:text-rose hover:border-rose/30 transition-all cursor-pointer"
+            className="min-h-9 text-[10px] uppercase tracking-widest text-text-secondary border border-border px-4 py-2 rounded-full hover:bg-rose/20 hover:text-rose hover:border-rose/30 transition-all cursor-pointer"
             title="End this session"
           >
             End Session

@@ -17,8 +17,8 @@ export default function AudiencePulsePanel({ floorRound, onPulse }: AudiencePuls
   const leader = sortedSubmissions[0];
 
   return (
-    <div className="absolute bottom-5 left-1/2 z-30 w-[min(720px,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-lavender/25 bg-ink/95 p-4 shadow-[0_16px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <div className="absolute bottom-20 left-1/2 z-30 max-h-[42vh] w-[min(720px,calc(100%-2rem))] -translate-x-1/2 overflow-y-auto rounded-2xl border border-lavender/25 bg-ink/95 p-3 shadow-[0_16px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl [scrollbar-width:thin] [scrollbar-color:rgba(167,139,250,0.24)_transparent] sm:bottom-5 sm:max-h-none sm:p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.22em] font-display text-lavender">Audience Pulse</p>
           <p className="mt-1 text-xs text-text-tertiary">
@@ -30,7 +30,7 @@ export default function AudiencePulsePanel({ floorRound, onPulse }: AudiencePuls
             {floorRound.audiencePulseCount} pulses
           </span>
           {leader && floorRound.audiencePulseCount > 0 && (
-            <span className="rounded-full border border-border bg-subtle/20 px-3 py-1">
+            <span className="hidden rounded-full border border-border bg-subtle/20 px-3 py-1 sm:inline-flex">
               Crowd favors {leader.characterName ?? "a proposal"}
             </span>
           )}
@@ -72,7 +72,7 @@ export default function AudiencePulsePanel({ floorRound, onPulse }: AudiencePuls
                   </p>
                   <span className="text-[10px] text-lavender">{submission.audiencePulseCount} · {pct}%</span>
                 </div>
-                <p className="line-clamp-3 text-sm font-serif leading-relaxed text-paper/85">
+                <p className="line-clamp-2 text-[13px] font-serif leading-relaxed text-paper/85 sm:line-clamp-3 sm:text-sm">
                   {submission.content}
                 </p>
                 {selected && (

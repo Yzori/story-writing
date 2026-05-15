@@ -50,7 +50,7 @@ export default function ContextPanel({
   onClocksChange,
   forceVisible = false,
 }: ContextPanelProps) {
-  const visibilityClass = forceVisible ? "flex w-full max-w-[340px]" : "hidden lg:flex w-[280px] xl:w-[300px]";
+  const visibilityClass = forceVisible ? "flex w-full" : "hidden lg:flex w-[280px] xl:w-[300px]";
   const [pushEventText, setPushEventText] = useState("");
   const [showPushInput, setShowPushInput] = useState(false);
 
@@ -142,7 +142,7 @@ export default function ContextPanel({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: "none" }}>
+        <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
           {/* Tension Clocks */}
           {(clocks.length > 0 || onClocksChange) && (
             <StakesTracker clocks={clocks} onClocksChange={onClocksChange} />
@@ -159,16 +159,22 @@ export default function ContextPanel({
 
           {/* GM Actions */}
           <div className="space-y-4">
-            <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber border-b border-amber/20 pb-2 flex items-center gap-2">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              Direct Actions
-            </h3>
+            <div className="border-b border-amber/20 pb-3">
+              <h3 className="flex items-center gap-2 text-[10px] uppercase font-display tracking-[0.2em] text-amber">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                GM Moves
+              </h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                Fast levers for pressure, pacing, and scene texture.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 gap-2">
-              {/* Call for a Moment of Truth (formerly Request Roll) */}
+            <div className="grid grid-cols-1 gap-3">
               <RollRequestForm activeChars={activeChars} onRequestRoll={onRequestRoll} />
+
+              <p className="pt-1 text-[9px] uppercase tracking-[0.2em] text-text-secondary">Pacing</p>
 
               {/* Scene Break */}
               {showSceneBreakForm ? (
@@ -284,10 +290,10 @@ export default function ContextPanel({
               ) : (
                 <button
                   onClick={() => setShowSceneBreakForm(true)}
-                  className="bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
+                  className="min-h-16 bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
                 >
                   <span className="text-sm text-amber/90 font-medium">Scene Break...</span>
-                  <span className="text-[10px] text-text-tertiary mt-1">Mark a new scene or act in the story.</span>
+                  <span className="text-[10px] text-text-secondary mt-1">Mark a new scene or act in the story.</span>
                 </button>
               )}
 
@@ -393,7 +399,7 @@ export default function ContextPanel({
               ) : (
                 <button
                   onClick={() => setShowStoryMomentForm(true)}
-                  className="relative bg-black/40 hover:bg-black/60 border border-amber/15 hover:border-amber/30 rounded-lg p-3 text-left transition-all flex flex-col group cursor-pointer overflow-hidden shadow-[0_0_15px_rgba(200,150,60,0.05)]"
+                  className="relative min-h-16 bg-black/40 hover:bg-black/60 border border-amber/15 hover:border-amber/30 rounded-lg p-3 text-left transition-all flex flex-col group cursor-pointer overflow-hidden shadow-[0_0_15px_rgba(200,150,60,0.05)]"
                 >
                   <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-amber/5 to-rose/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                   <span className="relative text-sm font-medium flex items-center gap-2">
@@ -402,7 +408,7 @@ export default function ContextPanel({
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                     </svg>
                   </span>
-                  <span className="relative text-[10px] text-text-tertiary mt-1">Play a cinematic overlay moment.</span>
+                  <span className="relative text-[10px] text-text-secondary mt-1">Play a cinematic overlay moment.</span>
                 </button>
               )}
 
@@ -487,7 +493,7 @@ export default function ContextPanel({
               ) : (
                 <button
                   onClick={() => setShowIllustrationForm(true)}
-                  className="bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
+                  className="min-h-16 bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
                 >
                   <span className="text-sm text-amber/90 font-medium flex items-center gap-2">
                     Set the Scene...
@@ -495,7 +501,7 @@ export default function ContextPanel({
                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                     </svg>
                   </span>
-                  <span className="text-[10px] text-text-tertiary mt-1">Drop an illustration into the story.</span>
+                  <span className="text-[10px] text-text-secondary mt-1">Drop an illustration into the story.</span>
                 </button>
               )}
 
@@ -540,10 +546,10 @@ export default function ContextPanel({
               ) : (
                 <button
                   onClick={() => setShowPushInput(true)}
-                  className="bg-ink hover:bg-subtle/30 border border-border rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
+                  className="min-h-16 bg-ink hover:bg-subtle/30 border border-border rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
                 >
                   <span className="text-sm text-text shrink-0">Push Narrative Event</span>
-                  <span className="text-[10px] text-text-tertiary mt-1">Inject an unexpected turn of events.</span>
+                  <span className="text-[10px] text-text-secondary mt-1">Drop an unexpected turn of events.</span>
                 </button>
               )}
             </div>
@@ -614,7 +620,7 @@ export default function ContextPanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
         {!myCharacter ? (
           <div className="text-center py-12">
             <p className="text-text-tertiary text-xs font-serif italic">Join the campaign to see your character sheet here.</p>

@@ -256,8 +256,8 @@ export default function CommandPalette({
       ? [
           {
             id: "outline",
-            label: "Story Outline",
-            description: "Plan and organize your chapters",
+            label: "Story Map",
+            description: "Plan the whole book by chapter",
             category: "View",
             action: onOpenOutline,
           },
@@ -319,7 +319,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenAI, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query
@@ -354,11 +354,19 @@ export default function CommandPalette({
 
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setSelectedIndex(0);
-      // Try focusing immediately, then retry after animation
-      requestAnimationFrame(() => inputRef.current?.focus());
-      setTimeout(() => inputRef.current?.focus(), 100);
+      let cancelled = false;
+
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setQuery("");
+        setSelectedIndex(0);
+        requestAnimationFrame(() => inputRef.current?.focus());
+        setTimeout(() => inputRef.current?.focus(), 100);
+      });
+
+      return () => {
+        cancelled = true;
+      };
     }
   }, [open]);
 
@@ -420,7 +428,17 @@ export default function CommandPalette({
   }, [open]);
 
   useEffect(() => {
-    setSelectedIndex(0);
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setSelectedIndex(0);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [query]);
 
   // Group by category

@@ -55,7 +55,7 @@ export default function FloorRoundPanel({
     if (!isGM) return null;
 
     return (
-      <div className="w-full max-w-[650px] mt-auto mb-4">
+      <div className="sticky bottom-4 z-30 w-full max-w-[650px] mt-8 mb-4">
         <div className="bg-ink border border-lavender/20 rounded-2xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)]">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
@@ -67,7 +67,7 @@ export default function FloorRoundPanel({
                 <button
                   key={value}
                   onClick={() => setMode(value)}
-                  className={`px-3 py-1 text-[10px] uppercase tracking-wider rounded-full transition-colors cursor-pointer ${
+                  className={`px-3 py-2 text-[10px] uppercase tracking-wider rounded-full transition-colors cursor-pointer ${
                     mode === value ? "bg-lavender/20 text-lavender" : "text-text-tertiary hover:text-text-secondary"
                   }`}
                 >
@@ -113,7 +113,7 @@ export default function FloorRoundPanel({
                 }
               }}
               disabled={!prompt.trim() || busy}
-              className="bg-lavender/15 hover:bg-lavender/25 border border-lavender/25 text-lavender rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="bg-lavender/15 hover:bg-lavender/25 border border-lavender/25 text-lavender rounded-full px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               Open Crossroads
             </button>
@@ -124,24 +124,24 @@ export default function FloorRoundPanel({
   }
 
   return (
-    <div className="w-full max-w-[650px] mt-auto mb-4">
-      <div className="bg-ink border border-lavender/20 rounded-2xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)]">
-        <div className="flex items-start justify-between gap-4 mb-4">
+    <div className="sticky bottom-3 z-30 mt-6 mb-4 w-full max-w-[650px] sm:bottom-4 sm:mt-8">
+      <div className="rounded-2xl border border-lavender/20 bg-ink p-4 shadow-[0_10px_40px_rgba(0,0,0,0.45)] sm:p-5">
+        <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4 sm:gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] font-display text-lavender">
               {floorRound.mode === "vote"
                 ? floorRound.audiencePulseEnabled ? "Table Vote + Audience Pulse" : "Table Vote"
                 : "GM Pick"}
             </p>
-            <p className="text-paper font-serif text-lg leading-snug mt-1">{floorRound.prompt}</p>
+            <p className="mt-1 font-serif text-base leading-snug text-paper sm:text-lg">{floorRound.prompt}</p>
           </div>
-          <span className="shrink-0 rounded-full border border-border bg-subtle/30 px-3 py-1 text-[10px] uppercase tracking-wider text-text-tertiary">
+          <span className="shrink-0 rounded-full border border-border bg-subtle/30 px-2.5 py-1 text-[9px] uppercase tracking-wider text-text-secondary sm:px-3 sm:py-1.5 sm:text-[10px]">
             {floorRound.status}
           </span>
         </div>
         {floorRound.mode === "vote" && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-text-tertiary">
-            <span className="rounded-full border border-border bg-subtle/20 px-3 py-1">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wider text-text-secondary sm:mb-4 sm:text-[10px]">
+            <span className="rounded-full border border-lavender/25 bg-lavender/10 px-2.5 py-1 text-lavender sm:px-3 sm:py-1.5">
               {floorRound.voteCount}/{floorRound.eligibleVoterCount} votes
             </span>
             {floorRound.status === "voting" && floorRound.allEligibleVotersVoted && (
@@ -155,7 +155,7 @@ export default function FloorRoundPanel({
               </span>
             )}
             {floorRound.audiencePulseEnabled && (
-              <span className="rounded-full border border-lavender/25 bg-lavender/10 px-3 py-1 text-lavender">
+              <span className="hidden rounded-full border border-lavender/25 bg-lavender/10 px-3 py-1 text-lavender sm:inline-flex">
                 Audience {floorRound.audiencePulseCount}
               </span>
             )}
@@ -224,29 +224,29 @@ export default function FloorRoundPanel({
             {sortedSubmissions.map((submission) => (
               <div
                 key={submission.id}
-                className={`rounded-xl border p-3 bg-black/20 ${
+                className={`rounded-xl border bg-black/20 p-3 ${
                   floorRound.myVoteSubmissionId === submission.id ? "border-lavender/50" : "border-border-subtle"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wider text-text-tertiary">
                       {submission.characterName ?? "Unknown"} · {submission.type}
                     </p>
-                    <p className="text-sm text-paper/85 font-serif leading-relaxed mt-1">{submission.content}</p>
+                    <p className="mt-1 line-clamp-3 font-serif text-[13px] leading-relaxed text-paper/85 sm:line-clamp-none sm:text-sm">{submission.content}</p>
                   </div>
-                  <div className="shrink-0 text-right text-[11px]">
-                    <div className="text-lavender">{submission.voteCount} votes</div>
+                  <div className="shrink-0 text-right text-[10px] sm:text-[11px]">
+                    <div className="text-lavender font-bold">{submission.voteCount} votes</div>
                     {floorRound.audiencePulseEnabled && (
-                      <div className="text-text-tertiary mt-1">{submission.audiencePulseCount} pulses</div>
+                      <div className="mt-1 hidden text-text-tertiary sm:block">{submission.audiencePulseCount} pulses</div>
                     )}
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 mt-3">
+                <div className="mt-2 flex justify-end gap-2 sm:mt-3">
                   {!isGM && floorRound.mode === "vote" && floorRound.status === "voting" && floorRound.isVoteEligible && (
                     <button
                       onClick={() => onVoteSubmission(floorRound.id, submission.id)}
-                      className="text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-3 py-1 hover:bg-lavender/10 cursor-pointer"
+                      className="min-h-9 text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-4 py-2 hover:bg-lavender/10 cursor-pointer"
                     >
                       {floorRound.myVoteSubmissionId === submission.id ? "Voted" : "Vote"}
                     </button>
@@ -254,7 +254,7 @@ export default function FloorRoundPanel({
                   {isGM && canGMCanonize && (
                     <button
                       onClick={() => onUpdateRound(floorRound.id, { status: "resolved", selectedSubmissionId: submission.id })}
-                      className="text-[10px] uppercase tracking-wider border border-amber/25 text-amber rounded-full px-3 py-1 hover:bg-amber/10 cursor-pointer"
+                      className="min-h-9 text-[10px] uppercase tracking-wider border border-amber/25 text-amber rounded-full px-4 py-2 hover:bg-amber/10 cursor-pointer"
                     >
                       Canonize
                     </button>
@@ -266,11 +266,11 @@ export default function FloorRoundPanel({
         )}
 
         {isGM && (
-          <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border-subtle">
+          <div className="mt-3 flex justify-end gap-2 border-t border-border-subtle pt-3 sm:mt-4">
             {floorRound.mode === "vote" && floorRound.status === "open" && (
               <button
                 onClick={() => onUpdateRound(floorRound.id, { status: "voting" })}
-                className="text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-3 py-1 hover:bg-lavender/10 cursor-pointer"
+                className="min-h-9 text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-4 py-2 hover:bg-lavender/10 cursor-pointer"
               >
                 Reveal Vote
               </button>
@@ -278,7 +278,7 @@ export default function FloorRoundPanel({
             {floorRound.mode === "vote" && floorRound.status === "voting" && (
               <button
                 onClick={() => onUpdateRound(floorRound.id, { status: "closed" })}
-                className={`text-[10px] uppercase tracking-wider rounded-full px-3 py-1 cursor-pointer ${
+                className={`min-h-9 rounded-full px-4 py-2 text-[10px] uppercase tracking-wider cursor-pointer ${
                   floorRound.allEligibleVotersVoted
                     ? "border border-sage/25 text-sage hover:bg-sage/10"
                     : "border border-amber/25 text-amber hover:bg-amber/10"
@@ -289,7 +289,7 @@ export default function FloorRoundPanel({
             )}
             <button
               onClick={() => onUpdateRound(floorRound.id, { status: "cancelled" })}
-              className="text-[10px] uppercase tracking-wider border border-border text-text-tertiary rounded-full px-3 py-1 hover:text-text-secondary cursor-pointer"
+              className="min-h-9 rounded-full border border-border px-4 py-2 text-[10px] uppercase tracking-wider text-text-secondary hover:text-paper cursor-pointer"
             >
               Cancel
             </button>

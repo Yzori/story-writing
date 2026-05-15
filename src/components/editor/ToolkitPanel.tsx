@@ -161,8 +161,8 @@ export default function ToolkitPanel({
       onClick: onOpenTypography,
     },
     {
-      label: "Outline View",
-      description: "Plan chapters, bird's-eye view",
+      label: "Story Map",
+      description: "Plan the whole book by chapter",
       icon: (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
           <path d="M6 5h10M6 10h10M6 15h7M2.5 5h0M2.5 10h0M2.5 15h0" />

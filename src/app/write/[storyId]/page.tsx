@@ -56,6 +56,83 @@ import { useApiMutation } from "@/hooks/use-api-mutation";
 import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
+type EditorMode = "write" | "plan" | "review" | "prepare" | "publish";
+
+const editorModes: Array<{
+  id: EditorMode;
+  label: string;
+  icon: string;
+}> = [
+  { id: "write", label: "Write", icon: "M4 20h4L19 9l-4-4L4 16v4z M13 7l4 4" },
+  { id: "plan", label: "Plan", icon: "M5 5h14M5 12h14M5 19h9" },
+  { id: "review", label: "Review", icon: "M21 15a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9z" },
+  { id: "prepare", label: "Prepare", icon: "M4 3h12l4 4v14H4V3z M16 3v5h5M8 13h8M8 17h5" },
+  { id: "publish", label: "Publish", icon: "M12 3v13 M7 8l5-5 5 5 M5 21h14" },
+];
+
+function EditorModeRail({
+  activeMode,
+  onChange,
+}: {
+  activeMode: EditorMode;
+  onChange: (mode: EditorMode) => void;
+}) {
+  return (
+    <nav className="absolute inset-y-0 left-0 z-50 hidden w-14 flex-col items-center gap-2 border-r border-border bg-void/90 px-2 py-3 backdrop-blur-xl lg:flex" aria-label="Editor modes">
+      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-amber font-display text-sm font-bold text-void">
+        I
+      </div>
+      {editorModes.map((mode) => (
+        <button
+          key={mode.id}
+          type="button"
+          onClick={() => onChange(mode.id)}
+          className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
+            activeMode === mode.id
+              ? "border-amber/25 bg-amber/[0.08] text-amber"
+              : "border-transparent text-text-ghost hover:border-border hover:bg-paper/[0.05] hover:text-paper"
+          }`}
+          title={mode.label}
+          aria-label={mode.label}
+          aria-pressed={activeMode === mode.id}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d={mode.icon} />
+          </svg>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function ContextAction({
+  label,
+  description,
+  onClick,
+  tone = "neutral",
+}: {
+  label: string;
+  description: string;
+  onClick: () => void;
+  tone?: "neutral" | "accent" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
+        tone === "accent"
+          ? "border-amber/25 bg-amber/[0.06] text-amber hover:bg-amber/[0.1]"
+          : tone === "danger"
+            ? "border-rose/20 bg-rose/[0.04] text-rose hover:bg-rose/[0.08]"
+            : "border-border bg-elevated/45 text-text-secondary hover:border-border-active hover:bg-elevated"
+      }`}
+    >
+      <span className="block text-[13px] font-medium text-paper">{label}</span>
+      <span className="mt-1 block text-[11px] leading-relaxed text-text-ghost">{description}</span>
+    </button>
+  );
+}
 
 // Local storage key for editor-only settings (typography, goals, etc.)
 function editorSettingsKey(storyId: string) {
@@ -77,6 +154,31 @@ function saveEditorSettings(storyId: string, settings: Record<string, unknown>) 
     localStorage.setItem(editorSettingsKey(storyId), JSON.stringify(settings));
   } catch {}
 }
+
+function editorCommentsKey(storyId: string, chapterId: string) {
+  return `quiloria-editor-comments-${storyId}-${chapterId}`;
+}
+
+function loadEditorComments(storyId: string, chapterId: string): CommentThread[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = localStorage.getItem(editorCommentsKey(storyId, chapterId));
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveEditorComments(storyId: string, chapterId: string, threads: CommentThread[]) {
+  try {
+    localStorage.setItem(editorCommentsKey(storyId, chapterId), JSON.stringify(threads));
+  } catch {}
+}
+
+type EditorCommentsResponse = {
+  data?: CommentThread[];
+  threadId?: string;
+};
 
 // Convert API chapter data → store Chapter format
 interface ApiBibleEntry {
@@ -224,6 +326,7 @@ export default function WriteStoryPage() {
 
   // Right panel
   const [rightPanel, setRightPanel] = useState<RightPanel>("none");
+  const [editorMode, setEditorMode] = useState<EditorMode>("write");
 
   // Comments
   const [commentThreads, setCommentThreads] = useState<CommentThread[]>([]);
@@ -234,6 +337,7 @@ export default function WriteStoryPage() {
     from: number;
     to: number;
   } | null>(null);
+  const commentsLoadedChapter = useRef<string | null>(null);
 
   // Search
   const [showSearch, setShowSearch] = useState(false);
@@ -303,9 +407,6 @@ export default function WriteStoryPage() {
 
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
-  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [sidebarPinned, setSidebarPinned] = useState(false);
-  const [showChapterOutline, setShowChapterOutline] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const {
@@ -592,6 +693,40 @@ export default function WriteStoryPage() {
     project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? 0,
     [project?.chapters, project?.activeChapterId]
   );
+
+  useEffect(() => {
+    const chapterId = project?.activeChapterId;
+    if (!chapterId) return;
+    const localThreads = loadEditorComments(storyId, chapterId);
+    setCommentThreads(localThreads);
+    commentsLoadedChapter.current = chapterId;
+    setActiveThreadId(null);
+    setCommentPopover(null);
+
+    let cancelled = false;
+    fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const json = await res.json() as EditorCommentsResponse;
+        if (!cancelled && Array.isArray(json.data)) {
+          setCommentThreads(json.data);
+          saveEditorComments(storyId, chapterId, json.data);
+        }
+      })
+      .catch(() => {
+        // Local comments are already loaded as an offline fallback.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storyId, project?.activeChapterId]);
+
+  useEffect(() => {
+    if (!project?.activeChapterId) return;
+    if (commentsLoadedChapter.current !== project.activeChapterId) return;
+    saveEditorComments(storyId, project.activeChapterId, commentThreads);
+  }, [storyId, project?.activeChapterId, commentThreads]);
 
   // ── Chapter handlers ──────────────────────────────────────
 
@@ -1031,6 +1166,11 @@ export default function WriteStoryPage() {
       if (!chapterId) return;
       const previousChapter = project?.chapters.find((chapter) => chapter.id === chapterId);
 
+      if (updates.status === "published" && previousChapter?.status !== "published") {
+        openPublishDialog(chapterId, previousChapter?.title ?? "Untitled");
+        return;
+      }
+
       updateProject((prev) => ({
         ...prev,
         chapters: prev.chapters.map((chapter) =>
@@ -1066,7 +1206,7 @@ export default function WriteStoryPage() {
         },
       });
     },
-    [mutateJson, project?.activeChapterId, project?.chapters, updateProject, storyId, rosterNudgeDismissed]
+    [mutateJson, project?.activeChapterId, project?.chapters, updateProject, storyId, rosterNudgeDismissed, openPublishDialog]
   );
 
   // ── AI Assistant handlers ─────────────────────────────────
@@ -1184,13 +1324,42 @@ export default function WriteStoryPage() {
   }, [editorInstance]);
 
   const handleSubmitComment = useCallback(
-    (commentText: string) => {
+    async (commentText: string) => {
       if (!editorInstance || !commentPopover) return;
 
-      const thread = createCommentThread(
-        commentPopover.selectedText,
-        commentText
-      );
+      let thread = createCommentThread(commentPopover.selectedText, commentText);
+      const chapterId = project?.activeChapterId;
+
+      if (chapterId) {
+        try {
+          const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              quotedText: commentPopover.selectedText,
+              commentText,
+              from: commentPopover.from,
+              to: commentPopover.to,
+            }),
+          });
+          if (res.ok) {
+            const json = await res.json() as EditorCommentsResponse;
+            if (json.threadId) {
+              thread = { ...thread, id: json.threadId };
+            }
+            if (Array.isArray(json.data)) {
+              setCommentThreads(json.data);
+              saveEditorComments(storyId, chapterId, json.data);
+            }
+          } else {
+            setCommentThreads((prev) => [...prev, thread]);
+          }
+        } catch {
+          setCommentThreads((prev) => [...prev, thread]);
+        }
+      } else {
+        setCommentThreads((prev) => [...prev, thread]);
+      }
 
       editorInstance
         .chain()
@@ -1202,32 +1371,93 @@ export default function WriteStoryPage() {
         .setComment(thread.id)
         .run();
 
-      setCommentThreads((prev) => [...prev, thread]);
       setActiveThreadId(thread.id);
       setRightPanel("comments");
       setCommentPopover(null);
     },
-    [editorInstance, commentPopover]
+    [editorInstance, commentPopover, project?.activeChapterId, storyId]
   );
 
   const handleReplyToThread = useCallback(
-    (threadId: string, text: string) => {
+    async (threadId: string, text: string) => {
+      const chapterId = project?.activeChapterId;
+      if (chapterId) {
+        try {
+          const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ threadId, replyText: text }),
+          });
+          if (res.ok) {
+            const json = await res.json() as EditorCommentsResponse;
+            if (Array.isArray(json.data)) {
+              setCommentThreads(json.data);
+              saveEditorComments(storyId, chapterId, json.data);
+              return;
+            }
+          }
+        } catch {
+          // Fall back to local reply below.
+        }
+      }
       setCommentThreads((prev) =>
         prev.map((t) => (t.id === threadId ? addReply(t, text) : t))
       );
     },
-    []
+    [project?.activeChapterId, storyId]
   );
 
-  const handleResolveThread = useCallback((threadId: string) => {
+  const handleResolveThread = useCallback(async (threadId: string) => {
+    const chapterId = project?.activeChapterId;
+    if (chapterId) {
+      try {
+        const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId, resolved: true }),
+        });
+        if (res.ok) {
+          const json = await res.json() as EditorCommentsResponse;
+          if (Array.isArray(json.data)) {
+            setCommentThreads(json.data);
+            saveEditorComments(storyId, chapterId, json.data);
+            return;
+          }
+        }
+      } catch {
+        // Fall back to local resolve below.
+      }
+    }
     setCommentThreads((prev) =>
       prev.map((t) => (t.id === threadId ? { ...t, resolved: true } : t))
     );
-  }, []);
+  }, [project?.activeChapterId, storyId]);
 
   const handleDeleteThread = useCallback(
-    (threadId: string) => {
-      setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
+    async (threadId: string) => {
+      const chapterId = project?.activeChapterId;
+      if (chapterId) {
+        try {
+          const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ threadId }),
+          });
+          if (res.ok) {
+            const json = await res.json() as EditorCommentsResponse;
+            if (Array.isArray(json.data)) {
+              setCommentThreads(json.data);
+              saveEditorComments(storyId, chapterId, json.data);
+            }
+          } else {
+            setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
+          }
+        } catch {
+          setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
+        }
+      } else {
+        setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
+      }
       if (editorInstance) {
         const { doc } = editorInstance.state;
         doc.descendants((node, pos) => {
@@ -1248,7 +1478,7 @@ export default function WriteStoryPage() {
       }
       if (activeThreadId === threadId) setActiveThreadId(null);
     },
-    [editorInstance, activeThreadId]
+    [editorInstance, activeThreadId, project?.activeChapterId, storyId]
   );
 
   // ── Memoized computed values ─────────────────────────────
@@ -1266,27 +1496,64 @@ export default function WriteStoryPage() {
   );
 
   // ── Stable callbacks for JSX ──────────────────────────────
-  const handleToggleOutline = useCallback(() => setShowChapterOutline((v) => !v), []);
+  const handleToggleOutline = useCallback(() => {
+    setEditorMode("write");
+    setRightPanel("none");
+  }, []);
   const handleToggleSearch = useCallback(() => setShowSearch((v) => !v), []);
   const handleToggleGoals = useCallback(() => setShowGoals((v) => !v), []);
   const handleOpenGrimoire = useCallback(() => setCommandOpen(true), []);
   const handleCloseGrimoire = useCallback(() => setCommandOpen(false), []);
   const handleCloseGoals = useCallback(() => setShowGoals(false), []);
   const handleClosePanel = useCallback(() => setRightPanel("none"), []);
-  const handleToggleComments = useCallback(() => togglePanel("comments"), [togglePanel]);
-  const handleToggleBible = useCallback(() => togglePanel("bible"), [togglePanel]);
-  const handleToggleSettings = useCallback(() => togglePanel("chapter"), [togglePanel]);
-  const handleOpenMetadata = useCallback(() => togglePanel("metadata"), [togglePanel]);
-  const handleOpenFrontMatter = useCallback(() => togglePanel("frontmatter"), [togglePanel]);
-  const handleOpenTypography = useCallback(() => togglePanel("typography"), [togglePanel]);
-  const handleOpenMonetization = useCallback(() => togglePanel("monetization"), [togglePanel]);
+  const handleChangeEditorMode = useCallback((mode: EditorMode) => {
+    setEditorMode(mode);
+    setRightPanel("none");
+    setShowToolkit(false);
+    setShowGoals(false);
+    if (mode !== "plan") {
+      setShowOutline(false);
+    }
+  }, []);
+  const handleToggleComments = useCallback(() => {
+    setEditorMode("review");
+    togglePanel("comments");
+  }, [togglePanel]);
+  const handleToggleBible = useCallback(() => {
+    setEditorMode("plan");
+    togglePanel("bible");
+  }, [togglePanel]);
+  const handleToggleSettings = useCallback(() => {
+    setEditorMode("prepare");
+    togglePanel("chapter");
+  }, [togglePanel]);
+  const handleOpenMetadata = useCallback(() => {
+    setEditorMode("prepare");
+    togglePanel("metadata");
+  }, [togglePanel]);
+  const handleOpenFrontMatter = useCallback(() => {
+    setEditorMode("prepare");
+    togglePanel("frontmatter");
+  }, [togglePanel]);
+  const handleOpenTypography = useCallback(() => {
+    setEditorMode("prepare");
+    togglePanel("typography");
+  }, [togglePanel]);
+  const handleOpenMonetization = useCallback(() => {
+    setEditorMode("publish");
+    togglePanel("monetization");
+  }, [togglePanel]);
   const handleOpenWorkshop = useCallback(() => {
     if (storySlug) router.push(`/story/${storySlug}/workshop?from=editor`);
   }, [router, storySlug]);
   const handleOpenOpenCalls = useCallback(() => {
     if (storySlug) router.push(`/story/${storySlug}/calls?from=editor`);
   }, [router, storySlug]);
-  const handleToggleOutlineView = useCallback(() => setShowOutline((v) => !v), []);
+  const handleToggleOutlineView = useCallback(() => {
+    setEditorMode("plan");
+    setRightPanel("none");
+    setShowOutline((v) => !v);
+  }, []);
   const handleMentionClick = useCallback((characterId: string) => {
     setRightPanel("bible");
     setTimeout(() => {
@@ -1300,8 +1567,7 @@ export default function WriteStoryPage() {
   const handleCloseSearch = useCallback(() => setShowSearch(false), []);
   const handleCloseToolkit = useCallback(() => setShowToolkit(false), []);
   const handleToggleToolkit = useCallback(() => setShowToolkit((v) => !v), []);
-  const handleCloseSidebar = useCallback(() => { setIsSidebarHovered(false); setSidebarPinned(false); }, []);
-  const handleCloseChapterOutline = useCallback(() => setShowChapterOutline(false), []);
+  const handleCloseSidebar = useCallback(() => {}, []);
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
   const handleWebtoonWordCount = useCallback((wordCount: number) => {
@@ -1490,92 +1756,42 @@ export default function WriteStoryPage() {
         <div className="absolute inset-0 transition-opacity duration-1000 shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
       </div>
 
-      {/* ── 2. Auto-Hiding Chapter Sidebar (Left) ───────────── */}
-      <div
-        className="absolute top-0 left-0 bottom-0 w-12 z-40"
-        onMouseEnter={() => setIsSidebarHovered(true)}
-        onMouseLeave={() => setIsSidebarHovered(false)}
-      >
-        {/* Sidebar affordance — visible tab when sidebar is hidden */}
-        <AnimatePresence>
-          {!isSidebarHovered && !sidebarPinned && !isTyping && !commandOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, delay: 0.6 }}
-              className="absolute top-1/2 -translate-y-1/2 left-0 flex flex-col items-center gap-1 cursor-pointer"
-            >
-              {/* Pull tab with chapter count */}
-              <div
-                onClick={() => setSidebarPinned(true)}
-                className="flex flex-col items-center gap-2 px-2 py-3.5 rounded-r-xl bg-amber/[0.06] border border-l-0 border-amber/[0.12] backdrop-blur-md shadow-[0_0_20px_rgba(200,150,60,0.06)]"
-              >
-                <svg className="w-4 h-4 text-amber/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
-                <span className="text-[9px] font-mono text-amber/50 tracking-tight font-medium">
-                  {project.chapters.length}
-                </span>
-                <svg className="w-2.5 h-2.5 text-amber/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <EditorModeRail activeMode={editorMode} onChange={handleChangeEditorMode} />
 
-        {/* Backdrop for pinned sidebar (mobile tap-to-close) */}
-        {sidebarPinned && (
-          <div
-            className="fixed inset-0 z-30 bg-black/20"
-            onClick={() => setSidebarPinned(false)}
-          />
-        )}
-
-        {/* Expanded sidebar panel */}
-        <AnimatePresence>
-          {(isSidebarHovered || sidebarPinned) && !commandOpen && !isTyping && (
-            <motion.div
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute top-4 bottom-4 left-4 w-72 rounded-2xl bg-paper/[0.02] border border-paper/5 backdrop-blur-2xl shadow-2xl flex flex-col overflow-hidden"
-            >
-              <ChapterNav
-                chapters={project.chapters}
-                activeChapterId={project.activeChapterId}
-                storyTitle={project.title}
-                collapsed={false}
-                format={storyFormat}
-                onSelectChapter={handleSelectChapter}
-                onAddChapter={handleAddChapter}
-                onReorderChapters={handleReorderChapters}
-                onRenameChapter={handleRenameChapter}
-                onDeleteChapter={handleDeleteChapter}
-                onToggleCollapse={handleCloseSidebar}
-                onUpdateStoryTitle={handleUpdateStoryTitle}
-                onOpenToolkit={handleToggleToolkit}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ── 3. Chapter Outline Panel (Right) ────────────────── */}
-      <AnimatePresence>
-        {showChapterOutline && !isTyping && !commandOpen && activeChapter && (
-          <ChapterOutlinePanel
-            chapter={activeChapter}
-            onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
-            onClose={handleCloseChapterOutline}
-          />
-        )}
-      </AnimatePresence>
+      {/* ── 2. Book Navigation (Left) ──────────────────────── */}
+      <aside className="absolute inset-y-0 left-14 z-30 hidden w-72 border-r border-border bg-surface/80 backdrop-blur-2xl lg:flex">
+        <ChapterNav
+          chapters={project.chapters}
+          activeChapterId={project.activeChapterId}
+          storyTitle={project.title}
+          collapsed={false}
+          format={storyFormat}
+          onSelectChapter={handleSelectChapter}
+          onAddChapter={handleAddChapter}
+          onReorderChapters={handleReorderChapters}
+          onRenameChapter={handleRenameChapter}
+          onDeleteChapter={handleDeleteChapter}
+          onToggleCollapse={handleCloseSidebar}
+          onUpdateStoryTitle={handleUpdateStoryTitle}
+          onOpenToolkit={handleToggleToolkit}
+          coachSlot={
+            <FirstChapterCoach
+              variant="inline"
+              state={{
+                hasTitle: !!project.title && project.title !== "Untitled story" && project.title !== "Untitled",
+                hasGenre: (project.metadata?.genres?.length ?? 0) > 0,
+                hasCover: !!project.metadata?.coverImageDataUrl,
+                hasContent: (activeChapter?.wordCount ?? 0) >= 100,
+              }}
+              totalWords={totalWords}
+              onOpenSetup={handleOpenMetadata}
+            />
+          }
+        />
+      </aside>
 
       {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
-      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-opacity duration-500 ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
+      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-opacity duration-500 lg:pl-[344px] xl:pr-[360px] ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
 
         {/* Search bar */}
         <AnimatePresence>
@@ -1935,7 +2151,7 @@ export default function WriteStoryPage() {
       <AnimatePresence>
         {showUI && (
           <StatusBar
-            showOutline={showChapterOutline}
+            showOutline={editorMode === "write" && rightPanel === "none"}
             chapterWordCount={activeChapter?.wordCount ?? 0}
             totalWords={totalWords}
             goals={project.goals}
@@ -2069,6 +2285,21 @@ export default function WriteStoryPage() {
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <span>Changes couldn&apos;t be saved</span>
             <button onClick={retryFailedSaves} className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 transition-colors font-medium">Retry</button>
+            <button
+              onClick={async () => {
+                const current = project.chapters.find((chapter) => chapter.id === project.activeChapterId);
+                if (!current) return;
+                try {
+                  await navigator.clipboard.writeText(current.content || "");
+                  toast("Current draft copied", "success");
+                } catch {
+                  toast("Couldn’t copy draft", "error");
+                }
+              }}
+              className="px-2.5 py-1 rounded-lg bg-surface/60 border border-border hover:bg-surface transition-colors font-medium text-text-secondary"
+            >
+              Copy draft
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -2273,8 +2504,150 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
-      {/* ── 6. Right Panels (overlay) ───────────────────────── */}
-      <div className="absolute top-0 right-0 bottom-0 z-40 flex">
+      {/* ── 6. Right Context + Panels ─────────────────────── */}
+      <div className={`absolute top-0 right-0 bottom-0 z-40 flex max-w-[calc(100vw-56px)] ${
+        rightPanel === "none" ? "w-0 xl:w-[360px]" : "w-[360px]"
+      }`}>
+        {rightPanel === "none" && !commandOpen && (
+          <aside className="hidden h-full w-full flex-col border-l border-border bg-surface/90 backdrop-blur-2xl xl:flex">
+            {editorMode === "write" && activeChapter && (
+              <ChapterOutlinePanel
+                chapter={activeChapter}
+                docked
+                onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
+                onClose={() => setEditorMode("plan")}
+              />
+            )}
+
+            {editorMode !== "write" && (
+              <>
+                <div className="border-b border-border px-5 py-4">
+                  <p className="text-[13px] font-medium text-paper">
+                    {editorMode === "plan" && "Plan"}
+                    {editorMode === "review" && "Review"}
+                    {editorMode === "prepare" && "Prepare"}
+                    {editorMode === "publish" && "Publish"}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
+                    {editorMode === "plan" && "Structure, continuity, and reference material."}
+                    {editorMode === "review" && "Feedback, comments, snapshots, and recovery."}
+                    {editorMode === "prepare" && "Packaging tools for a ready manuscript."}
+                    {editorMode === "publish" && "Visibility, reader access, monetization, and launch."}
+                  </p>
+                </div>
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                  {editorMode === "plan" && (
+                    <>
+                      <ContextAction
+                        label="Story Map"
+                        description="Plan the whole book by chapter."
+                        onClick={handleToggleOutlineView}
+                        tone="accent"
+                      />
+                      <ContextAction
+                        label="Story Bible"
+                        description="Characters, places, lore, and continuity notes."
+                        onClick={handleToggleBible}
+                      />
+                      <ContextAction
+                        label="Chapter Beats"
+                        description="Scene notes for the current chapter."
+                        onClick={() => {
+                          setEditorMode("write");
+                          setRightPanel("none");
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {editorMode === "review" && (
+                    <>
+                      <ContextAction
+                        label="Comments"
+                        description={`${commentThreads.filter((thread) => !thread.resolved).length} open thread${commentThreads.filter((thread) => !thread.resolved).length === 1 ? "" : "s"}.`}
+                        onClick={handleToggleComments}
+                        tone="accent"
+                      />
+                      <ContextAction
+                        label="Version History"
+                        description={`${activeChapter?.snapshots.length ?? 0} snapshot${(activeChapter?.snapshots.length ?? 0) === 1 ? "" : "s"} for this chapter.`}
+                        onClick={() => {
+                          setEditorMode("review");
+                          setRightPanel("history");
+                        }}
+                      />
+                      <ContextAction
+                        label="Workshop"
+                        description="Team space, suggestions, lore book, and agreement."
+                        onClick={handleOpenWorkshop}
+                      />
+                    </>
+                  )}
+
+                  {editorMode === "prepare" && (
+                    <>
+                      <ContextAction
+                        label="Cover & Details"
+                        description="Cover art, synopsis, genre, rating, and language."
+                        onClick={handleOpenMetadata}
+                        tone="accent"
+                      />
+                      <ContextAction
+                        label="Front Matter"
+                        description="Epigraph, foreword, and table of contents."
+                        onClick={handleOpenFrontMatter}
+                      />
+                      <ContextAction
+                        label="Typography"
+                        description="Drop caps, scene breaks, and reading style."
+                        onClick={handleOpenTypography}
+                      />
+                      <ContextAction
+                        label="Chapter Settings"
+                        description="Status, author notes, and chapter-level metadata."
+                        onClick={handleToggleSettings}
+                      />
+                      <div className="grid grid-cols-3 gap-2 pt-2">
+                        <button onClick={handleExportPdf} className="rounded-lg border border-border bg-elevated/45 px-2 py-2 text-[11px] text-text-secondary hover:text-paper">PDF</button>
+                        <button onClick={handleExportEpub} className="rounded-lg border border-border bg-elevated/45 px-2 py-2 text-[11px] text-text-secondary hover:text-paper">EPUB</button>
+                        <button onClick={handleExportDocx} className="rounded-lg border border-border bg-elevated/45 px-2 py-2 text-[11px] text-text-secondary hover:text-paper">DOCX</button>
+                      </div>
+                    </>
+                  )}
+
+                  {editorMode === "publish" && (
+                    <>
+                      <div className="rounded-xl border border-border bg-elevated/45 px-3 py-3">
+                        <span className="block text-[13px] font-medium text-paper">
+                          {isPublic ? "Story is public" : "Story is private"}
+                        </span>
+                        <span className="mt-1 block text-[11px] leading-relaxed text-text-ghost">
+                          {isPublic ? "Readers can discover this story." : "Only you and collaborators can see it."}
+                        </span>
+                      </div>
+                      <ContextAction
+                        label={isPublic ? "Make Story Private" : "Make Story Public"}
+                        description="Control whether readers can discover the story."
+                        onClick={handleTogglePublish}
+                        tone="accent"
+                      />
+                      <ContextAction
+                        label="Monetization"
+                        description="Circle, chapter gating, and commissions."
+                        onClick={handleOpenMonetization}
+                      />
+                      <ContextAction
+                        label="Open Calls"
+                        description="Post roles and recruit collaborators."
+                        onClick={handleOpenOpenCalls}
+                      />
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </aside>
+        )}
         <AnimatePresence>
           {rightPanel === "comments" && (
             <CommentsSidebar
@@ -2460,18 +2833,6 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       <OnboardingHints />
-
-      {/* First-chapter coach — nudges new writers through title/genre/cover/100 words */}
-      <FirstChapterCoach
-        state={{
-          hasTitle: !!project.title && project.title !== "Untitled story" && project.title !== "Untitled",
-          hasGenre: (project.metadata?.genres?.length ?? 0) > 0,
-          hasCover: !!project.metadata?.coverImageDataUrl,
-          hasContent: (activeChapter?.wordCount ?? 0) >= 100,
-        }}
-        totalWords={totalWords}
-        onOpenSetup={handleOpenMetadata}
-      />
 
       {/* Upgrade Modal for Premium Features */}
       <UpgradeModal

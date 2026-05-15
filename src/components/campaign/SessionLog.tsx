@@ -18,6 +18,7 @@ interface SessionLogProps {
   readOnly?: boolean;
   isGM?: boolean;
   onUpdateRollRequest?: (turnId: string, status: "closed" | "cancelled") => void;
+  fullWidth?: boolean;
 }
 
 export default function SessionLog({
@@ -33,6 +34,7 @@ export default function SessionLog({
   readOnly = false,
   isGM = false,
   onUpdateRollRequest,
+  fullWidth = false,
 }: SessionLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +79,7 @@ export default function SessionLog({
   }
 
   return (
-    <div className="w-[88vw] max-w-[380px] sm:w-[320px] lg:w-[380px] h-full flex flex-col border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0">
+    <div className={`${fullWidth ? "w-full max-w-none" : "w-[88vw] max-w-[380px] sm:w-[320px] lg:w-[380px]"} h-full flex flex-col border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0`}>
       {/* Header */}
       <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md pb-4 shrink-0">
         <div className="flex items-center justify-between">
@@ -100,7 +102,7 @@ export default function SessionLog({
       </div>
 
       {/* Event Log */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col" style={{ scrollbarWidth: "none" }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.24)_transparent]">
         {turns.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-text-ghost text-xs italic font-serif">No messages yet...</p>
@@ -152,8 +154,8 @@ export default function SessionLog({
                     </p>
                     {(onSuccess || onFailure) && (
                       <div className="mt-2 space-y-1 z-10 relative">
-                        {onSuccess && <p className="text-[10px] text-emerald-400/50"><span className="font-bold">Win:</span> {onSuccess}</p>}
-                        {onFailure && <p className="text-[10px] text-red-400/50"><span className="font-bold">Lose:</span> {onFailure}</p>}
+                        {onSuccess && <p className="text-[11px] leading-relaxed text-sage"><span className="font-bold">Win:</span> {onSuccess}</p>}
+                        {onFailure && <p className="text-[11px] leading-relaxed text-rose"><span className="font-bold">Lose:</span> {onFailure}</p>}
                       </div>
                     )}
                     {isGM && status === "open" && onUpdateRollRequest && (
@@ -161,14 +163,14 @@ export default function SessionLog({
                         <button
                           type="button"
                           onClick={() => onUpdateRollRequest(turn.id, "closed")}
-                          className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-widest text-text-secondary hover:border-amber/30 hover:text-amber transition-colors"
+                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-widest text-text-secondary hover:border-amber/30 hover:text-amber transition-colors"
                         >
                           Close
                         </button>
                         <button
                           type="button"
                           onClick={() => onUpdateRollRequest(turn.id, "cancelled")}
-                          className="rounded-lg border border-rose/20 bg-rose/5 px-2.5 py-1 text-[10px] uppercase tracking-widest text-rose/80 hover:border-rose/40 hover:text-rose transition-colors"
+                          className="rounded-lg border border-rose/20 bg-rose/5 px-3 py-2 text-[10px] uppercase tracking-widest text-rose/80 hover:border-rose/40 hover:text-rose transition-colors"
                         >
                           Cancel
                         </button>
@@ -238,9 +240,21 @@ export default function SessionLog({
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Message party (OOC)..."
+              placeholder="Message party (OOC)... Enter to send"
               className="flex-1 bg-ink border border-border rounded-xl py-3 px-4 text-sm text-paper outline-none focus:border-amber/40 transition-colors"
             />
+            <button
+              type="submit"
+              disabled={!chatInput.trim()}
+              className="h-11 w-11 shrink-0 rounded-xl border border-amber/25 bg-amber/10 text-amber transition-all hover:bg-amber hover:text-black disabled:cursor-not-allowed disabled:border-border disabled:bg-subtle/20 disabled:text-text-tertiary"
+              title="Send message"
+              aria-label="Send message"
+            >
+              <svg className="mx-auto" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m22 2-7 20-4-9-9-4Z" />
+                <path d="M22 2 11 13" />
+              </svg>
+            </button>
           </form>
         </div>
       )}

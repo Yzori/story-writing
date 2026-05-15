@@ -436,6 +436,77 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   }),
 }));
 
+// ── Editor Comment Threads ──────────────────────────────────
+
+export const editorCommentThreads = pgTable("editor_comment_threads", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  chapterId: uuid("chapter_id")
+    .notNull()
+    .references(() => chapters.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  quotedText: text("quoted_text").notNull(),
+  fromPos: integer("from_pos").notNull(),
+  toPos: integer("to_pos").notNull(),
+  resolved: boolean("resolved").notNull().default(false),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+},
+  (table) => [
+    index("idx_editor_comment_threads_chapter").on(table.storyId, table.chapterId, table.deletedAt),
+  ]
+);
+
+export const editorCommentReplies = pgTable("editor_comment_replies", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => editorCommentThreads.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+},
+  (table) => [
+    index("idx_editor_comment_replies_thread").on(table.threadId, table.deletedAt, table.createdAt),
+  ]
+);
+
+export const editorCommentThreadsRelations = relations(editorCommentThreads, ({ one, many }) => ({
+  story: one(stories, { fields: [editorCommentThreads.storyId], references: [stories.id] }),
+  chapter: one(chapters, { fields: [editorCommentThreads.chapterId], references: [chapters.id] }),
+  user: one(users, { fields: [editorCommentThreads.userId], references: [users.id] }),
+  replies: many(editorCommentReplies),
+}));
+
+export const editorCommentRepliesRelations = relations(editorCommentReplies, ({ one }) => ({
+  thread: one(editorCommentThreads, {
+    fields: [editorCommentReplies.threadId],
+    references: [editorCommentThreads.id],
+  }),
+  user: one(users, { fields: [editorCommentReplies.userId], references: [users.id] }),
+}));
+
 // ── Creator Updates ─────────────────────────────────────────
 
 export const creatorUpdates = pgTable("creator_updates", {

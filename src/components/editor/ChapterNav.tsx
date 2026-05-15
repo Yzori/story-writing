@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Chapter } from "@/types/editor";
 import { formatNumber } from "@/lib/format";
@@ -32,6 +32,7 @@ interface ChapterNavProps {
   onToggleCollapse: () => void;
   onUpdateStoryTitle: (title: string) => void;
   onOpenToolkit: () => void;
+  coachSlot?: ReactNode;
 }
 
 export default function ChapterNav({
@@ -48,6 +49,7 @@ export default function ChapterNav({
   onToggleCollapse,
   onUpdateStoryTitle,
   onOpenToolkit,
+  coachSlot,
 }: ChapterNavProps) {
   const totalWords = chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
   const labels = getFormatLabels(format);
@@ -150,6 +152,12 @@ export default function ChapterNav({
                 ))}
               </Reorder.Group>
             </div>
+
+            {coachSlot && (
+              <div className="px-3 pb-2">
+                {coachSlot}
+              </div>
+            )}
 
             {/* Bottom actions */}
             <div className="p-3 space-y-1">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CommentThread, addReply } from "@/client/comments";
+import { CommentThread } from "@/client/comments";
 import { formatTimeAgo } from "@/lib/format";
 
 interface CommentsSidebarProps {
@@ -47,7 +47,12 @@ export default function CommentsSidebar({
         <div className="min-w-[280px] sm:min-w-[320px] flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-medium text-paper">Comments</h3>
+          <div>
+            <h3 className="text-sm font-medium text-paper">Comments</h3>
+            <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-text-ghost">
+              Synced with this story
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-text-ghost px-1.5 py-0.5 rounded-full bg-subtle">
               {activeThreads.length}
