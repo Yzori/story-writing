@@ -482,13 +482,15 @@ export default function WebtoonEditor({
   const patchPanel = useCallback(async (panelId: string, data: Record<string, unknown>) => {
     markSaving(panelId, true);
     try {
-      await fetch(`${apiBase}/${panelId}`, {
+      const res = await fetch(`${apiBase}/${panelId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-    } catch (err) {
-      // Panel save failed silently — user can retry
+      if (!res.ok) throw new Error("Panel save failed");
+      setUploadError(null);
+    } catch {
+      setUploadError("Panel changes couldn't be saved. Check your connection and try again.");
     } finally {
       markSaving(panelId, false);
     }
@@ -543,11 +545,18 @@ export default function WebtoonEditor({
 
   const handleDeletePanel = useCallback(
     async (id: string) => {
-      setPanels((prev) => prev.filter((p) => p.id !== id));
+      let previousPanels: Panel[] = [];
+      setPanels((prev) => {
+        previousPanels = prev;
+        return prev.filter((p) => p.id !== id);
+      });
       try {
-        await fetch(`${apiBase}/${id}`, { method: "DELETE" });
-      } catch (err) {
-        // Panel delete failed silently
+        const res = await fetch(`${apiBase}/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Panel delete failed");
+        setUploadError(null);
+      } catch {
+        setPanels(previousPanels);
+        setUploadError("Panel couldn't be deleted. Your episode has been restored locally.");
       }
     },
     [apiBase]
@@ -555,17 +564,28 @@ export default function WebtoonEditor({
 
   const handleReorder = useCallback(
     (reordered: Panel[]) => {
+      let previousPanels: Panel[] = [];
       const updated = reordered.map((p, i) => ({ ...p, sortOrder: i }));
-      setPanels(updated);
+      setPanels((prev) => {
+        previousPanels = prev;
+        return updated;
+      });
 
-      // Fire and forget reorder API call
       fetch(`${apiBase}/reorder`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           panels: updated.map((p) => ({ id: p.id, sortOrder: p.sortOrder })),
         }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Panel reorder failed");
+          setUploadError(null);
+        })
+        .catch(() => {
+          setPanels(previousPanels);
+          setUploadError("Panel order couldn't be saved. The previous order has been restored.");
+        });
     },
     [apiBase]
   );

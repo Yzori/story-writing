@@ -8,7 +8,7 @@ interface FloorRoundPanelProps {
   isGM: boolean;
   myCharacter: PlayerCharacter | null;
   isActive: boolean;
-  onCreateRound: (prompt: string, mode: FloorRoundMode) => Promise<void>;
+  onCreateRound: (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => Promise<void>;
   onSubmitResponse: (roundId: string, body: { characterId: string; type: string; content: string }) => Promise<void>;
   onVoteSubmission: (roundId: string, submissionId: string) => Promise<void>;
   onUpdateRound: (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => Promise<void>;
@@ -33,6 +33,7 @@ export default function FloorRoundPanel({
 }: FloorRoundPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<FloorRoundMode>("gm_pick");
+  const [audiencePulseEnabled, setAudiencePulseEnabled] = useState(false);
   const [content, setContent] = useState("");
   const [turnType, setTurnType] = useState<CampaignTurnType>("action");
   const [busy, setBusy] = useState(false);
@@ -81,13 +82,31 @@ export default function FloorRoundPanel({
             placeholder="What does the table attempt?"
             className="w-full bg-black/30 border border-border rounded-xl px-3 py-2.5 text-sm text-paper outline-none placeholder:text-text-ghost focus:border-lavender/40 resize-none min-h-[80px]"
           />
+          {mode === "vote" && (
+            <label className="mt-3 flex items-start gap-3 rounded-xl border border-lavender/15 bg-lavender/[0.04] p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={audiencePulseEnabled}
+                onChange={(event) => setAudiencePulseEnabled(event.target.checked)}
+                className="mt-0.5 accent-current"
+              />
+              <span>
+                <span className="block text-[10px] uppercase tracking-widest text-lavender font-display">
+                  Audience Pulse
+                </span>
+                <span className="block text-xs text-text-tertiary mt-1">
+                  Spectators can signal a favorite. The table vote stays separate; GM resolves.
+                </span>
+              </span>
+            </label>
+          )}
           <div className="flex justify-end mt-3">
             <button
               onClick={async () => {
                 if (!prompt.trim()) return;
                 setBusy(true);
                 try {
-                  await onCreateRound(prompt.trim(), mode);
+                  await onCreateRound(prompt.trim(), mode, mode === "vote" && audiencePulseEnabled);
                   setPrompt("");
                 } finally {
                   setBusy(false);
@@ -110,7 +129,9 @@ export default function FloorRoundPanel({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] font-display text-lavender">
-              {floorRound.mode === "vote" ? "Table Vote" : "GM Pick"}
+              {floorRound.mode === "vote"
+                ? floorRound.audiencePulseEnabled ? "Table Vote + Audience Pulse" : "Table Vote"
+                : "GM Pick"}
             </p>
             <p className="text-paper font-serif text-lg leading-snug mt-1">{floorRound.prompt}</p>
           </div>
@@ -131,6 +152,11 @@ export default function FloorRoundPanel({
             {floorRound.status === "closed" && (
               <span className="rounded-full border border-amber/25 bg-amber/10 px-3 py-1 text-amber">
                 Voting closed
+              </span>
+            )}
+            {floorRound.audiencePulseEnabled && (
+              <span className="rounded-full border border-lavender/25 bg-lavender/10 px-3 py-1 text-lavender">
+                Audience {floorRound.audiencePulseCount}
               </span>
             )}
           </div>
@@ -209,7 +235,12 @@ export default function FloorRoundPanel({
                     </p>
                     <p className="text-sm text-paper/85 font-serif leading-relaxed mt-1">{submission.content}</p>
                   </div>
-                  <span className="shrink-0 text-[11px] text-lavender">{submission.voteCount} votes</span>
+                  <div className="shrink-0 text-right text-[11px]">
+                    <div className="text-lavender">{submission.voteCount} votes</div>
+                    {floorRound.audiencePulseEnabled && (
+                      <div className="text-text-tertiary mt-1">{submission.audiencePulseCount} pulses</div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-3">
                   {!isGM && floorRound.mode === "vote" && floorRound.status === "voting" && floorRound.isVoteEligible && (

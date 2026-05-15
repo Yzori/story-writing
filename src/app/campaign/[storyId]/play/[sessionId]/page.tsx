@@ -14,6 +14,7 @@ import StoryMoment from "@/components/campaign/StoryMoment";
 import {
   isLogTurnType,
   isStoryTurnType,
+  parseRollMetadata,
   parseRollRequestMetadata,
   parseSceneBreakMetadata,
 } from "@/lib/campaign-turns";
@@ -47,6 +48,7 @@ export default function SessionPlayPage() {
     updateSession,
     updateRoster,
     editTurn,
+    updateRollRequest,
     createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
@@ -124,9 +126,18 @@ export default function SessionPlayPage() {
       if (t.type !== "roll-request" || !t.metadata) continue;
       const meta = parseRollRequestMetadata(t.metadata);
       if (!meta) continue;
-      if (meta.targetUserId !== currentUserId && meta.targetUserId !== "everyone") continue;
+      if ((meta.status ?? "open") !== "open") continue;
+      const requiredUserIds = meta.requiredUserIds?.length
+        ? meta.requiredUserIds
+        : meta.targetUserId === "everyone"
+          ? [currentUserId]
+          : [meta.targetUserId];
+      if (!requiredUserIds.includes(currentUserId)) continue;
       const hasResponded = turns.some(
-        (r) => r.type === "roll" && r.userId === currentUserId && r.sortOrder > t.sortOrder
+        (r) =>
+          r.type === "roll" &&
+          r.userId === currentUserId &&
+          parseRollMetadata(r.metadata)?.rollRequestTurnId === t.id
       );
       if (hasResponded) continue;
       return {
@@ -136,6 +147,8 @@ export default function SessionPlayPage() {
         onSuccess: meta.onSuccess ?? "",
         onFailure: meta.onFailure ?? "",
         fatal: meta.fatal === true,
+        status: meta.status ?? "open",
+        requiredUserIds,
         turnId: t.id,
         sortOrder: t.sortOrder,
       };
@@ -155,6 +168,18 @@ export default function SessionPlayPage() {
       }
     },
     [sendTurn, myCharacter, showToast]
+  );
+
+  const handleUpdateRollRequest = useCallback(
+    async (turnId: string, status: "closed" | "cancelled") => {
+      try {
+        await updateRollRequest(turnId, status);
+        showToast(status === "closed" ? "Roll request closed" : "Roll request cancelled");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to update roll request");
+      }
+    },
+    [showToast, updateRollRequest],
   );
 
   // Draft commit — server hands the spotlight back to the GM automatically
@@ -187,15 +212,15 @@ export default function SessionPlayPage() {
   );
 
   const handleCreateFloorRound = useCallback(
-    async (prompt: string, mode: FloorRoundMode) => {
+    async (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => {
       try {
-        await createFloorRound(prompt, mode);
+        await createFloorRound(prompt, mode, audiencePulseEnabled);
         try {
           await setActivePlayer(null);
         } catch {
           // The floor round itself controls submissions; spotlight sync can recover on the next GM action.
         }
-        showToast(mode === "vote" ? "Crossroads opened for table voting" : "Crossroads opened for GM pick");
+        showToast(audiencePulseEnabled ? "Crossroads opened with Audience Pulse" : mode === "vote" ? "Crossroads opened for table voting" : "Crossroads opened for GM pick");
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to open Crossroads");
       }
@@ -739,6 +764,8 @@ export default function SessionPlayPage() {
           onSendChat={handleSendChat}
           chatInput={chatInput}
           setChatInput={setChatInput}
+          isGM={isGM}
+          onUpdateRollRequest={handleUpdateRollRequest}
         />
       </div>
 
@@ -768,6 +795,8 @@ export default function SessionPlayPage() {
                 onSendChat={handleSendChat}
                 chatInput={chatInput}
                 setChatInput={setChatInput}
+                isGM={isGM}
+                onUpdateRollRequest={handleUpdateRollRequest}
               />
             </motion.div>
           </>

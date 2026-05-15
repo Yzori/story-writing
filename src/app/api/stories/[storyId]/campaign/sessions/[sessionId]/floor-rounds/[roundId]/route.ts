@@ -14,6 +14,7 @@ import { applyRateLimit } from "@/server/api-utils";
 import { updateFloorRoundSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getVisibleFloorRound } from "@/server/services/floor-rounds";
+import { getPendingRollRequests } from "@/server/services/campaign-rolls";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string; roundId: string }> };
 
@@ -102,6 +103,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
       if (round.mode !== "vote" && round.status !== "open") {
         return NextResponse.json({ error: { code: "BAD_REQUEST", message: "This round is not ready to canonize" } }, { status: 400 });
+      }
+
+      const pendingRolls = await getPendingRollRequests(sessionId, storyId);
+      if (pendingRolls.length > 0) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "PENDING_ROLLS",
+              message: "Resolve pending rolls before canonizing Crossroads",
+              details: pendingRolls,
+            },
+          },
+          { status: 409 },
+        );
       }
 
       const submission = await db.query.campaignFloorSubmissions.findFirst({

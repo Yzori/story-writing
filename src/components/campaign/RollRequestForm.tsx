@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PlayerCharacter } from "@/types/campaign";
+import { APPROACHES } from "@/types/campaign";
 
 interface RollRequestFormProps {
   activeChars: PlayerCharacter[];
@@ -11,9 +12,11 @@ interface RollRequestFormProps {
 export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequestFormProps) {
   const [showRollForm, setShowRollForm] = useState(false);
   const [rollTarget, setRollTarget] = useState<string>("everyone");
+  const [rollApproach, setRollApproach] = useState<string>("Bold");
   const [rollReason, setRollReason] = useState("");
   const [rollOnSuccess, setRollOnSuccess] = useState("");
   const [rollOnFailure, setRollOnFailure] = useState("");
+  const [fatal, setFatal] = useState(false);
 
   if (showRollForm) {
     return (
@@ -33,6 +36,26 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
               <option key={c.userId} value={c.userId}>{c.name}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Approach</label>
+          <div className="grid grid-cols-3 gap-1.5 mt-1">
+            {APPROACHES.map((approach) => (
+              <button
+                key={approach}
+                type="button"
+                onClick={() => setRollApproach(approach)}
+                className={`rounded-lg border px-2 py-1.5 text-[10px] font-bold transition-colors cursor-pointer ${
+                  rollApproach === approach
+                    ? "border-violet-500/40 bg-violet-500/20 text-violet-300"
+                    : "border-border bg-black/20 text-text-tertiary hover:text-text-secondary"
+                }`}
+              >
+                {approach}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* What's at stake */}
@@ -72,12 +95,25 @@ export default function RollRequestForm({ activeChars, onRequestRoll }: RollRequ
           </p>
         </div>
 
+        <label className="flex items-start gap-2 rounded-lg border border-rose/20 bg-rose/[0.04] px-3 py-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={fatal}
+            onChange={(event) => setFatal(event.target.checked)}
+            className="mt-0.5 accent-current"
+          />
+          <span>
+            <span className="block text-[10px] uppercase tracking-wider text-rose font-bold">Fatal Stakes</span>
+            <span className="block text-[10px] text-text-tertiary mt-0.5">A failure marks the character dead.</span>
+          </span>
+        </label>
+
         <div className="flex gap-2 pt-1">
           <button
             onClick={() => {
               if (rollReason.trim()) {
-                onRequestRoll(rollTarget, "Bold", rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim());
-                setRollReason(""); setRollOnSuccess(""); setRollOnFailure("");
+                onRequestRoll(rollTarget, rollApproach, rollReason.trim(), rollOnSuccess.trim(), rollOnFailure.trim(), fatal);
+                setRollReason(""); setRollOnSuccess(""); setRollOnFailure(""); setFatal(false);
                 setShowRollForm(false);
               }
             }}

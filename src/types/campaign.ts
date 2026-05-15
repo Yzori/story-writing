@@ -38,6 +38,8 @@ export interface RollRequest {
   onSuccess: string;
   onFailure: string;
   fatal: boolean;
+  status: "open" | "closed" | "cancelled";
+  requiredUserIds: string[];
   turnId: string;
   sortOrder: number;
 }
@@ -85,6 +87,7 @@ export interface FloorSubmission {
     avatarUrl: string | null;
   };
   voteCount: number;
+  audiencePulseCount: number;
   isMine: boolean;
 }
 
@@ -95,6 +98,7 @@ export interface FloorRound {
   prompt: string;
   mode: FloorRoundMode;
   status: FloorRoundStatus;
+  audiencePulseEnabled: boolean;
   selectedSubmissionId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -104,6 +108,8 @@ export interface FloorRound {
   eligibleVoterCount: number;
   allEligibleVotersVoted: boolean;
   isVoteEligible: boolean;
+  audiencePulseCount: number;
+  myAudiencePulseSubmissionId: string | null;
 }
 
 export interface StoryData {

@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignTurns, campaignSessions, playerCharacters, sessionRoster, users } from "@/server/db/schema";
+import { campaignRollResponses, campaignTurns, campaignSessions, playerCharacters, sessionRoster, users } from "@/server/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
-import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollRequestMetadata } from "@/lib/campaign-turns";
+import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollMetadata, parseRollRequestMetadata } from "@/lib/campaign-turns";
 import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
+import { getActiveSessionPlayerIds } from "@/server/services/campaign-rolls";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
+const DUPLICATE_ROLL_RESPONSE = "DUPLICATE_ROLL_RESPONSE";
 
 function parseJsonObject(metadata: string | null | undefined): Record<string, unknown> | null {
   if (!metadata) return null;
@@ -252,6 +254,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    let metadataToStore = parsed.data.metadata ?? null;
+
+    if (parsed.data.type === "roll-request") {
+      const rollRequestMeta = parseRollRequestMetadata(metadataToStore);
+      if (!rollRequestMeta) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Roll request metadata is invalid" } },
+          { status: 400 },
+        );
+      }
+
+      const activePlayerIds = await getActiveSessionPlayerIds(sessionId, storyId);
+      const requiredUserIds = rollRequestMeta.targetUserId === "everyone"
+        ? activePlayerIds
+        : activePlayerIds.includes(rollRequestMeta.targetUserId)
+          ? [rollRequestMeta.targetUserId]
+          : [];
+
+      if (requiredUserIds.length === 0) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Roll target must be an active session player" } },
+          { status: 400 },
+        );
+      }
+
+      metadataToStore = JSON.stringify({
+        ...rollRequestMeta,
+        status: "open",
+        requiredUserIds,
+      });
+    }
+
     const rollMetadata = parsed.data.type === "roll"
       ? parseJsonObject(parsed.data.metadata)
       : null;
@@ -285,18 +319,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      if (rollRequestMeta.targetUserId !== session.user.id && rollRequestMeta.targetUserId !== "everyone") {
+      if ((rollRequestMeta.status ?? "open") !== "open") {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "This roll request is closed" } },
+          { status: 403 }
+        );
+      }
+
+      const activePlayerIds = await getActiveSessionPlayerIds(sessionId, storyId);
+      const requiredUserIds = rollRequestMeta.requiredUserIds?.length
+        ? rollRequestMeta.requiredUserIds
+        : rollRequestMeta.targetUserId === "everyone"
+          ? activePlayerIds
+          : activePlayerIds.includes(rollRequestMeta.targetUserId) ? [rollRequestMeta.targetUserId] : [];
+
+      if (!requiredUserIds.includes(session.user.id)) {
         return NextResponse.json(
           { error: { code: "FORBIDDEN", message: "This roll request is not for you" } },
           { status: 403 }
         );
       }
 
-      const existingResponse = await db.query.campaignTurns.findFirst({
-        where: sql`${campaignTurns.sessionId} = ${sessionId}
-          AND ${campaignTurns.userId} = ${session.user.id}
-          AND ${campaignTurns.type} = 'roll'
-          AND ${campaignTurns.sortOrder} > ${rollRequestTurn.sortOrder}`,
+      const existingResponse = await db.query.campaignRollResponses.findFirst({
+        where: and(
+          eq(campaignRollResponses.rollRequestTurnId, rollRequestTurn.id),
+          eq(campaignRollResponses.userId, session.user.id),
+        ),
       });
 
       if (existingResponse) {
@@ -307,21 +355,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Use a subquery insert to atomically compute the next sortOrder,
-    // preventing race conditions with concurrent inserts
-    const [created] = await db
-      .insert(campaignTurns)
-      .values({
-        sessionId,
-        userId: session.user.id,
-        characterId: parsed.data.characterId ?? null,
-        type: parsed.data.type,
-        content: parsed.data.content,
-        metadata: parsed.data.metadata ?? null,
-        sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
-      })
-      .returning();
-
     // Hand the spotlight back to the GM after an assigned player posts a
     // story turn. Without this, assigned-player turns get stuck on the player
     // because the client cannot reassign (the active-player endpoint is
@@ -329,69 +362,98 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const posterIsPlayer = session.user.id !== check.story!.userId;
     const playerCedesAssignedTurn = campaignSession.activePlayerId === session.user.id;
     let nextActivePlayerId: string | null = campaignSession.activePlayerId ?? null;
-    if (
-      posterIsPlayer &&
-      playerCedesAssignedTurn &&
-      isPlayerStoryTurnType(parsed.data.type)
-    ) {
-      nextActivePlayerId = check.story!.userId;
-      await db
-        .update(campaignSessions)
-        .set({ activePlayerId: nextActivePlayerId })
-        .where(eq(campaignSessions.id, sessionId));
-    }
+    const created = await db.transaction(async (tx) => {
+      const [newTurn] = await tx
+        .insert(campaignTurns)
+        .values({
+          sessionId,
+          userId: session.user.id,
+          characterId: parsed.data.characterId ?? null,
+          type: parsed.data.type,
+          content: parsed.data.content,
+          metadata: metadataToStore,
+          sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
+        })
+        .returning();
 
-    if (
-      parsed.data.type === "roll" &&
-      rollRequestMeta &&
-      rollRequestTurn &&
-      rollRequestMeta.targetUserId !== "everyone"
-    ) {
-      const tier = typeof rollMetadata?.tier === "string" ? rollMetadata.tier : "";
-      const fatalFailure = rollRequestMeta.fatal === true && tier === "failure";
-      const genericOutcomes: Record<string, string> = {
-        success: rollRequestMeta.fatal ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
-        partial: rollRequestMeta.fatal ? "They cling to life - but barely. The cost is terrible." : "A partial success - but not without cost.",
-        failure: rollRequestMeta.fatal ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
-      };
-      const outcomeText = tier === "failure"
-        ? (rollRequestMeta.onFailure || genericOutcomes.failure)
-        : tier === "success"
-          ? (rollRequestMeta.onSuccess || genericOutcomes.success)
-          : rollRequestMeta.onSuccess && rollRequestMeta.onFailure
-            ? `${rollRequestMeta.onSuccess} - but ${rollRequestMeta.onFailure.charAt(0).toLowerCase()}${rollRequestMeta.onFailure.slice(1)}`
-            : genericOutcomes.partial;
+      if (posterIsPlayer && playerCedesAssignedTurn && isPlayerStoryTurnType(parsed.data.type)) {
+        nextActivePlayerId = check.story!.userId;
+        await tx
+          .update(campaignSessions)
+          .set({ activePlayerId: nextActivePlayerId })
+          .where(eq(campaignSessions.id, sessionId));
+      }
 
-      if (outcomeText) {
-        await db
-          .insert(campaignTurns)
+      if (parsed.data.type === "roll" && rollRequestMeta && rollRequestTurn) {
+        const [rollResponse] = await tx
+          .insert(campaignRollResponses)
           .values({
             sessionId,
-            userId: check.story!.userId,
-            characterId: null,
-            type: "consequence",
-            content: outcomeText,
-            metadata: JSON.stringify({ rollRequestTurnId: rollRequestTurn.id, rollTurnId: created.id, generated: true }),
-            sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
-          });
+            rollRequestTurnId: rollRequestTurn.id,
+            rollTurnId: newTurn.id,
+            userId: session.user.id,
+          })
+          .onConflictDoNothing()
+          .returning({ id: campaignRollResponses.id });
+
+        if (!rollResponse) {
+          throw new Error(DUPLICATE_ROLL_RESPONSE);
+        }
       }
 
-      if (fatalFailure && parsed.data.characterId) {
-        await db
-          .update(playerCharacters)
-          .set({ status: "dead", updatedAt: new Date() })
-          .where(eq(playerCharacters.id, parsed.data.characterId));
-        await db
-          .update(sessionRoster)
-          .set({ status: "spectating" })
-          .where(
-            and(
-              eq(sessionRoster.sessionId, sessionId),
-              eq(sessionRoster.characterId, parsed.data.characterId),
-            ),
-          );
+      if (parsed.data.type === "roll" && rollRequestMeta && rollRequestTurn) {
+        const parsedRollMeta = parseRollMetadata(parsed.data.metadata);
+        const tier = parsedRollMeta?.tier ?? "";
+        const fatalFailure = rollRequestMeta.fatal === true && tier === "failure";
+
+        if (rollRequestMeta.targetUserId !== "everyone") {
+          const genericOutcomes: Record<string, string> = {
+            success: rollRequestMeta.fatal ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
+            partial: rollRequestMeta.fatal ? "They cling to life - but barely. The cost is terrible." : "A partial success - but not without cost.",
+            failure: rollRequestMeta.fatal ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
+          };
+          const outcomeText = tier === "failure"
+            ? (rollRequestMeta.onFailure || genericOutcomes.failure)
+            : tier === "success"
+              ? (rollRequestMeta.onSuccess || genericOutcomes.success)
+              : rollRequestMeta.onSuccess && rollRequestMeta.onFailure
+                ? `${rollRequestMeta.onSuccess} - but ${rollRequestMeta.onFailure.charAt(0).toLowerCase()}${rollRequestMeta.onFailure.slice(1)}`
+                : genericOutcomes.partial;
+
+          if (outcomeText) {
+            await tx
+              .insert(campaignTurns)
+              .values({
+                sessionId,
+                userId: check.story!.userId,
+                characterId: null,
+                type: "consequence",
+                content: outcomeText,
+                metadata: JSON.stringify({ rollRequestTurnId: rollRequestTurn.id, rollTurnId: newTurn.id, generated: true }),
+                sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
+              });
+          }
+        }
+
+        if (fatalFailure && parsed.data.characterId) {
+          await tx
+            .update(playerCharacters)
+            .set({ status: "dead", updatedAt: new Date() })
+            .where(eq(playerCharacters.id, parsed.data.characterId));
+          await tx
+            .update(sessionRoster)
+            .set({ status: "spectating" })
+            .where(
+              and(
+                eq(sessionRoster.sessionId, sessionId),
+                eq(sessionRoster.characterId, parsed.data.characterId),
+              ),
+            );
+        }
       }
-    }
+
+      return newTurn;
+    });
 
     // Re-fetch with user/character joins so the client gets a complete Turn object
     const [enriched] = await db
@@ -425,6 +487,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof Error && error.message === DUPLICATE_ROLL_RESPONSE) {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "You already answered this roll request" } },
+        { status: 409 },
+      );
+    }
     console.error("POST /api/.../turns error:", error);
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create turn" } },

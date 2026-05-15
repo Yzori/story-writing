@@ -315,10 +315,16 @@ export const createCampaignTurnSchema = z
     { message: "Content is required", path: ["content"] },
   );
 
-export const createFloorRoundSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required").max(1000),
-  mode: z.enum(["gm_pick", "vote"]).default("gm_pick"),
-});
+export const createFloorRoundSchema = z
+  .object({
+    prompt: z.string().min(1, "Prompt is required").max(1000),
+    mode: z.enum(["gm_pick", "vote"]).default("gm_pick"),
+    audiencePulseEnabled: z.boolean().optional().default(false),
+  })
+  .refine((data) => !data.audiencePulseEnabled || data.mode === "vote", {
+    message: "Audience Pulse requires vote mode",
+    path: ["audiencePulseEnabled"],
+  });
 
 export const updateFloorRoundSchema = z.object({
   status: z.enum(["voting", "closed", "resolved", "cancelled"]),
@@ -332,6 +338,11 @@ export const createFloorSubmissionSchema = z.object({
 });
 
 export const createFloorVoteSchema = z.object({
+  submissionId: z.string().uuid(),
+});
+
+export const createFloorAudiencePulseSchema = z.object({
+  token: z.string().min(1).max(200),
   submissionId: z.string().uuid(),
 });
 

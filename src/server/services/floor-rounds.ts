@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import {
   campaignSessions,
   campaignFloorRounds,
+  campaignFloorAudiencePulses,
   campaignFloorSubmissions,
   campaignFloorVotes,
   playerCharacters,
@@ -92,12 +93,14 @@ export async function getVisibleFloorRound(
         displayName: users.displayName,
         avatarUrl: users.avatarUrl,
       },
-      voteCount: sql<number>`coalesce(count(${campaignFloorVotes.id}), 0)`,
+      voteCount: sql<number>`coalesce(count(distinct ${campaignFloorVotes.id}), 0)`,
+      audiencePulseCount: sql<number>`coalesce(count(distinct ${campaignFloorAudiencePulses.id}), 0)`,
     })
     .from(campaignFloorSubmissions)
     .leftJoin(playerCharacters, eq(campaignFloorSubmissions.characterId, playerCharacters.id))
     .leftJoin(users, eq(campaignFloorSubmissions.userId, users.id))
     .leftJoin(campaignFloorVotes, eq(campaignFloorVotes.submissionId, campaignFloorSubmissions.id))
+    .leftJoin(campaignFloorAudiencePulses, eq(campaignFloorAudiencePulses.submissionId, campaignFloorSubmissions.id))
     .where(eq(campaignFloorSubmissions.roundId, round.id))
     .groupBy(
       campaignFloorSubmissions.id,
@@ -124,6 +127,13 @@ export async function getVisibleFloorRound(
       .map((vote) => vote.userId)
       .filter((userId) => eligibleVoterIds.has(userId)),
   ).size;
+  // The `(roundId, token)` unique constraint already guarantees one pulse
+  // per spectator per round, so count(*) is the distinct-token count.
+  const [pulseCountRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(campaignFloorAudiencePulses)
+    .where(eq(campaignFloorAudiencePulses.roundId, round.id));
+  const audiencePulseCount = pulseCountRow?.count ?? 0;
 
   const shouldRevealAll = isGM || round.status !== "open";
 
@@ -134,6 +144,7 @@ export async function getVisibleFloorRound(
     prompt: round.prompt,
     mode: round.mode as FloorRound["mode"],
     status: round.status as FloorRound["status"],
+    audiencePulseEnabled: round.audiencePulseEnabled,
     selectedSubmissionId: round.selectedSubmissionId,
     createdAt: round.createdAt.toISOString(),
     updatedAt: round.updatedAt.toISOString(),
@@ -153,11 +164,48 @@ export async function getVisibleFloorRound(
           avatarUrl: submission.user?.avatarUrl ?? null,
         },
         voteCount: Number(submission.voteCount ?? 0),
+        audiencePulseCount: Number(submission.audiencePulseCount ?? 0),
         isMine: submission.userId === currentUserId,
       })),
     voteCount,
     eligibleVoterCount: eligibleVoterIds.size,
     allEligibleVotersVoted: eligibleVoterIds.size > 0 && voteCount >= eligibleVoterIds.size,
     isVoteEligible: eligibleVoterIds.has(currentUserId),
+    audiencePulseCount,
+    myAudiencePulseSubmissionId: null,
+  };
+}
+
+export async function getAudiencePulseFloorRound(
+  sessionId: string,
+  token: string,
+): Promise<FloorRound | null> {
+  const round = await db.query.campaignFloorRounds.findFirst({
+    where: and(
+      eq(campaignFloorRounds.sessionId, sessionId),
+      eq(campaignFloorRounds.audiencePulseEnabled, true),
+      inArray(campaignFloorRounds.status, ["voting", "closed"]),
+    ),
+  });
+  if (!round) return null;
+
+  // Spectators see revealed submissions because the round has already
+  // progressed past `open`. `isGM=true` unmasks the prose; `currentUserId=""`
+  // forces `isMine: false` on every submission, which is correct for an
+  // unauthenticated audience viewer.
+  const floorRound = await getVisibleFloorRound(sessionId, "", true);
+  if (!floorRound) return null;
+
+  const myPulse = await db.query.campaignFloorAudiencePulses.findFirst({
+    where: and(
+      eq(campaignFloorAudiencePulses.roundId, round.id),
+      eq(campaignFloorAudiencePulses.token, token.trim()),
+    ),
+  });
+
+  return {
+    ...floorRound,
+    isVoteEligible: false,
+    myAudiencePulseSubmissionId: myPulse?.submissionId ?? null,
   };
 }

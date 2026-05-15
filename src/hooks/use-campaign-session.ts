@@ -377,18 +377,36 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     [storyId, sessionId],
   );
 
+  const updateRollRequest = useCallback(
+    async (turnId: string, status: "closed" | "cancelled") => {
+      const json = await campaignJsonRequest<Turn>(
+        `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}/roll-request`,
+        {
+          method: "PATCH",
+          body: { status },
+          fallbackError: "Failed to update roll request",
+        },
+      );
+      if (json.data) {
+        setTurns((prev) => prev.map((turn) => (turn.id === turnId ? json.data as Turn : turn)));
+      }
+      return json.data as Turn;
+    },
+    [storyId, sessionId],
+  );
+
   const refreshFloorRound = useCallback(async () => {
     const json = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
     setFloorRound(json.data ?? null);
     return json.data ?? null;
   }, [floorRoundsUrl]);
 
-  const createFloorRound = useCallback(async (prompt: string, mode: FloorRoundMode) => {
+  const createFloorRound = useCallback(async (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => {
     const json = await campaignJsonRequest<FloorRound>(
       floorRoundsUrl,
       {
         method: "POST",
-        body: { prompt, mode },
+        body: { prompt, mode, audiencePulseEnabled: !!audiencePulseEnabled },
         fallbackError: "Failed to open Crossroads",
       },
     );
@@ -469,6 +487,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     updateSession,
     updateRoster,
     editTurn,
+    updateRollRequest,
     refreshFloorRound,
     createFloorRound,
     submitFloorResponse,

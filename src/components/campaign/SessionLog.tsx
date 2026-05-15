@@ -16,6 +16,8 @@ interface SessionLogProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   readOnly?: boolean;
+  isGM?: boolean;
+  onUpdateRollRequest?: (turnId: string, status: "closed" | "cancelled") => void;
 }
 
 export default function SessionLog({
@@ -29,6 +31,8 @@ export default function SessionLog({
   isCollapsed = false,
   onToggleCollapse,
   readOnly = false,
+  isGM = false,
+  onUpdateRollRequest,
 }: SessionLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -129,6 +133,7 @@ export default function SessionLog({
               const onSuccess = meta?.onSuccess ?? "";
               const onFailure = meta?.onFailure ?? "";
               const fatal = meta?.fatal === true;
+              const status = meta?.status ?? "open";
 
               return (
                 <div className="flex flex-col items-center my-2">
@@ -137,6 +142,11 @@ export default function SessionLog({
                     <p className={`text-[10px] uppercase tracking-widest font-bold z-10 relative ${fatal ? "text-rose" : "text-violet-400"}`}>
                       {fatal ? "Fatal Roll" : "Roll Requested"}
                     </p>
+                    {status !== "open" && (
+                      <span className="inline-flex mt-1 rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[9px] uppercase tracking-widest text-text-tertiary">
+                        {status}
+                      </span>
+                    )}
                     <p className="text-xs text-text-secondary mt-1 z-10 relative">
                       {attribute} check — {reason}
                     </p>
@@ -144,6 +154,24 @@ export default function SessionLog({
                       <div className="mt-2 space-y-1 z-10 relative">
                         {onSuccess && <p className="text-[10px] text-emerald-400/50"><span className="font-bold">Win:</span> {onSuccess}</p>}
                         {onFailure && <p className="text-[10px] text-red-400/50"><span className="font-bold">Lose:</span> {onFailure}</p>}
+                      </div>
+                    )}
+                    {isGM && status === "open" && onUpdateRollRequest && (
+                      <div className="mt-3 flex items-center justify-center gap-2 z-10 relative">
+                        <button
+                          type="button"
+                          onClick={() => onUpdateRollRequest(turn.id, "closed")}
+                          className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-widest text-text-secondary hover:border-amber/30 hover:text-amber transition-colors"
+                        >
+                          Close
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateRollRequest(turn.id, "cancelled")}
+                          className="rounded-lg border border-rose/20 bg-rose/5 px-2.5 py-1 text-[10px] uppercase tracking-widest text-rose/80 hover:border-rose/40 hover:text-rose transition-colors"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     )}
                   </div>

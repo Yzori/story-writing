@@ -53,6 +53,7 @@ import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
 import { useChapterAutosave } from "@/hooks/use-chapter-autosave";
 import { useApiMutation } from "@/hooks/use-api-mutation";
+import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
 
@@ -487,6 +488,24 @@ export default function WriteStoryPage() {
     []
   );
 
+  const handleSelectChapter = useCallback(
+    async (id: string) => {
+      if (isSwitching.current) return; // Prevent concurrent switches
+      isSwitching.current = true;
+      try {
+        const flushed = await flushPendingSaves();
+        if (!canProceedAfterSaveFlush(flushed)) {
+          toast(getSaveGuardMessage("chapter-switch"), "error");
+          return;
+        }
+        updateProject((prev) => (prev ? { ...prev, activeChapterId: id } : prev));
+      } finally {
+        isSwitching.current = false;
+      }
+    },
+    [updateProject, flushPendingSaves, toast]
+  );
+
   // ── Keyboard shortcuts + typing detection ────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -515,28 +534,15 @@ export default function WriteStoryPage() {
       }
       if (isMod && e.shiftKey && e.key === "ArrowDown") {
         e.preventDefault();
-        setProject((prev) => {
-          if (!prev) return prev;
-          const idx = prev.chapters.findIndex((c) => c.id === prev.activeChapterId);
-          if (idx < prev.chapters.length - 1) {
-            // Flush saves before switching — fire and forget
-            flushPendingSaves();
-            return { ...prev, activeChapterId: prev.chapters[idx + 1].id };
-          }
-          return prev;
-        });
+        const idx = project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? -1;
+        const nextId = idx >= 0 ? project?.chapters[idx + 1]?.id : null;
+        if (nextId) void handleSelectChapter(nextId);
       }
       if (isMod && e.shiftKey && e.key === "ArrowUp") {
         e.preventDefault();
-        setProject((prev) => {
-          if (!prev) return prev;
-          const idx = prev.chapters.findIndex((c) => c.id === prev.activeChapterId);
-          if (idx > 0) {
-            flushPendingSaves();
-            return { ...prev, activeChapterId: prev.chapters[idx - 1].id };
-          }
-          return prev;
-        });
+        const idx = project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? -1;
+        const nextId = idx > 0 ? project?.chapters[idx - 1]?.id : null;
+        if (nextId) void handleSelectChapter(nextId);
       }
       if (isMod && e.shiftKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
@@ -576,7 +582,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen, togglePanel, flushPendingSaves]);
+  }, [commandOpen, togglePanel, flushPendingSaves, project?.chapters, project?.activeChapterId, handleSelectChapter]);
 
   const activeChapter = useMemo(() =>
     project?.chapters.find((c) => c.id === project.activeChapterId),
@@ -588,20 +594,6 @@ export default function WriteStoryPage() {
   );
 
   // ── Chapter handlers ──────────────────────────────────────
-
-  const handleSelectChapter = useCallback(
-    async (id: string) => {
-      if (isSwitching.current) return; // Prevent concurrent switches
-      isSwitching.current = true;
-      try {
-        await flushPendingSaves();
-        updateProject((prev) => (prev ? { ...prev, activeChapterId: id } : prev));
-      } finally {
-        isSwitching.current = false;
-      }
-    },
-    [updateProject, flushPendingSaves]
-  );
 
   // ── Scene break style change (from inline picker in editor) ──
   useEffect(() => {
@@ -742,8 +734,8 @@ export default function WriteStoryPage() {
       // doing so ships whatever the server already had, silently dropping
       // the user's recent edits.
       const flushed = await flushPendingSaves();
-      if (!flushed) {
-        toast("Couldn’t save your latest edits — publish cancelled.", "error");
+      if (!canProceedAfterSaveFlush(flushed)) {
+        toast(getSaveGuardMessage("publish"), "error");
         setPublishDialog((p) => ({ ...p, open: false }));
         return;
       }
@@ -810,7 +802,11 @@ export default function WriteStoryPage() {
         toast("Cannot delete the only chapter", "error");
         return;
       }
-      await flushPendingSaves();
+      const flushed = await flushPendingSaves();
+      if (!canProceedAfterSaveFlush(flushed)) {
+        toast(getSaveGuardMessage("delete"), "error");
+        return;
+      }
       // Auto-snapshot before delete
       const chapterToDelete = project?.chapters.find((c) => c.id === id);
       if (chapterToDelete && chapterToDelete.content) {
@@ -1308,6 +1304,19 @@ export default function WriteStoryPage() {
   const handleCloseChapterOutline = useCallback(() => setShowChapterOutline(false), []);
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
+  const handleWebtoonWordCount = useCallback((wordCount: number) => {
+    updateProject((prev) => {
+      const chapterId = prev.activeChapterId;
+      const current = prev.chapters.find((chapter) => chapter.id === chapterId);
+      if (!current || current.wordCount === wordCount) return prev;
+      return {
+        ...prev,
+        chapters: prev.chapters.map((chapter) =>
+          chapter.id === chapterId ? { ...chapter, wordCount } : chapter
+        ),
+      };
+    });
+  }, [updateProject]);
 
   // ── Dynamic export handlers ────────────────────────────────
   const handleExportPdf = useCallback(async () => {
@@ -1807,6 +1816,7 @@ export default function WriteStoryPage() {
                         key={activeChapter.id}
                         storyId={storyId}
                         chapterId={activeChapter.id}
+                        onWordCountChange={handleWebtoonWordCount}
                       />
                     ) : storyFormat === "illustrated" ? (
                       <IllustratedEditor

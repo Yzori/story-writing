@@ -1233,6 +1233,7 @@ export const campaignFloorRounds = pgTable("campaign_floor_rounds", {
   prompt: text("prompt").notNull(),
   mode: text("mode").notNull().default("gm_pick"), // 'gm_pick' | 'vote'
   status: text("status").notNull().default("open"), // 'open' | 'voting' | 'closed' | 'resolved' | 'cancelled'
+  audiencePulseEnabled: boolean("audience_pulse_enabled").notNull().default(false),
   selectedSubmissionId: uuid("selected_submission_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -1289,6 +1290,26 @@ export const campaignFloorVotes = pgTable("campaign_floor_votes", {
   index("idx_campaign_floor_votes_submission").on(table.submissionId),
 ]);
 
+export const campaignFloorAudiencePulses = pgTable("campaign_floor_audience_pulses", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  roundId: uuid("round_id")
+    .notNull()
+    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
+  submissionId: uuid("submission_id")
+    .notNull()
+    .references(() => campaignFloorSubmissions.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  unique("campaign_floor_audience_pulse_round_token_unique").on(table.roundId, table.token),
+  index("idx_campaign_floor_audience_pulses_submission").on(table.submissionId),
+]);
+
 export const campaignFloorRoundsRelations = relations(campaignFloorRounds, ({ one, many }) => ({
   session: one(campaignSessions, {
     fields: [campaignFloorRounds.sessionId],
@@ -1300,6 +1321,7 @@ export const campaignFloorRoundsRelations = relations(campaignFloorRounds, ({ on
   }),
   submissions: many(campaignFloorSubmissions),
   votes: many(campaignFloorVotes),
+  audiencePulses: many(campaignFloorAudiencePulses),
 }));
 
 export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissions, ({ one, many }) => ({
@@ -1316,6 +1338,7 @@ export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissi
     references: [playerCharacters.id],
   }),
   votes: many(campaignFloorVotes),
+  audiencePulses: many(campaignFloorAudiencePulses),
 }));
 
 export const campaignFloorVotesRelations = relations(campaignFloorVotes, ({ one }) => ({
@@ -1329,6 +1352,21 @@ export const campaignFloorVotesRelations = relations(campaignFloorVotes, ({ one 
   }),
   user: one(users, {
     fields: [campaignFloorVotes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const campaignFloorAudiencePulsesRelations = relations(campaignFloorAudiencePulses, ({ one }) => ({
+  round: one(campaignFloorRounds, {
+    fields: [campaignFloorAudiencePulses.roundId],
+    references: [campaignFloorRounds.id],
+  }),
+  submission: one(campaignFloorSubmissions, {
+    fields: [campaignFloorAudiencePulses.submissionId],
+    references: [campaignFloorSubmissions.id],
+  }),
+  user: one(users, {
+    fields: [campaignFloorAudiencePulses.userId],
     references: [users.id],
   }),
 }));
@@ -1360,7 +1398,32 @@ export const campaignTurns = pgTable("campaign_turns", {
   index("idx_campaign_turns_user_id").on(table.userId),
 ]);
 
-export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
+export const campaignRollResponses = pgTable("campaign_roll_responses", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => campaignSessions.id, { onDelete: "cascade" }),
+  rollRequestTurnId: uuid("roll_request_turn_id")
+    .notNull()
+    .references(() => campaignTurns.id, { onDelete: "cascade" }),
+  rollTurnId: uuid("roll_turn_id")
+    .notNull()
+    .references(() => campaignTurns.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  unique("campaign_roll_response_request_user_unique").on(table.rollRequestTurnId, table.userId),
+  unique("campaign_roll_response_turn_unique").on(table.rollTurnId),
+  index("idx_campaign_roll_responses_session").on(table.sessionId),
+]);
+
+export const campaignTurnsRelations = relations(campaignTurns, ({ one, many }) => ({
   session: one(campaignSessions, {
     fields: [campaignTurns.sessionId],
     references: [campaignSessions.id],
@@ -1372,6 +1435,33 @@ export const campaignTurnsRelations = relations(campaignTurns, ({ one }) => ({
   character: one(playerCharacters, {
     fields: [campaignTurns.characterId],
     references: [playerCharacters.id],
+  }),
+  rollResponsesAsRequest: many(campaignRollResponses, { relationName: "rollRequest" }),
+  rollResponse: one(campaignRollResponses, {
+    fields: [campaignTurns.id],
+    references: [campaignRollResponses.rollTurnId],
+    relationName: "rollTurn",
+  }),
+}));
+
+export const campaignRollResponsesRelations = relations(campaignRollResponses, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [campaignRollResponses.sessionId],
+    references: [campaignSessions.id],
+  }),
+  rollRequestTurn: one(campaignTurns, {
+    fields: [campaignRollResponses.rollRequestTurnId],
+    references: [campaignTurns.id],
+    relationName: "rollRequest",
+  }),
+  rollTurn: one(campaignTurns, {
+    fields: [campaignRollResponses.rollTurnId],
+    references: [campaignTurns.id],
+    relationName: "rollTurn",
+  }),
+  user: one(users, {
+    fields: [campaignRollResponses.userId],
+    references: [users.id],
   }),
 }));
 

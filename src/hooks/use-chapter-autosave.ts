@@ -248,22 +248,40 @@ export function useChapterAutosave({
       if (entries.length === 0) return;
 
       setSaveState("saving");
-      const responses = await Promise.all(
-        entries.map(([chapterId, { content, version }]) =>
-          fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
+      const results: ChapterSaveResult[] = await Promise.all(
+        entries.map(async ([chapterId, { content, version }]) => {
+          const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content, baseVersion: version }),
-          }),
-        ),
+          });
+
+          let json: ChapterSaveResult["json"] = null;
+          if (response.ok) {
+            try {
+              json = await response.clone().json();
+            } catch {
+              // Ignore malformed response bodies; status still drives behavior.
+            }
+          }
+
+          return {
+            chapterId,
+            content,
+            version,
+            status: response.status,
+            ok: response.ok,
+            json,
+          };
+        }),
       );
 
-      if (responses.some((response) => response.status === 401)) {
+      if (results.some((result) => result.status === 401)) {
         window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
         return;
       }
 
-      if (responses.some((response) => response.status === 409)) {
+      if (results.some((result) => result.status === 409)) {
         for (const [chapterId, { content }] of entries) {
           preserveConflictDraft(storyId, chapterId, content);
         }
@@ -273,7 +291,20 @@ export function useChapterAutosave({
         return;
       }
 
-      if (responses.every((response) => response.ok)) {
+      if (results.every((result) => result.ok)) {
+        for (const { chapterId, json } of results) {
+          const newVersion = json?.data?.version;
+          if (typeof newVersion === "number") {
+            updateProject((prev) => ({
+              ...prev,
+              chapters: prev.chapters.map((chapter) =>
+                chapter.id === chapterId ? { ...chapter, version: newVersion } : chapter,
+              ),
+            }));
+          }
+        }
+
+        reconcileSuccessfulChapterSaves(pendingSaves.current, results);
         failedSaves.current.clear();
         setSaveState("saved");
         if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
@@ -286,7 +317,7 @@ export function useChapterAutosave({
     } finally {
       isRetrying.current = false;
     }
-  }, [storyId, toast]);
+  }, [storyId, toast, updateProject]);
 
   return {
     saveState,

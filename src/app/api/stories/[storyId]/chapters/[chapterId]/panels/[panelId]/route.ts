@@ -64,6 +64,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const chapter = await db.query.chapters.findFirst({
+      where: and(
+        eq(chapters.id, chapterId),
+        eq(chapters.storyId, storyId),
+        isNull(chapters.deletedAt),
+      ),
+    });
+    if (!chapter) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
     // Verify panel belongs to this chapter
     const existing = await db.query.panels.findFirst({
       where: and(eq(panels.id, panelId), eq(panels.chapterId, chapterId)),
@@ -144,6 +158,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           { status: 403 }
         );
       }
+    }
+
+    const chapter = await db.query.chapters.findFirst({
+      where: and(
+        eq(chapters.id, chapterId),
+        eq(chapters.storyId, storyId),
+        isNull(chapters.deletedAt),
+      ),
+    });
+    if (!chapter) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
     }
 
     // Verify panel belongs to this chapter

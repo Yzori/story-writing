@@ -66,7 +66,7 @@ interface StoryCanvasProps {
   onUpdateRoster?: (characterIds: string[]) => void;
   spectatorMode?: boolean;
   floorRound?: FloorRound | null;
-  onCreateFloorRound?: (prompt: string, mode: FloorRoundMode) => Promise<void>;
+  onCreateFloorRound?: (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => Promise<void>;
   onSubmitFloorResponse?: (
     roundId: string,
     body: { characterId: string; type: string; content: string },

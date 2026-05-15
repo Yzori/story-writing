@@ -33,6 +33,33 @@ describe("campaign turn helpers", () => {
     expect(parseRollRequestMetadata(JSON.stringify({ attribute: "bold" }))).toBeNull();
   });
 
+  it("round-trips roll-request status and requiredUserIds", () => {
+    const meta = {
+      targetUserId: "everyone",
+      attribute: "keen",
+      reason: "Spot the ambush",
+      status: "open" as const,
+      requiredUserIds: ["user-a", "user-b"],
+    };
+    expect(parseRollRequestMetadata(JSON.stringify(meta))).toEqual(meta);
+
+    expect(parseRollRequestMetadata(JSON.stringify({
+      targetUserId: "user-a",
+      attribute: "bold",
+      reason: "Force the door",
+      status: "cancelled",
+    }))?.status).toBe("cancelled");
+  });
+
+  it("rejects unknown roll-request status values", () => {
+    expect(parseRollRequestMetadata(JSON.stringify({
+      targetUserId: "everyone",
+      attribute: "bold",
+      reason: "Hold",
+      status: "pending",
+    }))).toBeNull();
+  });
+
   it("parses scene, illustration, and roll metadata", () => {
     expect(parseSceneBreakMetadata(JSON.stringify({
       title: "The Black Gate",
@@ -57,11 +84,13 @@ describe("campaign turn helpers", () => {
       modifier: 1,
       attribute: "keen",
       tier: "partial",
+      rollRequestTurnId: "request-1",
     }))).toEqual({
       total: 9,
       modifier: 1,
       attribute: "keen",
       tier: "partial",
+      rollRequestTurnId: "request-1",
     });
   });
 });

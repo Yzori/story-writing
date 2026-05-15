@@ -98,6 +98,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         openedBy: session.user.id,
         prompt: parsed.data.prompt.trim(),
         mode: parsed.data.mode,
+        audiencePulseEnabled: parsed.data.audiencePulseEnabled,
       });
 
     return NextResponse.json({

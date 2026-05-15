@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PlayerCharacter } from "@/types/campaign";
 import { parseStats, APPROACHES } from "@/types/campaign";
@@ -23,15 +23,22 @@ function DiceFace({ value, rolling, index }: { value: number | null; rolling: bo
 
   useEffect(() => {
     if (rolling) {
-      setLanded(false);
+      const resetLanded = setTimeout(() => setLanded(false), 0);
       const interval = setInterval(() => setDisplay(Math.floor(Math.random() * 6) + 1), 80);
-      return () => clearInterval(interval);
+      return () => {
+        clearTimeout(resetLanded);
+        clearInterval(interval);
+      };
     } else if (value !== null) {
-      setDisplay(value);
-      // Trigger landed animation
-      setLanded(true);
+      const showLanded = setTimeout(() => {
+        setDisplay(value);
+        setLanded(true);
+      }, 0);
       const timer = setTimeout(() => setLanded(false), 600);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(showLanded);
+        clearTimeout(timer);
+      };
     }
   }, [rolling, value]);
 
@@ -150,6 +157,9 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
   const [die2, setDie2] = useState<number | null>(null);
   const [selectedApproach, setSelectedApproach] = useState<string | null>(null);
   const [aspectInvoked, setAspectInvoked] = useState(false);
+  const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const myChar = characters.find((c) => c.userId === currentUserId);
   const stats = myChar ? parseStats(myChar.stats) : null;
@@ -169,13 +179,15 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
       // Map GM's attribute pick to an approach (could be "Bold", "Keen", "Subtle" directly
       // or a legacy attribute name)
       const mapped = APPROACHES.find((a) => a.toLowerCase() === preSelectedAttribute.toLowerCase());
+      let timeoutId: ReturnType<typeof setTimeout>;
       if (mapped) {
-        setSelectedApproach(mapped);
+        timeoutId = setTimeout(() => setSelectedApproach(mapped), 0);
       } else {
         // Legacy mapping
         const legacyMap: Record<string, string> = { STR: "Bold", CON: "Bold", DEX: "Subtle", CHA: "Subtle", INT: "Keen", WIS: "Keen" };
-        setSelectedApproach(legacyMap[preSelectedAttribute.toUpperCase()] ?? null);
+        timeoutId = setTimeout(() => setSelectedApproach(legacyMap[preSelectedAttribute.toUpperCase()] ?? null), 0);
       }
+      return () => clearTimeout(timeoutId);
     }
   }, [preSelectedAttribute]);
 
@@ -188,14 +200,14 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
     setDie1(null);
     setDie2(null);
 
-    setTimeout(() => {
+    rollTimerRef.current = setTimeout(() => {
       const r1 = Math.floor(Math.random() * 6) + 1;
       const r2 = Math.floor(Math.random() * 6) + 1;
       setDie1(r1);
       setDie2(r2);
       setRolling(false);
 
-      setTimeout(() => {
+      completeTimerRef.current = setTimeout(() => {
         const finalMod = (lockedApproach ? (approaches[lockedApproach as keyof typeof approaches] ?? 0) : 0) + (lockedAspectInvoked && aspect ? 1 : 0);
         onRollComplete(r1 + r2 + finalMod, finalMod, lockedApproach ?? "none");
       }, 2000);
@@ -205,7 +217,9 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
   // Reset on close
   useEffect(() => {
     if (!visible) {
-      setTimeout(() => {
+      if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+      resetTimerRef.current = setTimeout(() => {
         setDie1(null);
         setDie2(null);
         setRolling(false);
@@ -214,6 +228,14 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
       }, 300);
     }
   }, [visible]);
+
+  useEffect(() => {
+    return () => {
+      if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, []);
 
   const approachDescriptions: Record<string, string> = {
     Bold: "Force, courage, confrontation",

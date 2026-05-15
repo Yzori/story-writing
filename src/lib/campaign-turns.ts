@@ -61,6 +61,8 @@ export const rollRequestMetadataSchema = z.object({
   onSuccess: z.string().optional(),
   onFailure: z.string().optional(),
   fatal: z.boolean().optional(),
+  status: z.enum(["open", "closed", "cancelled"]).optional(),
+  requiredUserIds: z.array(z.string()).optional(),
 });
 
 export const rollMetadataSchema = z.object({
@@ -71,6 +73,7 @@ export const rollMetadataSchema = z.object({
   tier: rollTierSchema.optional(),
   die: z.string().optional(),
   fatal: z.boolean().optional(),
+  rollRequestTurnId: z.string().optional(),
 });
 
 export const sceneBreakMetadataSchema = z.object({

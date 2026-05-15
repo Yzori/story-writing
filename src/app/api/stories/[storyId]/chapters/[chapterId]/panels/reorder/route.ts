@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { panels, stories } from "@/server/db/schema";
+import { chapters, collaborators, panels, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { reorderPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
@@ -27,16 +27,45 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const limited = applyRateLimit(request, session.user.id, "write");
     if (limited) return limited;
 
-    const { storyId } = await params;
+    const { storyId, chapterId } = await params;
 
-    // Verify ownership
+    // Verify access
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
-    if (!story || story.userId !== session.user.id) {
+    if (!story) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "You don't own this story" } },
-        { status: 403 }
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+    if (story.userId !== session.user.id) {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      if (!collab) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "You don't have access to this story" } },
+          { status: 403 }
+        );
+      }
+    }
+
+    const chapter = await db.query.chapters.findFirst({
+      where: and(
+        eq(chapters.id, chapterId),
+        eq(chapters.storyId, storyId),
+        isNull(chapters.deletedAt),
+      ),
+    });
+    if (!chapter) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
       );
     }
 
@@ -54,7 +83,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       parsed.data.panels.map((p) =>
         db.update(panels)
           .set({ sortOrder: p.sortOrder, updatedAt: new Date() })
-          .where(eq(panels.id, p.id))
+          .where(and(eq(panels.id, p.id), eq(panels.chapterId, chapterId)))
       )
     );
 
