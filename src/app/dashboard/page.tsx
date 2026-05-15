@@ -9,7 +9,6 @@ import {
   BookOpen,
   Bookmark,
   ChevronRight,
-  Clock3,
   Feather,
   Library,
   Map,
@@ -311,7 +310,7 @@ function DeskObjectPanel() {
             ry="120"
             fill="#D4A843"
             fillOpacity="0.045"
-            animate={{ fillOpacity: [0.03, 0.06, 0.03], cy: [195, 205, 195] }}
+            animate={{ fillOpacity: [0.03, 0.06, 0.03] }}
             transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
           />
           <ellipse cx="120" cy="195" rx="80" ry="60" fill="#D4A843" fillOpacity="0.04" />
@@ -532,13 +531,14 @@ const phaseTints: Record<LibraryPhase, {
   stroke: string;
   tile: string;
   dot: string;
+  fill: string;
   text: string;
   bar: string;
 }> = {
-  morning: { stroke: "stroke-amber",    tile: "border-amber/40 bg-amber/10",       dot: "bg-amber",    text: "text-amber",    bar: "bg-amber" },
-  day:     { stroke: "stroke-sage",     tile: "border-sage/40 bg-sage/10",         dot: "bg-sage",     text: "text-sage",     bar: "bg-sage" },
-  dusk:    { stroke: "stroke-rose",     tile: "border-rose/40 bg-rose/10",         dot: "bg-rose",     text: "text-rose",     bar: "bg-rose" },
-  night:   { stroke: "stroke-lavender", tile: "border-lavender/40 bg-lavender/10", dot: "bg-lavender", text: "text-lavender", bar: "bg-lavender" },
+  morning: { stroke: "stroke-amber",    tile: "border-amber/40 bg-amber/10",       dot: "bg-amber",    fill: "fill-amber",    text: "text-amber",    bar: "bg-amber" },
+  day:     { stroke: "stroke-sage",     tile: "border-sage/40 bg-sage/10",         dot: "bg-sage",     fill: "fill-sage",     text: "text-sage",     bar: "bg-sage" },
+  dusk:    { stroke: "stroke-rose",     tile: "border-rose/40 bg-rose/10",         dot: "bg-rose",     fill: "fill-rose",     text: "text-rose",     bar: "bg-rose" },
+  night:   { stroke: "stroke-lavender", tile: "border-lavender/40 bg-lavender/10", dot: "bg-lavender", fill: "fill-lavender", text: "text-lavender", bar: "bg-lavender" },
 };
 
 const phaseIcons: Record<LibraryPhase, typeof Sunrise> = {
@@ -548,17 +548,13 @@ const phaseIcons: Record<LibraryPhase, typeof Sunrise> = {
   night: Moon,
 };
 
-function LibraryIndexClock({ phaseKey, now }: { phaseKey: LibraryPhase; now: Date | null }) {
+function StudyWindowClock({ phaseKey, now }: { phaseKey: LibraryPhase; now: Date | null }) {
+  const [isExpanded, setIsExpanded] = useState(true);
   const clockDate = now ?? new Date(2026, 0, 1, 18, 52);
   const nextPhase = getNextPhase(clockDate);
   const secondsSinceMidnight = getSecondsSinceMidnight(clockDate);
   const hourDecimal = secondsSinceMidnight / 3600;
-
-  // Celestial dial — noon at top, midnight at bottom, time progresses clockwise.
-  // SVG rotation 0° = pointing up; each hour rotates 15°.
   const handAngle = ((hourDecimal - 12) * 15 + 360) % 360;
-
-  // Progress through the current phase (drives the horizon bar at the bottom).
   const currentPhase = phaseSchedule.find((p) => p.key === phaseKey) ?? phaseSchedule[0];
   let phaseDuration = nextPhase.hour - currentPhase.hour;
   if (phaseDuration <= 0) phaseDuration += 24;
@@ -566,226 +562,88 @@ function LibraryIndexClock({ phaseKey, now }: { phaseKey: LibraryPhase; now: Dat
   if (elapsed < 0) elapsed += 24;
   const phaseProgress = Math.min(1, Math.max(0, elapsed / phaseDuration));
   const phaseProgressPct = Math.round(phaseProgress * 100);
-
   const currentTint = phaseTints[phaseKey];
   const nextTint = phaseTints[nextPhase.key];
+  const PhaseIcon = phaseIcons[phaseKey];
+  const NextIcon = phaseIcons[nextPhase.key];
 
   return (
-    <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-border bg-elevated/58 p-4 shadow-[var(--t-shadow-card)]">
-      {/* HEADER */}
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-amber">Grand library clock</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">Local time sets the room&apos;s light.</p>
-        </div>
-        <span className="rounded-full border border-amber/30 bg-amber/10 px-3 py-1 font-mono text-[11px] tracking-tight text-amber">
-          {now ? formatLocalTime(now) : "--:--"}
-        </span>
-      </div>
-
-      {/* THE CELESTIAL DIAL */}
-      <div className="relative mx-auto aspect-square max-w-[270px]">
-        <svg viewBox="0 0 100 100" className="h-full w-full" aria-label="24-hour celestial dial with morning, day, dusk, and night arcs">
-          {/* Faint background rings */}
-          <circle cx="50" cy="50" r="44" fill="none" className="stroke-paper" strokeOpacity="0.06" strokeWidth="0.4" />
-          <circle cx="50" cy="50" r="33" fill="none" className="stroke-paper" strokeOpacity="0.05" strokeWidth="0.3" />
-          <circle cx="50" cy="50" r="25" fill="none" className="stroke-paper" strokeOpacity="0.04" strokeWidth="0.3" />
-
-          {/* Cardinal cross hairs */}
-          <line x1="50" y1="6" x2="50" y2="11" className="stroke-paper" strokeOpacity="0.18" strokeWidth="0.3" />
-          <line x1="50" y1="89" x2="50" y2="94" className="stroke-paper" strokeOpacity="0.18" strokeWidth="0.3" />
-          <line x1="6" y1="50" x2="11" y2="50" className="stroke-paper" strokeOpacity="0.18" strokeWidth="0.3" />
-          <line x1="89" y1="50" x2="94" y2="50" className="stroke-paper" strokeOpacity="0.18" strokeWidth="0.3" />
-
-          {/* Constellation in the night arc (bottom of the dial) */}
-          <g className="fill-paper">
-            <motion.circle cx="22" cy="64" r="0.45" animate={{ opacity: [0.25, 0.8, 0.25] }} transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }} />
-            <motion.circle cx="32" cy="72" r="0.5"  animate={{ opacity: [0.4, 0.9, 0.4] }}  transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut", delay: 0.6 }} />
-            <motion.circle cx="42" cy="78" r="0.4"  animate={{ opacity: [0.3, 0.85, 0.3] }} transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut", delay: 1.2 }} />
-            <motion.circle cx="50" cy="80" r="0.55" animate={{ opacity: [0.4, 0.95, 0.4] }} transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 0.4 }} />
-            <motion.circle cx="58" cy="78" r="0.4"  animate={{ opacity: [0.3, 0.8, 0.3] }}  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }} />
-            <motion.circle cx="68" cy="72" r="0.5"  animate={{ opacity: [0.25, 0.75, 0.25] }} transition={{ duration: 3.3, repeat: Infinity, ease: "easeInOut", delay: 0.9 }} />
-            <motion.circle cx="78" cy="64" r="0.4"  animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 4.0, repeat: Infinity, ease: "easeInOut", delay: 1.8 }} />
-            <line x1="32" y1="72" x2="50" y2="80" className="stroke-paper" strokeOpacity="0.18" strokeWidth="0.15" />
-            <line x1="50" y1="80" x2="68" y2="72" className="stroke-paper" strokeOpacity="0.18" strokeWidth="0.15" />
-          </g>
-
-          {/* 24 hour ticks — cardinals (0/6/12/18) emphasized */}
-          {Array.from({ length: 24 }).map((_, h) => {
-            const isCardinal = h === 0 || h === 6 || h === 12 || h === 18;
-            const rotation = ((h - 12) * 15 + 360) % 360;
-            return (
-              <line
-                key={h}
-                x1="50"
-                y1={isCardinal ? 4.5 : 5.5}
-                x2="50"
-                y2={isCardinal ? 9.5 : 8.5}
-                className="stroke-paper"
-                strokeOpacity={isCardinal ? 0.4 : 0.18}
-                strokeWidth={isCardinal ? 0.5 : 0.3}
-                strokeLinecap="round"
-                transform={`rotate(${rotation} 50 50)`}
-              />
-            );
-          })}
-
-          {/* FOUR ARC SEGMENTS — the rooms of light */}
-          {/* Morning (5→11): left side */}
-          <path
-            d="M 13.29 59.83 A 38 38 0 0 1 40.17 13.30"
-            fill="none"
-            strokeLinecap="butt"
-            className="stroke-amber"
-            strokeOpacity={phaseKey === "morning" ? 1 : 0.35}
-            strokeWidth={phaseKey === "morning" ? 5 : 4}
-          />
-          {/* Day (11→17): top */}
-          <path
-            d="M 40.17 13.30 A 38 38 0 0 1 86.70 40.17"
-            fill="none"
-            strokeLinecap="butt"
-            className="stroke-sage"
-            strokeOpacity={phaseKey === "day" ? 1 : 0.35}
-            strokeWidth={phaseKey === "day" ? 5 : 4}
-          />
-          {/* Dusk (17→21): right */}
-          <path
-            d="M 86.70 40.17 A 38 38 0 0 1 76.87 76.87"
-            fill="none"
-            strokeLinecap="butt"
-            className="stroke-rose"
-            strokeOpacity={phaseKey === "dusk" ? 1 : 0.35}
-            strokeWidth={phaseKey === "dusk" ? 5 : 4}
-          />
-          {/* Night (21→5): bottom */}
-          <path
-            d="M 76.87 76.87 A 38 38 0 0 1 13.29 59.83"
-            fill="none"
-            strokeLinecap="butt"
-            className="stroke-lavender"
-            strokeOpacity={phaseKey === "night" ? 1 : 0.35}
-            strokeWidth={phaseKey === "night" ? 5 : 4}
-          />
-
-          {/* Period boundary dots — sit on the ring at each phase boundary */}
-          <circle cx="13.29" cy="59.83" r="1.3" className="fill-elevated stroke-amber"    strokeWidth="0.6" />
-          <circle cx="40.17" cy="13.30" r="1.3" className="fill-elevated stroke-sage"     strokeWidth="0.6" />
-          <circle cx="86.70" cy="40.17" r="1.3" className="fill-elevated stroke-rose"     strokeWidth="0.6" />
-          <circle cx="76.87" cy="76.87" r="1.3" className="fill-elevated stroke-lavender" strokeWidth="0.6" />
-
-          {/* Sun glyph at noon (top) */}
-          <g transform="translate(50, 5.5)" className="fill-sage stroke-sage">
-            <circle r="1.7" />
-            <circle r="0.7" className="fill-paper" />
-            <line x1="0"     y1="-2.5"  x2="0"     y2="-3.4"  strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="0"     y1="2.5"   x2="0"     y2="3.4"   strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="-2.5"  y1="0"     x2="-3.4"  y2="0"     strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="2.5"   y1="0"     x2="3.4"   y2="0"     strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="-1.77" y1="-1.77" x2="-2.4"  y2="-2.4"  strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="1.77"  y1="-1.77" x2="2.4"   y2="-2.4"  strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="-1.77" y1="1.77"  x2="-2.4"  y2="2.4"   strokeWidth="0.4" strokeLinecap="round" />
-            <line x1="1.77"  y1="1.77"  x2="2.4"   y2="2.4"   strokeWidth="0.4" strokeLinecap="round" />
-          </g>
-
-          {/* Moon glyph at midnight (bottom) */}
-          <g transform="translate(50, 94.5)">
-            <circle r="2.1" className="fill-lavender" />
-            <circle cx="0.7" cy="-0.5" r="1.7" className="fill-elevated" />
-          </g>
-
-          {/* Hub + medallion ring */}
-          <circle cx="50" cy="50" r="18" className="fill-ink" />
-          <circle cx="50" cy="50" r="18" fill="none" strokeWidth="0.5" className={currentTint.stroke} strokeOpacity="0.55" />
-          <circle cx="50" cy="50" r="17" fill="none" strokeWidth="0.3" className={currentTint.stroke} strokeOpacity="0.2" />
-        </svg>
-
-        {/* TIME HAND — single 24-hour hand pointing at the current decimal hour */}
-        <motion.div
-          className="absolute left-1/2 top-1/2 h-[35%] origin-bottom -translate-x-1/2 -translate-y-full"
-          style={{ width: "1.5px" }}
-          animate={{ rotate: handAngle }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
-        >
-          <div className={`h-full w-full ${currentTint.bar} opacity-85`} />
-          <motion.div
-            className={`absolute -top-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 rounded-full ${currentTint.dot} border-2 border-elevated`}
-            animate={{ scale: [1, 1.35, 1], opacity: [1, 0.55, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </motion.div>
-
-        {/* MEDALLION CONTENT (text overlay over the SVG hub) */}
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <Sparkles className={currentTint.text} size={14} />
-          <span className="mt-1 text-[8px] uppercase tracking-[0.16em] text-text-ghost">current light</span>
-          <span className="mt-0.5 font-display text-[14px] leading-tight text-paper">{phaseConfig[phaseKey].label}</span>
-        </div>
-      </div>
-
-      {/* DIAL READOUT — decimal hour and phase progress */}
-      <div className="mt-3 flex items-center justify-between px-1 font-mono text-[10px] text-text-ghost">
-        <span>hour <span className={currentTint.text}>{hourDecimal.toFixed(2)}</span> of 24</span>
-        <span>phase · <span className={currentTint.text}>{phaseProgressPct}%</span> through {phaseKey}</span>
-      </div>
-
-      {/* PERIOD TILES — light previews per phase */}
-      <div className="mt-3 grid grid-cols-4 gap-1.5">
-        {phaseSchedule.map((phase) => {
-          const tint = phaseTints[phase.key];
-          const PhaseIcon = phaseIcons[phase.key];
-          const isCurrent = phase.key === phaseKey;
-          return (
-            <div
-              key={phase.key}
-              className={`relative rounded-xl border px-2 py-2 ${isCurrent ? tint.tile : "border-border bg-surface/40"}`}
-            >
-              <div className="mb-1.5 flex items-center justify-between">
-                <PhaseIcon size={11} className={isCurrent ? tint.text : "text-text-tertiary"} />
-                {isCurrent && (
-                  <motion.span
-                    className={`block h-1.5 w-1.5 rounded-full ${tint.dot}`}
-                    animate={{ opacity: [1, 0.3, 1], scale: [1, 0.7, 1] }}
-                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                )}
-              </div>
-              <p className={`text-[10px] ${isCurrent ? "text-paper" : "text-text-secondary"}`}>{phase.label}</p>
-              <p className={`mt-0.5 font-mono text-[9px] ${isCurrent ? tint.text : "text-text-ghost"}`}>{String(phase.hour).padStart(2, "0")}:00</p>
-              <div className={`mt-2 h-[3px] rounded-full ${tint.bar}`} style={{ opacity: isCurrent ? 1 : 0.32 }} />
+    <aside className="rounded-2xl border border-border bg-void/72 p-4 shadow-[var(--t-shadow-card)] backdrop-blur-md">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Library clock</p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="relative h-12 w-12 shrink-0 rounded-full border border-border bg-elevated/80">
+              <svg viewBox="0 0 48 48" className="h-full w-full" aria-label="Library clock">
+                <circle cx="24" cy="24" r="19" fill="none" className={currentTint.stroke} strokeOpacity="0.28" strokeWidth="5" />
+                <circle cx="24" cy="24" r="19" fill="none" className={nextTint.stroke} strokeOpacity="0.14" strokeWidth="5" strokeDasharray="23 96" strokeLinecap="round" />
+                <circle cx="24" cy="24" r="12" fill="none" className="stroke-paper" strokeOpacity="0.08" strokeWidth="1" />
+                <line
+                  x1="24"
+                  y1="24"
+                  x2="24"
+                  y2="12"
+                  className={currentTint.stroke}
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  transform={`rotate(${handAngle} 24 24)`}
+                />
+                <circle cx="24" cy="24" r="2" className={currentTint.fill} />
+              </svg>
+              <PhaseIcon className={`absolute bottom-1 right-1 ${currentTint.text}`} size={12} />
             </div>
-          );
-        })}
+            <div className="min-w-0">
+              <p className="font-display text-lg leading-tight text-paper">{phaseConfig[phaseKey].label}</p>
+              <p className="font-mono text-[11px] text-text-secondary">{formatLocalTime(clockDate)}</p>
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((current) => !current)}
+          aria-expanded={isExpanded}
+          className="inline-flex items-center gap-1 rounded-full border border-amber/25 bg-amber/10 px-3 py-1 font-mono text-[11px] text-amber transition-colors hover:border-amber/40 hover:bg-amber/15"
+        >
+          {phaseProgressPct}%
+          <ChevronRight
+            size={12}
+            className={`transition-transform ${isExpanded ? "rotate-90" : "rotate-0"}`}
+          />
+        </button>
       </div>
 
-      {/* NEXT SHIFT — horizon progress bar between current and next phase */}
-      <div className="mt-4 rounded-2xl border border-border bg-surface/60 p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-amber">Next shift</p>
-          <span className="rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 font-mono text-[10px] text-amber">in {nextPhase.until}</span>
-        </div>
-        <p className="mt-1 font-display text-lg text-paper">
-          {nextPhase.label} <span className="text-text-tertiary">at</span> <span className="font-mono text-amber">{nextPhase.time}</span>
-        </p>
-
-        <div className="mt-3">
-          <div className="relative h-1.5 overflow-hidden rounded-full bg-border-subtle">
-            <div className={`absolute inset-y-0 left-0 ${currentTint.bar} opacity-90`} style={{ width: `${phaseProgressPct}%` }} />
+      <motion.div
+        initial={false}
+        animate={isExpanded ? "open" : "closed"}
+        variants={{
+          open: { height: "auto", opacity: 1, marginTop: 16 },
+          closed: { height: 0, opacity: 0, marginTop: 0 },
+        }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="overflow-hidden"
+      >
+        <div>
+          <div className="relative h-2 overflow-hidden rounded-full bg-border-subtle">
+            <div className={`absolute inset-y-0 left-0 ${currentTint.bar}`} style={{ width: `${phaseProgressPct}%` }} />
             <div className={`absolute inset-y-0 right-0 ${nextTint.bar} opacity-25`} style={{ width: `${100 - phaseProgressPct}%` }} />
-            <motion.span
-              className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full ${currentTint.dot} border-2 border-elevated`}
-              style={{ left: `calc(${phaseProgressPct}% - 6px)` }}
-              animate={{ scale: [1, 1.25, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            />
           </div>
-          <div className="mt-2 flex items-baseline justify-between font-mono text-[10px] text-text-ghost">
-            <span><span className={currentTint.text}>●</span> {currentPhase.label.toLowerCase()} · {String(currentPhase.hour).padStart(2, "0")}:00</span>
-            <span>{nextPhase.time} · {nextPhase.label.toLowerCase()} <span className={nextTint.text}>●</span></span>
+          <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-text-ghost">
+            <span>{currentPhase.label}</span>
+            <span>{nextPhase.label}</span>
           </div>
         </div>
-      </div>
-    </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-elevated/60 px-3 py-2">
+          <span className="flex items-center gap-2 text-[12px] text-text-secondary">
+            <NextIcon size={14} className={nextTint.text} />
+            Next shift
+          </span>
+          <span className="font-display text-[15px] text-paper">
+            {nextPhase.label} <span className="font-mono text-amber">{nextPhase.time}</span>
+          </span>
+        </div>
+      </motion.div>
+    </aside>
   );
 }
 
@@ -910,8 +768,8 @@ export default function DashboardPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-r from-void/82 via-void/28 to-void/68" />
             <div className="absolute inset-0 bg-gradient-to-t from-void/76 via-transparent to-void/20" />
-            <div className="relative flex min-h-[170px] flex-col justify-end p-5 sm:min-h-[210px] sm:p-6 lg:min-h-[230px]">
-              <div className="max-w-xl">
+            <div className="relative grid min-h-[170px] gap-5 p-5 sm:min-h-[210px] sm:p-6 lg:min-h-[230px] lg:grid-cols-[minmax(0,1fr)_340px] lg:items-end">
+              <div className="flex max-w-xl flex-col justify-end">
                 <div className="inline-flex items-center gap-2 rounded-full border border-border bg-void/70 px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-text-secondary backdrop-blur-md">
                   <PhaseIcon size={13} className="text-amber" />
                   {phase.label}
@@ -924,6 +782,8 @@ export default function DashboardPage() {
                   The room changes quietly through the day while your desk stays focused on the work.
                 </p>
               </div>
+
+              <StudyWindowClock phaseKey={phaseKey} now={now} />
             </div>
           </div>
         </section>
@@ -1068,17 +928,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-            </section>
-
-            <section className="rounded-[1.5rem] border border-border bg-ink/72 p-5 shadow-[var(--t-shadow-card)] backdrop-blur-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-text-ghost">Library pulse</p>
-                  <h2 className="mt-1 font-display text-xl text-paper">Library clock</h2>
-                </div>
-                <Clock3 className="text-amber" size={20} />
-              </div>
-              <LibraryIndexClock phaseKey={phaseKey} now={now} />
             </section>
           </aside>
         </section>
