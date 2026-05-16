@@ -8,7 +8,7 @@ import {
   users,
   inkDropTransactions,
 } from "@/server/db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
@@ -189,7 +189,7 @@ export async function PATCH(
           const [patron] = await tx.execute(
             sql`SELECT ink_drop_balance FROM users WHERE id = ${commission.patronId} FOR UPDATE`
           );
-          const balance = Number((patron as any)?.ink_drop_balance ?? 0);
+          const balance = Number((patron as { ink_drop_balance?: number } | undefined)?.ink_drop_balance ?? 0);
 
           if (balance < agreedPrice) {
             return { error: "INSUFFICIENT_BALANCE" as const, balance };
@@ -266,7 +266,22 @@ export async function PATCH(
         const payout = commission.agreedPrice!;
         const creatorShare = Math.floor(payout * 0.7);
 
-        await db.transaction(async (tx) => {
+        const result = await db.transaction(async (tx) => {
+          const [completed] = await tx.update(commissions).set({
+            status: "completed",
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          }).where(
+            and(
+              eq(commissions.id, commissionId),
+              eq(commissions.status, "delivered")
+            )
+          ).returning({ id: commissions.id });
+
+          if (!completed) {
+            return { error: "STALE_STATUS" as const };
+          }
+
           // Release vault to artisan (70%)
           await tx.execute(
             sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${commission.artisanId}`
@@ -286,12 +301,15 @@ export async function PATCH(
             sql`UPDATE offerings SET completed_count = completed_count + 1 WHERE id = ${commission.offeringId}`
           );
 
-          await tx.update(commissions).set({
-            status: "completed",
-            completedAt: new Date(),
-            updatedAt: new Date(),
-          }).where(eq(commissions.id, commissionId));
+          return { success: true };
         });
+
+        if ("error" in result) {
+          return NextResponse.json(
+            { error: { code: "INVALID_ACTION", message: "Commission status changed. Refresh and try again." } },
+            { status: 409 }
+          );
+        }
 
         await db.insert(commissionMessages).values({
           commissionId,
@@ -348,19 +366,39 @@ export async function PATCH(
           );
         }
 
-        // Refund if drops were locked
-        if (commission.agreedPrice && commission.status === "in-progress") {
-          await db.execute(
-            sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${commission.agreedPrice} WHERE id = ${commission.patronId}`
+        const result = await db.transaction(async (tx) => {
+          const [cancelled] = await tx.update(commissions).set({
+            status: "cancelled",
+            cancelledAt: new Date(),
+            cancelReason: message || null,
+            updatedAt: new Date(),
+          }).where(
+            and(
+              eq(commissions.id, commissionId),
+              eq(commissions.status, commission.status)
+            )
+          ).returning({ id: commissions.id });
+
+          if (!cancelled) {
+            return { error: "STALE_STATUS" as const };
+          }
+
+          // Refund if drops were locked
+          if (commission.agreedPrice && commission.status === "in-progress") {
+            await tx.execute(
+              sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${commission.agreedPrice} WHERE id = ${commission.patronId}`
+            );
+          }
+
+          return { success: true };
+        });
+
+        if ("error" in result) {
+          return NextResponse.json(
+            { error: { code: "INVALID_ACTION", message: "Commission status changed. Refresh and try again." } },
+            { status: 409 }
           );
         }
-
-        await db.update(commissions).set({
-          status: "cancelled",
-          cancelledAt: new Date(),
-          cancelReason: message || null,
-          updatedAt: new Date(),
-        }).where(eq(commissions.id, commissionId));
 
         const otherId = isPatron ? commission.artisanId : commission.patronId;
         createNotification(otherId, "circle", "A commission has been cancelled", `/scriptorium?tab=commissions`);

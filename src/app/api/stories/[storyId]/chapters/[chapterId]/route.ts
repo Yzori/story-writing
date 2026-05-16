@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { chapters, chapterSnapshots, stories, follows, collaborators } from "@/server/db/schema";
-import { eq, and, isNull, asc, count, ne, sql as dsql } from "drizzle-orm";
+import {
+  chapters,
+  chapterSnapshots,
+  stories,
+  follows,
+  collaborators,
+  contentUnlocks,
+} from "@/server/db/schema";
+import { eq, and, isNull, count, sql as dsql } from "drizzle-orm";
 import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
 import { sanitizeHtml } from "@/server/sanitize";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
+import { TIER_PRICES } from "@/lib/constants";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -47,34 +55,84 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const price = TIER_PRICES[chapter.gatingTier] ?? 0;
+    const isEarlyAccess =
+      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
+    const requiresUnlock = price > 0 || Boolean(isEarlyAccess);
+
+    if (chapter.status === "published" && !requiresUnlock) {
+      return NextResponse.json({ data: chapter });
+    }
+
+    const story = await db.query.stories.findFirst({
+      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+    });
+
+    if (!story) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
+    const isOwner = story.userId === session?.user?.id;
+    let isCollab = false;
+    if (!isOwner && session?.user?.id && story.writingMode !== "solo") {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      isCollab = !!collab;
+    }
+    const canBypassReaderGate = isOwner || isCollab;
+
     // Draft chapters require ownership or collaborator access
     if (chapter.status !== "published") {
-      const story = await db.query.stories.findFirst({
-        where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-      });
-      if (!story) {
+      if (!canBypassReaderGate) {
         return NextResponse.json(
           { error: { code: "NOT_FOUND", message: "Chapter not found" } },
           { status: 404 }
         );
       }
-      const isOwner = story.userId === session?.user?.id;
-      if (!isOwner) {
-        let isCollab = false;
-        if (session?.user?.id && story.writingMode !== "solo") {
-          const collab = await db.query.collaborators.findFirst({
-            where: and(
-              eq(collaborators.storyId, storyId),
-              eq(collaborators.userId, session.user.id),
-              eq(collaborators.status, "accepted")
-            ),
-          });
-          isCollab = !!collab;
-        }
-        if (!isCollab) {
+    }
+
+    if (chapter.status === "published" && !canBypassReaderGate) {
+      if (requiresUnlock) {
+        if (!session?.user?.id) {
           return NextResponse.json(
-            { error: { code: "NOT_FOUND", message: "Chapter not found" } },
-            { status: 404 }
+            {
+              error: {
+                code: "LOCKED",
+                message: "This chapter requires an unlock",
+              },
+            },
+            { status: 402 }
+          );
+        }
+
+        const [unlock] = await db
+          .select({ id: contentUnlocks.id })
+          .from(contentUnlocks)
+          .where(
+            and(
+              eq(contentUnlocks.userId, session.user.id),
+              eq(contentUnlocks.chapterId, chapterId)
+            )
+          )
+          .limit(1);
+
+        if (!unlock) {
+          return NextResponse.json(
+            {
+              error: {
+                code: "LOCKED",
+                message: "This chapter requires an unlock",
+              },
+            },
+            { status: 402 }
           );
         }
       }

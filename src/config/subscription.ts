@@ -4,23 +4,24 @@
  */
 
 /**
- * Free-tier "taste" allowance: lifetime number of "Continue Writing" generations
+ * Free-tier "taste" allowance: lifetime number of free editorial generations
  * a Free user can run before being prompted to upgrade. Set to 0 to disable.
  */
 export const FREE_AI_LIFETIME_GENERATIONS = 5;
 
 /**
  * The single prompt type that's available on the Free tier (limited by the
- * lifetime quota above). All other prompts remain Pro/Premium gated.
+ * lifetime quota above). Keep this editorial rather than generative so the
+ * platform's first AI touchpoint reinforces human authorship.
  */
-export const FREE_AI_PROMPT_TYPE = "continue" as const;
+export const FREE_AI_PROMPT_TYPE = "fix-grammar" as const;
 
 export const SUBSCRIPTION_PLANS = {
   pro: {
     name: "Pro",
-    description: "AI Writing Assistant + Advanced Features",
+    description: "Editor’s Desk + Advanced Features",
     features: [
-      "AI Writing Assistant (50 requests/day)",
+      "Editor’s Desk editorial tools (50 requests/day)",
       "Advanced analytics & retention tracking",
       "Unlimited story version history",
       "Export to PDF/EPUB/DOCX",
@@ -37,9 +38,9 @@ export const SUBSCRIPTION_PLANS = {
   },
   premium: {
     name: "Premium",
-    description: "Unlimited AI + Professional Tools",
+    description: "Story Intelligence + Professional Tools",
     features: [
-      "Unlimited AI Story Intelligence",
+      "Cached Story Intelligence reports",
       "Plot hole detection & continuity enforcement",
       "Pacing & character arc analysis",
       "Advanced collaboration (unlimited co-authors)",

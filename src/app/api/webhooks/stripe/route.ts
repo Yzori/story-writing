@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/server/stripe";
 import { db } from "@/server/db";
-import { users } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { inkDropTransactions, users } from "@/server/db/schema";
+import { eq, sql } from "drizzle-orm";
 
 /**
  * POST /api/webhooks/stripe
@@ -19,7 +19,7 @@ import { eq } from "drizzle-orm";
  */
 export async function POST(request: NextRequest) {
   const body = await request.text();
-  const signature = headers().get("stripe-signature");
+  const signature = (await headers()).get("stripe-signature");
 
   if (!signature) {
     return NextResponse.json({ error: { message: "No signature" } }, { status: 400 });
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log(\`Unhandled event type: \${event.type}\`);
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
@@ -81,6 +81,11 @@ export async function POST(request: NextRequest) {
  * This fires when a user successfully completes checkout
  */
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  if (session.mode === "payment") {
+    await handleInkDropCheckoutCompleted(session);
+    return;
+  }
+
   const userId = session.metadata?.userId;
   const tier = session.metadata?.tier as "pro" | "premium";
 
@@ -95,11 +100,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
   // Calculate trial end or subscription end
-  const now = new Date();
   const trialEnd = subscription.trial_end
     ? new Date(subscription.trial_end * 1000)
     : null;
-  const periodEnd = new Date(subscription.current_period_end * 1000);
+  const periodEnd = getSubscriptionPeriodEnd(subscription);
 
   // Update user in database
   await db
@@ -115,7 +119,49 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     })
     .where(eq(users.id, userId));
 
-  console.log(\`User \${userId} subscribed to \${tier}\`);
+  console.log(`User ${userId} subscribed to ${tier}`);
+}
+
+/**
+ * Handle one-time Ink Drop purchases.
+ */
+async function handleInkDropCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId;
+  const dropAmount = Number(session.metadata?.dropAmount ?? 0);
+
+  if (!userId || !Number.isInteger(dropAmount) || dropAmount <= 0) {
+    console.error("Missing or invalid Ink Drop metadata in checkout session:", session.id);
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    const inserted = await tx
+      .insert(inkDropTransactions)
+      .values({
+        fromUserId: null,
+        toUserId: userId,
+        amount: dropAmount,
+        type: "purchase",
+        message: `Purchased ${dropAmount} Ink Drops`,
+        stripeSessionId: session.id,
+      })
+      .onConflictDoNothing()
+      .returning({ id: inkDropTransactions.id });
+
+    if (inserted.length === 0) {
+      console.log(`Ink Drop purchase already processed for session ${session.id}`);
+      return;
+    }
+
+    await tx
+      .update(users)
+      .set({
+        inkDropBalance: sql`${users.inkDropBalance} + ${dropAmount}`,
+      })
+      .where(eq(users.id, userId));
+  });
+
+  console.log(`Credited ${dropAmount} Ink Drops to user ${userId}`);
 }
 
 /**
@@ -131,7 +177,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   const tier = subscription.metadata?.tier as "pro" | "premium" | undefined;
-  const periodEnd = new Date(subscription.current_period_end * 1000);
+  const periodEnd = getSubscriptionPeriodEnd(subscription);
 
   // Determine subscription status
   let status: string = subscription.status;
@@ -148,7 +194,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     })
     .where(eq(users.id, userId));
 
-  console.log(\`Subscription updated for user \${userId}: \${status}\`);
+  console.log(`Subscription updated for user ${userId}: ${status}`);
 }
 
 /**
@@ -175,7 +221,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     })
     .where(eq(users.id, userId));
 
-  console.log(\`Subscription deleted for user \${userId}, downgraded to free\`);
+  console.log(`Subscription deleted for user ${userId}, downgraded to free`);
 }
 
 /**
@@ -183,7 +229,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
  * This fires when a payment succeeds (recurring billing)
  */
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
 
   if (!subscriptionId) {
     return; // Not a subscription invoice
@@ -197,7 +243,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     return;
   }
 
-  const periodEnd = new Date(subscription.current_period_end * 1000);
+  const periodEnd = getSubscriptionPeriodEnd(subscription);
 
   // Update subscription status and end date
   await db
@@ -208,7 +254,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     })
     .where(eq(users.id, userId));
 
-  console.log(\`Payment succeeded for user \${userId}\`);
+  console.log(`Payment succeeded for user ${userId}`);
 }
 
 /**
@@ -216,7 +262,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
  * This fires when a payment fails
  */
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
 
   if (!subscriptionId) {
     return; // Not a subscription invoice
@@ -238,7 +284,25 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     })
     .where(eq(users.id, userId));
 
-  console.log(\`Payment failed for user \${userId}, marked as past_due\`);
+  console.log(`Payment failed for user ${userId}, marked as past_due`);
 
   // TODO: Send email notification to user about failed payment
+}
+
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): Date {
+  const periodEnd = (subscription as unknown as { current_period_end?: number })
+    .current_period_end;
+  return new Date((periodEnd ?? Math.floor(Date.now() / 1000)) * 1000);
+}
+
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const legacySubscription = (invoice as unknown as { subscription?: string | Stripe.Subscription | null })
+    .subscription;
+  if (typeof legacySubscription === "string") return legacySubscription;
+  if (legacySubscription?.id) return legacySubscription.id;
+
+  const parentSubscription = (invoice as unknown as {
+    parent?: { subscription_details?: { subscription?: string | null } | null } | null;
+  }).parent?.subscription_details?.subscription;
+  return parentSubscription ?? null;
 }

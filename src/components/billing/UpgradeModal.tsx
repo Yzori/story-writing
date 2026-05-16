@@ -30,14 +30,14 @@ export function UpgradeModal({
 
   const defaultBenefits = tier === "pro"
     ? [
-        "AI Writing Assistant (50 requests/day)",
+        "Editor’s Desk editorial tools (50 requests/day)",
         "Advanced analytics",
         "Export to PDF/EPUB/DOCX",
         "Collaboration (up to 3 co-authors)",
         "Priority support",
       ]
     : [
-        "Unlimited AI Story Intelligence",
+        "Cached Story Intelligence reports",
         "Plot hole detection",
         "Unlimited collaboration",
         "Track changes mode",
@@ -109,7 +109,7 @@ export function UpgradeModal({
                 </p>
 
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-text-secondary">What you'll get:</p>
+                  <p className="text-sm font-medium text-text-secondary">Plan benefits:</p>
                   {(benefits || defaultBenefits).map((benefit, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <svg

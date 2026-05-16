@@ -5,8 +5,8 @@
 A complete tiered subscription system has been implemented for the story platform, offering three tiers:
 
 - **Free**: Basic writing and publishing, monetization via Ink Drops
-- **Pro ($9.99/mo)**: AI Writing Assistant (50 requests/day), advanced analytics, exports, collaboration (up to 3 co-authors), priority support
-- **Premium ($29.99/mo)**: Unlimited AI Story Intelligence, plot hole detection, unlimited collaboration, track changes, custom author website, professional marketplace access
+- **Pro ($9.99/mo)**: Editor’s Desk editorial tools (50 requests/day), advanced analytics, exports, collaboration (up to 3 co-authors), priority support
+- **Premium ($29.99/mo)**: Cached Story Intelligence reports, plot hole detection, unlimited collaboration, track changes, custom author website, professional marketplace access
 
 ## Architecture
 
@@ -82,7 +82,7 @@ Handles Stripe webhook events:
 import { FeatureGate, useFeatureAccess } from "@/components/billing/FeatureGate";
 
 // Wrapper component
-<FeatureGate feature="AI Assistant" tier="pro">
+<FeatureGate feature="Editor’s Desk" tier="pro">
   <AIButton />
 </FeatureGate>
 
@@ -97,16 +97,16 @@ import { UpgradePrompt, UpgradeBadge } from "@/components/billing/UpgradePrompt"
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 
 // Inline banner
-<UpgradePrompt feature="AI Assistant" tier="pro" inline />
+<UpgradePrompt feature="Editor’s Desk" tier="pro" inline />
 
 // Full card
-<UpgradePrompt feature="AI Assistant" tier="pro" />
+<UpgradePrompt feature="Editor’s Desk" tier="pro" />
 
 // Modal
 <UpgradeModal
   isOpen={showModal}
   onClose={() => setShowModal(false)}
-  feature="AI Assistant"
+  feature="Editor’s Desk"
   tier="pro"
 />
 ```
@@ -206,13 +206,13 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ✅ Write stories (all 5 formats)
 ✅ Publish to Browse
 ✅ Monetize via Ink Drops
-❌ No AI features
+❌ Limited free editorial taste only
 ❌ No exports
 ❌ No collaboration
 
 ### Pro Tier ($9.99/mo)
 ✅ All Free features
-✅ AI Writing Assistant (50/day)
+✅ Editor’s Desk editorial tools (50/day)
 ✅ Export PDF/EPUB/DOCX
 ✅ Collaboration (up to 3)
 ✅ Advanced analytics
@@ -257,6 +257,6 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 5. ⏳ Configure webhook
 6. ⏳ Run migration
 7. ⏳ Test end-to-end
-8. ⏳ Implement AI features
+8. ⏳ Implement cached Story Intelligence reports
 9. ⏳ Add collaboration gating
 10. ⏳ Build analytics dashboard

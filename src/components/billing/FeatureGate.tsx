@@ -12,10 +12,16 @@ interface FeatureGateProps {
   showPrompt?: boolean;
 }
 
+type BillingSessionUser = {
+  subscriptionTier?: string;
+  subscriptionStatus?: string;
+  subscriptionEndsAt?: string | null;
+};
+
 /**
  * Wrapper component that gates features based on subscription tier
  * Usage:
- *   <FeatureGate feature="AI Assistant" tier="pro">
+ *   <FeatureGate feature="Editor’s Desk" tier="pro">
  *     <AIButton />
  *   </FeatureGate>
  */
@@ -29,10 +35,20 @@ export function FeatureGate({
   const { data: session } = useSession();
 
   // Check if user has required tier
-  const userTier = (session?.user as any)?.subscriptionTier || "free";
+  const billingUser = session?.user as BillingSessionUser | undefined;
+  const userTier = billingUser?.subscriptionTier || "free";
+  const userStatus = billingUser?.subscriptionStatus || "active";
+  const subscriptionEndsAt = billingUser?.subscriptionEndsAt;
+  const paidAccessIsActive =
+    userStatus === "active" ||
+    userStatus === "trialing" ||
+    (userStatus === "cancelled" &&
+      subscriptionEndsAt &&
+      new Date(subscriptionEndsAt) > new Date());
   const hasAccess =
-    (tier === "pro" && (userTier === "pro" || userTier === "premium")) ||
-    (tier === "premium" && userTier === "premium");
+    paidAccessIsActive &&
+    ((tier === "pro" && (userTier === "pro" || userTier === "premium")) ||
+      (tier === "premium" && userTier === "premium"));
 
   // If user has access, render children
   if (hasAccess) {
@@ -58,7 +74,18 @@ export function FeatureGate({
  */
 export function useFeatureAccess(tier: "pro" | "premium"): boolean {
   const { data: session } = useSession();
-  const userTier = (session?.user as any)?.subscriptionTier || "free";
+  const billingUser = session?.user as BillingSessionUser | undefined;
+  const userTier = billingUser?.subscriptionTier || "free";
+  const userStatus = billingUser?.subscriptionStatus || "active";
+  const subscriptionEndsAt = billingUser?.subscriptionEndsAt;
+  const paidAccessIsActive =
+    userStatus === "active" ||
+    userStatus === "trialing" ||
+    (userStatus === "cancelled" &&
+      subscriptionEndsAt &&
+      new Date(subscriptionEndsAt) > new Date());
+
+  if (!paidAccessIsActive) return false;
 
   if (tier === "pro") {
     return userTier === "pro" || userTier === "premium";

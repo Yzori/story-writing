@@ -24,6 +24,9 @@ declare module "next-auth" {
       name?: string | null;
       image?: string | null;
       isAdmin: boolean;
+      subscriptionTier?: string;
+      subscriptionStatus?: string;
+      subscriptionEndsAt?: string | null;
     };
   }
 }
@@ -32,6 +35,9 @@ declare module "next-auth" {
   interface JWT {
     id?: string;
     isAdmin?: boolean;
+    subscriptionTier?: string;
+    subscriptionStatus?: string;
+    subscriptionEndsAt?: string | null;
   }
 }
 
@@ -101,20 +107,36 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         token.id = user.id;
         // Look up isAdmin from database on initial sign-in
         const [dbUser] = await db
-          .select({ isAdmin: users.isAdmin })
+          .select({
+            isAdmin: users.isAdmin,
+            subscriptionTier: users.subscriptionTier,
+            subscriptionStatus: users.subscriptionStatus,
+            subscriptionEndsAt: users.subscriptionEndsAt,
+          })
           .from(users)
           .where(eq(users.id, user.id as string))
           .limit(1);
         token.isAdmin = dbUser?.isAdmin ?? false;
+        token.subscriptionTier = dbUser?.subscriptionTier ?? "free";
+        token.subscriptionStatus = dbUser?.subscriptionStatus ?? "active";
+        token.subscriptionEndsAt = dbUser?.subscriptionEndsAt?.toISOString() ?? null;
       }
       // Re-check admin status on explicit session update, not every refresh
       if (trigger === "update" && token.id) {
         const [dbUser] = await db
-          .select({ isAdmin: users.isAdmin })
+          .select({
+            isAdmin: users.isAdmin,
+            subscriptionTier: users.subscriptionTier,
+            subscriptionStatus: users.subscriptionStatus,
+            subscriptionEndsAt: users.subscriptionEndsAt,
+          })
           .from(users)
           .where(eq(users.id, token.id as string))
           .limit(1);
         token.isAdmin = dbUser?.isAdmin ?? false;
+        token.subscriptionTier = dbUser?.subscriptionTier ?? "free";
+        token.subscriptionStatus = dbUser?.subscriptionStatus ?? "active";
+        token.subscriptionEndsAt = dbUser?.subscriptionEndsAt?.toISOString() ?? null;
       }
       return token;
     },
@@ -122,6 +144,9 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
       if (session.user && token.id) {
         session.user.id = token.id as string;
         session.user.isAdmin = (token.isAdmin as boolean) ?? false;
+        session.user.subscriptionTier = (token.subscriptionTier as string | undefined) ?? "free";
+        session.user.subscriptionStatus = (token.subscriptionStatus as string | undefined) ?? "active";
+        session.user.subscriptionEndsAt = (token.subscriptionEndsAt as string | null | undefined) ?? null;
       }
       return session;
     },
