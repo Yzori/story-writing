@@ -14,6 +14,7 @@ interface ChapterOutlinePanelProps {
   chapter: Chapter;
   onUpdateOutline: (outline: string) => void;
   onClose: () => void;
+  onCollapse?: () => void;
   docked?: boolean;
 }
 
@@ -44,6 +45,7 @@ export default function ChapterOutlinePanel({
   chapter,
   onUpdateOutline,
   onClose,
+  onCollapse,
   docked = false,
 }: ChapterOutlinePanelProps) {
   const [nodes, setNodes] = useState<OutlineNode[]>(() =>
@@ -118,15 +120,32 @@ export default function ChapterOutlinePanel({
             Private scene notes for this chapter only.
           </p>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
-          aria-label="Close chapter beats"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
+              aria-label="Collapse chapter beats"
+              title="Collapse panel"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 3L5 7l4 4" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
+            aria-label="Close chapter beats"
+            title="Close chapter beats"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Timeline nodes */}
@@ -165,6 +184,7 @@ export default function ChapterOutlinePanel({
                   {node.title}
                 </p>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteNode(node.id);

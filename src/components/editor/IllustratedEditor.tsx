@@ -2,86 +2,20 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Node, mergeAttributes, nodeInputRule } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
-import { useEffect, useCallback, useRef, useState, useMemo } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
 import { motion, AnimatePresence } from "framer-motion";
 import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
 import { IllustratedBlock } from "./extensions/IllustratedBlock";
-
-// ─── Scene Break (identical to ProseEditor) ─────────────────────────
-const SceneBreak = Node.create({
-  name: "horizontalRule",
-  group: "block",
-  atom: true,
-
-  parseHTML() {
-    return [{ tag: "hr" }, { tag: "div.scene-break" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "div",
-      mergeAttributes(HTMLAttributes, {
-        class: "scene-break",
-        contenteditable: "false",
-      }),
-      "\u2042",
-    ];
-  },
-
-  addCommands() {
-    return {
-      setHorizontalRule:
-        () =>
-        ({ chain, state }) => {
-          return chain()
-            .insertContent({ type: this.name })
-            .command(({ tr, dispatch }) => {
-              if (dispatch) {
-                const { $to } = tr.selection;
-                const posAfter = $to.end();
-                if ($to.nodeAfter) {
-                  tr.setSelection(
-                    state.schema.nodes.paragraph
-                      ? TextSelection.create(tr.doc, $to.pos + 1)
-                      : tr.selection
-                  );
-                } else {
-                  const node = state.schema.nodes.paragraph?.create();
-                  if (node) {
-                    tr.insert(posAfter, node);
-                    tr.setSelection(
-                      TextSelection.create(tr.doc, posAfter + 1)
-                    );
-                  }
-                }
-                tr.scrollIntoView();
-              }
-              return true;
-            })
-            .run();
-        },
-    };
-  },
-
-  addInputRules() {
-    return [
-      nodeInputRule({
-        find: /^(?:---|—-|___\s|\*\*\*\s)$/,
-        type: this.type,
-      }),
-    ];
-  },
-});
+import { SceneBreak, SceneBreakStyleKey, sceneBreakStyles } from "./extensions/SceneBreak";
 
 // ─── Drag-and-Drop Image Plugin ──────────────────────────────────────
 const dropImagePluginKey = new PluginKey("dropImage");
@@ -310,15 +244,6 @@ function useContentRatio(editor: Editor | null) {
   return ratio;
 }
 
-// ─── Scene Break Styles ──────────────────────────────────────────────
-const sceneBreakStyles = [
-  { key: "asterism", label: "Asterism", ch: "\u2042" },
-  { key: "fleuron", label: "Fleuron", ch: "\u2767" },
-  { key: "dots", label: "Dots", ch: "\u2022 \u2022 \u2022" },
-  { key: "line", label: "Line", ch: "\u2014\u2014\u2014" },
-  { key: "space", label: "Space", ch: "(blank)" },
-];
-
 // ─── Main Component ─────────────────────────────────────────────────
 
 interface IllustratedEditorProps {
@@ -335,17 +260,20 @@ export default function IllustratedEditor({
   onUpdate,
   onEditorReady,
   editable = true,
-  placeholder = "Begin your illustrated story... (type / for commands)",
+  placeholder = "Begin your illustrated story...",
   onImageUpload,
 }: IllustratedEditorProps) {
   const [sceneBreakPicker, setSceneBreakPicker] = useState<{
     pos: DOMRect;
-    currentStyle: string;
+    nodePos: number;
+    currentStyle: SceneBreakStyleKey;
   } | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [insertMenuRequest, setInsertMenuRequest] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const insertButtonRef = useRef<HTMLButtonElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -417,17 +345,27 @@ export default function IllustratedEditor({
       const target = (e.target as HTMLElement).closest(".scene-break");
       if (!target) return;
 
+      e.preventDefault();
+      e.stopPropagation();
+
       if (sceneBreakPicker) {
         setSceneBreakPicker(null);
         return;
       }
 
+      const nodePos = editor.view.posAtDOM(target, 0);
+      const node = editor.state.doc.nodeAt(nodePos);
+      if (!node || node.type.name !== "horizontalRule") return;
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, nodePos))
+      );
+
       const rect = target.getBoundingClientRect();
-      const currentText = target.textContent?.trim() ?? "\u2042";
-      const matched = sceneBreakStyles.find((s) => s.ch === currentText);
       setSceneBreakPicker({
         pos: rect,
-        currentStyle: matched?.key ?? "asterism",
+        nodePos,
+        currentStyle: node.attrs.style ?? "asterism",
       });
     };
 
@@ -554,6 +492,69 @@ export default function IllustratedEditor({
     [editor, onImageUpload]
   );
 
+  const updateSceneBreakStyle = useCallback((style: SceneBreakStyleKey) => {
+    if (!editor || !sceneBreakPicker) return;
+    const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
+    if (!node || node.type.name !== "horizontalRule") return;
+
+    const nextAttrs = { ...node.attrs, style };
+    if (style === "text-line") {
+      nextAttrs.label = typeof node.attrs.label === "string" && node.attrs.label.trim()
+        ? node.attrs.label.trim()
+        : "ADD BEAT";
+    }
+
+    editor
+      .chain()
+      .focus()
+      .command(({ tr, dispatch }) => {
+        if (!dispatch) return true;
+        tr.setNodeMarkup(sceneBreakPicker.nodePos, undefined, nextAttrs);
+        tr.setSelection(NodeSelection.create(tr.doc, sceneBreakPicker.nodePos));
+        tr.scrollIntoView();
+        dispatch(tr);
+        return true;
+      })
+      .run();
+    if (style === "text-line") {
+      setSceneBreakPicker((current) =>
+        current ? { ...current, currentStyle: "text-line" } : current
+      );
+    } else {
+      setSceneBreakPicker(null);
+    }
+  }, [editor, sceneBreakPicker]);
+
+  const updateSceneBreakLabel = useCallback((label: string) => {
+    if (!editor || !sceneBreakPicker) return;
+    const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
+    if (!node || node.type.name !== "horizontalRule") return;
+
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(sceneBreakPicker.nodePos, undefined, {
+        ...node.attrs,
+        style: "text-line",
+        label: label.trim() || "ADD BEAT",
+      })
+    );
+  }, [editor, sceneBreakPicker]);
+
+  const deleteSceneBreak = useCallback(() => {
+    if (!editor || !sceneBreakPicker) return;
+    const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
+    if (!node || node.type.name !== "horizontalRule") return;
+
+    editor
+      .chain()
+      .focus()
+      .deleteRange({
+        from: sceneBreakPicker.nodePos,
+        to: sceneBreakPicker.nodePos + node.nodeSize,
+      })
+      .run();
+    setSceneBreakPicker(null);
+  }, [editor, sceneBreakPicker]);
+
   if (!editor) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -607,7 +608,28 @@ export default function IllustratedEditor({
 
       <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full">
         <FloatingToolbar editor={editor} />
-        <SlashMenu editor={editor} />
+        {editable && (
+          <div className="sticky top-4 z-20 mb-4 flex items-center gap-2 pointer-events-none">
+            <button
+              ref={insertButtonRef}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.chain().focus().run();
+                setInsertMenuRequest((value) => value + 1);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-elevated/80 px-2.5 py-1 text-[11px] text-text-ghost shadow-lg shadow-black/10 backdrop-blur-md transition-all hover:border-amber/30 hover:bg-amber/[0.06] hover:text-paper pointer-events-auto"
+              title="Insert heading, scene break, quote, or illustration"
+              aria-label="Insert block"
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+              Insert
+            </button>
+          </div>
+        )}
+        <SlashMenu editor={editor} anchorRef={insertButtonRef} openSignal={insertMenuRequest} />
         <EditorContent editor={editor} className="illustrated-editor-content" />
       </div>
 
@@ -701,23 +723,13 @@ export default function IllustratedEditor({
                 tabIndex={i === 0 ? 0 : -1}
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.dispatchEvent(
-                    new CustomEvent("scene-break-style-change", {
-                      detail: s.key,
-                    })
-                  );
-                  setSceneBreakPicker(null);
+                  updateSceneBreakStyle(s.key);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     e.stopPropagation();
-                    window.dispatchEvent(
-                      new CustomEvent("scene-break-style-change", {
-                        detail: s.key,
-                      })
-                    );
-                    setSceneBreakPicker(null);
+                    updateSceneBreakStyle(s.key);
                   }
                 }}
               >
@@ -726,6 +738,33 @@ export default function IllustratedEditor({
               </button>
             );
           })}
+          {sceneBreakPicker.currentStyle === "text-line" && (
+            <label className="scene-break-picker-label">
+              <span>Text</span>
+              <input
+                type="text"
+                defaultValue={
+                  (() => {
+                    const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
+                    return typeof node?.attrs.label === "string" ? node.attrs.label : "ADD BEAT";
+                  })()
+                }
+                onChange={(e) => updateSceneBreakLabel(e.target.value)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+            </label>
+          )}
+          <button
+            type="button"
+            className="scene-break-picker-delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteSceneBreak();
+            }}
+          >
+            Delete
+          </button>
         </div>
       )}
     </div>
