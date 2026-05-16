@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { FREE_AI_PROMPT_TYPE } from "@/config/subscription";
 
 interface AIAssistantPanelProps {
   storyId: string;
@@ -37,8 +37,8 @@ interface PromptOption {
 const PROMPT_OPTIONS: PromptOption[] = [
   {
     id: "continue",
-    label: "Continue Writing",
-    description: "Generate the next paragraph",
+    label: "Explore Next Beat",
+    description: "Draft a private idea to review",
     requiresPremium: false,
     requiresSelection: false,
   },
@@ -121,7 +121,6 @@ export default function AIAssistantPanel({
   onAccept,
   onClose,
 }: AIAssistantPanelProps) {
-  const { data: session } = useSession();
   const [selectedPrompt, setSelectedPrompt] = useState<PromptType>("continue");
   const [isLoading, setIsLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
@@ -173,7 +172,7 @@ export default function AIAssistantPanel({
 
   const handleGenerate = async () => {
     if (!usage?.hasAccess) {
-      setError("AI Writing Assistant requires a Pro or Premium subscription");
+      setError("Editor’s Desk requires a Pro or Premium subscription");
       return;
     }
 
@@ -203,7 +202,7 @@ export default function AIAssistantPanel({
 
       if (!res.ok) {
         if (data.error?.code === "SUBSCRIPTION_REQUIRED") {
-          setError("Upgrade to Pro or Premium to use AI features");
+          setError("Upgrade to Pro or Premium to use Editor’s Desk");
         } else if (data.error?.code === "PREMIUM_REQUIRED") {
           setError("This feature requires a Premium subscription");
         } else if (data.error?.code === "RATE_LIMIT_EXCEEDED") {
@@ -237,9 +236,10 @@ export default function AIAssistantPanel({
   };
 
   const isFreeTrial = !!usage?.isFreeTrial;
+  const freePromptOption = PROMPT_OPTIONS.find((option) => option.id === FREE_AI_PROMPT_TYPE);
   const availableOptions = PROMPT_OPTIONS.filter((option) => {
-    // Free trial: only the "continue" prompt is available, the rest are upsells
-    if (isFreeTrial && option.id !== "continue") return false;
+    // Free trial: only the configured editorial prompt is available, the rest are upsells
+    if (isFreeTrial && option.id !== FREE_AI_PROMPT_TYPE) return false;
     // Filter based on tier
     if (option.requiresPremium && usage?.tier !== "premium") {
       return false;
@@ -250,6 +250,13 @@ export default function AIAssistantPanel({
     }
     return true;
   });
+  const selectedPromptIsAvailable = availableOptions.some((option) => option.id === selectedPrompt);
+
+  useEffect(() => {
+    if (isFreeTrial && selectedPrompt !== FREE_AI_PROMPT_TYPE) {
+      setSelectedPrompt(FREE_AI_PROMPT_TYPE);
+    }
+  }, [isFreeTrial, selectedPrompt]);
 
   return (
     <>
@@ -267,14 +274,14 @@ export default function AIAssistantPanel({
         exit={{ x: "100%", opacity: 0 }}
         transition={{ type: "spring", stiffness: 400, damping: 35 }}
         className="fixed md:relative inset-y-0 right-0 z-50 md:z-auto h-full w-[88vw] max-w-[400px] md:w-[380px] border-l border-border bg-surface shrink-0 overflow-hidden flex flex-col shadow-2xl md:shadow-none"
-        aria-label="AI Writing Assistant"
+        aria-label="Editor’s Desk"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-border gap-3 shrink-0">
           <div className="min-w-0">
             <h2 className="font-display text-sm sm:text-base text-paper flex items-center gap-2">
               <span className="text-base sm:text-lg">✨</span>
-              <span className="truncate">AI Writing Assistant</span>
+              <span className="truncate">Editor’s Desk</span>
             </h2>
             {usage && usage.hasAccess && (
               <p className="text-[11px] text-text-ghost mt-0.5">
@@ -282,7 +289,7 @@ export default function AIAssistantPanel({
                   <span className="text-gold">Unlimited • Premium</span>
                 ) : isFreeTrial ? (
                   <span className="text-amber">
-                    {usage.remaining ?? 0} free generation{(usage.remaining ?? 0) === 1 ? "" : "s"} left
+                    {usage.remaining ?? 0} free polish pass{(usage.remaining ?? 0) === 1 ? "" : "es"} left
                   </span>
                 ) : (
                   <>
@@ -310,12 +317,12 @@ export default function AIAssistantPanel({
             <div className="text-center py-10">
               <span className="text-5xl mb-4 block">{isFreeTrial ? "✨" : "🔒"}</span>
               <h3 className="font-display text-lg text-paper mb-2">
-                {isFreeTrial ? "You've used your free generations" : "AI Features Locked"}
+                {isFreeTrial ? "You've used your free polish passes" : "Editor’s Desk Locked"}
               </h3>
               <p className="text-text-secondary text-sm mb-6 leading-relaxed">
                 {isFreeTrial
-                  ? "Pro unlocks 50 AI requests per day plus 6 more prompt types — Rephrase, Expand, Improve Dialogue, and more."
-                  : "Upgrade to Pro or Premium to unlock AI Writing Assistant"}
+                  ? "Pro unlocks 50 editorial requests per day plus Rephrase, Expand, Improve Dialogue, and more."
+                  : "Upgrade to Pro or Premium to unlock private editorial tools"}
               </p>
               <Link
                 href="/pricing"
@@ -333,10 +340,10 @@ export default function AIAssistantPanel({
                     <span className="text-base shrink-0">✨</span>
                     <div className="min-w-0">
                       <p className="text-[12px] text-paper font-medium leading-snug">
-                        Try it free — {usage.remaining ?? 0} of {usage.limit} generations left
+                        Try it free — {usage.remaining ?? 0} of {usage.limit} polish passes left
                       </p>
                       <p className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
-                        Free users get a taste of <span className="text-paper">Continue Writing</span>.{" "}
+                        Free users get a taste of <span className="text-paper">{freePromptOption?.label ?? "editorial polish"}</span>.{" "}
                         <Link href="/pricing" className="text-amber hover:text-amber-light underline">
                           Pro unlocks the rest
                         </Link>{" "}
@@ -344,6 +351,14 @@ export default function AIAssistantPanel({
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {isFreeTrial && freePromptOption?.requiresSelection && !selectedText && (
+                <div className="rounded-lg border border-border bg-surface/40 p-3">
+                  <p className="text-[12px] text-text-secondary leading-relaxed">
+                    Select a passage to use your free {freePromptOption.label.toLowerCase()} pass.
+                  </p>
                 </div>
               )}
 
@@ -412,7 +427,7 @@ export default function AIAssistantPanel({
                     className="p-4 bg-elevated/60 border border-gold/20 rounded-lg"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] uppercase tracking-[0.12em] text-gold font-medium">AI Suggestion</span>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-gold font-medium">Desk Note</span>
                       <span className="text-[10px] text-text-ghost">
                         Review before accepting
                       </span>
@@ -457,7 +472,7 @@ export default function AIAssistantPanel({
                   onClick={handleAccept}
                   className="px-4 py-2 rounded-full bg-gold text-void text-[12px] font-semibold hover:bg-gold/90 transition-all shadow-lg shadow-gold/20"
                 >
-                  Accept &amp; insert
+                  Apply to draft
                 </button>
               </>
             ) : (
@@ -471,7 +486,7 @@ export default function AIAssistantPanel({
                 <div className="flex-1" />
                 <button
                   onClick={handleGenerate}
-                  disabled={isLoading}
+                  disabled={isLoading || !selectedPromptIsAvailable}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold text-void text-[12px] font-semibold hover:bg-gold/90 transition-all shadow-lg shadow-gold/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (

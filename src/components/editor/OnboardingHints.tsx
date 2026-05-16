@@ -27,7 +27,7 @@ const hints: Hint[] = [
     id: "formatting",
     title: "Format as you write",
     message:
-      "Select any text to see formatting options, or type / to insert headings, quotes, and scene breaks.",
+      "Select text to format it, or use Insert to add headings, quotes, scene breaks, and illustrations. Typing / still opens the same insert menu.",
     position: { top: "30%", left: "50%" },
     arrowDirection: "up",
   },

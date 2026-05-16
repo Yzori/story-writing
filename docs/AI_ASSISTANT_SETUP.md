@@ -1,12 +1,12 @@
-# AI Assistant Setup Checklist
+# Editor's Desk Setup Checklist
 
 ## ✅ What's Already Done
 
-The AI Writing Assistant is **fully implemented** and integrated:
-- ✅ Backend API with **Claude 3.5 Sonnet** integration (Anthropic)
+Editor’s Desk is implemented as a private editorial tool:
+- ✅ Backend API with Anthropic integration
 - ✅ Subscription tier enforcement (Free/Pro/Premium)
-- ✅ Usage tracking (50/day for Pro, unlimited for Premium)
-- ✅ UI component with beautiful modal
+- ✅ Usage tracking (50/day for Pro, cached reports for Premium)
+- ✅ UI component for private editorial checks
 - ✅ Editor integration (Cmd/Shift+K keyboard shortcut)
 - ✅ Command Palette integration
 - ✅ Daily usage reset in cron job
@@ -15,28 +15,24 @@ The AI Writing Assistant is **fully implemented** and integrated:
 
 ## 🔧 What You Need to Do
 
-### 1. ✅ Anthropic API Key Already Configured!
+### 1. Configure an Anthropic API Key
 
-**Good news:** Your Anthropic API key is already in `.env.local`!
+Add an Anthropic API key to your local and production environments:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...REDACTED
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**The AI Assistant is ready to use right now!** Just press `Cmd/Shift+K` in the editor.
+Never commit a real provider key to the repository. If a key is exposed in docs,
+chat, logs, or git history, rotate it in the provider console before using AI
+features again.
 
-**Cost:** Anthropic bills per token. With Claude 3.5 Sonnet:
-- Input: $3.00 per 1M tokens
-- Output: $15.00 per 1M tokens
-- **~$0.0048 per AI request** (avg 1000 input + 500 output tokens)
-- Pro user (50 req/day): **~$4.83/month**
-- Your profit margin: **52%** ($9.99 revenue - $4.83 cost)
+**Cost:** Anthropic bills per token. Check current Anthropic pricing before
+setting production quotas, because model pricing changes over time.
 
-**Why Claude over OpenAI?**
-- ✨ **Superior creative writing** - More natural, literary prose
-- ✨ **Better voice matching** - Maintains author's style and tone
-- ✨ **Longer context** - 200K tokens vs GPT-4o-mini's 128K
-- ✨ **Nuanced storytelling** - Better at character development and emotional depth
+**Product posture:** AI should be framed as an optional editorial assistant:
+continuity checks, critique, organization, and light polish. Avoid presenting it
+as the author of the work.
 
 ### 2. Set Up Daily Usage Reset (Optional but Recommended)
 
@@ -102,14 +98,15 @@ curl -X POST http://localhost:3000/api/cron \
 
 This still works, but is less clean than a proper cron job.
 
-### 3. Test the AI Assistant
+### 3. Test Editor's Desk
 
 #### Test with Free Tier User:
 
 1. Open editor: `http://localhost:3000/write/[story-id]`
 2. Press `Cmd/Shift+K` (or `Ctrl/Shift+K` on Windows)
-3. **Expected:** Should see "AI Features Locked" message with "View Plans" button
-4. Click "View Plans" → Should redirect to `/pricing`
+3. **Expected:** Should see a limited free grammar-polish allowance, if
+   free polish passes remain.
+4. Exhausted free users should see the upgrade prompt and `/pricing` link.
 
 #### Test with Pro Tier User:
 
@@ -125,7 +122,7 @@ WHERE email = 'your-test-email@example.com';
 2. Open editor and press `Cmd/Shift+K`
 3. **Expected:** Should see "50 of 50 requests remaining today"
 4. Select some text, choose "Rephrase", click "Generate"
-5. **Expected:** Should get AI suggestion (if OPENAI_API_KEY is configured)
+5. **Expected:** Should get AI suggestion if `ANTHROPIC_API_KEY` is configured.
 6. **Expected:** Counter updates to "49 of 50 requests remaining today"
 
 #### Test with Premium Tier User:
@@ -138,7 +135,7 @@ WHERE email = 'your-test-email@example.com';
 ```
 
 2. Open editor and press `Cmd/Shift+K`
-3. **Expected:** Should see "Unlimited AI • Premium" badge
+3. **Expected:** Should see the Premium Story Intelligence state
 4. **Expected:** Can access Premium-only features:
    - Plot Hole Detection
    - Continuity Check
@@ -154,7 +151,7 @@ SET ai_requests_this_month = 50
 WHERE email = 'your-test-email@example.com';
 ```
 
-2. Try to use AI Assistant
+2. Try to use Editor’s Desk
 3. **Expected:** Error message "Daily AI limit reached (50 requests). Resets at midnight."
 4. **Expected:** Shows "Upgrade to Premium" link
 
@@ -211,7 +208,7 @@ WHERE subscription_tier != 'free';
 2. Check cron job logs
 3. Verify CRON_SECRET matches
 
-### Pro users see "Unlimited AI"
+### Pro users see Premium copy
 
 **Cause:** Database has wrong tier
 
@@ -264,33 +261,33 @@ WHERE subscription_tier != 'free';
 
 ## 🚀 Ready to Use!
 
-Once you've added the `OPENAI_API_KEY`, the AI Assistant is fully functional:
+Once you've added the `ANTHROPIC_API_KEY`, Editor’s Desk is functional:
 
 1. ✅ Open editor
-2. ✅ Press `Cmd/Shift+K` (or search "AI" in Command Palette)
+2. ✅ Press `Cmd/Shift+K` (or search "Editor’s Desk" in Command Palette)
 3. ✅ Select a prompt type
 4. ✅ Click "Generate"
-5. ✅ Accept or reject the suggestion
+5. ✅ Apply or reject the desk note
 
 **That's it!** The feature is production-ready.
 
 ## 💡 Tips
 
 - **Start with Pro tier** for testing (50 requests/day is plenty)
-- **Monitor costs** via OpenAI dashboard
-- **Set up billing alerts** in OpenAI to avoid surprises
-- **Use GPT-4o-mini** (default) for Pro, can upgrade to GPT-4o for Premium later
+- **Monitor costs** via the Anthropic dashboard
+- **Set up billing alerts** in Anthropic to avoid surprises
+- **Prefer cached Story Intelligence artifacts** over full-manuscript checks
 - **Story Bible context** automatically includes character names from the Story Bible for better suggestions
 
 ## 🎯 Success Criteria
 
 You'll know it's working when:
-- ✅ Free users see upgrade prompt
+- ✅ Free users get grammar-polish only while quota remains
 - ✅ Pro users see usage counter (X/50)
-- ✅ Premium users see "Unlimited AI" badge
+- ✅ Premium users see Story Intelligence report access
 - ✅ Suggestions generate within 3-5 seconds
 - ✅ Usage counter increments after each request
 - ✅ Pro users hit limit at 50 requests
 - ✅ Counter resets at midnight (if cron configured)
 
-**The feature is ready — just add your OpenAI API key!**
+**The feature is ready once `ANTHROPIC_API_KEY` is configured.**

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from "react";
 import { Editor } from "@tiptap/react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -134,13 +134,16 @@ const SLASH_ITEMS: SlashMenuItem[] = [
 
 interface SlashMenuProps {
   editor: Editor;
+  anchorRef?: RefObject<HTMLElement | null>;
+  openSignal?: number;
 }
 
-export default function SlashMenu({ editor }: SlashMenuProps) {
+export default function SlashMenu({ editor, anchorRef, openSignal = 0 }: SlashMenuProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [openedFromButton, setOpenedFromButton] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() =>
@@ -158,19 +161,24 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
     setOpen(false);
     setQuery("");
     setSelectedIndex(0);
+    setOpenedFromButton(false);
   }, []);
 
   const executeItem = useCallback(
     (item: SlashMenuItem) => {
-      // Delete the slash and any query text first
-      const { from } = editor.state.selection;
-      const slashPos = from - query.length - 1;
+      if (openedFromButton) {
+        editor.chain().focus().run();
+      } else {
+        // Delete the slash and any query text first.
+        const { from } = editor.state.selection;
+        const slashPos = from - query.length - 1;
 
-      editor
-        .chain()
-        .focus()
-        .deleteRange({ from: Math.max(0, slashPos), to: from })
-        .run();
+        editor
+          .chain()
+          .focus()
+          .deleteRange({ from: Math.max(0, slashPos), to: from })
+          .run();
+      }
 
       // Run the action after a microtask so the editor state settles
       requestAnimationFrame(() => {
@@ -178,7 +186,7 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
       });
       closeMenu();
     },
-    [editor, query, closeMenu]
+    [editor, query, openedFromButton, closeMenu]
   );
 
   useEffect(() => {
@@ -187,9 +195,11 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        if (filtered.length === 0) return;
         setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        if (filtered.length === 0) return;
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter") {
         e.preventDefault();
@@ -209,6 +219,8 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
   // Listen to editor transactions to detect "/" typed on empty line
   useEffect(() => {
     const handleUpdate = () => {
+      if (openedFromButton) return;
+
       const { from, empty: selectionEmpty } = editor.state.selection;
       if (!selectionEmpty) {
         closeMenu();
@@ -225,6 +237,7 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
         const searchQuery = textInBlock.slice(1);
         setQuery(searchQuery);
         setSelectedIndex(0);
+        setOpenedFromButton(false);
 
         // Position the menu below the cursor
         const coords = editor.view.coordsAtPos(from);
@@ -243,7 +256,28 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
       editor.off("update", handleUpdate);
       editor.off("selectionUpdate", handleUpdate);
     };
-  }, [editor, open, closeMenu]);
+  }, [editor, open, openedFromButton, closeMenu]);
+
+  useEffect(() => {
+    if (openSignal === 0) return;
+
+    const frame = requestAnimationFrame(() => {
+      const anchor = anchorRef?.current;
+      const rect = anchor?.getBoundingClientRect();
+      const fallbackCoords = editor.view.coordsAtPos(editor.state.selection.from);
+
+      setQuery("");
+      setSelectedIndex(0);
+      setOpenedFromButton(true);
+      setPosition({
+        x: rect ? rect.left : fallbackCoords.left,
+        y: rect ? rect.bottom + 8 : fallbackCoords.bottom + 8,
+      });
+      setOpen(true);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [anchorRef, editor, openSignal]);
 
   // Close on click outside
   useEffect(() => {
@@ -261,7 +295,7 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
 
   return (
     <AnimatePresence>
-      {open && filtered.length > 0 && (
+      {open && (
         <motion.div
           ref={menuRef}
           initial={{ opacity: 0, y: -4, scale: 0.97 }}
@@ -273,41 +307,47 @@ export default function SlashMenu({ editor }: SlashMenuProps) {
         >
           <div
             role="listbox"
-            aria-label="Insert commands"
+            aria-label="Insert block"
             aria-activedescendant={filtered[selectedIndex] ? `slash-menu-item-${selectedIndex}` : undefined}
             className="w-[260px] py-1.5 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 overflow-hidden"
           >
             <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost px-3 py-1.5">
               Insert block
             </p>
-            {filtered.map((item, index) => (
-              <button
-                key={item.id}
-                id={`slash-menu-item-${index}`}
-                role="option"
-                aria-selected={index === selectedIndex}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  executeItem(item);
-                }}
-                onMouseEnter={() => setSelectedIndex(index)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
-                  index === selectedIndex
-                    ? "bg-amber/10 text-paper"
-                    : "text-text-secondary hover:text-paper"
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  index === selectedIndex ? "bg-amber/15 text-amber" : "bg-surface text-text-tertiary"
-                }`}>
-                  {item.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm">{item.label}</p>
-                  <p className="text-[11px] text-text-ghost truncate">{item.description}</p>
-                </div>
-              </button>
-            ))}
+            {filtered.length > 0 ? (
+              filtered.map((item, index) => (
+                <button
+                  key={item.id}
+                  id={`slash-menu-item-${index}`}
+                  role="option"
+                  aria-selected={index === selectedIndex}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    executeItem(item);
+                  }}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                    index === selectedIndex
+                      ? "bg-amber/10 text-paper"
+                      : "text-text-secondary hover:text-paper"
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    index === selectedIndex ? "bg-amber/15 text-amber" : "bg-surface text-text-tertiary"
+                  }`}>
+                    {item.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm">{item.label}</p>
+                    <p className="text-[11px] text-text-ghost truncate">{item.description}</p>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <p className="px-3 py-3 text-[12px] text-text-ghost">
+                No matching inserts
+              </p>
+            )}
           </div>
         </motion.div>
       )}

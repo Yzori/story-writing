@@ -1,11 +1,11 @@
 /**
  * Format-aware writing prompts surfaced in the editor (and the public
  * /demo/try page) when a chapter is still empty or near-empty. The aim is to
- * unblock the first 100 words; once the writer has momentum, prompts hide.
+ * unblock the first move; once the writer has momentum, prompts hide.
  *
  * Prompts are deliberately *technique* nudges, not story prompts — they teach
- * craft instead of giving away ideas. Each one is short enough to be the
- * actual first line if the writer accepts it.
+ * craft instead of giving away ideas. Inserts are scaffolds rather than
+ * finished prose, so the writer stays in control of voice and specifics.
  */
 
 export type WritingFormat =
@@ -27,115 +27,115 @@ interface PromptSet {
 const PROMPTS: Record<WritingFormat, PromptSet[]> = {
   novel: [
     {
-      label: "Open mid-action",
-      insert: "She was already halfway across the bridge when she heard her name.",
-      hint: "Skip the setup. Drop the reader into a moment already in motion.",
+      label: "Drop into motion",
+      insert: "[Someone] was already [doing something urgent] when [the interruption] arrived.",
+      hint: "Skip the setup. Start with a person already moving toward or away from trouble.",
     },
     {
-      label: "Sensory detail first",
-      insert: "The kitchen smelled like cardamom and burnt sugar.",
-      hint: "Anchor the scene in a single concrete sensation before introducing anyone.",
+      label: "Use one sensation",
+      insert: "The [place] smelled/sounded/felt like [one concrete detail].",
+      hint: "Anchor the scene in one vivid sensation before explaining who is there.",
     },
     {
-      label: "Dialogue cold open",
-      insert: "“You weren't supposed to be here.”",
-      hint: "Let the reader catch up. Conflict in line one buys you the next paragraph.",
+      label: "Start with conflict",
+      insert: "\"[A line someone should not have said yet.]\"",
+      hint: "Let the reader catch up. A charged first line buys you the next paragraph.",
     },
     {
-      label: "Ordinary, then wrong",
-      insert: "He poured the coffee, the way he had every morning for thirty years. Then he noticed the second cup.",
-      hint: "Two-beat opening: the mundane, then the small thing that tilts it.",
+      label: "Make ordinary wrong",
+      insert: "[A normal routine]. Then [one detail that should not be there].",
+      hint: "Two beats: the mundane, then the small thing that tilts it.",
     },
   ],
 
   poetry: [
     {
-      label: "Image, no verb",
-      insert: "A blue door. The hinges crusted with salt.",
+      label: "Name an image",
+      insert: "[A concrete object]. [One precise detail about it].",
       hint: "Begin with the noun, not the action. Let the image breathe.",
     },
     {
       label: "Address something",
-      insert: "Tell me again about the orchard, the way you remember it.",
+      insert: "Tell me again about [person/place/object], the way [memory or feeling] changes it.",
       hint: "Speak directly to a person, place, or thing — second person opens intimacy fast.",
     },
     {
-      label: "Repeat to mean",
-      insert: "I keep saying “soon.” I keep saying “soon.”",
+      label: "Repeat to shift",
+      insert: "I keep saying \"[word/phrase].\" I keep saying \"[same word/phrase].\"",
       hint: "Repetition creates rhythm and shifts meaning between iterations.",
     },
     {
       label: "End mid-sentence",
-      insert: "What I meant to say was—",
+      insert: "What I meant to say was...",
       hint: "An interrupted line invites the reader to finish it.",
     },
   ],
 
   screenplay: [
     {
-      label: "Scene heading",
-      insert: "INT. CAR — NIGHT\n\nRain hammers the windshield. MARA, 30s, hands tight on the wheel.",
+      label: "Set the shot",
+      insert: "INT./EXT. [PLACE] - [TIME]\n\n[Weather/light/sound]. [CHARACTER], [age/vibe], [revealing action].",
       hint: "Standard slug + a single line of action. Establish location, time, mood.",
     },
     {
-      label: "Character with a secret",
-      insert: "INT. KITCHEN — MORNING\n\nDANIEL pours two coffees. Only one person walks in.",
+      label: "Hide a secret",
+      insert: "INT./EXT. [PLACE] - [TIME]\n\n[CHARACTER] prepares for [expected person/event]. Only [wrong person/no one] appears.",
       hint: "Show the reader something the second character doesn't know.",
     },
     {
       label: "Action without dialogue",
-      insert: "INT. APARTMENT — LATE NIGHT\n\nShe reads the letter. Folds it. Reads it again. Folds it more carefully this time.",
+      insert: "INT./EXT. [PLACE] - [TIME]\n\n[CHARACTER] [does action]. Stops. Does it again, differently.",
       hint: "Pure behavior — let what they do say what they feel.",
     },
     {
       label: "Mid-argument",
-      insert: "                    SAM\n          You said you'd handle it.\n\n                    JESS\n          I am handling it.",
+      insert: "                    [NAME]\n          You said you'd [promise/action].\n\n                    [NAME]\n          I am [doing/avoiding] it.",
       hint: "Drop in mid-fight. The reader will piece together what “it” is.",
     },
   ],
 
   webtoon: [
     {
-      label: "Establishing panel",
-      insert: "PANEL 1: Wide shot — the city at dawn, fog on the river. A lone figure stands on the bridge.",
+      label: "Set the panel",
+      insert: "PANEL 1: Wide shot - [place] at [time]. [One mood detail]. [A figure/object] sits in the frame.",
       hint: "Set place and mood before introducing dialogue or close-ups.",
     },
     {
       label: "Silent reaction",
-      insert: "PANEL 1: Close-up on her hands, holding the letter.\nPANEL 2: Pull back — her face, unreadable.",
+      insert: "PANEL 1: Close-up on [body part/object].\nPANEL 2: Pull back - [character's expression or absence of expression].",
       hint: "Two-panel beats teach the reader how to slow down and feel the moment.",
     },
     {
       label: "Punchline reveal",
-      insert: "PANEL 1: He slides the box across the table.\nPANEL 2: She opens it.\nPANEL 3: Empty.",
+      insert: "PANEL 1: [Setup action].\nPANEL 2: [Someone reacts/opens/looks].\nPANEL 3: [The unexpected reveal].",
       hint: "Three panels: setup, action, reveal. Webtoon's natural rhythm.",
     },
     {
-      label: "Speak through environment",
-      insert: "PANEL 1: A kitchen. Two plates set. Steam rising.\nPANEL 2: One chair pushed back. The other untouched.",
+      label: "Let absence speak",
+      insert: "PANEL 1: [A place prepared for someone].\nPANEL 2: [The missing person/detail made visible].",
       hint: "Let absence speak. Empty chairs and uneaten meals carry weight.",
     },
   ],
 
   illustrated: [
     {
-      label: "Full-bleed open",
-      insert: "[Full-page illustration: a forest at dusk, the path narrowing toward something the reader cannot quite see.]\n\nShe had not been here before. That was the strangest part.",
+      label: "Lead with image",
+      insert: "[Full-page illustration: [place/object/person], with [one visual tension].]\n\n[One sentence that gives the reader a foothold.]",
       hint: "Lead with the image. The text that follows is the reader's foothold.",
     },
     {
       label: "Marginalia",
-      insert: "The map said three days to the coast. The map was wrong.\n\n[Margin sketch: a half-finished compass, the needle bent toward the wrong north.]",
+      insert: "[A confident sentence]. [A sentence that proves it wrong.]\n\n[Margin sketch: [small object/clue] that complicates the text.]",
       hint: "Small images alongside text feel like the narrator's own notes.",
     },
     {
       label: "Object as anchor",
-      insert: "[Illustration: a single object — a brass key on a velvet cloth.]\n\nIt belonged to no door she had ever seen.",
+      insert: "[Illustration: a single object - [object] on/in [setting].]\n\n[One sentence that makes the object matter.]",
       hint: "Pair a detailed object with a mysterious sentence. Let the reader hunt for connection.",
     },
     {
       label: "Wraparound text",
-      insert: "[Illustration: a window, curtains parted just enough to see something outside.]\n\nShe told herself she would not look.",
+      insert: "[Illustration: [image that tempts or threatens the character].]\n\n[One sentence where the text resists what the image suggests.]",
       hint: "Image suggests the look. Text resists. Tension lives in the gap.",
     },
   ],

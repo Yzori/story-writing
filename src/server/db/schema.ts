@@ -50,7 +50,7 @@ export const users = pgTable("users", {
   // AI usage tracking
   aiRequestsThisMonth: integer("ai_requests_this_month").notNull().default(0),
   aiRequestsResetAt: timestamp("ai_requests_reset_at", { withTimezone: true }),
-  // Free-tier "taste" — lifetime cap of free AI generations (Continue Writing only)
+  // Free-tier "taste" — lifetime cap of free editorial AI passes.
   aiFreeGenerationsUsed: integer("ai_free_generations_used").notNull().default(0),
   // Reader streak — incremented when reading-progress is upserted on a new UTC day
   readingStreakDays: integer("reading_streak_days").notNull().default(0),
@@ -141,6 +141,7 @@ export const storiesRelations = relations(stories, ({ one, many }) => ({
   user: one(users, { fields: [stories.userId], references: [users.id] }),
   chapters: many(chapters),
   bibleEntries: many(bibleEntries),
+  intelligenceArtifacts: many(storyIntelligenceArtifacts),
   writingSessions: many(writingSessions),
   sparks: many(sparks),
   follows: many(follows),
@@ -297,6 +298,53 @@ export const bibleEntriesRelations = relations(bibleEntries, ({ one }) => ({
     references: [stories.id],
   }),
 }));
+
+// ── Story Intelligence Artifacts ─────────────────────────────
+
+export const storyIntelligenceArtifacts = pgTable(
+  "story_intelligence_artifacts",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    chapterId: uuid("chapter_id").references(() => chapters.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // chapter_summary | timeline | continuity_report | open_threads | style_profile
+    sourceHash: text("source_hash").notNull(),
+    content: text("content").notNull(),
+    model: text("model"),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_story_intel_story_type").on(table.storyId, table.type),
+    index("idx_story_intel_chapter_type").on(table.chapterId, table.type),
+    unique("story_intel_source_unique").on(table.storyId, table.chapterId, table.type, table.sourceHash),
+  ],
+);
+
+export const storyIntelligenceArtifactsRelations = relations(
+  storyIntelligenceArtifacts,
+  ({ one }) => ({
+    story: one(stories, {
+      fields: [storyIntelligenceArtifacts.storyId],
+      references: [stories.id],
+    }),
+    chapter: one(chapters, {
+      fields: [storyIntelligenceArtifacts.chapterId],
+      references: [chapters.id],
+    }),
+  }),
+);
 
 // ── Writing Sessions ─────────────────────────────────────────
 

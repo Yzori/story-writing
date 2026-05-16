@@ -33,7 +33,7 @@ interface CommandPaletteProps {
   onExportEpub?: () => void;
   onExportDocx?: () => void;
   onOpenShortcuts?: () => void;
-  onOpenAI?: () => void;
+  onOpenEditorDesk?: () => void;
 }
 
 export default function CommandPalette({
@@ -56,7 +56,7 @@ export default function CommandPalette({
   onExportEpub,
   onExportDocx,
   onOpenShortcuts,
-  onOpenAI,
+  onOpenEditorDesk,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -163,15 +163,15 @@ export default function CommandPalette({
           },
         ]
       : []),
-    ...(onOpenAI
+    ...(onOpenEditorDesk
       ? [
           {
             id: "ai-assistant",
-            label: "AI Writing Assistant",
-            description: "AI-powered writing help",
+            label: "Editor’s Desk",
+            description: "Private editorial checks and story notes",
             shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}K`,
             category: "Tools",
-            action: onOpenAI,
+            action: onOpenEditorDesk,
           },
         ]
       : []),
@@ -319,7 +319,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenAI, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query

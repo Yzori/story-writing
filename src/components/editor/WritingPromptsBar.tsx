@@ -18,9 +18,9 @@ interface WritingPromptsBarProps {
 }
 
 /**
- * Compact "stuck?" bar that sits above the editor and offers 3 format-aware
- * starter lines. Hides once the chapter has 50+ words. Permanently dismissable
- * per chapter via localStorage (so a re-empty chapter still shows on reopen).
+ * Compact opening-assist bar that sits above the editor and offers 3
+ * format-aware first-move scaffolds. Hides once the chapter has 50+ words.
+ * Dismissable per chapter for the current editing session.
  */
 export default function WritingPromptsBar({
   format,
@@ -49,7 +49,7 @@ export default function WritingPromptsBar({
         <div className="flex items-start gap-2.5">
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
             <span className="text-[10px] uppercase tracking-[0.14em] text-amber/70 font-medium">
-              Stuck?
+              Begin with
             </span>
           </div>
           <div className="flex-1 min-w-0">

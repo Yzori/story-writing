@@ -1,6 +1,6 @@
 -- Free-tier AI "taste" quota.
--- Tracks lifetime "Continue Writing" generations consumed by Free users
--- so we can offer 5 free generations before requiring an upgrade.
+-- Tracks lifetime free editorial generations consumed by Free users
+-- so we can offer 5 free editorial passes before requiring an upgrade.
 -- Pro/Premium users ignore this column.
 
 ALTER TABLE "users" ADD COLUMN "ai_free_generations_used" integer NOT NULL DEFAULT 0;

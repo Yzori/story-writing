@@ -16,7 +16,7 @@ const shortcuts = [
     { keys: `${mod}I`, action: "Italic" },
     { keys: `${mod}U`, action: "Underline" },
     { keys: `${mod}${shift}X`, action: "Strikethrough" },
-    { keys: "/", action: "Insert menu (in editor)" },
+    { keys: "/", action: "Insert block menu (in editor)" },
     { keys: "@", action: "Mention a character" },
   ]},
   { category: "Navigation", items: [

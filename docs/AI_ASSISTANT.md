@@ -1,8 +1,11 @@
-# AI Writing Assistant - Implementation Guide
+# Editor's Desk and Story Intelligence - Implementation Guide
 
 ## Overview
 
-The AI Writing Assistant feature is fully implemented with backend API, subscription tier enforcement, usage tracking, and UI components. This document explains what's been built and how to integrate it into the editor.
+Inkwell uses AI as private editorial support, not as the author of the work.
+Editor’s Desk handles selected-text polish and review. Story Intelligence uses
+cached artifacts, such as chapter summaries and continuity reports, so future
+features do not need to re-read a full manuscript on every request.
 
 ---
 
@@ -11,25 +14,26 @@ The AI Writing Assistant feature is fully implemented with backend API, subscrip
 ### 1. Backend Infrastructure
 
 **Files Created:**
-- `/src/server/services/ai.ts` - AI service layer with **Claude 3.5 Sonnet** integration (Anthropic)
+- `/src/server/services/ai.ts` - AI service layer with Anthropic integration
 - `/src/app/api/ai/assist/route.ts` - API endpoint with tier checks and rate limiting
 - Daily usage reset added to `/src/app/api/cron/route.ts`
 
 **Features:**
-- **Claude 3.5 Sonnet** integration (superior for creative writing)
+- Anthropic Claude integration
 - 11 different AI prompt types
-- Subscription tier enforcement (Free: no access, Pro: 50/day, Premium: unlimited)
+- Subscription tier enforcement (Free: limited editorial taste, Pro: 50/day, Premium: cached reports)
 - Daily usage tracking and reset at midnight
 - Story Bible context integration
 - Premium-only features (plot holes, continuity, pacing, character arc)
+- Story Intelligence artifact table for cached summaries, timelines, and reports
 
 ### 2. Frontend Components
 
 **File Created:**
-- `/src/components/editor/AIAssistantPanel.tsx` - Full UI panel with:
+- `/src/components/editor/AIAssistantPanel.tsx` - Editor’s Desk panel with:
   - Prompt type selection
   - Usage stats display
-  - Suggestion preview with accept/reject
+  - Desk-note preview with apply/reject
   - Upgrade prompts for free users
   - Premium feature upsells
 
@@ -42,7 +46,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 **Updated:**
 - `/src/server/env.ts` - Environment variable validation
-- **Already configured** in `.env.local` with your Claude API key!
+- Real provider keys must stay out of source control and docs.
 
 ### 4. Database Schema
 
@@ -51,16 +55,22 @@ Already exists in `/src/server/db/schema.ts`:
 users.aiRequestsThisMonth - Counter for current usage
 users.aiRequestsResetAt - Next reset timestamp
 users.subscriptionTier - 'free' | 'pro' | 'premium'
+storyIntelligenceArtifacts - Cached chapter/story summaries and reports
 ```
 
 ---
 
 ## AI Features by Tier
 
+### Free Tier - Limited Taste
+
+- Fix Grammar only
+- Lifetime quota controlled by `FREE_AI_LIFETIME_GENERATIONS`
+
 ### Pro Tier ($9.99/month) - 50 requests/day
 
-**Writing Assistant:**
-- ✅ Continue Writing - Generate next paragraph
+**Editor’s Desk:**
+- ✅ Explore Next Beat - Private brainstorming draft, not automatic prose
 - ✅ Rephrase - Improve clarity and flow
 - ✅ Expand - Add detail and depth
 - ✅ Summarize - Create concise summary
@@ -68,9 +78,9 @@ users.subscriptionTier - 'free' | 'pro' | 'premium'
 - ✅ Improve Dialogue - Enhance conversations
 - ✅ Enhance Description - Add sensory details
 
-### Premium Tier ($29.99/month) - Unlimited
+### Premium Tier ($29.99/month)
 
-**All Pro features PLUS Story Intelligence:**
+**All Pro features PLUS cached Story Intelligence:**
 - ✨ Plot Hole Detection - Find inconsistencies
 - ✨ Continuity Check - Track character/timeline errors
 - ✨ Pacing Analysis - Identify rushed/slow sections
@@ -82,7 +92,7 @@ users.subscriptionTier - 'free' | 'pro' | 'premium'
 
 ### `POST /api/ai/assist`
 
-Generate AI writing assistance.
+Generate an Editor’s Desk suggestion or story review note.
 
 **Request:**
 ```typescript
@@ -101,19 +111,19 @@ Generate AI writing assistance.
   tokensUsed: number,
   usage: {
     current: number,            // Current usage count
-    limit: number | null,       // Daily limit (null = unlimited)
+    limit: number | null,       // Daily limit
     remaining: number | null,   // Requests left today
     resetAt: Date              // When counter resets
   }
 }
 ```
 
-**Response (Free User):**
+**Response (Free User Without Access):**
 ```typescript
 {
   error: {
     code: "SUBSCRIPTION_REQUIRED",
-    message: "AI Writing Assistant requires a Pro or Premium subscription",
+    message: "This AI feature requires a Pro or Premium subscription",
     upgradeUrl: "/pricing"
   }
 }
@@ -173,7 +183,7 @@ Edit `/src/components/editor/ToolkitPanel.tsx`:
 ```typescript
 interface ToolkitPanelProps {
   // ... existing props
-  onOpenAIAssistant: () => void;
+  onOpenEditorDesk: () => void;
 }
 ```
 
@@ -182,11 +192,11 @@ interface ToolkitPanelProps {
 const writingTools: ToolCard[] = [
   // ... existing tools
   {
-    label: "AI Assistant",
-    description: "AI-powered writing help",
+    label: "Editor’s Desk",
+    description: "Private editorial checks and story notes",
     icon: <span className="text-xl">✨</span>,
     badge: aiUsage ? `${aiUsage.remaining || 0} left` : "Locked",
-    onClick: onOpenAIAssistant,
+    onClick: onOpenEditorDesk,
   },
 ];
 ```
@@ -209,9 +219,9 @@ useEffect(() => {
 2. Add button:
 ```typescript
 <button
-  onClick={onOpenAIAssistant}
+  onClick={onOpenEditorDesk}
   className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-surface/50"
-  title="AI Assistant"
+  title="Editor’s Desk"
 >
   <span className="text-gold">✨</span>
   {aiUsage?.remaining !== null && (
@@ -236,7 +246,7 @@ const [showAIAssistant, setShowAIAssistant] = useState(false);
 
 3. Add handler to get selected text:
 ```typescript
-const handleOpenAIAssistant = () => {
+const handleOpenEditorDesk = () => {
   const editor = editorRef.current;
   if (!editor) return;
 
@@ -275,7 +285,7 @@ useEffect(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
-      handleOpenAIAssistant();
+      handleOpenEditorDesk();
     }
   };
 
@@ -288,14 +298,15 @@ useEffect(() => {
 
 ## Setup Instructions
 
-### 1. ✅ Anthropic API Key (Already Done!)
+### 1. Configure Anthropic API Key
 
-Your Anthropic API key is already configured in `.env.local`:
+Add an Anthropic key to your local and production environments:
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...REDACTED
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**The AI Assistant is ready to use!** Press `Cmd/Shift+K` in the editor.
+Never commit a real provider key. Rotate any key that appears in source,
+documentation, logs, or chat.
 
 ### 2. Configure Cron Job
 
@@ -336,32 +347,14 @@ CRON_SECRET=your-random-secret-here
 
 ---
 
-## Cost Analysis
+## Cost Monitoring
 
-### Pro Tier (50 requests/day using Claude 3.5 Sonnet)
+Anthropic bills per token, and model pricing can change. Check current provider
+pricing before setting production quotas or plan margins.
 
-**Cost per request:**
-- Input: ~1000 tokens @ $3.00/1M = $0.003
-- Output: ~500 tokens @ $15.00/1M = $0.0075
-- **Total: ~$0.0105 per request** (but usually less with caching)
-
-**Monthly cost:**
-- 50 requests/day × 30 days = 1,500 requests
-- 1,500 × $0.0048 (avg) = **$4.83/month**
-
-**Revenue: $9.99/month**
-**Profit margin: 52%** ($5.16 profit per user)
-
-**Why worth it:** Claude 3.5 Sonnet's superior creative writing quality justifies the higher cost. Authors will value better AI suggestions over cheaper but lower-quality alternatives.
-
-### Premium Tier (Unlimited)
-
-For heavy users (200 requests/day):
-- Cost: ~$19.32/month
-- Revenue: $29.99/month
-- **Profit margin: 36%** ($10.67 profit per user)
-
-**Why this works:** Premium users get truly unlimited access to the best creative writing AI available. The value proposition is strong for serious authors.
+Recommended posture for a writing platform: frame AI as optional editorial
+support for critique, continuity, organization, and light polish. Avoid making
+generative continuation the core value proposition.
 
 ---
 
@@ -387,7 +380,7 @@ curl -X POST http://localhost:3000/api/ai/assist \
 
 ### Test upgrade flows:
 
-1. **Free user:** Should see subscription required error
+1. **Free user:** Should only access the limited free `Fix Grammar` taste while quota remains
 2. **Pro user (under limit):** Should get suggestion + updated usage count
 3. **Pro user (at limit):** Should see rate limit error with upgrade prompt
 4. **Premium user:** Should get unlimited suggestions
@@ -412,7 +405,7 @@ curl -X POST http://localhost:3000/api/ai/assist \
 1. ✅ Backend complete
 2. ✅ UI component complete
 3. ⏳ Choose integration point (ToolkitPanel, StatusBar, or keyboard shortcut)
-4. ⏳ Add OPENAI_API_KEY to environment
+4. ⏳ Add `ANTHROPIC_API_KEY` to environment
 5. ⏳ Test with different subscription tiers
 6. ⏳ Monitor costs and adjust limits if needed
 
@@ -449,11 +442,10 @@ GROUP BY subscription_tier;
 
 ## Future Enhancements
 
-- [ ] Add streaming responses for longer content generation
-- [ ] Cache common prompts to reduce API costs
-- [ ] Add GPT-4o for Premium users (better quality)
+- [ ] Add cached chapter health checks
+- [ ] Build Story Intelligence artifacts after meaningful chapter saves
+- [ ] Add "Ask my story" over cached summaries and story-bible entries
 - [ ] Track which features users use most
 - [ ] A/B test prompt templates
-- [ ] Add Claude integration as alternative provider
-- [ ] Generate chapter summaries automatically
-- [ ] Auto-detect when user is stuck and suggest AI help
+- [ ] Generate chapter summaries asynchronously
+- [ ] Synthesize reader feedback for creators
