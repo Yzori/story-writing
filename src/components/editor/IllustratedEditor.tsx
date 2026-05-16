@@ -267,6 +267,7 @@ export default function IllustratedEditor({
     pos: DOMRect;
     nodePos: number;
     currentStyle: SceneBreakStyleKey;
+    label: string;
   } | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [insertMenuRequest, setInsertMenuRequest] = useState(0);
@@ -366,6 +367,7 @@ export default function IllustratedEditor({
         pos: rect,
         nodePos,
         currentStyle: node.attrs.style ?? "asterism",
+        label: typeof node.attrs.label === "string" ? node.attrs.label : "ADD BEAT",
       });
     };
 
@@ -518,7 +520,7 @@ export default function IllustratedEditor({
       .run();
     if (style === "text-line") {
       setSceneBreakPicker((current) =>
-        current ? { ...current, currentStyle: "text-line" } : current
+        current ? { ...current, currentStyle: "text-line", label: nextAttrs.label } : current
       );
     } else {
       setSceneBreakPicker(null);
@@ -529,12 +531,17 @@ export default function IllustratedEditor({
     if (!editor || !sceneBreakPicker) return;
     const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
     if (!node || node.type.name !== "horizontalRule") return;
+    const nextLabel = label.trim() || "ADD BEAT";
+
+    setSceneBreakPicker((current) =>
+      current ? { ...current, currentStyle: "text-line", label } : current
+    );
 
     editor.view.dispatch(
       editor.state.tr.setNodeMarkup(sceneBreakPicker.nodePos, undefined, {
         ...node.attrs,
         style: "text-line",
-        label: label.trim() || "ADD BEAT",
+        label: nextLabel,
       })
     );
   }, [editor, sceneBreakPicker]);
@@ -743,12 +750,7 @@ export default function IllustratedEditor({
               <span>Text</span>
               <input
                 type="text"
-                defaultValue={
-                  (() => {
-                    const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
-                    return typeof node?.attrs.label === "string" ? node.attrs.label : "ADD BEAT";
-                  })()
-                }
+                value={sceneBreakPicker.label}
                 onChange={(e) => updateSceneBreakLabel(e.target.value)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
