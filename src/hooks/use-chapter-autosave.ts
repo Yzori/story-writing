@@ -10,6 +10,13 @@ type PendingSave = {
   version: number;
 };
 
+export type LocalChapterDraft = {
+  content: string;
+  version: number;
+  savedAt: string;
+  reason: "autosave" | "failed-save" | "conflict";
+};
+
 type ChapterSaveResult = {
   chapterId: string;
   content: string;
@@ -27,6 +34,62 @@ type UseChapterAutosaveOptions = {
 
 function conflictStorageKey(storyId: string, chapterId: string) {
   return `quiloria-conflict-${storyId}-${chapterId}`;
+}
+
+export function localDraftStorageKey(storyId: string, chapterId: string) {
+  return `quiloria-draft-${storyId}-${chapterId}`;
+}
+
+export function readLocalChapterDraft(storyId: string, chapterId: string): LocalChapterDraft | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const saved = localStorage.getItem(localDraftStorageKey(storyId, chapterId));
+    if (!saved) return null;
+
+    const parsed = JSON.parse(saved) as Partial<LocalChapterDraft>;
+    if (typeof parsed.content !== "string") return null;
+    if (typeof parsed.version !== "number") return null;
+    if (typeof parsed.savedAt !== "string") return null;
+    if (
+      parsed.reason !== "autosave" &&
+      parsed.reason !== "failed-save" &&
+      parsed.reason !== "conflict"
+    ) {
+      return null;
+    }
+
+    return parsed as LocalChapterDraft;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLocalChapterDraft(
+  storyId: string,
+  chapterId: string,
+  draft: Omit<LocalChapterDraft, "savedAt">,
+) {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.setItem(
+      localDraftStorageKey(storyId, chapterId),
+      JSON.stringify({ ...draft, savedAt: new Date().toISOString() }),
+    );
+  } catch {
+    // Storage can be full or disabled; autosave still attempts the server write.
+  }
+}
+
+export function clearLocalChapterDraft(storyId: string, chapterId: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.removeItem(localDraftStorageKey(storyId, chapterId));
+  } catch {
+    // Best effort cleanup only.
+  }
 }
 
 function preserveConflictDraft(storyId: string, chapterId: string, content: string) {
@@ -146,10 +209,15 @@ export function useChapterAutosave({
       }
 
       if (results.some((result) => result.status === 409)) {
-        for (const { chapterId, content: snapshotContent, status } of results) {
+        for (const { chapterId, content: snapshotContent, version, status } of results) {
           if (status !== 409) continue;
           const current = pendingSaves.current.get(chapterId);
           if (current && current.content === snapshotContent) {
+            writeLocalChapterDraft(storyId, chapterId, {
+              content: snapshotContent,
+              version,
+              reason: "conflict",
+            });
             preserveConflictDraft(storyId, chapterId, snapshotContent);
             pendingSaves.current.delete(chapterId);
           }
@@ -174,6 +242,11 @@ export function useChapterAutosave({
         }
 
         reconcileSuccessfulChapterSaves(pendingSaves.current, results);
+        for (const result of results) {
+          if (!pendingSaves.current.has(result.chapterId)) {
+            clearLocalChapterDraft(storyId, result.chapterId);
+          }
+        }
         failedSaves.current.clear();
 
         if (pendingSaves.current.size > 0) {
@@ -196,6 +269,11 @@ export function useChapterAutosave({
       const current = pendingSaves.current.get(chapterId);
       if (!current || current.content === content) {
         failedSaves.current.set(chapterId, { content, version });
+        writeLocalChapterDraft(storyId, chapterId, {
+          content,
+          version,
+          reason: "failed-save",
+        });
       }
     }
     setSaveState("error");
@@ -226,7 +304,12 @@ export function useChapterAutosave({
 
   const queueSave = useCallback((chapterId: string, content: string, version: number) => {
     pendingSaves.current.set(chapterId, { content, version });
-  }, []);
+    writeLocalChapterDraft(storyId, chapterId, {
+      content,
+      version,
+      reason: "autosave",
+    });
+  }, [storyId]);
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -282,7 +365,12 @@ export function useChapterAutosave({
       }
 
       if (results.some((result) => result.status === 409)) {
-        for (const [chapterId, { content }] of entries) {
+        for (const [chapterId, { content, version }] of entries) {
+          writeLocalChapterDraft(storyId, chapterId, {
+            content,
+            version,
+            reason: "conflict",
+          });
           preserveConflictDraft(storyId, chapterId, content);
         }
         failedSaves.current.clear();
@@ -305,6 +393,9 @@ export function useChapterAutosave({
         }
 
         reconcileSuccessfulChapterSaves(pendingSaves.current, results);
+        for (const result of results) {
+          clearLocalChapterDraft(storyId, result.chapterId);
+        }
         failedSaves.current.clear();
         setSaveState("saved");
         if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);

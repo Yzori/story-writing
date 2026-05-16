@@ -51,12 +51,25 @@ import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
-import { useChapterAutosave } from "@/hooks/use-chapter-autosave";
+import {
+  clearLocalChapterDraft,
+  readLocalChapterDraft,
+  useChapterAutosave,
+} from "@/hooks/use-chapter-autosave";
 import { useApiMutation } from "@/hooks/use-api-mutation";
 import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
 type EditorMode = "write" | "plan" | "review" | "prepare" | "publish";
+
+type DraftRecoveryNotice = {
+  chapterId: string;
+  chapterTitle: string;
+  content: string;
+  version: number;
+  savedAt: string;
+  reason: "autosave" | "failed-save" | "conflict";
+};
 
 const editorModes: Array<{
   id: EditorMode;
@@ -131,6 +144,74 @@ function ContextAction({
       <span className="block text-[13px] font-medium text-paper">{label}</span>
       <span className="mt-1 block text-[11px] leading-relaxed text-text-ghost">{description}</span>
     </button>
+  );
+}
+
+function DraftRecoveryBanner({
+  notice,
+  onRestore,
+  onDismiss,
+  onCopy,
+}: {
+  notice: DraftRecoveryNotice;
+  onRestore: () => void;
+  onDismiss: () => void;
+  onCopy: () => void;
+}) {
+  const savedAt = new Date(notice.savedAt);
+  const savedLabel = Number.isNaN(savedAt.getTime())
+    ? "recently"
+    : savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const copy =
+    notice.reason === "conflict"
+      ? "A collaborator changed this chapter while your draft was still local."
+      : notice.reason === "failed-save"
+        ? "The last save did not reach the server, so this browser kept a copy."
+        : "This browser has writing that has not been confirmed by the server.";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.18 }}
+      className="mt-3 rounded-xl border border-amber/20 bg-amber/[0.06] px-3 py-3 text-amber shadow-lg shadow-black/10"
+      role="status"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-paper">
+            Unsynced draft found for {notice.chapterTitle || "this chapter"}
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+            {copy} Last local copy: {savedLabel}.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onCopy}
+            className="rounded-lg border border-border bg-surface/70 px-2.5 py-1.5 text-[11px] text-text-secondary transition-colors hover:text-paper"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-lg px-2.5 py-1.5 text-[11px] text-text-ghost transition-colors hover:text-text-secondary"
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={onRestore}
+            className="rounded-lg border border-amber/30 bg-amber/15 px-2.5 py-1.5 text-[11px] font-medium text-amber transition-colors hover:bg-amber/25"
+          >
+            Restore
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -323,10 +404,13 @@ export default function WriteStoryPage() {
     undo: () => void;
     timer: ReturnType<typeof setTimeout>;
   } | null>(null);
+  const [draftRecovery, setDraftRecovery] = useState<DraftRecoveryNotice | null>(null);
 
   // Right panel
   const [rightPanel, setRightPanel] = useState<RightPanel>("none");
   const [editorMode, setEditorMode] = useState<EditorMode>("write");
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
+  const [rightContextCollapsed, setRightContextCollapsed] = useState(false);
 
   // Comments
   const [commentThreads, setCommentThreads] = useState<CommentThread[]>([]);
@@ -395,7 +479,7 @@ export default function WriteStoryPage() {
   // Reference pane
   const [refPaneOpen, setRefPaneOpen] = useState(false);
   const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes">("bible");
-  // AI Assistant — docked in the right-panels block. This shim preserves the
+  // Editor's Desk — docked in the right-panels block. This shim preserves the
   // existing setShowAIAssistant() call sites (Cmd+Shift+K, command palette, etc.)
   const setShowAIAssistant = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
     if (typeof next === "function") {
@@ -408,6 +492,7 @@ export default function WriteStoryPage() {
   // Canvas UI state
   const [isTyping, setIsTyping] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const webtoonScriptTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const {
     saveState,
@@ -623,7 +708,7 @@ export default function WriteStoryPage() {
         setCommandOpen((v) => !v);
         return;
       }
-      // AI Assistant: Cmd+Shift+K
+      // Editor's Desk: Cmd+Shift+K
       if (isMod && e.shiftKey && e.key === "K") {
         e.preventDefault();
         setShowAIAssistant((v) => !v);
@@ -685,6 +770,12 @@ export default function WriteStoryPage() {
     };
   }, [commandOpen, togglePanel, flushPendingSaves, project?.chapters, project?.activeChapterId, handleSelectChapter]);
 
+  useEffect(() => {
+    return () => {
+      if (webtoonScriptTimer.current) clearTimeout(webtoonScriptTimer.current);
+    };
+  }, []);
+
   const activeChapter = useMemo(() =>
     project?.chapters.find((c) => c.id === project.activeChapterId),
     [project?.chapters, project?.activeChapterId]
@@ -693,6 +784,49 @@ export default function WriteStoryPage() {
     project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? 0,
     [project?.chapters, project?.activeChapterId]
   );
+
+  useEffect(() => {
+    const chapter = project?.chapters.find((candidate) => candidate.id === project.activeChapterId);
+    if (!chapter) {
+      setDraftRecovery(null);
+      return;
+    }
+
+    const draft = readLocalChapterDraft(storyId, chapter.id);
+    if (!draft) {
+      setDraftRecovery(null);
+      return;
+    }
+
+    if (draft.content === chapter.content) {
+      clearLocalChapterDraft(storyId, chapter.id);
+      setDraftRecovery(null);
+      return;
+    }
+
+    const draftTime = Date.parse(draft.savedAt);
+    const chapterTime = chapter.updatedAt;
+    if (
+      draft.reason === "autosave" &&
+      Number.isFinite(draftTime) &&
+      draftTime <= chapterTime
+    ) {
+      clearLocalChapterDraft(storyId, chapter.id);
+      setDraftRecovery(null);
+      return;
+    }
+
+    setDraftRecovery({
+      chapterId: chapter.id,
+      chapterTitle: chapter.title,
+      content: draft.content,
+      version: draft.version,
+      savedAt: draft.savedAt,
+      reason: draft.reason,
+    });
+    // Recovery should be checked when entering a chapter, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyId, project?.activeChapterId]);
 
   useEffect(() => {
     const chapterId = project?.activeChapterId;
@@ -729,21 +863,6 @@ export default function WriteStoryPage() {
   }, [storyId, project?.activeChapterId, commentThreads]);
 
   // ── Chapter handlers ──────────────────────────────────────
-
-  // ── Scene break style change (from inline picker in editor) ──
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const style = (e as CustomEvent).detail as "asterism" | "fleuron" | "dots" | "line" | "space";
-      if (style) {
-        updateProject((prev) => ({
-          ...prev,
-          typography: { ...prev.typography, sceneBreakStyle: style },
-        }));
-      }
-    };
-    window.addEventListener("scene-break-style-change", handler);
-    return () => window.removeEventListener("scene-break-style-change", handler);
-  }, [updateProject]);
 
   const handleAddChapter = useCallback(async () => {
     const unitLabels: Record<string, string> = {
@@ -1209,13 +1328,13 @@ export default function WriteStoryPage() {
     [mutateJson, project?.activeChapterId, project?.chapters, updateProject, storyId, rosterNudgeDismissed, openPublishDialog]
   );
 
-  // ── AI Assistant handlers ─────────────────────────────────
+  // ── Editor's Desk handlers ────────────────────────────────
   const handleAIAccept = useCallback(
     (suggestion: string) => {
       if (!editorInstance) return;
 
-      const { from } = editorInstance.state.selection;
-      editorInstance.chain().focus().insertContentAt(from, suggestion).run();
+      const { from, to } = editorInstance.state.selection;
+      editorInstance.chain().focus().insertContentAt({ from, to }, suggestion).run();
       setShowAIAssistant(false);
     },
     [editorInstance]
@@ -1277,6 +1396,28 @@ export default function WriteStoryPage() {
     [mutateJson, project?.chapters, updateProject, storyId]
   );
 
+  const handleUpdateWebtoonScript = useCallback(
+    (chapterId: string, outline: string) => {
+      updateProject((prev) => ({
+        ...prev,
+        chapters: prev.chapters.map((chapter) =>
+          chapter.id === chapterId
+            ? { ...chapter, outline, updatedAt: Date.now() }
+            : chapter
+        ),
+      }));
+
+      if (webtoonScriptTimer.current) clearTimeout(webtoonScriptTimer.current);
+      webtoonScriptTimer.current = setTimeout(() => {
+        void mutateJson(`/api/stories/${storyId}/chapters/${chapterId}`, {
+          body: { outline },
+          errorMessage: "Couldn't save episode script",
+        });
+      }, 700);
+    },
+    [mutateJson, storyId, updateProject]
+  );
+
   // ── Search handler ────────────────────────────────────────
 
   const handleUpdateChapterContent = useCallback(
@@ -1300,6 +1441,49 @@ export default function WriteStoryPage() {
     },
     [updateProject, scheduleSave, project, queueSave]
   );
+
+  const handleRestoreLocalDraft = useCallback(() => {
+    if (!draftRecovery) return;
+
+    const currentVersion =
+      project?.chapters.find((chapter) => chapter.id === draftRecovery.chapterId)?.version ??
+      draftRecovery.version;
+    updateProject((prev) => ({
+      ...prev,
+      activeChapterId: draftRecovery.chapterId,
+      chapters: prev.chapters.map((chapter) => {
+        if (chapter.id !== draftRecovery.chapterId) return chapter;
+        return {
+          ...chapter,
+          content: draftRecovery.content,
+          wordCount: countWords(draftRecovery.content),
+          updatedAt: Date.now(),
+        };
+      }),
+    }));
+    queueSave(draftRecovery.chapterId, draftRecovery.content, currentVersion);
+    scheduleSave();
+    setSaveState("saving");
+    setDraftRecovery(null);
+    toast("Recovered draft restored", "success");
+  }, [draftRecovery, project?.chapters, queueSave, scheduleSave, setSaveState, toast, updateProject]);
+
+  const handleDismissLocalDraft = useCallback(() => {
+    if (!draftRecovery) return;
+    clearLocalChapterDraft(storyId, draftRecovery.chapterId);
+    setDraftRecovery(null);
+    toast("Local draft dismissed", "info");
+  }, [draftRecovery, storyId, toast]);
+
+  const handleCopyLocalDraft = useCallback(async () => {
+    if (!draftRecovery) return;
+    try {
+      await navigator.clipboard.writeText(draftRecovery.content);
+      toast("Local draft copied", "success");
+    } catch {
+      toast("Couldn’t copy local draft", "error");
+    }
+  }, [draftRecovery, toast]);
 
   // ── Comment handlers ──────────────────────────────────────
 
@@ -1506,9 +1690,12 @@ export default function WriteStoryPage() {
   const handleCloseGrimoire = useCallback(() => setCommandOpen(false), []);
   const handleCloseGoals = useCallback(() => setShowGoals(false), []);
   const handleClosePanel = useCallback(() => setRightPanel("none"), []);
+  const handleToggleLeftSidebar = useCallback(() => setLeftSidebarCollapsed((collapsed) => !collapsed), []);
+  const handleToggleRightContext = useCallback(() => setRightContextCollapsed((collapsed) => !collapsed), []);
   const handleChangeEditorMode = useCallback((mode: EditorMode) => {
     setEditorMode(mode);
     setRightPanel("none");
+    setRightContextCollapsed(false);
     setShowToolkit(false);
     setShowGoals(false);
     if (mode !== "plan") {
@@ -1567,7 +1754,6 @@ export default function WriteStoryPage() {
   const handleCloseSearch = useCallback(() => setShowSearch(false), []);
   const handleCloseToolkit = useCallback(() => setShowToolkit(false), []);
   const handleToggleToolkit = useCallback(() => setShowToolkit((v) => !v), []);
-  const handleCloseSidebar = useCallback(() => {}, []);
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
   const handleWebtoonWordCount = useCallback((wordCount: number) => {
@@ -1744,9 +1930,13 @@ export default function WriteStoryPage() {
   // All formats now have dedicated editors — no FormatStub needed
 
   const showUI = !isTyping && !commandOpen;
+  const leftInsetClass = leftSidebarCollapsed ? "lg:pl-[104px]" : "lg:pl-[344px]";
+  const rightInsetClass = rightPanel === "none"
+    ? rightContextCollapsed ? "xl:pr-12" : "xl:pr-[360px]"
+    : "xl:pr-[360px]";
 
   return (
-    <div className="relative h-[calc(100vh-64px)] w-screen overflow-hidden selection:bg-amber/30 selection:text-white transition-colors duration-1000 bg-void">
+    <div className="fixed inset-x-0 top-14 bottom-0 w-screen overflow-hidden selection:bg-amber/30 selection:text-white transition-colors duration-1000 bg-void">
 
       {/* ── 1. Cinematic Canvas Background ──────────────────── */}
       <div className="absolute inset-0 pointer-events-none z-0">
@@ -1759,19 +1949,19 @@ export default function WriteStoryPage() {
       <EditorModeRail activeMode={editorMode} onChange={handleChangeEditorMode} />
 
       {/* ── 2. Book Navigation (Left) ──────────────────────── */}
-      <aside className="absolute inset-y-0 left-14 z-30 hidden w-72 border-r border-border bg-surface/80 backdrop-blur-2xl lg:flex">
+      <aside className="absolute inset-y-0 left-14 z-30 hidden border-r border-border bg-surface/80 backdrop-blur-2xl lg:flex">
         <ChapterNav
           chapters={project.chapters}
           activeChapterId={project.activeChapterId}
           storyTitle={project.title}
-          collapsed={false}
+          collapsed={leftSidebarCollapsed}
           format={storyFormat}
           onSelectChapter={handleSelectChapter}
           onAddChapter={handleAddChapter}
           onReorderChapters={handleReorderChapters}
           onRenameChapter={handleRenameChapter}
           onDeleteChapter={handleDeleteChapter}
-          onToggleCollapse={handleCloseSidebar}
+          onToggleCollapse={handleToggleLeftSidebar}
           onUpdateStoryTitle={handleUpdateStoryTitle}
           onOpenToolkit={handleToggleToolkit}
           coachSlot={
@@ -1791,7 +1981,7 @@ export default function WriteStoryPage() {
       </aside>
 
       {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
-      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-opacity duration-500 lg:pl-[344px] xl:pr-[360px] ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
+      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-[opacity,padding] duration-500 ${leftInsetClass} ${rightInsetClass} ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
 
         {/* Search bar */}
         <AnimatePresence>
@@ -1981,6 +2171,16 @@ export default function WriteStoryPage() {
                         )}
                       </div>
                     </div>
+                    <AnimatePresence>
+                      {draftRecovery?.chapterId === activeChapter.id && (
+                        <DraftRecoveryBanner
+                          notice={draftRecovery}
+                          onRestore={handleRestoreLocalDraft}
+                          onDismiss={handleDismissLocalDraft}
+                          onCopy={handleCopyLocalDraft}
+                        />
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
 
@@ -2032,6 +2232,8 @@ export default function WriteStoryPage() {
                         key={activeChapter.id}
                         storyId={storyId}
                         chapterId={activeChapter.id}
+                        scriptContent={activeChapter.outline}
+                        onScriptUpdate={(content) => handleUpdateWebtoonScript(activeChapter.id, content)}
                         onWordCountChange={handleWebtoonWordCount}
                       />
                     ) : storyFormat === "illustrated" ? (
@@ -2505,10 +2707,30 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       {/* ── 6. Right Context + Panels ─────────────────────── */}
-      <div className={`absolute top-0 right-0 bottom-0 z-40 flex max-w-[calc(100vw-56px)] ${
-        rightPanel === "none" ? "w-0 xl:w-[360px]" : "w-[360px]"
+      <div className={`absolute inset-y-0 right-0 z-40 flex max-w-[calc(100vw-56px)] transition-[width] duration-300 ${
+        rightPanel === "none" ? rightContextCollapsed ? "w-0 xl:w-12" : "w-0 xl:w-[360px]" : "w-[360px]"
       }`}>
-        {rightPanel === "none" && !commandOpen && (
+        {rightPanel === "none" && rightContextCollapsed && !commandOpen && (
+          <aside className="hidden h-full w-12 flex-col items-center border-l border-border bg-surface/80 py-3 backdrop-blur-2xl xl:flex">
+            <button
+              type="button"
+              onClick={handleToggleRightContext}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
+              title="Expand context panel"
+              aria-label="Expand context panel"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3l4 4-4 4" />
+              </svg>
+            </button>
+            <div className="mt-4 h-px w-6 bg-border" />
+            <span className="mt-4 [writing-mode:vertical-rl] text-[10px] uppercase tracking-[0.16em] text-text-ghost">
+              Context
+            </span>
+          </aside>
+        )}
+
+        {rightPanel === "none" && !rightContextCollapsed && !commandOpen && (
           <aside className="hidden h-full w-full flex-col border-l border-border bg-surface/90 backdrop-blur-2xl xl:flex">
             {editorMode === "write" && activeChapter && (
               <ChapterOutlinePanel
@@ -2516,24 +2738,38 @@ export default function WriteStoryPage() {
                 docked
                 onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
                 onClose={() => setEditorMode("plan")}
+                onCollapse={handleToggleRightContext}
               />
             )}
 
             {editorMode !== "write" && (
               <>
-                <div className="border-b border-border px-5 py-4">
-                  <p className="text-[13px] font-medium text-paper">
-                    {editorMode === "plan" && "Plan"}
-                    {editorMode === "review" && "Review"}
-                    {editorMode === "prepare" && "Prepare"}
-                    {editorMode === "publish" && "Publish"}
-                  </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
-                    {editorMode === "plan" && "Structure, continuity, and reference material."}
-                    {editorMode === "review" && "Feedback, comments, snapshots, and recovery."}
-                    {editorMode === "prepare" && "Packaging tools for a ready manuscript."}
-                    {editorMode === "publish" && "Visibility, reader access, monetization, and launch."}
-                  </p>
+                <div className="flex items-start gap-3 border-b border-border px-5 py-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-paper">
+                      {editorMode === "plan" && "Plan"}
+                      {editorMode === "review" && "Review"}
+                      {editorMode === "prepare" && "Prepare"}
+                      {editorMode === "publish" && "Publish"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
+                      {editorMode === "plan" && "Structure, continuity, and reference material."}
+                      {editorMode === "review" && "Feedback, comments, snapshots, and recovery."}
+                      {editorMode === "prepare" && "Packaging tools for a ready manuscript."}
+                      {editorMode === "publish" && "Visibility, reader access, monetization, and launch."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleRightContext}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-ghost transition-colors hover:bg-subtle/50 hover:text-text-secondary"
+                    title="Collapse context panel"
+                    aria-label="Collapse context panel"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 3L5 7l4 4" />
+                    </svg>
+                  </button>
                 </div>
                 <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
                   {editorMode === "plan" && (
@@ -2802,7 +3038,7 @@ export default function WriteStoryPage() {
         onToggleZen={noopCallback}
         isZenMode={false}
         onOpenSearch={handleOpenSearch}
-        onOpenAI={() => { setCommandOpen(false); setShowAIAssistant(true); }}
+        onOpenEditorDesk={() => { setCommandOpen(false); setShowAIAssistant(true); }}
         onOpenMetadata={handleOpenMetadata}
         onOpenBible={handleToggleBible}
         onOpenFrontMatter={handleOpenFrontMatter}
