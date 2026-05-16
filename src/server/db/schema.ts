@@ -242,6 +242,10 @@ export const panels = pgTable("panels", {
   caption: text("caption").default(""),
   sortOrder: integer("sort_order").notNull().default(0),
   sizing: text("sizing").notNull().default("standard"), // tall | wide | standard | custom
+  layout: text("layout").notNull().default("single"), // single | side-by-side | stack | top-pair-bottom | left-stack-right | grid-4 | mosaic-5 | grid-6
+  frames: text("frames").default("[]"), // JSON: images inside this comic panel
+  borderStyle: text("border_style").notNull().default("none"), // none | black | light
+  imageFit: text("image_fit").notNull().default("cover"), // cover | contain | top
   aspectRatio: text("aspect_ratio"),
   overlays: text("overlays").default("[]"), // JSON: text overlay positions
   createdAt: timestamp("created_at", { withTimezone: true })

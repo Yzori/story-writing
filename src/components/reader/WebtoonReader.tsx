@@ -11,8 +11,17 @@ interface Panel {
   caption: string;
   sortOrder: number;
   sizing: string;
+  layout?: string;
+  frames?: string;
+  borderStyle?: string;
+  imageFit?: string;
   aspectRatio: string | null;
   overlays: string;
+}
+
+interface PanelFrame {
+  id: string;
+  imageData: string;
 }
 
 // Legacy format from before panels table
@@ -47,6 +56,10 @@ function parseLegacyPanels(content: string): Panel[] {
         caption: p.caption || "",
         sortOrder: p.order ?? 0,
         sizing: "standard",
+        layout: "single",
+        frames: JSON.stringify([{ id: p.id || "frame-1", imageData: p.imageDataUrl || "" }]),
+        borderStyle: "none",
+        imageFit: "cover",
         aspectRatio: null,
         overlays: "[]",
       }));
@@ -55,6 +68,62 @@ function parseLegacyPanels(content: string): Panel[] {
     // Not JSON
   }
   return [];
+}
+
+function parseFrames(panel: Pick<Panel, "frames" | "imageData">): PanelFrame[] {
+  try {
+    const parsed = JSON.parse(panel.frames || "[]");
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed
+        .filter((frame) => typeof frame?.imageData === "string" && frame.imageData.length > 0)
+        .map((frame, index) => ({
+          id: typeof frame.id === "string" ? frame.id : `frame-${index + 1}`,
+          imageData: frame.imageData,
+        }));
+    }
+  } catch {
+    // Legacy panel.
+  }
+
+  return panel.imageData ? [{ id: "frame-1", imageData: panel.imageData }] : [];
+}
+
+function getLayoutClass(layout: string | undefined, frameCount: number) {
+  if (frameCount <= 1) return "grid-cols-1";
+  if (layout === "stack") return "grid-cols-1";
+  if (layout === "mosaic-5") return "grid-cols-6";
+  return "grid-cols-2";
+}
+
+function getFrameCellClass(layout: string | undefined, index: number, frameCount: number) {
+  if (frameCount <= 1) return "";
+  if (layout === "top-pair-bottom" && index === 2) return "col-span-2";
+  if (layout === "left-stack-right" && index === 0) return "row-span-2";
+  if (layout === "mosaic-5") return index < 2 ? "col-span-3" : "col-span-2";
+  return "";
+}
+
+function getBorderStyleClasses(borderStyle: string | undefined) {
+  switch (borderStyle) {
+    case "black":
+      return { panel: "bg-black p-1", grid: "gap-1 bg-black", cell: "bg-black" };
+    case "light":
+      return { panel: "bg-border-subtle p-px", grid: "gap-1 bg-border-subtle", cell: "bg-elevated" };
+    default:
+      return { panel: "bg-transparent p-0", grid: "gap-0 bg-transparent", cell: "bg-transparent" };
+  }
+}
+
+function getImageFitClass(imageFit: string | undefined, shouldFillSlot: boolean) {
+  if (!shouldFillSlot) return "h-auto";
+  switch (imageFit) {
+    case "contain":
+      return "h-full object-contain";
+    case "top":
+      return "h-full object-cover object-top";
+    default:
+      return "h-full object-cover";
+  }
 }
 
 function getSizingStyle(sizing: string, aspectRatio: string | null): React.CSSProperties {
@@ -144,32 +213,45 @@ export default function WebtoonReader({
         </h1>
 
         {/* Panels — continuous vertical scroll (webtoon standard) */}
-        <div className="flex flex-col items-center gap-0">
+        <div className="flex flex-wrap items-start justify-center gap-0">
           {sortedPanels.map((panel, i) => {
             const hasCustomSizing = panel.sizing !== "standard";
             const sizingStyle = getSizingStyle(panel.sizing, panel.aspectRatio);
             const overlays = parseOverlays(panel.overlays);
+            const frames = parseFrames(panel);
+            const borderClasses = getBorderStyleClasses(panel.borderStyle);
 
             return (
               <motion.div
                 key={panel.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: loadedPanels.has(panel.id) ? 1 : 0.3 }}
-                className="w-full relative"
+                className={`w-full relative ${borderClasses.panel}`}
               >
-                <img
-                  src={panel.imageData}
-                  alt={panel.caption || `Panel ${i + 1}`}
-                  className={`w-full h-auto block ${hasCustomSizing ? "object-cover" : ""}`}
+                <div
+                  className={`grid ${getLayoutClass(panel.layout, frames.length)} ${borderClasses.grid}`}
                   style={hasCustomSizing ? sizingStyle : undefined}
-                  loading={i < 3 ? "eager" : "lazy"}
-                  onLoad={() =>
-                    setLoadedPanels((prev) => new Set(prev).add(panel.id))
-                  }
-                  onError={() =>
-                    setLoadedPanels((prev) => new Set(prev).add(panel.id))
-                  }
-                />
+                >
+                  {frames.map((frame, frameIndex) => (
+                    <div
+                      key={`${frame.id}-${frameIndex}`}
+                      className={`relative overflow-hidden ${borderClasses.cell} ${frames.length > 1 ? "min-h-32" : ""} ${getFrameCellClass(panel.layout, frameIndex, frames.length)}`}
+                    >
+                      <img
+                        src={frame.imageData}
+                        alt={panel.caption || `Panel ${i + 1}, frame ${frameIndex + 1}`}
+                        className={`w-full block ${getImageFitClass(panel.imageFit, hasCustomSizing || frames.length > 1)}`}
+                        loading={i < 3 ? "eager" : "lazy"}
+                        onLoad={() =>
+                          setLoadedPanels((prev) => new Set(prev).add(panel.id))
+                        }
+                        onError={() =>
+                          setLoadedPanels((prev) => new Set(prev).add(panel.id))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
 
                 {/* Speech bubbles / text overlays */}
                 {overlays.length > 0 && (
@@ -196,6 +278,7 @@ export default function WebtoonReader({
         <div className="flex items-center justify-between mt-12 mb-16 px-4">
           {hasPrevChapter ? (
             <button
+              type="button"
               onClick={onPrevChapter}
               className="flex items-center gap-2 text-text-secondary hover:text-paper transition-colors text-sm"
             >
@@ -210,6 +293,7 @@ export default function WebtoonReader({
 
           {hasNextChapter && (
             <button
+              type="button"
               onClick={onNextChapter}
               className="flex items-center gap-2 bg-amber text-void font-semibold px-5 py-2.5 rounded-full hover:bg-amber-light transition-all text-sm"
             >

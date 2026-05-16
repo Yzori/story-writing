@@ -94,9 +94,9 @@ export default function OverlayRenderer({
   if (overlays.length === 0 && !editable) return null;
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0 z-[5]"
+	    <div
+	      ref={containerRef}
+	      className="absolute inset-0 z-[5] touch-pan-y"
       style={{ pointerEvents: editable ? "auto" : "none" }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -108,7 +108,7 @@ export default function OverlayRenderer({
         return (
           <div
             key={overlay.id}
-            className={`bubble-base bubble-${overlay.style} ${
+	            className={`bubble-base bubble-${overlay.style} touch-none ${
               isSelected
                 ? "ring-2 ring-amber ring-offset-1 shadow-lg"
                 : "transition-shadow"
@@ -128,14 +128,25 @@ export default function OverlayRenderer({
               e.stopPropagation();
               onSelect?.(overlay.id);
             }}
-          >
-            {editable && isSelected ? (
-              <textarea
+	          >
+	            {editable && isSelected && (
+	              <button
+	                type="button"
+	                className="absolute -top-4 left-1/2 flex h-7 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-amber/30 bg-void/90 text-amber shadow-lg backdrop-blur-sm md:h-5 md:w-8"
+	                title="Drag bubble"
+	                aria-label="Drag bubble"
+	                onPointerDown={(e) => handlePointerDown(e, overlay)}
+	              >
+	                <span className="h-1 w-6 rounded-full bg-current opacity-70 md:w-4" />
+	              </button>
+	            )}
+	            {editable && isSelected ? (
+	              <textarea
                 value={overlay.text}
                 onChange={(e) => onTextChange?.(overlay.id, e.target.value)}
                 placeholder="Type dialogue..."
                 autoFocus
-                className="w-full bg-transparent text-center outline-none resize-none leading-snug"
+	                className="w-full bg-transparent text-center outline-none resize-none leading-snug touch-pan-y"
                 style={{ fontSize: "inherit", color: "inherit", fontWeight: "inherit" }}
                 rows={1}
                 onInput={(e) => {
@@ -208,79 +219,154 @@ function OverlayToolbar({
   ];
 
   return (
-    <div
-      className="absolute z-20 flex items-center gap-1 bg-void/90 backdrop-blur-xl border border-border rounded-lg px-2 py-1.5 shadow-2xl"
+	      <div
+	        className="absolute left-0 right-0 z-20 hidden justify-center px-2 pointer-events-none md:flex"
       style={{
-        left: `${Math.min(overlay.x, 70)}%`,
         top: `${Math.max(overlay.y - 12, 2)}%`,
       }}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* Style */}
-      {styles.map((s) => (
-        <button
-          key={s.key}
-          onClick={() => onStyleChange?.(overlay.id, { style: s.key })}
-          className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
-            overlay.style === s.key
-              ? "bg-amber/20 text-amber"
-              : "text-text-ghost hover:text-text-secondary"
-          }`}
-          title={s.label}
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-border bg-void/90 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
+        {/* Style */}
+        {styles.map((s) => (
+	          <button
+	            type="button"
+	            key={s.key}
+            onClick={() => onStyleChange?.(overlay.id, { style: s.key })}
+            className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+              overlay.style === s.key
+                ? "bg-amber/20 text-amber"
+                : "text-text-ghost hover:text-text-secondary"
+            }`}
+            title={s.label}
+          >
+            {s.label}
+          </button>
+        ))}
+
+        <div className="h-4 w-px bg-border mx-0.5" />
+
+        {/* Tail direction */}
+        {tails.map((t) => (
+	          <button
+	            type="button"
+	            key={t.key}
+            onClick={() => onStyleChange?.(overlay.id, { tailDirection: t.key })}
+            className={`w-5 h-5 rounded flex items-center justify-center text-[10px] transition-colors ${
+              overlay.tailDirection === t.key
+                ? "bg-amber/20 text-amber"
+                : "text-text-ghost hover:text-text-secondary"
+            }`}
+            title={t.key}
+          >
+            {t.label}
+          </button>
+        ))}
+
+        <div className="h-4 w-px bg-border mx-0.5" />
+
+        {/* Font size */}
+        {sizes.map((s) => (
+	          <button
+	            type="button"
+	            key={s.key}
+            onClick={() => onStyleChange?.(overlay.id, { fontSize: s.key })}
+            className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-colors ${
+              overlay.fontSize === s.key
+                ? "bg-amber/20 text-amber"
+                : "text-text-ghost hover:text-text-secondary"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+
+        <div className="h-4 w-px bg-border mx-0.5" />
+
+        {/* Delete */}
+	        <button
+	          type="button"
+	          onClick={() => onDelete?.(overlay.id)}
+          className="w-5 h-5 rounded flex items-center justify-center text-text-ghost hover:text-rose transition-colors"
+          title="Remove bubble"
         >
-          {s.label}
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="2" y1="2" x2="8" y2="8" />
+            <line x1="8" y1="2" x2="2" y2="8" />
+          </svg>
         </button>
-      ))}
+	      </div>
+	      <div
+	        className="absolute inset-x-2 bottom-2 z-20 flex justify-center pointer-events-none md:hidden"
+	        onClick={(e) => e.stopPropagation()}
+	        onPointerDown={(e) => e.stopPropagation()}
+	      >
+	        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border bg-void/90 px-2 py-2 shadow-2xl backdrop-blur-xl">
+	          {styles.map((s) => (
+	            <button
+	              type="button"
+	              key={s.key}
+	              onClick={() => onStyleChange?.(overlay.id, { style: s.key })}
+	              className={`h-9 rounded-lg px-2 text-[10px] font-medium transition-colors ${
+	                overlay.style === s.key
+	                  ? "bg-amber/20 text-amber"
+	                  : "text-text-ghost hover:text-text-secondary"
+	              }`}
+	              title={s.label}
+	            >
+	              {s.label}
+	            </button>
+	          ))}
 
-      <div className="w-px h-4 bg-border mx-0.5" />
+	          <div className="h-7 w-px bg-border mx-0.5" />
 
-      {/* Tail direction */}
-      {tails.map((t) => (
-        <button
-          key={t.key}
-          onClick={() => onStyleChange?.(overlay.id, { tailDirection: t.key })}
-          className={`w-5 h-5 rounded flex items-center justify-center text-[10px] transition-colors ${
-            overlay.tailDirection === t.key
-              ? "bg-amber/20 text-amber"
-              : "text-text-ghost hover:text-text-secondary"
-          }`}
-          title={t.key}
-        >
-          {t.label}
-        </button>
-      ))}
+	          {tails.map((t) => (
+	            <button
+	              type="button"
+	              key={t.key}
+	              onClick={() => onStyleChange?.(overlay.id, { tailDirection: t.key })}
+	              className={`flex h-9 w-9 items-center justify-center rounded-lg text-[12px] transition-colors ${
+	                overlay.tailDirection === t.key
+	                  ? "bg-amber/20 text-amber"
+	                  : "text-text-ghost hover:text-text-secondary"
+	              }`}
+	              title={t.key}
+	            >
+	              {t.label}
+	            </button>
+	          ))}
 
-      <div className="w-px h-4 bg-border mx-0.5" />
+	          <div className="h-7 w-px bg-border mx-0.5" />
 
-      {/* Font size */}
-      {sizes.map((s) => (
-        <button
-          key={s.key}
-          onClick={() => onStyleChange?.(overlay.id, { fontSize: s.key })}
-          className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-colors ${
-            overlay.fontSize === s.key
-              ? "bg-amber/20 text-amber"
-              : "text-text-ghost hover:text-text-secondary"
-          }`}
-        >
-          {s.label}
-        </button>
-      ))}
+	          {sizes.map((s) => (
+	            <button
+	              type="button"
+	              key={s.key}
+	              onClick={() => onStyleChange?.(overlay.id, { fontSize: s.key })}
+	              className={`flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+	                overlay.fontSize === s.key
+	                  ? "bg-amber/20 text-amber"
+	                  : "text-text-ghost hover:text-text-secondary"
+	              }`}
+	            >
+	              {s.label}
+	            </button>
+	          ))}
 
-      <div className="w-px h-4 bg-border mx-0.5" />
-
-      {/* Delete */}
-      <button
-        onClick={() => onDelete?.(overlay.id)}
-        className="w-5 h-5 rounded flex items-center justify-center text-text-ghost hover:text-rose transition-colors"
-        title="Remove bubble"
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <line x1="2" y1="2" x2="8" y2="8" />
-          <line x1="8" y1="2" x2="2" y2="8" />
-        </svg>
-      </button>
-    </div>
-  );
-}
+	          <button
+	            type="button"
+	            onClick={() => onDelete?.(overlay.id)}
+	            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:text-rose"
+	            title="Remove bubble"
+	          >
+	            <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+	              <line x1="2" y1="2" x2="8" y2="8" />
+	              <line x1="8" y1="2" x2="2" y2="8" />
+	            </svg>
+	          </button>
+	        </div>
+	      </div>
+	    </div>
+	  );
+	}

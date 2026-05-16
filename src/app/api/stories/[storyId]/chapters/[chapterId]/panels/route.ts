@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { panels, chapters, stories, collaborators } from "@/server/db/schema";
-import { eq, and, isNull, asc } from "drizzle-orm";
+import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
 import { createPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
@@ -9,6 +9,23 @@ import { applyRateLimit } from "@/server/api-utils";
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
 };
+
+function countPanelWords(panelList: Array<{ caption?: string | null; overlays?: string | null }>) {
+  return panelList.reduce((sum, panel) => {
+    let text = panel.caption || "";
+    try {
+      const overlays = JSON.parse(panel.overlays || "[]");
+      if (Array.isArray(overlays)) {
+        text += ` ${overlays.map((overlay) => overlay?.text || "").join(" ")}`;
+      }
+    } catch {
+      // Ignore malformed legacy overlay payloads when calculating counts.
+    }
+
+    const trimmed = text.trim();
+    return sum + (trimmed ? trimmed.split(/\s+/).length : 0);
+  }, 0);
+}
 
 /**
  * GET /api/stories/[storyId]/chapters/[chapterId]/panels
@@ -67,6 +84,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
               imageData: p.imageDataUrl,
               caption: p.caption || "",
               sortOrder: p.order ?? i,
+              layout: "single",
+              frames: JSON.stringify([{ id: p.id || `legacy-${i}`, imageData: p.imageDataUrl }]),
+              borderStyle: "none",
+              imageFit: "cover",
             }))
           ).returning();
 
@@ -161,26 +182,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const created = await db.insert(panels).values(
-      parsed.data.panels.map((p) => ({
-        chapterId,
-        imageData: p.imageData,
-        caption: p.caption || "",
-        sortOrder: p.sortOrder,
-        sizing: p.sizing || "standard",
-        aspectRatio: p.aspectRatio || null,
-        overlays: p.overlays || "[]",
-      }))
-    ).returning();
+    const created = await db.transaction(async (tx) => {
+      await tx.execute(sql`LOCK TABLE "panels" IN SHARE ROW EXCLUSIVE MODE`);
+
+      const [lastPanel] = await tx.query.panels.findMany({
+        where: eq(panels.chapterId, chapterId),
+        orderBy: [desc(panels.sortOrder)],
+        limit: 1,
+      });
+      const nextSortOrder = (lastPanel?.sortOrder ?? -1) + 1;
+
+      return tx.insert(panels).values(
+        parsed.data.panels.map((p, index) => ({
+          chapterId,
+          imageData: p.imageData,
+          caption: p.caption || "",
+          sortOrder: nextSortOrder + index,
+          sizing: p.sizing || "standard",
+          layout: p.layout || "single",
+          frames: p.frames || JSON.stringify([{ id: "frame-1", imageData: p.imageData }]),
+          borderStyle: p.borderStyle || "none",
+          imageFit: p.imageFit || "cover",
+          aspectRatio: p.aspectRatio || null,
+          overlays: p.overlays || "[]",
+        }))
+      ).returning();
+    });
 
     // Update chapter word count from all panel captions
     const allPanels = await db.query.panels.findMany({
       where: eq(panels.chapterId, chapterId),
     });
-    const wordCount = allPanels.reduce((sum, p) => {
-      const text = (p.caption || "").trim();
-      return sum + (text ? text.split(/\s+/).length : 0);
-    }, 0);
+    const wordCount = countPanelWords(allPanels);
     await db.update(chapters)
       .set({ wordCount, updatedAt: new Date() })
       .where(eq(chapters.id, chapterId));

@@ -10,6 +10,23 @@ type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string; panelId: string }>;
 };
 
+function countPanelWords(panelList: Array<{ caption?: string | null; overlays?: string | null }>) {
+  return panelList.reduce((sum, panel) => {
+    let text = panel.caption || "";
+    try {
+      const overlays = JSON.parse(panel.overlays || "[]");
+      if (Array.isArray(overlays)) {
+        text += ` ${overlays.map((overlay) => overlay?.text || "").join(" ")}`;
+      }
+    } catch {
+      // Ignore malformed legacy overlay payloads when calculating counts.
+    }
+
+    const trimmed = text.trim();
+    return sum + (trimmed ? trimmed.split(/\s+/).length : 0);
+  }, 0);
+}
+
 /**
  * PATCH /api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]
  * Update a single panel's fields. Requires story ownership.
@@ -94,15 +111,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .where(eq(panels.id, panelId))
       .returning();
 
-    // Update chapter word count if caption changed
-    if (parsed.data.caption !== undefined) {
+    // Update chapter word count if visible text changed
+    if (parsed.data.caption !== undefined || parsed.data.overlays !== undefined) {
       const allPanels = await db.query.panels.findMany({
         where: eq(panels.chapterId, chapterId),
       });
-      const wordCount = allPanels.reduce((sum, p) => {
-        const text = (p.caption || "").trim();
-        return sum + (text ? text.split(/\s+/).length : 0);
-      }, 0);
+      const wordCount = countPanelWords(allPanels);
       await db.update(chapters)
         .set({ wordCount, updatedAt: new Date() })
         .where(eq(chapters.id, chapterId));
@@ -191,10 +205,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const allPanels = await db.query.panels.findMany({
       where: eq(panels.chapterId, chapterId),
     });
-    const wordCount = allPanels.reduce((sum, p) => {
-      const text = (p.caption || "").trim();
-      return sum + (text ? text.split(/\s+/).length : 0);
-    }, 0);
+    const wordCount = countPanelWords(allPanels);
     await db.update(chapters)
       .set({ wordCount, updatedAt: new Date() })
       .where(eq(chapters.id, chapterId));

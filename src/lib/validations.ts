@@ -81,9 +81,13 @@ export const createPanelsSchema = z.object({
   panels: z.array(z.object({
     imageData: z.string().max(1_500_000), // ~1MB base64
     caption: z.string().max(2000).optional(),
-    sortOrder: z.number().int().min(0),
+    sortOrder: z.number().int().min(0).optional(),
     sizing: z.enum(["tall", "wide", "standard", "custom"]).optional(),
-    aspectRatio: z.string().max(20).optional(),
+    layout: z.enum(["single", "side-by-side", "stack", "top-pair-bottom", "left-stack-right", "grid-4", "mosaic-5", "grid-6"]).optional(),
+    frames: z.string().max(6_000_000).optional(),
+    borderStyle: z.enum(["none", "black", "light"]).optional(),
+    imageFit: z.enum(["cover", "contain", "top"]).optional(),
+    aspectRatio: z.string().max(20).nullable().optional(),
     overlays: z.string().max(50000).optional(),
   })).min(1).max(20),
 });
@@ -93,7 +97,11 @@ export const updatePanelSchema = z.object({
   caption: z.string().max(2000).optional(),
   sortOrder: z.number().int().min(0).optional(),
   sizing: z.enum(["tall", "wide", "standard", "custom"]).optional(),
-  aspectRatio: z.string().max(20).optional(),
+  layout: z.enum(["single", "side-by-side", "stack", "top-pair-bottom", "left-stack-right", "grid-4", "mosaic-5", "grid-6"]).optional(),
+  frames: z.string().max(6_000_000).optional(),
+  borderStyle: z.enum(["none", "black", "light"]).optional(),
+  imageFit: z.enum(["cover", "contain", "top"]).optional(),
+  aspectRatio: z.string().max(20).nullable().optional(),
   overlays: z.string().max(50000).optional(),
 });
 
