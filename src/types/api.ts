@@ -46,6 +46,12 @@ export interface ApiStoryData {
   slug: string | null;
   writingMode: string | null;
   isPublic?: boolean;
+  dropCaps?: boolean;
+  sceneBreakStyle?: "asterism" | "fleuron" | "dots" | "line" | "text-line" | "space";
+  paragraphIndent?: boolean;
+  lineSpacing?: "compact" | "comfortable" | "relaxed";
+  textAlignment?: "left" | "center" | "justified";
+  paragraphSpacing?: "tight" | "normal" | "loose";
   createdAt: string;
   updatedAt: string;
   author: ApiAuthor | null;

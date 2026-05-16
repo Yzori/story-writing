@@ -19,6 +19,7 @@ import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
 import { CharacterMention, MentionCharacter } from "./extensions/CharacterMention";
 import { SceneBreak, SceneBreakStyleKey, sceneBreakStyles } from "./extensions/SceneBreak";
+import { ParagraphAlignment } from "./extensions/ParagraphAlignment";
 
 const typewriterPluginKey = new PluginKey("typewriterScroll");
 
@@ -97,6 +98,9 @@ export default function ProseEditor({
   const insertButtonRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
+  const sceneBreakLabelInputRef = useRef<HTMLInputElement>(null);
+  const sceneBreakPickerNodePos = sceneBreakPicker?.nodePos;
+  const isTextLinePicker = sceneBreakPicker?.currentStyle === "text-line";
 
   const editor = useEditor({
     extensions: [
@@ -105,6 +109,7 @@ export default function ProseEditor({
         horizontalRule: false,
         dropcursor: { color: "var(--t-gold)", width: 2 },
       }),
+      ParagraphAlignment,
       SceneBreak,
       Placeholder.configure({
         placeholder: "Begin your story...",
@@ -140,13 +145,15 @@ export default function ProseEditor({
   // Sync content when switching chapters
   const setContent = useCallback(
     (newContent: string) => {
-      if (editor && !editor.isDestroyed) {
-        // Only update if content is actually different to avoid cursor jumps
+      if (!editor || editor.isDestroyed) return;
+
+      queueMicrotask(() => {
+        if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
           editor.commands.setContent(newContent || "");
         }
-      }
+      });
     },
     [editor]
   );
@@ -191,7 +198,7 @@ export default function ProseEditor({
         pos: rect,
         nodePos,
         currentStyle: node.attrs.style ?? "asterism",
-        label: typeof node.attrs.label === "string" ? node.attrs.label : "ADD BEAT",
+        label: typeof node.attrs.label === "string" ? node.attrs.label : "",
       });
     };
 
@@ -209,6 +216,7 @@ export default function ProseEditor({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement | null)?.closest("input, textarea")) return;
       if (e.key === "Escape") {
         setSceneBreakPicker(null);
         return;
@@ -239,14 +247,23 @@ export default function ProseEditor({
     };
   }, [sceneBreakPicker]);
 
-  // Focus first picker button when it opens
+  // Focus first picker button only when a picker opens for a new divider.
   useEffect(() => {
-    if (sceneBreakPicker) {
+    if (sceneBreakPickerNodePos != null) {
       requestAnimationFrame(() => {
         pickerButtonsRef.current[0]?.focus();
       });
     }
-  }, [sceneBreakPicker]);
+  }, [sceneBreakPickerNodePos]);
+
+  useEffect(() => {
+    if (isTextLinePicker) {
+      requestAnimationFrame(() => {
+        sceneBreakLabelInputRef.current?.focus();
+        sceneBreakLabelInputRef.current?.select();
+      });
+    }
+  }, [sceneBreakPickerNodePos, isTextLinePicker]);
 
   // Handle clicks on @mention spans
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -281,11 +298,9 @@ export default function ProseEditor({
     const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
     if (!node || node.type.name !== "horizontalRule") return;
 
-    const nextAttrs = { ...node.attrs, style };
+    const nextAttrs: Record<string, unknown> = { ...node.attrs, style };
     if (style === "text-line") {
-      nextAttrs.label = typeof node.attrs.label === "string" && node.attrs.label.trim()
-        ? node.attrs.label.trim()
-        : "ADD BEAT";
+      nextAttrs.label = typeof node.attrs.label === "string" ? node.attrs.label : "";
     }
 
     editor
@@ -302,7 +317,7 @@ export default function ProseEditor({
       .run();
     if (style === "text-line") {
       setSceneBreakPicker((current) =>
-        current ? { ...current, currentStyle: "text-line", label: nextAttrs.label } : current
+        current ? { ...current, currentStyle: "text-line", label: String(nextAttrs.label ?? "") } : current
       );
     } else {
       setSceneBreakPicker(null);
@@ -313,7 +328,7 @@ export default function ProseEditor({
     if (!editor || !sceneBreakPicker) return;
     const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
     if (!node || node.type.name !== "horizontalRule") return;
-    const nextLabel = label.trim() || "ADD BEAT";
+    const nextLabel = label.trim();
 
     setSceneBreakPicker((current) =>
       current ? { ...current, currentStyle: "text-line", label } : current
@@ -461,8 +476,10 @@ export default function ProseEditor({
             <label className="scene-break-picker-label">
               <span>Text</span>
               <input
+                ref={sceneBreakLabelInputRef}
                 type="text"
                 value={sceneBreakPicker.label}
+                placeholder="Type label"
                 onChange={(e) => updateSceneBreakLabel(e.target.value)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}

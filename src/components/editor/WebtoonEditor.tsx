@@ -947,12 +947,15 @@ function ScriptPane({
   });
 
   useEffect(() => {
-    if (editor && !editor.isDestroyed) {
+    if (!editor || editor.isDestroyed) return;
+
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
       const current = editor.getHTML();
       if (current !== content) {
         editor.commands.setContent(content || "");
       }
-    }
+    });
   }, [content, editor]);
 
   if (!editor) {

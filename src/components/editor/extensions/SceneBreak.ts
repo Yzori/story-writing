@@ -35,14 +35,12 @@ export const SceneBreak = Node.create({
         },
       },
       label: {
-        default: "ADD BEAT",
-        parseHTML: (element) => element.getAttribute("data-scene-break-label") || "ADD BEAT",
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-scene-break-label") || "",
         renderHTML: (attributes) => {
           if (normalizeSceneBreakStyle(attributes.style) !== "text-line") return {};
-          const label = typeof attributes.label === "string" && attributes.label.trim()
-            ? attributes.label.trim()
-            : "ADD BEAT";
-          return { "data-scene-break-label": label };
+          const label = typeof attributes.label === "string" ? attributes.label.trim() : "";
+          return label ? { "data-scene-break-label": label } : {};
         },
       },
     };
@@ -60,7 +58,7 @@ export const SceneBreak = Node.create({
       typeof HTMLAttributes["data-scene-break-label"] === "string" &&
       HTMLAttributes["data-scene-break-label"].trim()
         ? HTMLAttributes["data-scene-break-label"].trim()
-        : "ADD BEAT";
+        : "";
 
     return [
       "div",
@@ -83,7 +81,7 @@ export const SceneBreak = Node.create({
               type: this.name,
               attrs: {
                 style: attributes?.style ?? null,
-                label: attributes?.label ?? "ADD BEAT",
+                label: attributes?.label ?? "",
               },
             })
             .createParagraphNear()

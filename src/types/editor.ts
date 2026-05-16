@@ -117,7 +117,7 @@ export interface WritingGoals {
 
 export interface TypographySettings {
   dropCaps: boolean;
-  sceneBreakStyle: "asterism" | "fleuron" | "dots" | "line" | "space";
+  sceneBreakStyle: "asterism" | "fleuron" | "dots" | "line" | "text-line" | "space";
   paragraphIndent: boolean;
   lineSpacing: "compact" | "comfortable" | "relaxed";
   textAlignment: "left" | "center" | "justified";
@@ -209,7 +209,7 @@ function createGoals(): WritingGoals {
   };
 }
 
-function createTypography(): TypographySettings {
+export function createTypography(): TypographySettings {
   return {
     dropCaps: false,
     sceneBreakStyle: "asterism",

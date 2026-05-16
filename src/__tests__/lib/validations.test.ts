@@ -96,7 +96,7 @@ describe("Validation Schemas", () => {
     });
 
     it("accepts valid scene break styles", () => {
-      for (const style of ["asterism", "fleuron", "dots", "line", "space"]) {
+      for (const style of ["asterism", "fleuron", "dots", "line", "text-line", "space"]) {
         const result = updateStorySchema.safeParse({ sceneBreakStyle: style });
         expect(result.success).toBe(true);
       }

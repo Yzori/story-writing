@@ -54,6 +54,9 @@ interface ReaderToolbarProps {
   wordCount?: number;
   /** Disable font family switcher when format requires fixed typography (e.g., screenplay). */
   disableFontFamily?: boolean;
+  /** Disable Pages/Scroll when the format has a fixed reading presentation. */
+  disableModeSwitch?: boolean;
+  modeLabel?: string;
 }
 
 export default function ReaderToolbar({
@@ -74,6 +77,8 @@ export default function ReaderToolbar({
   chapters,
   wordCount,
   disableFontFamily,
+  disableModeSwitch,
+  modeLabel,
 }: ReaderToolbarProps) {
   const [showChapterList, setShowChapterList] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
@@ -144,7 +149,7 @@ export default function ReaderToolbar({
   useEffect(() => {
     if (showMobileSettings || showChapterList) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      setToolbarVisible(true);
+      queueMicrotask(() => setToolbarVisible(true));
     }
   }, [showMobileSettings, showChapterList]);
 
@@ -256,41 +261,52 @@ export default function ReaderToolbar({
             <div className="flex items-center gap-1 flex-1 justify-end">
               {/* ── Desktop-only controls ── */}
               <div className="hidden md:flex items-center gap-1">
-                {/* Reading mode toggle */}
-                <div className="flex items-center bg-surface rounded-lg border border-border p-0.5">
-                  <button
-                    onClick={() => onModeChange("paginated")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
-                      mode === "paginated"
-                        ? "bg-amber/15 text-amber"
-                        : "text-text-ghost hover:text-text-secondary"
-                    }`}
-                    title="Paginated view"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" className="inline mr-1">
-                      <rect x="2" y="1.5" width="10" height="11" rx="1" />
-                      <path d="M7 1.5v11" />
-                    </svg>
-                    Pages
-                  </button>
-                  <button
-                    onClick={() => onModeChange("scroll")}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
-                      mode === "scroll"
-                        ? "bg-amber/15 text-amber"
-                        : "text-text-ghost hover:text-text-secondary"
-                    }`}
-                    title="Scroll view"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" className="inline mr-1">
-                      <rect x="3" y="1" width="8" height="12" rx="1" />
-                      <path d="M5 5h4M5 7h4M5 9h2" />
-                    </svg>
-                    Scroll
-                  </button>
-                </div>
+                {!disableModeSwitch ? (
+                  <>
+                    {/* Reading mode toggle */}
+                    <div className="flex items-center bg-surface rounded-lg border border-border p-0.5">
+                      <button
+                        onClick={() => onModeChange("scroll")}
+                        className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
+                          mode === "scroll"
+                            ? "bg-amber/15 text-amber"
+                            : "text-text-ghost hover:text-text-secondary"
+                        }`}
+                        title="Scroll view"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" className="inline mr-1">
+                          <rect x="3" y="1" width="8" height="12" rx="1" />
+                          <path d="M5 5h4M5 7h4M5 9h2" />
+                        </svg>
+                        Scroll
+                      </button>
+                      <button
+                        onClick={() => onModeChange("paginated")}
+                        className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${
+                          mode === "paginated"
+                            ? "bg-amber/15 text-amber"
+                            : "text-text-ghost hover:text-text-secondary"
+                        }`}
+                        title="Page view"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" className="inline mr-1">
+                          <rect x="2" y="1.5" width="10" height="11" rx="1" />
+                          <path d="M7 1.5v11" />
+                        </svg>
+                        Pages
+                      </button>
+                    </div>
 
-                <span className="text-text-ghost/30 mx-1">|</span>
+                    <span className="text-text-ghost/30 mx-1">|</span>
+                  </>
+                ) : modeLabel ? (
+                  <>
+                    <span className="px-2.5 py-1 rounded-md border border-border bg-surface text-[11px] text-text-ghost">
+                      {modeLabel}
+                    </span>
+                    <span className="text-text-ghost/30 mx-1">|</span>
+                  </>
+                ) : null}
 
                 {/* Font size selector */}
                 <div className="flex items-center bg-surface rounded-lg border border-border p-0.5">
@@ -405,32 +421,38 @@ export default function ReaderToolbar({
                 Reading Settings
               </p>
 
-              {/* Reading mode */}
-              <div className="mb-5">
-                <p className="text-[11px] text-text-secondary mb-2">View Mode</p>
-                <div className="flex items-center bg-surface rounded-lg border border-border p-0.5">
-                  <button
-                    onClick={() => onModeChange("paginated")}
-                    className={`flex-1 px-3 py-2 rounded-md text-[12px] transition-all text-center ${
-                      mode === "paginated"
-                        ? "bg-amber/15 text-amber"
-                        : "text-text-ghost hover:text-text-secondary"
-                    }`}
-                  >
-                    Pages
-                  </button>
-                  <button
-                    onClick={() => onModeChange("scroll")}
-                    className={`flex-1 px-3 py-2 rounded-md text-[12px] transition-all text-center ${
-                      mode === "scroll"
-                        ? "bg-amber/15 text-amber"
-                        : "text-text-ghost hover:text-text-secondary"
-                    }`}
-                  >
-                    Scroll
-                  </button>
+              {!disableModeSwitch ? (
+                <div className="mb-5">
+                  <p className="text-[11px] text-text-secondary mb-2">View Mode</p>
+                  <div className="flex items-center bg-surface rounded-lg border border-border p-0.5">
+                    <button
+                      onClick={() => onModeChange("scroll")}
+                      className={`flex-1 px-3 py-2 rounded-md text-[12px] transition-all text-center ${
+                        mode === "scroll"
+                          ? "bg-amber/15 text-amber"
+                          : "text-text-ghost hover:text-text-secondary"
+                      }`}
+                    >
+                      Scroll
+                    </button>
+                    <button
+                      onClick={() => onModeChange("paginated")}
+                      className={`flex-1 px-3 py-2 rounded-md text-[12px] transition-all text-center ${
+                        mode === "paginated"
+                          ? "bg-amber/15 text-amber"
+                          : "text-text-ghost hover:text-text-secondary"
+                      }`}
+                    >
+                      Pages
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : modeLabel ? (
+                <div className="mb-5 rounded-lg border border-border bg-surface px-3 py-2">
+                  <p className="text-[11px] text-text-secondary">View Mode</p>
+                  <p className="mt-1 text-[12px] text-text-ghost">{modeLabel}</p>
+                </div>
+              ) : null}
 
               {/* Font size */}
               <div className="mb-5">

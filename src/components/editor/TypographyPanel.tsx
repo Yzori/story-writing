@@ -18,6 +18,7 @@ const SCENE_BREAKS: {
   { value: "fleuron", label: "Fleuron", preview: "\u2767" },
   { value: "dots", label: "Three Dots", preview: "\u2022 \u2022 \u2022" },
   { value: "line", label: "Line", preview: "\u2014\u2014\u2014\u2014" },
+  { value: "text-line", label: "Text Line", preview: "Text" },
   { value: "space", label: "Blank Space", preview: "(extra space)" },
 ];
 
@@ -105,11 +106,17 @@ export default function TypographyPanel({
     >
       <div className="min-w-[360px] flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h3 className="text-sm font-medium text-paper">Typography</h3>
+        <div className="flex items-start justify-between gap-4 px-5 py-3 border-b border-border">
+          <div>
+            <h3 className="text-sm font-medium text-paper">Story Typography</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
+              Applies to the whole story in editor preview and published reading.
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
+            className="mt-0.5 p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
+            aria-label="Close typography panel"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <line x1="4" y1="4" x2="10" y2="10" />
@@ -119,6 +126,12 @@ export default function TypographyPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+          <div className="rounded-lg border border-amber/20 bg-amber/[0.04] px-3 py-2.5">
+            <p className="text-[11px] leading-relaxed text-text-secondary">
+              These are global story settings. They do not format selected text; use the floating toolbar or commands for selection formatting.
+            </p>
+          </div>
+
           {/* Drop Caps */}
           <section>
             <div className="flex items-center justify-between mb-2">
@@ -139,7 +152,7 @@ export default function TypographyPanel({
               </button>
             </div>
             <p className="text-[11px] text-text-ghost mb-3">
-              Large decorative first letter at the start of each chapter.
+              Adds a decorative first letter to the opening paragraph of each chapter.
             </p>
 
             {/* Preview */}
@@ -165,7 +178,7 @@ export default function TypographyPanel({
           <section>
             <div className="flex items-center justify-between mb-2">
               <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">
-                First-Line Indent
+                Story First-Line Indent
               </label>
               <button
                 onClick={() => update({ paragraphIndent: !settings.paragraphIndent })}
@@ -181,7 +194,7 @@ export default function TypographyPanel({
               </button>
             </div>
             <p className="text-[11px] text-text-ghost mb-3">
-              Indent the first line of each paragraph.
+              Indents prose paragraphs across the story, except opening paragraphs.
             </p>
 
             {/* Preview */}
@@ -206,8 +219,11 @@ export default function TypographyPanel({
           {/* Line Spacing */}
           <section>
             <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
-              Line Spacing
+              Story Line Spacing
             </label>
+            <p className="text-[11px] text-text-ghost mb-3">
+              Changes the line height for prose paragraphs throughout the story.
+            </p>
 
             <div className="flex gap-2">
               {LINE_SPACING_OPTIONS.map((option) => (
@@ -248,8 +264,11 @@ export default function TypographyPanel({
           {/* Text Alignment */}
           <section>
             <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
-              Text Alignment
+              Paragraph Alignment
             </label>
+            <p className="text-[11px] text-text-ghost mb-3">
+              Aligns prose paragraphs across the story.
+            </p>
 
             <div className="flex gap-2">
               {ALIGNMENT_OPTIONS.map((option) => {
@@ -291,8 +310,11 @@ export default function TypographyPanel({
           {/* Paragraph Spacing */}
           <section>
             <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
-              Paragraph Spacing
+              Story Paragraph Spacing
             </label>
+            <p className="text-[11px] text-text-ghost mb-3">
+              Sets the space between prose paragraphs throughout the story.
+            </p>
 
             <div className="flex gap-2">
               {PARAGRAPH_SPACING_OPTIONS.map((option) => (
@@ -333,8 +355,11 @@ export default function TypographyPanel({
           {/* Scene Break Style */}
           <section>
             <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block">
-              Scene Break Style
+              Default Scene Break
             </label>
+            <p className="text-[11px] text-text-ghost mb-3">
+              Sets the default divider style. Individual dividers can still use their own style.
+            </p>
 
             <div className="space-y-1.5">
               {SCENE_BREAKS.map((style) => (

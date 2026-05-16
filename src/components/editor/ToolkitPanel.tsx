@@ -136,7 +136,7 @@ export default function ToolkitPanel({
   const writingTools: ToolCard[] = [
     {
       label: "Chapter Settings",
-      description: "Status, notes, version history",
+      description: "Status, outline, author notes",
       icon: (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="10" cy="10" r="3" />
@@ -203,7 +203,7 @@ export default function ToolkitPanel({
   const exportTools: ToolCard[] = [
     {
       label: "PDF",
-      description: "Print-ready document",
+      description: "Print-ready pages",
       icon: (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
@@ -215,7 +215,7 @@ export default function ToolkitPanel({
     },
     {
       label: "EPUB",
-      description: "E-reader format",
+      description: "Reflowable e-reader",
       icon: (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 2h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
@@ -227,7 +227,7 @@ export default function ToolkitPanel({
     },
     {
       label: "DOCX",
-      description: "Word document",
+      description: "Editable manuscript",
       icon: (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 2h7l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />

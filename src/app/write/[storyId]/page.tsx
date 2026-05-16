@@ -14,6 +14,7 @@ import {
   TypographySettings,
   WritingGoals,
   createChapter,
+  createTypography,
   countWords,
 } from "@/types/editor";
 import { CommentThread, createCommentThread, addReply } from "@/client/comments";
@@ -58,6 +59,7 @@ import {
 } from "@/hooks/use-chapter-autosave";
 import { useApiMutation } from "@/hooks/use-api-mutation";
 import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
+import { normalizeTypographySettings, typographyClassName } from "@/lib/typography";
 
 type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
 type EditorMode = "write" | "plan" | "review" | "prepare" | "publish";
@@ -597,7 +599,11 @@ export default function WriteStoryPage() {
           },
           bible: apiBibleToLocal(apiBibleEntries),
           goals: settings.goals ?? { dailyWordTarget: story.dailyWordTarget || 500, sessions: [] },
-          typography: settings.typography ?? { dropCaps: story.dropCaps ?? false, sceneBreakStyle: story.sceneBreakStyle || "asterism" },
+          typography: normalizeTypographySettings({
+            ...createTypography(),
+            ...settings.typography,
+            ...story,
+          }),
         };
 
         // If no chapters existed, create the first one via API
@@ -655,9 +661,8 @@ export default function WriteStoryPage() {
   }, [storyId]);
 
   // ── Editor settings persistence ───────────────────────────
-  // Goals + typography belong in localStorage, not on the server, so a quick
-  // best-effort write whenever those slices change. Narrow deps prevent this
-  // from firing on every keystroke.
+  // Goals are editor-local. Typography is now story-backed, but we keep a
+  // local copy as a quick draft cache for older/local projects.
   useEffect(() => {
     if (!project) return;
     saveEditorSettings(storyId, {
@@ -1242,6 +1247,10 @@ export default function WriteStoryPage() {
         body: {
           dropCaps: typography.dropCaps,
           sceneBreakStyle: typography.sceneBreakStyle,
+          paragraphIndent: typography.paragraphIndent,
+          lineSpacing: typography.lineSpacing,
+          textAlignment: typography.textAlignment,
+          paragraphSpacing: typography.paragraphSpacing,
         },
         errorMessage: "Couldn't save typography settings",
         rollback: previousTypography
@@ -2186,9 +2195,7 @@ export default function WriteStoryPage() {
 
                 <div className="w-full flex-1 min-h-0 flex pt-8">
                   <div
-                    className={`flex-1 min-w-0 ${
-                      project.typography.dropCaps ? "drop-caps" : ""
-                    } scene-break-${project.typography.sceneBreakStyle || "asterism"} ${
+                    className={`flex-1 min-w-0 ${typographyClassName(project.typography)} ${
                       focusMode ? "focus-mode" : ""
                     }`}
                   >
@@ -2927,9 +2934,7 @@ export default function WriteStoryPage() {
           {rightPanel === "chapter" && activeChapter && (
             <ChapterSettingsPanel
               chapter={activeChapter}
-              storyId={storyId}
               onUpdate={handleUpdateChapterFields}
-              onRestoreSnapshot={handleRestoreSnapshot}
               onClose={handleClosePanel}
             />
           )}

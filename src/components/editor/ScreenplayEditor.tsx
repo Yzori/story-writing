@@ -447,12 +447,15 @@ export default function ScreenplayEditor({
   // Sync content when it changes externally
   const setContent = useCallback(
     (newContent: string) => {
-      if (editor && !editor.isDestroyed) {
+      if (!editor || editor.isDestroyed) return;
+
+      queueMicrotask(() => {
+        if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
           editor.commands.setContent(newContent || "");
         }
-      }
+      });
     },
     [editor]
   );

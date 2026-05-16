@@ -16,6 +16,10 @@ import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
 import { IllustratedBlock } from "./extensions/IllustratedBlock";
 import { SceneBreak, SceneBreakStyleKey, sceneBreakStyles } from "./extensions/SceneBreak";
+import { ParagraphAlignment } from "./extensions/ParagraphAlignment";
+import { compressImage } from "@/client/images";
+
+const CHAPTER_IMAGE_MAX_DATA_URL_LENGTH = 420_000;
 
 // ─── Drag-and-Drop Image Plugin ──────────────────────────────────────
 const dropImagePluginKey = new PluginKey("dropImage");
@@ -65,10 +69,12 @@ function createDropImageExtension(
               const tr = view.state.tr.insert(pos.pos, node);
               view.dispatch(tr);
 
-              // Process the file
-              if (onImageUpload) {
-                onImageUpload(file).then((dataUrl) => {
-                  // Find the placeholder node and update it
+              const resolveImage = onImageUpload
+                ? onImageUpload(file)
+                : compressImage(file, 900, 0.72, CHAPTER_IMAGE_MAX_DATA_URL_LENGTH);
+
+              resolveImage
+                .then((dataUrl) => {
                   view.state.doc.descendants((n, p) => {
                     if (
                       n.type.name === "illustratedBlock" &&
@@ -85,11 +91,9 @@ function createDropImageExtension(
                     }
                     return true;
                   });
-                });
-              } else {
-                // Fallback: read as data URL
-                const reader = new FileReader();
-                reader.onload = (e) => {
+                })
+                .catch((error) => {
+                  console.error("Dropped image compression failed:", error);
                   view.state.doc.descendants((n, p) => {
                     if (
                       n.type.name === "illustratedBlock" &&
@@ -98,7 +102,6 @@ function createDropImageExtension(
                     ) {
                       const tr = view.state.tr.setNodeMarkup(p, undefined, {
                         ...n.attrs,
-                        src: e.target?.result as string,
                         uploading: false,
                       });
                       view.dispatch(tr);
@@ -106,9 +109,7 @@ function createDropImageExtension(
                     }
                     return true;
                   });
-                };
-                reader.readAsDataURL(file);
-              }
+                });
 
               return true;
             },
@@ -134,8 +135,12 @@ function createDropImageExtension(
                   const tr = view.state.tr.insert(from, node);
                   view.dispatch(tr);
 
-                  if (onImageUpload) {
-                    onImageUpload(file).then((dataUrl) => {
+                  const resolveImage = onImageUpload
+                    ? onImageUpload(file)
+                    : compressImage(file, 900, 0.72, CHAPTER_IMAGE_MAX_DATA_URL_LENGTH);
+
+                  resolveImage
+                    .then((dataUrl) => {
                       view.state.doc.descendants((n, p) => {
                         if (
                           n.type.name === "illustratedBlock" &&
@@ -156,10 +161,9 @@ function createDropImageExtension(
                         }
                         return true;
                       });
-                    });
-                  } else {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
+                    })
+                    .catch((error) => {
+                      console.error("Dropped image compression failed:", error);
                       view.state.doc.descendants((n, p) => {
                         if (
                           n.type.name === "illustratedBlock" &&
@@ -171,7 +175,6 @@ function createDropImageExtension(
                             undefined,
                             {
                               ...n.attrs,
-                              src: e.target?.result as string,
                               uploading: false,
                             }
                           );
@@ -180,9 +183,7 @@ function createDropImageExtension(
                         }
                         return true;
                       });
-                    };
-                    reader.readAsDataURL(file);
-                  }
+                    });
                   return true;
                 }
               }
@@ -275,6 +276,9 @@ export default function IllustratedEditor({
   const pickerButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const insertButtonRef = useRef<HTMLButtonElement>(null);
+  const sceneBreakLabelInputRef = useRef<HTMLInputElement>(null);
+  const sceneBreakPickerNodePos = sceneBreakPicker?.nodePos;
+  const isTextLinePicker = sceneBreakPicker?.currentStyle === "text-line";
 
   const editor = useEditor({
     extensions: [
@@ -283,6 +287,7 @@ export default function IllustratedEditor({
         horizontalRule: false,
         dropcursor: { color: "var(--t-gold)", width: 2 },
       }),
+      ParagraphAlignment,
       SceneBreak,
       Placeholder.configure({
         placeholder,
@@ -323,12 +328,15 @@ export default function IllustratedEditor({
   // Sync content when prop changes
   const setContent = useCallback(
     (newContent: string) => {
-      if (editor && !editor.isDestroyed) {
+      if (!editor || editor.isDestroyed) return;
+
+      queueMicrotask(() => {
+        if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
           editor.commands.setContent(newContent || "");
         }
-      }
+      });
     },
     [editor]
   );
@@ -367,7 +375,7 @@ export default function IllustratedEditor({
         pos: rect,
         nodePos,
         currentStyle: node.attrs.style ?? "asterism",
-        label: typeof node.attrs.label === "string" ? node.attrs.label : "ADD BEAT",
+        label: typeof node.attrs.label === "string" ? node.attrs.label : "",
       });
     };
 
@@ -388,6 +396,7 @@ export default function IllustratedEditor({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement | null)?.closest("input, textarea")) return;
       if (e.key === "Escape") {
         setSceneBreakPicker(null);
         return;
@@ -420,14 +429,23 @@ export default function IllustratedEditor({
     };
   }, [sceneBreakPicker]);
 
-  // Focus first picker button when it opens
+  // Focus first picker button only when a picker opens for a new divider.
   useEffect(() => {
-    if (sceneBreakPicker) {
+    if (sceneBreakPickerNodePos != null) {
       requestAnimationFrame(() => {
         pickerButtonsRef.current[0]?.focus();
       });
     }
-  }, [sceneBreakPicker]);
+  }, [sceneBreakPickerNodePos]);
+
+  useEffect(() => {
+    if (isTextLinePicker) {
+      requestAnimationFrame(() => {
+        sceneBreakLabelInputRef.current?.focus();
+        sceneBreakLabelInputRef.current?.select();
+      });
+    }
+  }, [sceneBreakPickerNodePos, isTextLinePicker]);
 
   // Global drag-over indicator for the editor area
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -475,17 +493,17 @@ export default function IllustratedEditor({
             .run();
         });
       } else {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          editor
-            .chain()
-            .focus()
-            .setIllustrationBlock({
-              src: ev.target?.result as string,
-            })
-            .run();
-        };
-        reader.readAsDataURL(file);
+        compressImage(file, 900, 0.72, CHAPTER_IMAGE_MAX_DATA_URL_LENGTH)
+          .then((dataUrl) => {
+            editor
+              .chain()
+              .focus()
+              .setIllustrationBlock({ src: dataUrl })
+              .run();
+          })
+          .catch((error) => {
+            console.error("Illustration compression failed:", error);
+          });
       }
 
       // Reset input
@@ -499,11 +517,9 @@ export default function IllustratedEditor({
     const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
     if (!node || node.type.name !== "horizontalRule") return;
 
-    const nextAttrs = { ...node.attrs, style };
+    const nextAttrs: Record<string, unknown> = { ...node.attrs, style };
     if (style === "text-line") {
-      nextAttrs.label = typeof node.attrs.label === "string" && node.attrs.label.trim()
-        ? node.attrs.label.trim()
-        : "ADD BEAT";
+      nextAttrs.label = typeof node.attrs.label === "string" ? node.attrs.label : "";
     }
 
     editor
@@ -520,7 +536,7 @@ export default function IllustratedEditor({
       .run();
     if (style === "text-line") {
       setSceneBreakPicker((current) =>
-        current ? { ...current, currentStyle: "text-line", label: nextAttrs.label } : current
+        current ? { ...current, currentStyle: "text-line", label: String(nextAttrs.label ?? "") } : current
       );
     } else {
       setSceneBreakPicker(null);
@@ -531,7 +547,7 @@ export default function IllustratedEditor({
     if (!editor || !sceneBreakPicker) return;
     const node = editor.state.doc.nodeAt(sceneBreakPicker.nodePos);
     if (!node || node.type.name !== "horizontalRule") return;
-    const nextLabel = label.trim() || "ADD BEAT";
+    const nextLabel = label.trim();
 
     setSceneBreakPicker((current) =>
       current ? { ...current, currentStyle: "text-line", label } : current
@@ -749,8 +765,10 @@ export default function IllustratedEditor({
             <label className="scene-break-picker-label">
               <span>Text</span>
               <input
+                ref={sceneBreakLabelInputRef}
                 type="text"
                 value={sceneBreakPicker.label}
+                placeholder="Type label"
                 onChange={(e) => updateSceneBreakLabel(e.target.value)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}

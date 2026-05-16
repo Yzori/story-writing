@@ -22,8 +22,12 @@ export const createStorySchema = z.object({
   showToc: z.boolean().optional(),
   dropCaps: z.boolean().optional(),
   sceneBreakStyle: z
-    .enum(["asterism", "fleuron", "dots", "line", "space"])
+    .enum(["asterism", "fleuron", "dots", "line", "text-line", "space"])
     .optional(),
+  paragraphIndent: z.boolean().optional(),
+  lineSpacing: z.enum(["compact", "comfortable", "relaxed"]).optional(),
+  textAlignment: z.enum(["left", "center", "justified"]).optional(),
+  paragraphSpacing: z.enum(["tight", "normal", "loose"]).optional(),
   dailyWordTarget: z.number().int().min(0).optional(),
   isPublic: z.boolean().optional(),
 });
@@ -46,8 +50,12 @@ export const updateStorySchema = z.object({
   showToc: z.boolean().optional(),
   dropCaps: z.boolean().optional(),
   sceneBreakStyle: z
-    .enum(["asterism", "fleuron", "dots", "line", "space"])
+    .enum(["asterism", "fleuron", "dots", "line", "text-line", "space"])
     .optional(),
+  paragraphIndent: z.boolean().optional(),
+  lineSpacing: z.enum(["compact", "comfortable", "relaxed"]).optional(),
+  textAlignment: z.enum(["left", "center", "justified"]).optional(),
+  paragraphSpacing: z.enum(["tight", "normal", "loose"]).optional(),
   dailyWordTarget: z.number().int().min(0).optional(),
   isPublic: z.boolean().optional(),
   writingMode: z.enum(["solo", "co-op", "campaign"]).optional(),

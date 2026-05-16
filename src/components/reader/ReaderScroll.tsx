@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { sanitizeHtmlClient } from "@/lib/sanitize-client";
+import { renderIllustrationsForReader } from "@/lib/reader-content";
+import type { TypographySettings } from "@/types/editor";
+import { typographyClassName } from "@/lib/typography";
 
 interface ReaderScrollProps {
   htmlContent: string;
@@ -16,6 +19,7 @@ interface ReaderScrollProps {
   authorNoteAfter?: string;
   fontClass?: string;
   fontSizeValue?: string;
+  typography?: TypographySettings;
   initialScrollPercent?: number;
   onScrollProgress?: (percent: number) => void;
   reactionsElement?: React.ReactNode;
@@ -33,6 +37,7 @@ export default function ReaderScroll({
   authorNoteAfter,
   fontClass,
   fontSizeValue,
+  typography,
   initialScrollPercent,
   onScrollProgress,
   reactionsElement,
@@ -40,7 +45,10 @@ export default function ReaderScroll({
   const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
-  const sanitizedContent = useMemo(() => sanitizeHtmlClient(htmlContent), [htmlContent]);
+  const sanitizedContent = useMemo(
+    () => sanitizeHtmlClient(renderIllustrationsForReader(htmlContent)),
+    [htmlContent]
+  );
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -59,8 +67,11 @@ export default function ReaderScroll({
     const el = scrollRef.current;
     if (!el) return;
     el.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => el.removeEventListener("scroll", handleScroll);
+    const frame = requestAnimationFrame(handleScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", handleScroll);
+    };
   }, [handleScroll]);
 
   // Restore initial scroll position
@@ -101,8 +112,17 @@ export default function ReaderScroll({
             <div className="author-note">{authorNoteBefore}</div>
           )}
 
+          <motion.h1
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="font-display text-2xl text-paper text-center mb-12"
+          >
+            {chapterTitle}
+          </motion.h1>
+
           <div
-            className={`prose-reader ${fontClass || ""}`}
+            className={`prose-reader ${fontClass || ""} ${typographyClassName(typography)}`}
             style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />

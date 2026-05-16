@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Chapter } from "@/types/editor";
+import { Chapter, TypographySettings } from "@/types/editor";
 import type { ApiStoryData } from "@/types/api";
 import ReaderToolbar, { ReadingMode, FontSizeKey, FONT_SIZE_OPTIONS } from "@/components/reader/ReaderToolbar";
 import ReaderPaginated from "@/components/reader/ReaderPaginated";
@@ -18,6 +18,7 @@ import IllustratedReader from "@/components/reader/IllustratedReader";
 import SceneClip from "@/components/reader/SceneClip";
 import ClipSelectionFAB from "@/components/reader/ClipSelectionFAB";
 import ChapterLockScreen from "@/components/reader/ChapterLockScreen";
+import { normalizeTypographySettings } from "@/lib/typography";
 
 const READER_PREFS_KEY = "quiloria-reader-prefs";
 const READING_FONT_KEY = "quiloria-reading-font";
@@ -93,15 +94,15 @@ function apiChapterToChapter(ch: ReaderApiChapter): Chapter {
 }
 
 function loadReadingMode(): ReadingMode {
-  if (typeof window === "undefined") return "paginated";
+  if (typeof window === "undefined") return "scroll";
   try {
     const saved = localStorage.getItem(READER_PREFS_KEY);
     if (saved) {
       const prefs = JSON.parse(saved);
-      return prefs.mode || "paginated";
+      return prefs.mode || "scroll";
     }
   } catch {}
-  return "paginated";
+  return "scroll";
 }
 
 function saveReadingMode(mode: ReadingMode) {
@@ -129,6 +130,9 @@ export default function ChapterReadPage() {
   const [fontSize, setFontSize] = useState<FontSizeKey>("medium");
   const [fontFamily, setFontFamily] = useState<ReadingFont>("default");
   const [fontClass, setFontClass] = useState("");
+  const [typography, setTypography] = useState<TypographySettings>(() =>
+    normalizeTypographySettings()
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gatingInfo, setGatingInfo] = useState<{ unlocked: boolean; price: number; tier: string; isEarlyAccess?: boolean; earlyAccessUntil?: string } | null>(null);
@@ -178,6 +182,7 @@ export default function ChapterReadPage() {
         setStoryId(story.id);
         setStoryCoverUrl(story.coverImageUrl || null);
         setStoryAuthorName(story.author?.displayName || "");
+        setTypography(normalizeTypographySettings(story));
 
         // Convert chapter list (these are summaries from the story endpoint)
         const chapterList = (story.chapters as ReaderApiChapter[]).map(apiChapterToChapter);
@@ -288,6 +293,15 @@ export default function ChapterReadPage() {
   );
 
   const activeChapterIndex = chapters.findIndex((ch) => ch.id === chapterId);
+  const supportsPagedMode = storyFormat === "novel" || storyFormat === "illustrated";
+  const fixedModeLabel =
+    storyFormat === "webtoon"
+      ? "Vertical scroll"
+      : storyFormat === "poetry"
+        ? "Poetry scroll"
+        : storyFormat === "screenplay"
+          ? "Script page"
+          : undefined;
 
   const handleModeChange = useCallback((newMode: ReadingMode) => {
     setMode(newMode);
@@ -436,6 +450,8 @@ export default function ChapterReadPage() {
           fontFamily={fontFamily}
           onFontFamilyChange={handleFontFamilyChange}
           disableFontFamily={storyFormat === "screenplay" || storyFormat === "webtoon"}
+          disableModeSwitch={!supportsPagedMode}
+          modeLabel={fixedModeLabel}
           onPrevChapter={handlePrevChapter}
           onNextChapter={handleNextChapter}
           onBack={handleBack}
@@ -478,6 +494,8 @@ export default function ChapterReadPage() {
           fontFamily={fontFamily}
           onFontFamilyChange={handleFontFamilyChange}
           disableFontFamily={storyFormat === "screenplay" || storyFormat === "webtoon"}
+          disableModeSwitch={!supportsPagedMode}
+          modeLabel={fixedModeLabel}
           onPrevChapter={handlePrevChapter}
           onNextChapter={handleNextChapter}
           onBack={handleBack}
@@ -550,6 +568,31 @@ export default function ChapterReadPage() {
               ) : undefined
             }
           />
+        ) : storyFormat === "illustrated" && mode === "paginated" ? (
+          <ReaderPaginated
+            key={chapterId}
+            htmlContent={activeChapter.content}
+            chapterTitle={activeChapter.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            hasPrevChapter={activeChapterIndex > 0}
+            onNextChapter={handleNextChapter}
+            onPrevChapter={handlePrevChapter}
+            nextChapterTitle={
+              activeChapterIndex < chapters.length - 1
+                ? chapters[activeChapterIndex + 1].title
+                : undefined
+            }
+            fontClass={fontClass}
+            fontSizeValue={getFontSizeValue(fontSize)}
+            typography={typography}
+            reactionsElement={
+              storyId ? (
+                <ChapterReactions storyId={storyId} chapterId={chapterId} />
+              ) : undefined
+            }
+            initialPage={initialPageNumber ?? undefined}
+            onPageChange={handlePageChange}
+          />
         ) : storyFormat === "illustrated" ? (
           <IllustratedReader
             key={chapterId}
@@ -566,6 +609,7 @@ export default function ChapterReadPage() {
             }
             fontClass={fontClass}
             fontSizeValue={getFontSizeValue(fontSize)}
+            typography={typography}
             reactionsElement={
               storyId ? (
                 <ChapterReactions storyId={storyId} chapterId={chapterId} />
@@ -591,6 +635,7 @@ export default function ChapterReadPage() {
             authorNoteAfter={activeChapter.authorNoteAfter}
             fontClass={fontClass}
             fontSizeValue={getFontSizeValue(fontSize)}
+            typography={typography}
             reactionsElement={
               storyId ? (
                 <ChapterReactions storyId={storyId} chapterId={chapterId} />
@@ -617,6 +662,7 @@ export default function ChapterReadPage() {
             authorNoteAfter={activeChapter.authorNoteAfter}
             fontClass={fontClass}
             fontSizeValue={getFontSizeValue(fontSize)}
+            typography={typography}
             initialScrollPercent={initialScrollPercent ?? undefined}
             onScrollProgress={handleScrollProgress}
             reactionsElement={

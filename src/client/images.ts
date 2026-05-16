@@ -8,7 +8,8 @@ const MAX_DATA_URL_LENGTH = 1_400_000; // stay just under the 1.5MB server limit
 export function compressImage(
   file: File,
   maxDim: number = 600,
-  quality: number = 0.7
+  quality: number = 0.7,
+  maxDataUrlLength: number = MAX_DATA_URL_LENGTH
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -42,12 +43,12 @@ export function compressImage(
         // Try progressively lower quality until it fits
         let q = quality;
         let dataUrl = canvas.toDataURL("image/jpeg", q);
-        while (dataUrl.length > MAX_DATA_URL_LENGTH && q > 0.3) {
+        while (dataUrl.length > maxDataUrlLength && q > 0.3) {
           q -= 0.1;
           dataUrl = canvas.toDataURL("image/jpeg", q);
         }
 
-        if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+        if (dataUrl.length > maxDataUrlLength) {
           reject(new Error("Image too large even after compression"));
           return;
         }

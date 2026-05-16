@@ -65,6 +65,14 @@ export default function CommandPalette({
 
   const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
   const modKey = isMac ? '\u2318' : 'Ctrl+';
+  const supportsIllustrations = Boolean(
+    editor?.extensionManager.extensions.some((extension) =>
+      extension.name === "illustrationBlock" || extension.name === "illustratedBlock"
+    )
+  );
+  const supportsParagraphAlignment = Boolean(
+    editor?.extensionManager.extensions.some((extension) => extension.name === "paragraphAlignment")
+  );
 
   const commands = useMemo<Command[]>(() => [
     // Insert
@@ -108,6 +116,31 @@ export default function CommandPalette({
       category: "Insert",
       action: () => editor?.chain().focus().toggleOrderedList().run(),
     },
+    ...(supportsIllustrations
+      ? [
+          {
+            id: "illustration",
+            label: "Illustration",
+            description: "Insert an image block",
+            category: "Insert",
+            action: () => editor?.chain().focus().setIllustrationBlock({ layout: "inline" }).run(),
+          },
+          {
+            id: "full-bleed-illustration",
+            label: "Full-Bleed Illustration",
+            description: "Insert a wide image block",
+            category: "Insert",
+            action: () => editor?.chain().focus().setIllustrationBlock({ layout: "full-bleed" }).run(),
+          },
+          {
+            id: "chapter-header-art",
+            label: "Chapter Header Art",
+            description: "Insert image art at the top of the chapter",
+            category: "Insert",
+            action: () => editor?.chain().focus().setIllustrationBlock({ layout: "chapter-header" }).run(),
+          },
+        ]
+      : []),
     // Format
     {
       id: "bold",
@@ -135,6 +168,38 @@ export default function CommandPalette({
       category: "Format",
       action: () => editor?.chain().focus().toggleHighlight().run(),
     },
+    ...(supportsParagraphAlignment
+      ? [
+          {
+            id: "align-left",
+            label: "Align Paragraph Left",
+            description: "Align selected/current paragraph left",
+            category: "Format",
+            action: () => editor?.chain().focus().setParagraphAlignment("left").run(),
+          },
+          {
+            id: "align-center",
+            label: "Center Paragraph",
+            description: "Center selected/current paragraph",
+            category: "Format",
+            action: () => editor?.chain().focus().setParagraphAlignment("center").run(),
+          },
+          {
+            id: "align-right",
+            label: "Align Paragraph Right",
+            description: "Align selected/current paragraph right",
+            category: "Format",
+            action: () => editor?.chain().focus().setParagraphAlignment("right").run(),
+          },
+          {
+            id: "align-justify",
+            label: "Justify Paragraph",
+            description: "Justify selected/current paragraph",
+            category: "Format",
+            action: () => editor?.chain().focus().setParagraphAlignment("justify").run(),
+          },
+        ]
+      : []),
     {
       id: "clear-formatting",
       label: "Clear Formatting",
@@ -246,7 +311,7 @@ export default function CommandPalette({
           {
             id: "chapter-settings",
             label: "Chapter Settings",
-            description: "Status, notes, version history",
+            description: "Status, outline, and author notes",
             category: "Tools",
             action: onOpenChapterSettings,
           },
@@ -319,7 +384,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, supportsIllustrations, supportsParagraphAlignment, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query

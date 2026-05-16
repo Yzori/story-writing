@@ -47,6 +47,58 @@ const SLASH_ITEMS: SlashMenuItem[] = [
     action: (editor) => editor.chain().focus().toggleBlockquote().run(),
   },
   {
+    id: "align-left",
+    label: "Align Left",
+    description: "Align the current paragraph left",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="2" y1="8" x2="11" y2="8" />
+        <line x1="2" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
+    action: (editor) => editor.chain().focus().setParagraphAlignment("left").run(),
+  },
+  {
+    id: "align-center",
+    label: "Center Paragraph",
+    description: "Center the current paragraph",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="4" y1="8" x2="12" y2="8" />
+        <line x1="3" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
+    action: (editor) => editor.chain().focus().setParagraphAlignment("center").run(),
+  },
+  {
+    id: "align-right",
+    label: "Align Right",
+    description: "Align the current paragraph right",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="5" y1="8" x2="14" y2="8" />
+        <line x1="3" y1="12" x2="14" y2="12" />
+      </svg>
+    ),
+    action: (editor) => editor.chain().focus().setParagraphAlignment("right").run(),
+  },
+  {
+    id: "align-justify",
+    label: "Justify Paragraph",
+    description: "Justify the current paragraph",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="2" y1="8" x2="14" y2="8" />
+        <line x1="2" y1="12" x2="14" y2="12" />
+      </svg>
+    ),
+    action: (editor) => editor.chain().focus().setParagraphAlignment("justify").run(),
+  },
+  {
     id: "scene-break",
     label: "Scene Break",
     description: "A divider between scenes",

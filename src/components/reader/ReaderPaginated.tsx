@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { sanitizeHtmlClient } from "@/lib/sanitize-client";
+import { renderIllustrationsForReader } from "@/lib/reader-content";
+import type { TypographySettings } from "@/types/editor";
+import { typographyClassName } from "@/lib/typography";
 
 interface ReaderPaginatedProps {
   htmlContent: string;
@@ -17,6 +20,7 @@ interface ReaderPaginatedProps {
   authorNoteAfter?: string;
   fontClass?: string;
   fontSizeValue?: string;
+  typography?: TypographySettings;
   commentCount?: number;
   reactionsElement?: React.ReactNode;
   initialPage?: number;
@@ -36,6 +40,7 @@ export default function ReaderPaginated({
   authorNoteAfter,
   fontClass,
   fontSizeValue,
+  typography,
   commentCount,
   reactionsElement,
   initialPage,
@@ -46,7 +51,6 @@ export default function ReaderPaginated({
   const [pageHeight, setPageHeight] = useState(800);
   const [jumpInput, setJumpInput] = useState("");
   const [showJump, setShowJump] = useState(false);
-  const [direction, setDirection] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -104,6 +108,13 @@ export default function ReaderPaginated({
     return () => clearTimeout(timer);
   }, [recalculate, fontSizeValue]);
 
+  const goToPage = useCallback((page: number) => {
+    const clamped = Math.max(1, Math.min(page, totalPages));
+    if (clamped === currentPage) return;
+    setCurrentPage(clamped);
+    onPageChange?.(clamped);
+  }, [totalPages, currentPage, onPageChange]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -139,15 +150,7 @@ export default function ReaderPaginated({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [currentPage, totalPages, showJump, hasNextChapter, hasPrevChapter, onNextChapter, onPrevChapter]);
-
-  const goToPage = useCallback((page: number) => {
-    const clamped = Math.max(1, Math.min(page, totalPages));
-    if (clamped === currentPage) return;
-    setDirection(clamped > currentPage ? 1 : -1);
-    setCurrentPage(clamped);
-    onPageChange?.(clamped);
-  }, [totalPages, currentPage, onPageChange]);
+  }, [currentPage, totalPages, showJump, hasNextChapter, hasPrevChapter, onNextChapter, onPrevChapter, goToPage]);
 
   const handleJumpSubmit = () => {
     const page = parseInt(jumpInput, 10);
@@ -155,7 +158,10 @@ export default function ReaderPaginated({
     setShowJump(false);
   };
 
-  const sanitizedContent = useMemo(() => sanitizeHtmlClient(htmlContent), [htmlContent]);
+  const sanitizedContent = useMemo(
+    () => sanitizeHtmlClient(renderIllustrationsForReader(htmlContent)),
+    [htmlContent]
+  );
 
   const scrollOffset = (currentPage - 1) * pageHeight;
   const progress = totalPages > 1 ? ((currentPage - 1) / (totalPages - 1)) * 100 : 100;
@@ -189,8 +195,11 @@ export default function ReaderPaginated({
               {authorNoteBefore?.trim() && (
                 <div className="author-note">{authorNoteBefore}</div>
               )}
+              <h1 className="font-display text-2xl text-paper text-center mb-10">
+                {chapterTitle}
+              </h1>
               <div
-                className={`prose-reader ${fontClass || ""}`}
+                className={`prose-reader ${fontClass || ""} ${typographyClassName(typography)}`}
                 style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
                 dangerouslySetInnerHTML={{ __html: sanitizedContent }}
               />
@@ -310,7 +319,7 @@ export default function ReaderPaginated({
               onClick={onNextChapter}
               className="flex items-center gap-1 text-amber hover:text-amber/80 transition-colors font-medium"
             >
-              Next chapter
+              {nextChapterTitle ? `Next: ${nextChapterTitle}` : "Next chapter"}
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M6 3l4 4-4 4" />
               </svg>

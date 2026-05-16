@@ -175,7 +175,7 @@ export default function OnboardingHints({ onComplete }: OnboardingHintsProps) {
   const shortcut = isMac ? "\u2318K" : "Ctrl+K";
   const message =
     hint.id === "commands"
-      ? `Press / or ${shortcut} to open commands \u2014 export, search, toggle panels, and more.`
+      ? `Press ${shortcut} for commands: export, search, panels, and view options. Use Insert or / inside the editor for blocks.`
       : hint.message;
 
   const transforms: string[] = [];

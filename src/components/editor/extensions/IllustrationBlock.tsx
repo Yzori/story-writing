@@ -4,9 +4,11 @@ import { Node, mergeAttributes } from "@tiptap/react";
 import type { ReactNodeViewProps } from "@tiptap/react";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import { useState, useRef, useCallback } from "react";
-import { motion } from "framer-motion";
+import { compressImage } from "@/client/images";
 
 // ─── Tiptap Node Extension ────────────────────────────────────────
+
+const CHAPTER_IMAGE_MAX_DATA_URL_LENGTH = 420_000;
 
 declare module "@tiptap/react" {
   interface Commands<ReturnType> {
@@ -30,11 +32,31 @@ export const IllustrationBlock = Node.create({
 
   addAttributes() {
     return {
-      src: { default: null },
-      alt: { default: "" },
-      caption: { default: "" },
-      layout: { default: "inline" }, // inline | full-bleed | chapter-header
-      prompt: { default: "" }, // description for illustrator
+      src: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-src") || el.getAttribute("src"),
+        renderHTML: (attrs: Record<string, unknown>) => attrs.src ? { "data-src": attrs.src } : {},
+      },
+      alt: {
+        default: "",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-alt") || el.getAttribute("alt") || "",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-alt": attrs.alt }),
+      },
+      caption: {
+        default: "",
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-caption") || "",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-caption": attrs.caption }),
+      },
+      layout: {
+        default: "inline", // inline | full-bleed | chapter-header
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-layout") || "inline",
+        renderHTML: (attrs: Record<string, unknown>) => ({ "data-layout": attrs.layout }),
+      },
+      prompt: {
+        default: "", // description for illustrator
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-prompt") || "",
+        renderHTML: (attrs: Record<string, unknown>) => attrs.prompt ? { "data-prompt": attrs.prompt } : {},
+      },
     };
   },
 
@@ -79,13 +101,14 @@ function IllustrationBlockView(props: ReactNodeViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        updateAttributes({ src: e.target?.result as string });
-      };
-      reader.readAsDataURL(file);
+      try {
+        const dataUrl = await compressImage(file, 900, 0.72, CHAPTER_IMAGE_MAX_DATA_URL_LENGTH);
+        updateAttributes({ src: dataUrl });
+      } catch (error) {
+        console.error("Illustration compression failed:", error);
+      }
     },
     [updateAttributes]
   );

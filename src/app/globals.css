@@ -472,6 +472,62 @@ body::after {
   line-height: 1.8;
 }
 
+.typography-line-compact .tiptap-editor p,
+.prose-reader.typography-line-compact {
+  line-height: 1.6;
+}
+
+.typography-line-comfortable .tiptap-editor p,
+.prose-reader.typography-line-comfortable {
+  line-height: 1.8;
+}
+
+.typography-line-relaxed .tiptap-editor p,
+.prose-reader.typography-line-relaxed {
+  line-height: 2;
+}
+
+.typography-paragraph-tight .tiptap-editor p,
+.prose-reader.typography-paragraph-tight p {
+  margin-bottom: 0.5em;
+}
+
+.typography-paragraph-normal .tiptap-editor p,
+.prose-reader.typography-paragraph-normal p {
+  margin-bottom: 1em;
+}
+
+.typography-paragraph-loose .tiptap-editor p,
+.prose-reader.typography-paragraph-loose p {
+  margin-bottom: 1.5em;
+}
+
+.typography-indent .tiptap-editor p,
+.prose-reader.typography-indent p {
+  text-indent: 1.5em;
+}
+
+.typography-indent .tiptap-editor p:first-of-type,
+.prose-reader.typography-indent p:first-of-type {
+  text-indent: 0;
+}
+
+.typography-align-left .tiptap-editor p,
+.prose-reader.typography-align-left p {
+  text-align: left;
+}
+
+.typography-align-center .tiptap-editor p,
+.prose-reader.typography-align-center p {
+  text-align: center;
+}
+
+.typography-align-justified .tiptap-editor p,
+.prose-reader.typography-align-justified p {
+  text-align: justify;
+  text-wrap: pretty;
+}
+
 .tiptap-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -661,14 +717,25 @@ body::after {
 /* Variants */
 .scene-break-fleuron .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="fleuron"]::before,
-.scene-break-fleuron .prose-reader hr::before { content: "\2767"; font-size: 1.4rem; letter-spacing: 0; }
+.scene-break-fleuron .prose-reader hr::before,
+.prose-reader.scene-break-fleuron hr::before { content: "\2767"; font-size: 1.4rem; letter-spacing: 0; }
 .scene-break-dots .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="dots"]::before,
-.scene-break-dots .prose-reader hr::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
+.scene-break-dots .prose-reader hr::before,
+.prose-reader.scene-break-dots hr::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
 .scene-break-line .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="line"]::before { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); margin: 0 auto; }
-.scene-break-line .prose-reader hr { height: 1px; width: 4em; background: var(--t-text-ghost); margin: 2.5em auto; }
-.scene-break-line .prose-reader hr::before { content: ""; }
+.scene-break-line .prose-reader hr,
+.prose-reader.scene-break-line hr { height: 1px; width: 4em; background: var(--t-text-ghost); margin: 2.5em auto; }
+.scene-break-line .prose-reader hr::before,
+.prose-reader.scene-break-line hr::before { content: ""; }
+.scene-break-text-line .prose-reader hr,
+.prose-reader.scene-break-text-line hr { height: 1px; width: 100%; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); margin: 2.5em auto; }
+.scene-break-text-line .prose-reader hr::before,
+.prose-reader.scene-break-text-line hr::before { content: ""; }
+.scene-break-text-line .tiptap-editor .scene-break:not([data-scene-break-style]) { display: flex; align-items: center; gap: 0.85em; color: var(--t-text-ghost); }
+.scene-break-text-line .tiptap-editor .scene-break:not([data-scene-break-style])::before,
+.scene-break-text-line .tiptap-editor .scene-break:not([data-scene-break-style])::after { content: ""; display: block; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); }
 .tiptap-editor .scene-break[data-scene-break-style="text-line"] { display: flex; align-items: center; gap: 0.85em; color: var(--t-text-ghost); }
 .tiptap-editor .scene-break[data-scene-break-style="text-line"]::before,
 .tiptap-editor .scene-break[data-scene-break-style="text-line"]::after { content: ""; display: block; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); }
@@ -677,15 +744,19 @@ body::after {
 .tiptap-editor .scene-break[data-scene-break-style="space"] { margin: 3.5em 0; }
 .scene-break-space .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="space"]::before { content: ""; height: 1.2rem; }
-.scene-break-space .prose-reader hr { margin: 3.5em auto; }
-.scene-break-space .prose-reader hr::before { content: ""; }
+.scene-break-space .prose-reader hr,
+.prose-reader.scene-break-space hr { margin: 3.5em auto; }
+.scene-break-space .prose-reader hr::before,
+.prose-reader.scene-break-space hr::before { content: ""; }
 .scene-break-asterism .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="asterism"]::before,
-.scene-break-asterism .prose-reader hr::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
+.scene-break-asterism .prose-reader hr::before,
+.prose-reader.scene-break-asterism hr::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
 
 /* Drop caps — ornate, like an illuminated manuscript */
 .drop-caps .tiptap-editor > p:first-of-type::first-letter,
-.drop-caps .prose-reader > p:first-of-type::first-letter {
+.drop-caps .prose-reader > p:first-of-type::first-letter,
+.prose-reader.drop-caps > p:first-of-type::first-letter {
   float: left;
   font-family: var(--font-display), serif;
   font-size: 3.6em;
@@ -761,6 +832,93 @@ body::after {
   flex: 1;
   height: 1px;
   background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent);
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break .scene-break-label {
+  display: none;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="asterism"]::before,
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="asterism"]::after,
+:where(.prose-reader, .campaign-prose).scene-break-asterism .scene-break:not([data-scene-break-style])::before,
+:where(.prose-reader, .campaign-prose).scene-break-asterism .scene-break:not([data-scene-break-style])::after {
+  content: none;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="asterism"] .scene-break-label::before,
+:where(.prose-reader, .campaign-prose).scene-break-asterism .scene-break:not([data-scene-break-style]) .scene-break-label::before {
+  content: "\2042";
+  display: block;
+  color: var(--t-gold-dark);
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="fleuron"]::before,
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="fleuron"]::after,
+:where(.prose-reader, .campaign-prose).scene-break-fleuron .scene-break:not([data-scene-break-style])::before,
+:where(.prose-reader, .campaign-prose).scene-break-fleuron .scene-break:not([data-scene-break-style])::after {
+  content: none;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="fleuron"] .scene-break-label::before,
+:where(.prose-reader, .campaign-prose).scene-break-fleuron .scene-break:not([data-scene-break-style]) .scene-break-label::before {
+  content: "\2767";
+  display: block;
+  color: var(--t-gold-dark);
+  font-size: 1.4rem;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="dots"]::before,
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="dots"]::after,
+:where(.prose-reader, .campaign-prose).scene-break-dots .scene-break:not([data-scene-break-style])::before,
+:where(.prose-reader, .campaign-prose).scene-break-dots .scene-break:not([data-scene-break-style])::after {
+  content: none;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="dots"] .scene-break-label::before,
+:where(.prose-reader, .campaign-prose).scene-break-dots .scene-break:not([data-scene-break-style]) .scene-break-label::before {
+  content: "\2022  \2022  \2022";
+  display: block;
+  color: var(--t-gold-dark);
+  font-size: 0.9rem;
+  letter-spacing: 0.3em;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="line"],
+:where(.prose-reader, .campaign-prose).scene-break-line .scene-break:not([data-scene-break-style]) {
+  gap: 0;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="line"] .scene-break-label,
+:where(.prose-reader, .campaign-prose).scene-break-line .scene-break:not([data-scene-break-style]) .scene-break-label,
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"] .scene-break-label,
+:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style]) .scene-break-label {
+  display: none;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="text-line"] .scene-break-label,
+:where(.prose-reader, .campaign-prose).scene-break-text-line .scene-break:not([data-scene-break-style]) .scene-break-label {
+  display: block;
+  flex: 0 0 auto;
+  color: var(--t-gold-dark);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"]::before,
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"]::after,
+:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style])::before,
+:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style])::after {
+  content: none;
+}
+
+:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"],
+:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style]) {
+  margin: 3.5em 0;
+  min-height: 1.2rem;
 }
 
 /* Character mentions — clickable inline references */
@@ -900,7 +1058,7 @@ body::after {
 }
 
 .prose-reader hr::after {
-  content: "\2767";
+  content: "";
   color: var(--t-gold-dark);
   font-size: 1.3rem;
 }

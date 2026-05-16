@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chapter, ChapterSnapshot } from "@/types/editor";
-import { computeDiff, diffStats, type DiffSegment } from "@/lib/diff";
+import { computeDiff, diffStats } from "@/lib/diff";
 import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 import { useToast } from "@/components/shared/Toast";
 
@@ -42,6 +42,38 @@ function formatDate(ts: number): string {
   });
 }
 
+function extractAttr(tag: string, attr: string): string | null {
+  const regex = new RegExp(`${attr}="([^"]*)"`, "i");
+  const match = tag.match(regex);
+  return match ? match[1] : null;
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderIllustrationsForPreview(content: string): string {
+  return content.replace(
+    /<div[^>]*data-type="illustr(?:ated|ation)"[^>]*\/?>/g,
+    (match) => {
+      const src = extractAttr(match, "data-src") || extractAttr(match, "src");
+      if (!src) return "";
+
+      const alt = extractAttr(match, "data-alt") || extractAttr(match, "alt") || "";
+      const caption = extractAttr(match, "data-caption") || "";
+
+      return `<figure class="my-4">
+        <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" class="w-full h-auto rounded-lg" />
+        ${caption ? `<figcaption class="text-center text-[11px] text-text-ghost mt-2 italic">${escapeHtml(caption)}</figcaption>` : ""}
+      </figure>`;
+    }
+  );
+}
+
 export default function HistoryPanel({
   chapter,
   storyId,
@@ -55,8 +87,10 @@ export default function HistoryPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<"timeline" | "diff" | "preview">("timeline");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [labelInput, setLabelInput] = useState("");
   const [confirmRestore, setConfirmRestore] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const loadedChapterRef = useRef<string | null>(null);
 
   // Load snapshots
@@ -103,16 +137,6 @@ export default function HistoryPanel({
   const diff = selected ? computeDiff(selected.content, chapter.content) : null;
   const stats = diff ? diffStats(diff) : null;
 
-  // Find the snapshot before the selected one (for context)
-  const selectedIdx = selected ? snapshots.indexOf(selected) : -1;
-  const prevSnapshot = selectedIdx >= 0 && selectedIdx < snapshots.length - 1
-    ? snapshots[selectedIdx + 1]  // snapshots are newest-first
-    : null;
-  const diffFromPrev = selected && prevSnapshot
-    ? computeDiff(prevSnapshot.content, selected.content)
-    : null;
-  const prevStats = diffFromPrev ? diffStats(diffFromPrev) : null;
-
   const handleSaveSnapshot = async () => {
     setSaving(true);
     try {
@@ -151,8 +175,37 @@ export default function HistoryPanel({
     if (!selected) return;
     onRestore(selected);
     setConfirmRestore(false);
+    setConfirmDelete(false);
     setSelectedId(null);
     toast("Version restored", "success");
+  };
+
+  const handleDeleteSnapshot = async () => {
+    if (!selected) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/stories/${storyId}/chapters/${chapter.id}/snapshots/${selected.id}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        throw new Error("Delete failed");
+      }
+
+      const nextSnapshots = snapshots.filter((snap) => snap.id !== selected.id);
+      setSnapshots(nextSnapshots);
+      onUpdate({ snapshots: nextSnapshots });
+      setSelectedId(null);
+      setConfirmDelete(false);
+      setConfirmRestore(false);
+      setView("timeline");
+      toast("Version deleted", "success");
+    } catch {
+      toast("Couldn\u2019t delete version", "error");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Build "current" entry for the timeline
@@ -172,12 +225,12 @@ export default function HistoryPanel({
   return (
     <motion.aside
       initial={{ width: 0, opacity: 0 }}
-      animate={{ width: 420, opacity: 1 }}
+      animate={{ width: 360, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 400, damping: 35 }}
       className="h-full border-l border-border bg-surface shrink-0 overflow-hidden flex flex-col"
     >
-      <div className="min-w-[420px] flex flex-col h-full">
+      <div className="min-w-[360px] flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <div className="min-w-0">
@@ -197,17 +250,22 @@ export default function HistoryPanel({
 
         {/* Save new version */}
         <div className="px-5 py-3 border-b border-border bg-surface/50">
-          <div className="flex gap-2">
+          <form
+            className="flex gap-2 min-w-0"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSaveSnapshot();
+            }}
+          >
             <input
               value={labelInput}
               onChange={(e) => setLabelInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSaveSnapshot()}
               placeholder="Name this version..."
               maxLength={200}
               className="flex-1 bg-elevated border border-border rounded-lg px-3 py-2 text-[12px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
             />
             <button
-              onClick={handleSaveSnapshot}
+              type="submit"
               disabled={saving}
               className="px-3 py-2 rounded-lg bg-amber/15 text-amber text-[12px] font-medium hover:bg-amber/25 transition-colors shrink-0 disabled:opacity-50"
             >
@@ -217,7 +275,10 @@ export default function HistoryPanel({
                 "Save"
               )}
             </button>
-          </div>
+          </form>
+          <p className="mt-2 text-[10px] leading-relaxed text-text-ghost">
+            Auto-saves keep the latest 50 milestone versions. Named versions are kept until you delete them.
+          </p>
         </div>
 
         {/* Content */}
@@ -260,6 +321,8 @@ export default function HistoryPanel({
                             } else {
                               setSelectedId(entry.id);
                               setView("diff");
+                              setConfirmRestore(false);
+                              setConfirmDelete(false);
                             }
                           }}
                           className={`w-full text-left flex gap-3 px-1 py-2.5 rounded-lg transition-all relative ${
@@ -380,11 +443,11 @@ export default function HistoryPanel({
 
                     {/* Diff view */}
                     {view === "diff" && diff && (
-                      <div className="px-5 py-4 max-h-[300px] overflow-y-auto">
+                      <div className="px-5 py-4 max-h-[300px] overflow-y-auto overflow-x-hidden">
                         <p className={`${labelClass} mb-2`}>
                           Changes from this version to current
                         </p>
-                        <div className="text-[13px] leading-relaxed font-reading whitespace-pre-wrap">
+                        <div className="text-[13px] leading-relaxed font-reading whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                           {diff.map((seg, i) => (
                             <span
                               key={i}
@@ -405,22 +468,22 @@ export default function HistoryPanel({
 
                     {/* Preview view */}
                     {view === "preview" && selected && (
-                      <div className="px-5 py-4 max-h-[300px] overflow-y-auto">
+                      <div className="px-5 py-4 max-h-[300px] overflow-y-auto overflow-x-hidden">
                         <p className={`${labelClass} mb-2`}>
                           Full text at {formatDate(selected.createdAt)}
                         </p>
                         <div
-                          className="text-[13px] text-text-secondary leading-relaxed font-reading prose-preview"
-                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlClient(selected.content) }}
+                          className="text-[13px] text-text-secondary leading-relaxed font-reading prose-preview break-words [overflow-wrap:anywhere]"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlClient(renderIllustrationsForPreview(selected.content)) }}
                         />
                       </div>
                     )}
 
                     {/* Actions */}
-                    <div className="px-5 py-3 border-t border-border flex items-center gap-2">
+                    <div className="px-5 py-3 border-t border-border flex flex-wrap items-center gap-2">
                       {confirmRestore ? (
                         <>
-                          <span className="text-[11px] text-rose flex-1">
+                          <span className="text-[11px] text-rose flex-1 min-w-[180px]">
                             Replace current content with this version?
                           </span>
                           <button
@@ -436,10 +499,33 @@ export default function HistoryPanel({
                             Cancel
                           </button>
                         </>
+                      ) : confirmDelete ? (
+                        <>
+                          <span className="text-[11px] text-rose flex-1 min-w-[180px]">
+                            Delete this saved version?
+                          </span>
+                          <button
+                            onClick={handleDeleteSnapshot}
+                            disabled={deleting}
+                            className="px-3 py-1.5 rounded-lg bg-rose/15 text-rose text-[11px] font-medium hover:bg-rose/25 transition-colors disabled:opacity-50"
+                          >
+                            {deleting ? "Deleting..." : "Delete"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(false)}
+                            disabled={deleting}
+                            className="px-3 py-1.5 rounded-lg text-text-ghost text-[11px] hover:text-text-secondary transition-colors disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </>
                       ) : (
                         <>
                           <button
-                            onClick={() => setConfirmRestore(true)}
+                            onClick={() => {
+                              setConfirmDelete(false);
+                              setConfirmRestore(true);
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-amber/15 text-amber text-[11px] font-medium hover:bg-amber/25 transition-colors flex items-center gap-1.5"
                           >
                             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -450,8 +536,19 @@ export default function HistoryPanel({
                           </button>
                           <button
                             onClick={() => {
+                              setConfirmRestore(false);
+                              setConfirmDelete(true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-rose/80 text-[11px] hover:text-rose transition-colors"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => {
                               setSelectedId(null);
                               setView("timeline");
+                              setConfirmRestore(false);
+                              setConfirmDelete(false);
                             }}
                             className="px-3 py-1.5 rounded-lg text-text-ghost text-[11px] hover:text-text-secondary transition-colors ml-auto"
                           >

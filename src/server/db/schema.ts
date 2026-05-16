@@ -113,6 +113,10 @@ export const stories = pgTable("stories", {
   showToc: boolean("show_toc").notNull().default(true),
   dropCaps: boolean("drop_caps").notNull().default(false),
   sceneBreakStyle: text("scene_break_style").notNull().default("asterism"),
+  paragraphIndent: boolean("paragraph_indent").notNull().default(false),
+  lineSpacing: text("line_spacing").notNull().default("comfortable"),
+  textAlignment: text("text_alignment").notNull().default("left"),
+  paragraphSpacing: text("paragraph_spacing").notNull().default("normal"),
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
   feedImpressions: integer("feed_impressions").notNull().default(0),
   writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'

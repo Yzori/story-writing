@@ -399,7 +399,7 @@ function StatusBar({
             </svg>
           </div>
           <span className="text-xs font-medium text-paper/50 group-hover:text-amber hidden sm:inline">Commands</span>
-          <span className="px-1.5 py-0.5 rounded text-[9px] bg-subtle/50 text-text-tertiary ml-1 font-mono tracking-wider hidden sm:inline">/</span>
+          <span className="px-1.5 py-0.5 rounded text-[9px] bg-subtle/50 text-text-tertiary ml-1 font-mono tracking-wider hidden sm:inline">Ctrl K</span>
         </button>
       </div>
 

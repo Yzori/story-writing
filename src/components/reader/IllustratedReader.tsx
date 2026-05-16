@@ -3,6 +3,9 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { sanitizeHtmlClient } from "@/lib/sanitize-client";
+import { renderIllustrationsForReader } from "@/lib/reader-content";
+import type { TypographySettings } from "@/types/editor";
+import { typographyClassName } from "@/lib/typography";
 
 interface IllustratedReaderProps {
   content: string;
@@ -14,6 +17,7 @@ interface IllustratedReaderProps {
   nextChapterTitle?: string;
   fontClass?: string;
   fontSizeValue?: string;
+  typography?: TypographySettings;
   reactionsElement?: React.ReactNode;
 }
 
@@ -27,38 +31,12 @@ export default function IllustratedReader({
   nextChapterTitle,
   fontClass,
   fontSizeValue,
+  typography,
   reactionsElement,
 }: IllustratedReaderProps) {
-  // Transform illustrated block divs into proper image elements for reading
   const processedContent = useMemo(() => {
     if (!content) return "";
-
-    // Replace <div data-type="illustrated" ...> with rendered images
-    // These come from Tiptap as self-closing divs with data attributes
-    return content.replace(
-      /<div[^>]*data-type="illustrated"[^>]*\/?>/g,
-      (match) => {
-        const src = extractAttr(match, "data-src");
-        const alt = extractAttr(match, "data-alt") || "";
-        const caption = extractAttr(match, "data-caption") || "";
-        const layout = extractAttr(match, "data-layout") || "inline";
-        const floatSide = extractAttr(match, "data-floatside") || "left";
-
-        if (!src) return "";
-
-        const layoutClass =
-          layout === "side-by-side"
-            ? floatSide === "right"
-              ? "side-by-side-right"
-              : "side-by-side"
-            : layout;
-
-        return `<figure class="illustration-block" data-layout="${escapeHtml(layoutClass)}">
-          <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" class="w-full h-auto rounded-lg" />
-          ${caption ? `<figcaption class="text-center text-[12px] text-text-ghost mt-2 italic">${escapeHtml(caption)}</figcaption>` : ""}
-        </figure>`;
-      }
-    );
+    return renderIllustrationsForReader(content);
   }, [content]);
 
   return (
@@ -79,7 +57,7 @@ export default function IllustratedReader({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className={`prose-reader illustrated-reader ${fontClass || ""}`}
+          className={`prose-reader illustrated-reader ${fontClass || ""} ${typographyClassName(typography)}`}
           style={
             fontSizeValue
               ? ({ "--reader-font-size": fontSizeValue } as React.CSSProperties)
@@ -146,18 +124,4 @@ export default function IllustratedReader({
       </div>
     </div>
   );
-}
-
-function extractAttr(tag: string, attr: string): string | null {
-  const regex = new RegExp(`${attr}="([^"]*)"`, "i");
-  const match = tag.match(regex);
-  return match ? match[1] : null;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

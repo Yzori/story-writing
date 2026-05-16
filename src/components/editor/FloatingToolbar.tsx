@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Editor } from "@tiptap/react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { ParagraphAlignmentKey } from "./extensions/ParagraphAlignment";
 
 interface FloatingToolbarProps {
   editor: Editor;
@@ -48,9 +49,68 @@ function Divider() {
   return <div className="w-px h-5 bg-border mx-0.5" />;
 }
 
+function getActiveParagraphAlignment(editor: Editor): ParagraphAlignmentKey {
+  if (editor.isActive("paragraph", { textAlign: "center" })) return "center";
+  if (editor.isActive("paragraph", { textAlign: "right" })) return "right";
+  if (editor.isActive("paragraph", { textAlign: "justify" })) return "justify";
+  return "left";
+}
+
+const ALIGNMENT_OPTIONS: Array<{
+  key: ParagraphAlignmentKey;
+  title: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    key: "left",
+    title: "Align paragraph left",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="2" y1="8" x2="11" y2="8" />
+        <line x1="2" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    key: "center",
+    title: "Center paragraph",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="4" y1="8" x2="12" y2="8" />
+        <line x1="3" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    key: "right",
+    title: "Align paragraph right",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="5" y1="8" x2="14" y2="8" />
+        <line x1="3" y1="12" x2="14" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    key: "justify",
+    title: "Justify paragraph",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <line x1="2" y1="4" x2="14" y2="4" />
+        <line x1="2" y1="8" x2="14" y2="8" />
+        <line x1="2" y1="12" x2="14" y2="12" />
+      </svg>
+    ),
+  },
+];
+
 function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0, flipBelow: false });
+  const activeParagraphAlignment = getActiveParagraphAlignment(editor);
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +137,6 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
     }
 
     const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
     const margin = 8;
     // Estimated width — actual width clamped after layout via ref check below
     const estHalfWidth = (toolbarRef.current?.offsetWidth ?? 360) / 2;
@@ -206,6 +265,20 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
             >
               <span className="text-xs font-bold leading-none">H2</span>
             </ToolbarButton>
+
+            <Divider />
+
+            {ALIGNMENT_OPTIONS.map((option) => (
+              <ToolbarButton
+                key={option.key}
+                active={activeParagraphAlignment === option.key}
+                onClick={() => editor.chain().focus().setParagraphAlignment(option.key).run()}
+                title={option.title}
+                ariaLabel={option.title}
+              >
+                {option.icon}
+              </ToolbarButton>
+            ))}
 
             <Divider />
 

@@ -29,7 +29,6 @@ const shortcuts = [
   { category: "Panels", items: [
     { keys: `${mod}${shift}G`, action: "Writing goals" },
     { keys: `${mod}${shift}L`, action: "Story bible" },
-    { keys: `${mod}E`, action: "Command palette" },
   ]},
 ];
 

@@ -5,8 +5,11 @@ import type { ReactNodeViewProps } from "@tiptap/react";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { compressImage } from "@/client/images";
 
 // ─── Layout Types ────────────────────────────────────────────────────
+
+const CHAPTER_IMAGE_MAX_DATA_URL_LENGTH = 420_000;
 
 type IllustratedLayout = "inline" | "full-bleed" | "side-by-side" | "header" | "chapter-header";
 
@@ -164,16 +167,19 @@ function IllustratedBlockView(props: ReactNodeViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      updateAttributes({ uploading: true });
+      try {
+        const dataUrl = await compressImage(file, 900, 0.72, CHAPTER_IMAGE_MAX_DATA_URL_LENGTH);
         updateAttributes({
-          src: e.target?.result as string,
+          src: dataUrl,
           uploading: false,
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Illustrated image compression failed:", error);
+        updateAttributes({ uploading: false });
+      }
     },
     [updateAttributes]
   );
