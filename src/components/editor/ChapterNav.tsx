@@ -64,8 +64,9 @@ export default function ChapterNav({
     >
       {/* Collapse toggle */}
       <button
+        type="button"
         onClick={onToggleCollapse}
-        className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-text-ghost hover:text-text-secondary hover:bg-subtle/50 transition-colors"
+        className="absolute top-5 right-3 z-10 p-1.5 rounded-md text-text-ghost hover:text-text-secondary hover:bg-subtle/50 transition-colors"
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <svg
@@ -90,10 +91,10 @@ export default function ChapterNav({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="flex flex-col h-full min-w-[272px]"
+            className="flex flex-col h-full min-w-[272px] pt-2"
           >
             {/* Project title */}
-            <div className="px-5 pt-5 pb-3">
+            <div className="px-5 pt-7 pb-3">
               <input
                 value={storyTitle}
                 onChange={(e) => onUpdateStoryTitle(e.target.value)}
@@ -162,6 +163,7 @@ export default function ChapterNav({
             {/* Bottom actions */}
             <div className="p-3 space-y-1">
               <button
+                type="button"
                 onClick={onAddChapter}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-subtle/30 transition-colors text-sm"
                 aria-label={`Add new ${labels.singular}`}
@@ -173,6 +175,7 @@ export default function ChapterNav({
                 {labels.newLabel}
               </button>
               <button
+                type="button"
                 onClick={onOpenToolkit}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-amber/70 hover:text-amber hover:bg-amber/[0.06] transition-colors text-sm"
                 aria-label="Open toolkit"
@@ -194,6 +197,7 @@ export default function ChapterNav({
         <div className="flex flex-col items-center gap-2 pt-12">
           {chapters.map((ch, i) => (
             <button
+              type="button"
               key={ch.id}
               onClick={() => onSelectChapter(ch.id)}
               title={ch.title}
@@ -260,7 +264,7 @@ function ChapterItem({
               onRename(e.target.value);
             }}
             onClick={(e) => e.stopPropagation()}
-            className={`flex-1 min-w-0 bg-transparent text-[13px] outline-none truncate transition-colors ${
+            className={`flex-1 min-w-0 appearance-none rounded-md border border-transparent bg-subtle/20 px-1.5 py-0.5 text-[13px] outline-none truncate transition-colors focus:border-amber/25 focus:bg-elevated/70 ${
               isActive ? "text-paper" : "text-text-secondary"
             } placeholder:text-text-ghost`}
             placeholder="Untitled"

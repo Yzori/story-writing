@@ -264,6 +264,66 @@ html.theme-light .card-image-active {
   filter: brightness(1.0) saturate(1.0);
 }
 
+/* ── Create flow: selected-mode drafting desk ── */
+
+.create-details-backdrop-image {
+  opacity: 0.36;
+  filter: brightness(0.16) blur(5px) saturate(0.55);
+  transform: scale(1.03);
+}
+
+.create-details-paper-wash {
+  background:
+    radial-gradient(ellipse at 50% 18%, color-mix(in srgb, var(--t-surface) 8%, transparent), transparent 42rem),
+    linear-gradient(180deg, var(--t-veil-50), transparent 36%, var(--t-veil-90));
+}
+
+.create-details-book,
+.create-details-form-panel {
+  box-shadow: var(--t-shadow-modal);
+}
+
+.create-details-cover-image {
+  filter: brightness(0.34) saturate(0.62);
+}
+
+html.theme-light .create-details-backdrop {
+  background:
+    radial-gradient(circle at 34% 20%, color-mix(in srgb, var(--t-gold) 13%, transparent), transparent 28rem),
+    radial-gradient(circle at 72% 72%, color-mix(in srgb, var(--t-teal) 9%, transparent), transparent 24rem),
+    linear-gradient(180deg, var(--t-void), var(--t-ink));
+}
+
+html.theme-light .create-details-backdrop-image {
+  opacity: 0.13;
+  filter: brightness(1.06) blur(1.5px) saturate(0.72);
+  mix-blend-mode: multiply;
+}
+
+html.theme-light .create-details-paper-wash {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--t-void) 92%, transparent), transparent 28%, transparent 72%, color-mix(in srgb, var(--t-void) 86%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--t-surface) 78%, transparent), transparent 34%, color-mix(in srgb, var(--t-void) 78%, transparent));
+}
+
+html.theme-light .create-details-book {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 16px 42px rgba(74, 54, 30, 0.18),
+    0 2px 8px rgba(74, 54, 30, 0.08);
+}
+
+html.theme-light .create-details-form-panel {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.78) inset,
+    0 18px 48px rgba(74, 54, 30, 0.13),
+    0 2px 8px rgba(74, 54, 30, 0.05);
+}
+
+html.theme-light .create-details-cover-image {
+  filter: brightness(0.96) saturate(0.9);
+}
+
 /* ─── Base ──────────────────────────────────────────────────── */
 
 html {
@@ -502,23 +562,90 @@ body::after {
   color: var(--t-text-ghost);
 }
 
+.scene-break-picker-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 150px;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--t-border);
+  color: var(--t-text-ghost);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.scene-break-picker-label input {
+  width: 104px;
+  border: 1px solid var(--t-border);
+  border-radius: 8px;
+  background: var(--t-surface);
+  color: var(--t-paper);
+  padding: 6px 8px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  outline: none;
+}
+
+.scene-break-picker-label input:focus {
+  border-color: var(--t-gold-soft);
+}
+
+.scene-break-picker-delete {
+  margin-left: 4px;
+  padding: 8px 10px;
+  border-left: 1px solid var(--t-border);
+  color: var(--t-rose);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.scene-break-picker-delete:hover {
+  color: var(--t-paper);
+  background: color-mix(in srgb, var(--t-rose) 12%, transparent);
+}
+
 /* Scene break — a real block element, not a void <hr> */
 
 .tiptap-editor .scene-break,
 .prose-reader hr {
+  display: block;
   text-align: center;
   margin: 2.5em 0;
   color: var(--t-gold-dark);
-  font-size: 1.2rem;
-  letter-spacing: 0.5em;
   user-select: none;
   cursor: pointer;
   line-height: 1;
   transition: opacity 0.15s;
 }
 
+.tiptap-editor .scene-break {
+  border-radius: 999px;
+  padding: 0.35em 0;
+}
+
+.tiptap-editor .scene-break::before {
+  content: "\2042";
+  display: block;
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
+}
+
+.tiptap-editor .scene-break .scene-break-label {
+  display: none;
+}
+
 .tiptap-editor .scene-break:hover {
   opacity: 0.6;
+}
+
+.tiptap-editor .scene-break.ProseMirror-selectednode {
+  outline: 1px solid var(--t-gold-soft);
+  background: var(--t-gold-glow);
 }
 
 .prose-reader hr {
@@ -532,18 +659,28 @@ body::after {
 }
 
 /* Variants */
-.scene-break-fleuron .tiptap-editor .scene-break,
+.scene-break-fleuron .tiptap-editor .scene-break:not([data-scene-break-style])::before,
+.tiptap-editor .scene-break[data-scene-break-style="fleuron"]::before,
 .scene-break-fleuron .prose-reader hr::before { content: "\2767"; font-size: 1.4rem; letter-spacing: 0; }
-.scene-break-dots .tiptap-editor .scene-break,
+.scene-break-dots .tiptap-editor .scene-break:not([data-scene-break-style])::before,
+.tiptap-editor .scene-break[data-scene-break-style="dots"]::before,
 .scene-break-dots .prose-reader hr::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
-.scene-break-line .tiptap-editor .scene-break { font-size: 0; }
-.scene-break-line .tiptap-editor .scene-break::after { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); margin: 0 auto; }
+.scene-break-line .tiptap-editor .scene-break:not([data-scene-break-style])::before,
+.tiptap-editor .scene-break[data-scene-break-style="line"]::before { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); margin: 0 auto; }
 .scene-break-line .prose-reader hr { height: 1px; width: 4em; background: var(--t-text-ghost); margin: 2.5em auto; }
 .scene-break-line .prose-reader hr::before { content: ""; }
-.scene-break-space .tiptap-editor .scene-break { font-size: 0; margin: 3.5em 0; }
+.tiptap-editor .scene-break[data-scene-break-style="text-line"] { display: flex; align-items: center; gap: 0.85em; color: var(--t-text-ghost); }
+.tiptap-editor .scene-break[data-scene-break-style="text-line"]::before,
+.tiptap-editor .scene-break[data-scene-break-style="text-line"]::after { content: ""; display: block; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); }
+.tiptap-editor .scene-break[data-scene-break-style="text-line"] .scene-break-label { display: block; flex: 0 0 auto; color: var(--t-gold-dark); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+.scene-break-space .tiptap-editor .scene-break:not([data-scene-break-style]),
+.tiptap-editor .scene-break[data-scene-break-style="space"] { margin: 3.5em 0; }
+.scene-break-space .tiptap-editor .scene-break:not([data-scene-break-style])::before,
+.tiptap-editor .scene-break[data-scene-break-style="space"]::before { content: ""; height: 1.2rem; }
 .scene-break-space .prose-reader hr { margin: 3.5em auto; }
 .scene-break-space .prose-reader hr::before { content: ""; }
-.scene-break-asterism .tiptap-editor .scene-break,
+.scene-break-asterism .tiptap-editor .scene-break:not([data-scene-break-style])::before,
+.tiptap-editor .scene-break[data-scene-break-style="asterism"]::before,
 .scene-break-asterism .prose-reader hr::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
 
 /* Drop caps — ornate, like an illuminated manuscript */
@@ -608,8 +745,8 @@ body::after {
   background-color: var(--t-gold-soft);
 }
 
-/* Scene break */
-.scene-break {
+/* Decorative dividers outside the editor */
+:where(.prose-reader, .campaign-prose) .scene-break {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -618,8 +755,8 @@ body::after {
   user-select: none;
 }
 
-.scene-break::before,
-.scene-break::after {
+:where(.prose-reader, .campaign-prose) .scene-break::before,
+:where(.prose-reader, .campaign-prose) .scene-break::after {
   content: "";
   flex: 1;
   height: 1px;

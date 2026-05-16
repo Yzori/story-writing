@@ -210,7 +210,6 @@ export default function CreatePage() {
   const accentColor: AccentKey = isCampaign ? "violet" : writingMode === "co-op" ? "teal" : "amber";
   const accent = ACCENT[accentColor];
   const modeData = MODES.find((m) => m.id === writingMode)!;
-  const modeLabel = writingMode === "co-op" ? "Co-op" : isCampaign ? "Adventure" : "Solo";
 
   const ratingLabel = CONTENT_RATINGS.find((r) => r.value === contentRating)?.label;
   const synopsisPreview = synopsis.length > 0
@@ -218,20 +217,22 @@ export default function CreatePage() {
     : null;
 
   return (
-    <div className="relative min-h-screen bg-void overflow-x-hidden">
+    <div className="create-details relative min-h-screen bg-void overflow-x-hidden">
       {/* ── Ambient background ──────────────────────────────── */}
-      <div className="fixed inset-0 pointer-events-none">
-        <img
+      <div className="create-details-backdrop fixed inset-0 pointer-events-none">
+        <Image
           src={modeData.image}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: "brightness(0.1) blur(4px) saturate(0.5)" }}
+          fill
+          sizes="100vw"
+          priority
+          className="create-details-backdrop-image object-cover"
         />
         <div
           className="absolute inset-0"
           style={{ background: accent.ambientBg }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-void/50 via-transparent to-void/90" />
+        <div className="create-details-paper-wash absolute inset-0" />
       </div>
 
       {/* ── Back button ──────────────────────────────────────── */}
@@ -243,7 +244,7 @@ export default function CreatePage() {
         onClick={() => setWritingMode(null)}
         className="fixed top-6 left-6 z-50 group cursor-pointer"
       >
-        <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-white/10 hover:border-white/20 backdrop-blur-xl bg-white/5 transition-all text-text-ghost hover:text-paper text-[12px] font-body">
+        <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-border hover:border-border-active backdrop-blur-xl bg-elevated/80 shadow-elevated transition-all text-text-secondary hover:text-paper text-[12px] font-body">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M10 3L5 8l5 5" />
           </svg>
@@ -282,7 +283,7 @@ export default function CreatePage() {
                   className="absolute top-[3px] -right-[7px] bottom-[3px] w-[7px] rounded-r-sm pointer-events-none"
                   style={{
                     background: "repeating-linear-gradient(to bottom, rgba(180,170,155,0.08) 0px, rgba(180,170,155,0.04) 1px, rgba(180,170,155,0.08) 2px)",
-                    boxShadow: "1px 0 3px rgba(0,0,0,0.3)",
+                    boxShadow: "var(--t-shadow-card)",
                   }}
                 />
                 {/* Page edges (bottom) */}
@@ -290,16 +291,16 @@ export default function CreatePage() {
                   className="absolute -bottom-[6px] left-[8px] right-[2px] h-[6px] rounded-b-sm pointer-events-none"
                   style={{
                     background: "repeating-linear-gradient(to right, rgba(180,170,155,0.06) 0px, rgba(180,170,155,0.03) 1px, rgba(180,170,155,0.06) 2px)",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                    boxShadow: "var(--t-shadow-card)",
                   }}
                 />
 
-                <div className="relative w-full max-w-[280px] sm:max-w-[340px] md:w-[400px] md:max-w-none rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
+                <div className="create-details-book relative w-full max-w-[280px] sm:max-w-[340px] md:w-[400px] md:max-w-none rounded-2xl overflow-hidden border border-border shadow-elevated">
                   {/* Spine effect */}
                   <div
                     className="absolute top-0 left-0 w-[7px] h-full z-30 pointer-events-none"
                     style={{
-                      background: "linear-gradient(to right, rgba(0,0,0,0.4), rgba(0,0,0,0.1) 40%, transparent)",
+                      background: "linear-gradient(to right, color-mix(in srgb, var(--t-paper) 18%, transparent), color-mix(in srgb, var(--t-paper) 6%, transparent) 42%, transparent)",
                     }}
                   />
 
@@ -332,7 +333,7 @@ export default function CreatePage() {
                       {coverPreview ? (
                         <>
                           <Image src={coverPreview} alt="Cover" fill sizes="200px" className="object-cover" unoptimized />
-                          <div className="absolute inset-0 bg-void/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
+                          <div className="absolute inset-0 bg-void/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-paper">
                               <rect x="3" y="3" width="18" height="18" rx="2" />
                               <circle cx="8.5" cy="8.5" r="1.5" />
@@ -343,7 +344,7 @@ export default function CreatePage() {
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setCoverPreview(null); }}
-                            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-void/70 backdrop-blur-md text-paper flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose/80"
+                            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-elevated/85 backdrop-blur-md text-paper flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose hover:text-void"
                           >
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                               <path d="M3 3l6 6M9 3l-6 6" />
@@ -353,28 +354,29 @@ export default function CreatePage() {
                       ) : (
                         /* Default: mode image as placeholder cover */
                         <div className="absolute inset-0 overflow-hidden">
-                          <img
+                          <Image
                             src={modeData.image}
                             alt=""
-                            className="w-full h-full object-cover"
-                            style={{ filter: "brightness(0.25) saturate(0.5)" }}
+                            fill
+                            sizes="(min-width: 768px) 400px, 80vw"
+                            className="create-details-cover-image object-cover"
                           />
                           {/* Upload prompt overlay */}
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/30">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/25">
                             {/* Corner marks */}
-                            <div className="absolute top-4 left-4 w-6 h-6 border-t border-l border-white/20" />
-                            <div className="absolute top-4 right-4 w-6 h-6 border-t border-r border-white/20" />
-                            <div className="absolute bottom-4 left-4 w-6 h-6 border-b border-l border-white/20" />
-                            <div className="absolute bottom-4 right-4 w-6 h-6 border-b border-r border-white/20" />
+                            <div className="absolute top-4 left-4 w-6 h-6 border-t border-l border-border-active" />
+                            <div className="absolute top-4 right-4 w-6 h-6 border-t border-r border-border-active" />
+                            <div className="absolute bottom-4 left-4 w-6 h-6 border-b border-l border-border-active" />
+                            <div className="absolute bottom-4 right-4 w-6 h-6 border-b border-r border-border-active" />
 
                             <div className="opacity-60 group-hover:opacity-100 transition-opacity flex flex-col items-center">
-                              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1" className="text-white/50 mb-2">
+                              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1" className="text-text-secondary mb-2">
                                 <rect x="3" y="3" width="22" height="22" rx="2" />
                                 <circle cx="10" cy="10" r="2" />
                                 <path d="M3 21l6-6 4 4 3-3 9 9" />
                               </svg>
-                              <p className="text-white/50 text-[12px] font-body mb-0.5">Add cover</p>
-                              <p className="text-white/25 text-[10px] font-body">600 &times; 900</p>
+                              <p className="text-text-secondary text-[12px] font-body mb-0.5">Add cover</p>
+                              <p className="text-text-ghost text-[10px] font-body">600 &times; 900</p>
                             </div>
                           </div>
                         </div>
@@ -382,17 +384,17 @@ export default function CreatePage() {
                     </div>
 
                     {/* Bottom gradient into title zone */}
-                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-void/95 via-void/60 to-transparent pointer-events-none z-10" />
+                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-surface via-surface/60 to-transparent pointer-events-none z-10" />
                   </div>
 
                   {/* ── Title zone ────────────────────────── */}
-                  <div className="relative bg-void/95 backdrop-blur-xl px-5 py-4">
+                  <div className="relative bg-surface/95 backdrop-blur-xl px-5 py-4 border-t border-border">
                     <input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Untitled Story"
-                      className="w-full bg-transparent font-display text-lg text-paper outline-none placeholder:text-white/20 border-none leading-snug"
+                      className="w-full bg-transparent font-display text-lg text-paper outline-none placeholder:text-text-ghost border-none leading-snug"
                     />
 
                     {/* Synopsis preview */}
@@ -402,7 +404,7 @@ export default function CreatePage() {
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="text-[11px] text-white/30 italic font-body mt-1.5 leading-relaxed overflow-hidden"
+                          className="text-[11px] text-text-secondary italic font-body mt-1.5 leading-relaxed overflow-hidden"
                         >
                           {synopsisPreview}
                         </motion.p>
@@ -430,7 +432,7 @@ export default function CreatePage() {
                             initial={{ opacity: 0, scale: 0.7 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.7 }}
-                            className="px-1.5 py-0.5 text-[9px] text-white/30 font-body"
+                            className="px-1.5 py-0.5 text-[9px] text-text-ghost font-body"
                           >
                             +{selectedGenres.length - 3}
                           </motion.span>
@@ -444,7 +446,7 @@ export default function CreatePage() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.7, y: -4 }}
                             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                            className="px-2 py-0.5 text-[9px] uppercase tracking-[0.08em] rounded-full bg-white/5 border border-white/10 text-text-secondary font-body ml-auto"
+                            className="px-2 py-0.5 text-[9px] uppercase tracking-[0.08em] rounded-full bg-elevated border border-border text-text-secondary font-body ml-auto"
                           >
                             {ratingLabel}
                           </motion.span>
@@ -466,9 +468,9 @@ export default function CreatePage() {
             />
 
             {/* Form card */}
-            <div className="relative rounded-2xl border border-white/[0.08] bg-surface/80 backdrop-blur-xl p-8 lg:p-10 shadow-2xl shadow-black/40">
+            <div className="create-details-form-panel relative rounded-xl border border-border bg-surface/95 backdrop-blur-xl p-6 sm:p-8 lg:p-10 shadow-elevated">
               {/* Top edge highlight */}
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent rounded-t-2xl" />
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border-active to-transparent rounded-t-xl" />
 
               <div className="space-y-9">
                 {/* Title input */}
@@ -485,7 +487,7 @@ export default function CreatePage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={isCampaign ? "Untitled Adventure" : "Untitled Story"}
-                    className={`w-full font-display text-2xl text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-white/[0.06] pb-3 ${accent.inputFocus} transition-colors`}
+                    className={`w-full font-display text-2xl text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-border pb-3 ${accent.inputFocus} transition-colors`}
                     required
                   />
                 </motion.div>
@@ -548,7 +550,7 @@ export default function CreatePage() {
                             className={`relative flex flex-col items-center gap-2 px-3 py-4 rounded-xl border text-center transition-all duration-200 cursor-pointer ${
                               isSelected
                                 ? accent.formatSelected
-                                : "border-white/[0.08] hover:border-white/15 bg-elevated/70"
+                                : "border-border hover:border-border-active bg-elevated"
                             }`}
                             style={isSelected ? { boxShadow: accent.formatGlow } : undefined}
                           >
@@ -668,8 +670,8 @@ export default function CreatePage() {
                         disabled={selectedGenres.length >= 5}
                         className={`px-3 py-1.5 rounded-full border text-[12px] font-body transition-all duration-200 cursor-pointer ${
                           selectedGenres.length >= 5
-                            ? "border-white/[0.06] text-text-tertiary/40 cursor-default"
-                            : `border-white/[0.08] text-text-secondary ${accent.genrePillHover}`
+                            ? "border-border-subtle text-text-tertiary/50 cursor-default"
+                            : `border-border text-text-secondary ${accent.genrePillHover}`
                         }`}
                       >
                         {genre}
@@ -712,7 +714,7 @@ export default function CreatePage() {
                           className={`px-4 py-2 rounded-xl border text-[12px] font-body transition-all duration-200 cursor-pointer flex flex-col items-start ${
                             isSelected
                               ? accent.ratingSelected
-                              : "border-white/[0.08] text-text-secondary bg-elevated/70 hover:border-white/15"
+                              : "border-border text-text-secondary bg-elevated hover:border-border-active"
                           }`}
                         >
                           <span className="font-medium">{rating.label}</span>
@@ -759,7 +761,7 @@ export default function CreatePage() {
                           className={`px-2.5 py-1 rounded-full text-[11px] border font-body transition-all duration-200 cursor-pointer ${
                             isSelected
                               ? `bg-amber/10 text-amber border-amber/30`
-                              : "border-white/[0.08] text-text-secondary hover:border-white/15"
+                              : "border-border text-text-secondary hover:border-border-active hover:bg-elevated"
                           }`}
                         >
                           {note}
