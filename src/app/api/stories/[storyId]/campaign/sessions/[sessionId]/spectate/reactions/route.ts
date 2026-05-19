@@ -10,7 +10,7 @@ import { eq, and, gt, isNull, sql } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
 import { spectatorReactionSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { cleanupStaleReactions } from "@/server/services/cleanup";
+import { cleanupStaleReactionsIfDue } from "@/server/services/cleanup";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -115,10 +115,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .orderBy(spectatorReactions.createdAt)
       .limit(100);
 
-    // Probabilistic cleanup (5% of requests)
-    if (Math.random() < 0.05) {
-      cleanupStaleReactions(sessionId).catch(() => {});
-    }
+    // Sweep stale reactions at most once per 30s per session — deterministic
+    // gate replaces the old 5%-of-requests probabilistic trigger.
+    cleanupStaleReactionsIfDue(sessionId);
 
     return NextResponse.json({ data: rows });
   } catch (error) {
