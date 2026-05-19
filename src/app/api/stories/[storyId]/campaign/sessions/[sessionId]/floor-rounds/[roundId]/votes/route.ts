@@ -71,6 +71,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!submission) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Submission not found" } }, { status: 404 });
     }
+    if (submission.userId === session.user.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You cannot vote for your own submission" } },
+        { status: 403 },
+      );
+    }
 
     await db
       .insert(campaignFloorVotes)

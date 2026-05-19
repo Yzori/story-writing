@@ -7,6 +7,7 @@ import {
   boolean,
   date,
   unique,
+  uniqueIndex,
   index,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -26,6 +27,8 @@ export const users = pgTable("users", {
   image: text("image"),
   avatarUrl: text("avatar_url"),
   password: text("password"),
+  sessionVersion: integer("session_version").notNull().default(0),
+  passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
   bio: text("bio"),
   role: text("role").notNull().default("writer"),
   comfortRating: text("comfort_rating").notNull().default("everyone"),
@@ -120,6 +123,14 @@ export const stories = pgTable("stories", {
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
   feedImpressions: integer("feed_impressions").notNull().default(0),
   writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'
+  campaignSeats: integer("campaign_seats").notNull().default(6),
+  campaignToneMood: integer("campaign_tone_mood").notNull().default(62),
+  campaignToneScale: integer("campaign_tone_scale").notNull().default(45),
+  campaignToneInfluence: integer("campaign_tone_influence").notNull().default(35),
+  campaignCadence: text("campaign_cadence").notNull().default("Cadence set by the GM"),
+  campaignAuditionPrompt: text("campaign_audition_prompt")
+    .notNull()
+    .default("Write the moment we first meet your character. Where are they? What are they doing? What do they want, and what stops them from getting it?"),
   monetizationModel: text("monetization_model").notNull().default("free"), // 'free' | 'freemium' | 'gated'
   freeChapterCount: integer("free_chapter_count").notNull().default(3), // min free chapters for freemium
   defaultGatingTier: text("default_gating_tier").notNull().default("standard"), // default tier for new gated chapters
@@ -1177,6 +1188,13 @@ export const campaignSessions = pgTable("campaign_sessions", {
 },
   (table) => [
     index("idx_campaign_sessions_story_id").on(table.storyId),
+    // Backs the "one active session per story" invariant. Migration
+    // 0018_one_active_session_per_story.sql creates this partial unique
+    // index in the live DB; the session PATCH handler relies on it
+    // catching concurrent activations via PG error code 23505.
+    uniqueIndex("campaign_sessions_one_active_per_story")
+      .on(table.storyId)
+      .where(sql`status = 'active'`),
   ]
 );
 
@@ -1608,6 +1626,17 @@ export const campaignApplications = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     pitch: text("pitch").notNull(),
+    characterName: text("character_name"),
+    characterArchetype: text("character_archetype"),
+    characterKnownFor: text("character_known_for"),
+    characterPortrait: text("character_portrait"),
+    firstGlimpse: text("first_glimpse"),
+    playerCadence: text("player_cadence"),
+    playerSpotlight: text("player_spotlight"),
+    writingSampleUrl: text("writing_sample_url"),
+    voiceCadence: text("voice_cadence"),
+    voiceMood: text("voice_mood"),
+    voiceRestraint: text("voice_restraint"),
     status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'declined' | 'voting'
     votingDeadline: timestamp("voting_deadline", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -1840,6 +1869,27 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
     references: [users.id],
   }),
 }));
+
+// ── Auth Rate Limits ─────────────────────────────────────────
+
+export const authRateLimits = pgTable("auth_rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const loginAttempts = pgTable("login_attempts", {
+  key: text("key").primaryKey(),
+  attempts: integer("attempts").notNull().default(0),
+  firstAttemptAt: timestamp("first_attempt_at", { withTimezone: true }).notNull(),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 // ── Spectator Reactions ────────────────────────────────────
 

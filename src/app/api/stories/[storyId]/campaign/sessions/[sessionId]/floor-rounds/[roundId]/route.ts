@@ -105,20 +105,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: { code: "BAD_REQUEST", message: "This round is not ready to canonize" } }, { status: 400 });
       }
 
-      const pendingRolls = await getPendingRollRequests(sessionId, storyId);
-      if (pendingRolls.length > 0) {
-        return NextResponse.json(
-          {
-            error: {
-              code: "PENDING_ROLLS",
-              message: "Resolve pending rolls before canonizing Crossroads",
-              details: pendingRolls,
-            },
-          },
-          { status: 409 },
-        );
-      }
-
       const submission = await db.query.campaignFloorSubmissions.findFirst({
         where: and(
           eq(campaignFloorSubmissions.id, parsed.data.selectedSubmissionId),
@@ -129,7 +115,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: { code: "NOT_FOUND", message: "Submission not found" } }, { status: 404 });
       }
 
+      let pendingRollsBlocking: Awaited<ReturnType<typeof getPendingRollRequests>> = [];
       const canonizedTurn = await db.transaction(async (tx) => {
+        // Lock the session row so concurrent turn inserts serialize (the
+        // sortOrder calculation below uses max+1 and would collide otherwise),
+        // and so we can re-check pending rolls under the lock — a roll-request
+        // created between the API pre-check and this transaction would
+        // otherwise slip past.
+        await tx
+          .select({ id: campaignSessions.id })
+          .from(campaignSessions)
+          .where(eq(campaignSessions.id, sessionId))
+          .for("update");
+
+        const pendingRolls = await getPendingRollRequests(sessionId, storyId);
+        if (pendingRolls.length > 0) {
+          pendingRollsBlocking = pendingRolls;
+          return null;
+        }
+
         const [closedRound] = await tx
           .update(campaignFloorRounds)
           .set({
@@ -197,6 +201,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!canonizedTurn) {
+        if (pendingRollsBlocking.length > 0) {
+          return NextResponse.json(
+            {
+              error: {
+                code: "PENDING_ROLLS",
+                message: "Resolve pending rolls before canonizing Crossroads",
+                details: pendingRollsBlocking,
+              },
+            },
+            { status: 409 },
+          );
+        }
         return NextResponse.json(
           { error: { code: "CONFLICT", message: "This floor round was already closed" } },
           { status: 409 },

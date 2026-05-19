@@ -1,7 +1,8 @@
 import { apiFetch } from "@/lib/api-fetch";
 
-interface ApiEnvelope<TData> {
+interface ApiEnvelope<TData, TMeta = Record<string, unknown>> {
   data?: TData;
+  meta?: TMeta;
   error?: {
     message?: string;
   };
@@ -26,14 +27,14 @@ export async function getCampaignErrorMessage(
   return body?.error?.message ?? body?.message ?? fallback;
 }
 
-export async function campaignJsonRequest<TData = unknown>(
+export async function campaignJsonRequest<TData = unknown, TMeta = Record<string, unknown>>(
   url: string,
   {
     method = "GET",
     body,
     fallbackError = "Campaign action failed",
   }: CampaignJsonRequestOptions = {},
-): Promise<ApiEnvelope<TData>> {
+): Promise<ApiEnvelope<TData, TMeta>> {
   let response: Response;
 
   try {
@@ -50,5 +51,5 @@ export async function campaignJsonRequest<TData = unknown>(
     throw new Error(await getCampaignErrorMessage(response, fallbackError));
   }
 
-  return response.json().catch(() => ({})) as Promise<ApiEnvelope<TData>>;
+  return response.json().catch(() => ({})) as Promise<ApiEnvelope<TData, TMeta>>;
 }

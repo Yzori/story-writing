@@ -50,40 +50,37 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
       try {
         setLoading(true);
 
-        const [storyRes, turnsRes, charsRes] = await Promise.all([
-          fetch(`/api/stories/${storyId}`),
-          fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/turns`),
-          fetch(`/api/stories/${storyId}/campaign/characters`),
-        ]);
-
-        if (!storyRes.ok) throw new Error("Failed to load story");
-
-        const storyJson = await storyRes.json();
-        setStoryTitle(storyJson.data?.title ?? null);
-
-        if (turnsRes.ok) {
-          const turnsJson = await turnsRes.json();
-          const fetchedTurns: Turn[] = turnsJson.data ?? [];
-          setTurns(fetchedTurns);
-          setCampaignSession(turnsJson.session ?? null);
-          if (fetchedTurns.length > 0) {
-            maxSortRef.current = Math.max(...fetchedTurns.map((t) => t.sortOrder));
+        // The /spectate endpoint is the public bootstrap: it returns turns,
+        // session info, characters (public projection only), spectator count,
+        // and the story title — all in one call, no auth required.
+        const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error("This session isn't open to spectators yet.");
           }
+          throw new Error("Failed to load session");
         }
 
-        if (charsRes.ok) {
-          const charsJson = await charsRes.json();
-          const allChars = charsJson.data ?? [];
-          setCharacters(
-            allChars.map((c: { id: string; userId: string | null; name: string; portrait: string | null; userDisplayName: string | null }) => ({
-              id: c.id,
-              userId: c.userId,
-              name: c.name,
-              portrait: c.portrait,
-              displayName: c.userDisplayName,
-            }))
-          );
+        const json = await res.json();
+        const fetchedTurns: Turn[] = json.data ?? [];
+        setTurns(fetchedTurns);
+        setCampaignSession(json.session ?? null);
+        if (fetchedTurns.length > 0) {
+          maxSortRef.current = Math.max(...fetchedTurns.map((t) => t.sortOrder));
         }
+        setStoryTitle(json.story?.title ?? null);
+        setSpectatorCount(Number(json.spectatorCount ?? 0));
+
+        const allChars = json.characters ?? [];
+        setCharacters(
+          allChars.map((c: { id: string; userId: string | null; name: string; portrait: string | null; userDisplayName: string | null }) => ({
+            id: c.id,
+            userId: c.userId,
+            name: c.name,
+            portrait: c.portrait,
+            displayName: c.userDisplayName,
+          }))
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {

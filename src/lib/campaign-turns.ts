@@ -54,15 +54,30 @@ export function isGmOnlyTurnType(type: string): type is (typeof GM_ONLY_TURN_TYP
 
 const rollTierSchema = z.enum(["success", "partial", "failure"]);
 
+// Strip ASCII control characters (except tab/newline/CR) from text the GM
+// types into roll-request fields. These strings get spliced into auto-
+// generated consequence prose, so we keep the storage to printable content.
+// Written with hex escapes — embedding literal control bytes flips Git's
+// binary detector and makes the file un-diffable.
+const CONTROL_CHARS_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
+const tidyText = (max: number) =>
+  z.string().max(max).transform((s) => s.replace(CONTROL_CHARS_RE, "").trim());
+
+// targetUserId: either the special "everyone" sentinel or a user UUID-ish id.
+const targetUserIdSchema = z.string().max(64).refine(
+  (v) => v === "everyone" || /^[A-Za-z0-9_-]{4,64}$/.test(v),
+  { message: "Invalid target user id" },
+);
+
 export const rollRequestMetadataSchema = z.object({
-  targetUserId: z.string(),
-  attribute: z.string(),
-  reason: z.string(),
-  onSuccess: z.string().optional(),
-  onFailure: z.string().optional(),
+  targetUserId: targetUserIdSchema,
+  attribute: tidyText(32),
+  reason: tidyText(500),
+  onSuccess: tidyText(400).optional(),
+  onFailure: tidyText(400).optional(),
   fatal: z.boolean().optional(),
   status: z.enum(["open", "closed", "cancelled"]).optional(),
-  requiredUserIds: z.array(z.string()).optional(),
+  requiredUserIds: z.array(z.string().max(64)).max(32).optional(),
 });
 
 export const rollMetadataSchema = z.object({
@@ -72,9 +87,20 @@ export const rollMetadataSchema = z.object({
   attribute: z.string().optional(),
   tier: rollTierSchema.optional(),
   die: z.string().optional(),
+  dice: z.tuple([z.number(), z.number()]).optional(),
   fatal: z.boolean().optional(),
   rollRequestTurnId: z.string().optional(),
 });
+
+// What the client sends when initiating a roll. The server ignores any
+// dice/total/tier the client supplies and recomputes them authoritatively.
+export const rollIntentSchema = z.object({
+  attribute: z.string().max(32).optional(),
+  aspectInvoked: z.boolean().optional(),
+  rollRequestTurnId: z.string().max(64).optional(),
+});
+
+export type RollIntent = z.infer<typeof rollIntentSchema>;
 
 export const sceneBreakMetadataSchema = z.object({
   title: z.string().optional(),
@@ -110,6 +136,11 @@ export function parseRollRequestMetadata(metadata: string | null | undefined) {
 
 export function parseRollMetadata(metadata: string | null | undefined) {
   return parseMetadata(metadata, rollMetadataSchema);
+}
+
+export function parseRollIntent(metadata: string | null | undefined): RollIntent {
+  const parsed = parseMetadata(metadata, rollIntentSchema);
+  return parsed ?? {};
 }
 
 export function parseSceneBreakMetadata(metadata: string | null | undefined) {

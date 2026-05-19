@@ -127,7 +127,7 @@ export default function SessionPlayPage() {
       const meta = parseRollRequestMetadata(t.metadata);
       if (!meta) continue;
       if ((meta.status ?? "open") !== "open") continue;
-      const requiredUserIds = meta.requiredUserIds?.length
+      const requiredUserIds: string[] = meta.requiredUserIds?.length
         ? meta.requiredUserIds
         : meta.targetUserId === "everyone"
           ? [currentUserId]
@@ -194,6 +194,7 @@ export default function SessionPlayPage() {
         await sendTurn(type, content, characterId);
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to commit");
+        throw err;
       }
     },
     [sendTurn, myCharacter, showToast]
@@ -366,47 +367,49 @@ export default function SessionPlayPage() {
 
   // Player completes a roll (responding to a roll-request)
   // If the roll was fatal and the result is a failure, auto-trigger character death
-  const handleRollComplete = useCallback(
-    async (total: number, modifier: number, attribute: string) => {
+  // Server-authoritative roll: the client posts intent (attribute + aspect
+  // invoked flag); the server rolls 2d6 with crypto, computes the modifier
+  // from the player's actual character stats, writes the turn, generates the
+  // consequence, and (on fatal failure) marks the character dead — all in one
+  // transaction. The dice values come back so the DiceRoller can animate to
+  // the real result.
+  const handleRollSubmit = useCallback(
+    async (intent: { attribute: string; aspectInvoked: boolean }) => {
       try {
         const characterId = myCharacter?.id;
-        const tier = total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
-        const isFatal = pendingRollRequest?.fatal === true || (() => {
-          // Fallback: check the roll-request turn metadata for fatal flag
-          const rr = turns.find((t) => t.id === pendingRollRequest?.turnId);
-          return parseRollRequestMetadata(rr?.metadata)?.fatal === true;
-        })();
         const metadata = JSON.stringify({
-          total,
-          modifier,
-          attribute,
-          tier,
-          die: "2d6",
-          fatal: isFatal && tier === "failure",
-          rollRequestTurnId: pendingRollRequest?.turnId,
+          attribute: intent.attribute,
+          aspectInvoked: intent.aspectInvoked,
+          ...(pendingRollRequest?.turnId ? { rollRequestTurnId: pendingRollRequest.turnId } : {}),
         });
-        const tierLabel =
-          tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
-        const content =
-          modifier !== 0
-            ? `Rolled 2d6${modifier >= 0 ? "+" : ""}${modifier} (${attribute.toUpperCase()}) = ${total} — ${tierLabel}`
-            : `Rolled 2d6 = ${total} — ${tierLabel}`;
-        await sendTurn("roll", content, characterId, metadata);
+        // The server overwrites content + metadata for roll turns; a placeholder
+        // here just satisfies the non-empty-content validator.
+        const turn = await sendTurn("roll", "Rolling…", characterId, metadata);
+        const meta = parseRollMetadata(turn.metadata);
+        if (!meta?.dice || meta.total === undefined || meta.modifier === undefined || !meta.tier) {
+          throw new Error("Server returned an incomplete roll");
+        }
 
-        // Fatal failure: the server records the character death atomically
-        // with the roll response; the client only plays the local cinematic.
-        if (isFatal && tier === "failure" && characterId) {
+        if (meta.fatal && meta.tier === "failure" && characterId) {
           setActiveStoryMoment({
             mood: "death",
             text: `${myCharacter?.name ?? "A hero"} has fallen`,
             subtext: "The dice have spoken.",
           });
         }
+
+        return {
+          dice: meta.dice,
+          modifier: meta.modifier,
+          total: meta.total,
+          tier: meta.tier,
+        };
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to record roll");
+        throw err;
       }
     },
-    [sendTurn, myCharacter, showToast, pendingRollRequest, turns]
+    [sendTurn, myCharacter, showToast, pendingRollRequest]
   );
 
   // GM requests a roll from a player (with stakes, optionally fatal)
@@ -638,8 +641,36 @@ export default function SessionPlayPage() {
     );
   }
 
+  const activePlayerCharacter = characters.find((c) => c.userId === campaignSession?.activePlayerId);
+  const spotlightLabel = activePlayerCharacter?.name
+    ?? (campaignSession?.activePlayerId ? "Player joining…" : "Director");
+  const currentScene = (() => {
+    for (let i = storyTurns.length - 1; i >= 0; i--) {
+      const turn = storyTurns[i];
+      if (turn.type === "scene-break" && turn.metadata) {
+        const meta = parseSceneBreakMetadata(turn.metadata);
+        return {
+          title: meta?.title || campaignSession?.title || "Current Scene",
+          mood: meta?.mood ?? "live",
+          aspects: meta?.aspects ?? [],
+        };
+      }
+    }
+    return {
+      title: campaignSession?.title ?? "Current Scene",
+      mood: campaignSession?.status ?? "live",
+      aspects: [] as string[],
+    };
+  })();
+  const primaryClock = clocks[0];
+  const pressureLabel = primaryClock
+    ? `${primaryClock.name} ${primaryClock.filled}/${primaryClock.segments}`
+    : pendingRollRequest
+      ? `${pendingRollRequest.attribute} check pending`
+      : "Canon live";
+
   return (
-    <div className="flex w-screen h-screen bg-[#080808] text-white font-sans overflow-hidden selection:bg-amber/30">
+    <div className="adventure-mode flex h-screen w-screen flex-col overflow-hidden bg-void text-paper selection:bg-amber/30">
       {/* Toast */}
       <AnimatePresence>
         {toast && (
@@ -725,86 +756,87 @@ export default function SessionPlayPage() {
         )}
       </AnimatePresence>
 
-      {/* Mobile drawer toggle — Session Log */}
-      <button
-        onClick={() => setShowLogDrawer(true)}
-        className="fixed top-4 left-4 z-50 lg:hidden w-10 h-10 rounded-xl bg-black/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-amber transition-colors cursor-pointer"
-        title="Session Log"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      </button>
+      <header className="z-30 shrink-0 border-b border-border bg-void/92 backdrop-blur-xl">
+        <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate font-display text-[17px] text-paper sm:text-[22px]">{story.title}</h1>
+              <span className="hidden rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-amber sm:inline-flex">
+                Live Canon
+              </span>
+            </div>
+            <p className="truncate text-[11px] text-text-tertiary">
+              {currentScene.title} · {spotlightLabel} holds the pen · {pressureLabel}
+            </p>
+          </div>
 
-      {/* Mobile drawer toggle — Context Panel (character / GM tools) */}
-      <button
-        onClick={() => setShowContextDrawer(true)}
-        className="fixed top-4 right-4 z-50 lg:hidden w-10 h-10 rounded-xl bg-black/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-amber transition-colors cursor-pointer"
-        title={isGM ? "GM Dashboard" : "Character Sheet"}
-      >
-        {isGM ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-          </svg>
-        )}
-      </button>
+          <div className="hidden min-w-0 items-center gap-2 md:flex">
+            {currentScene.aspects.slice(0, 3).map((aspect) => (
+              <span key={aspect} className="max-w-[150px] truncate rounded-full border border-border bg-subtle/20 px-3 py-1.5 text-[10px] text-text-tertiary">
+                {aspect}
+              </span>
+            ))}
+          </div>
 
-      {/* Left Pillar — desktop */}
-      <div className="hidden lg:flex">
-        <SessionLog
-          turns={logTurns}
-          currentUserId={currentUserId}
-          sessionTitle={campaignSession?.title ?? "Session"}
-          storyTitle={story.title}
-          onSendChat={handleSendChat}
-          chatInput={chatInput}
-          setChatInput={setChatInput}
-          isGM={isGM}
-          onUpdateRollRequest={handleUpdateRollRequest}
-        />
-      </div>
-
-      {/* Left Pillar — mobile drawer */}
-      <AnimatePresence>
-        {showLogDrawer && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-              onClick={() => setShowLogDrawer(false)}
-            />
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed top-0 left-0 bottom-0 z-50 lg:hidden"
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowLogDrawer(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+              aria-label="Canon Feed"
+              title="Canon Feed"
             >
-              <SessionLog
-                turns={logTurns}
-                currentUserId={currentUserId}
-                sessionTitle={campaignSession?.title ?? "Session"}
-                storyTitle={story.title}
-                onSendChat={handleSendChat}
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                isGM={isGM}
-                onUpdateRollRequest={handleUpdateRollRequest}
-              />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowContextDrawer(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+              aria-label={isGM ? "Director Console" : "Character Engine"}
+              title={isGM ? "Director Console" : "Character Engine"}
+            >
+              {isGM ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <path d="M12 2 3 7l9 5 9-5-9-5Z" />
+                  <path d="m3 12 9 5 9-5" />
+                  <path d="m3 17 9 5 9-5" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </header>
 
-      {/* Center Stage */}
-      <StoryCanvas
+      <main className="relative min-h-0 flex-1">
+        {!showLogDrawer && !showContextDrawer && logTurns.length > 0 && (
+          <div className="pointer-events-none absolute right-4 top-4 z-20 hidden w-[270px] space-y-2 xl:block">
+            {logTurns.slice(-2).reverse().map((turn) => (
+              <button
+                key={turn.id}
+                type="button"
+                onClick={() => setShowLogDrawer(true)}
+                className="pointer-events-auto w-full rounded-lg border border-border bg-void/70 px-3 py-2 text-left shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-md transition-colors hover:border-amber/30"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-amber">
+                    {turn.type === "roll-request" ? "Check Pending" : turn.type === "roll" ? "Roll" : "Table Whisper"}
+                  </span>
+                  <span className="text-[9px] uppercase tracking-[0.12em] text-text-ghost">{turn.characterName ?? turn.user?.displayName ?? "Table"}</span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-text-secondary">{turn.content}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <StoryCanvas
         sessionId={sessionId}
         storyId={storyId}
         storyTurns={storyTurns}
@@ -853,7 +885,7 @@ export default function SessionPlayPage() {
         onEndSession={handleEndSession}
         onTurnExpired={handleTurnExpired}
         onExtendTimer={handleExtendTimer}
-        onRollComplete={handleRollComplete}
+        onRollSubmit={handleRollSubmit}
         pendingRollRequest={pendingRollRequest}
         myCharacterStatus={myCharacter?.status ?? null}
         onLastWords={handleLastWords}
@@ -864,73 +896,99 @@ export default function SessionPlayPage() {
         onRemoveMapPin={() => showToast("Map pins coming soon")}
       />
 
-      {/* Right Pillar — desktop (xl+) */}
-      <ContextPanel
-        isGM={isGM}
-        myCharacter={myCharacter}
-        characters={characters}
-        activePlayerId={campaignSession?.activePlayerId ?? null}
-        onRequestRoll={handleRequestRoll}
-        onPushEvent={handlePushEvent}
-        onSceneBreak={handleSceneBreak}
-        onChangeCharacterStatus={handleChangeCharacterStatus}
-        onStoryMoment={handleStoryMoment}
-        onAddIllustration={handleAddIllustration}
-        roster={roster}
-        onInviteNewCharacter={handleInviteNewCharacter}
-        clocks={clocks}
-        onClocksChange={handleClocksChange}
-      />
-
-      {/* Right Pillar — mobile drawer (below xl) */}
       <AnimatePresence>
-        {showContextDrawer && (
+        {showLogDrawer && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-              onClick={() => setShowContextDrawer(false)}
+              className="fixed inset-0 z-40 bg-black/35 backdrop-blur-sm"
+              onClick={() => setShowLogDrawer(false)}
             />
             <motion.div
-              initial={{ x: "100%" }}
+              initial={{ x: "-100%" }}
               animate={{ x: 0 }}
-              exit={{ x: "100%" }}
+              exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed top-0 right-0 bottom-0 z-50 lg:hidden max-w-[88vw]"
+              className="fixed bottom-0 left-0 top-0 z-50 w-[min(390px,92vw)]"
             >
               <button
-                onClick={() => setShowContextDrawer(false)}
-                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/70 hover:text-white"
-                aria-label="Close panel"
+                onClick={() => setShowLogDrawer(false)}
+                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-void/80 text-text-secondary hover:text-paper"
+                aria-label="Close feed"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <line x1="4" y1="4" x2="12" y2="12" />
                   <line x1="12" y1="4" x2="4" y2="12" />
                 </svg>
               </button>
-              <ContextPanel
-                forceVisible
+              <SessionLog
+                turns={logTurns}
+                currentUserId={currentUserId}
+                sessionTitle={campaignSession?.title ?? "Session"}
+                storyTitle={story.title}
+                onSendChat={handleSendChat}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
                 isGM={isGM}
-                myCharacter={myCharacter}
-                characters={characters}
-                activePlayerId={campaignSession?.activePlayerId ?? null}
-                onRequestRoll={handleRequestRoll}
-                onPushEvent={handlePushEvent}
-                onSceneBreak={handleSceneBreak}
-                onChangeCharacterStatus={handleChangeCharacterStatus}
-                onStoryMoment={handleStoryMoment}
-                onAddIllustration={handleAddIllustration}
-                roster={roster}
-                onInviteNewCharacter={handleInviteNewCharacter}
-                clocks={clocks}
-                onClocksChange={handleClocksChange}
+                onUpdateRollRequest={handleUpdateRollRequest}
+                fullWidth
               />
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+        <AnimatePresence>
+          {showContextDrawer && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-black/35 backdrop-blur-sm"
+                onClick={() => setShowContextDrawer(false)}
+              />
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="fixed bottom-0 right-0 top-0 z-50 w-[min(390px,92vw)]"
+              >
+                <button
+                  onClick={() => setShowContextDrawer(false)}
+                  className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-void/80 text-text-secondary hover:text-paper"
+                  aria-label="Close engine"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <line x1="4" y1="4" x2="12" y2="12" />
+                    <line x1="12" y1="4" x2="4" y2="12" />
+                  </svg>
+                </button>
+                <ContextPanel
+                  forceVisible
+                  isGM={isGM}
+                  myCharacter={myCharacter}
+                  characters={characters}
+                  activePlayerId={campaignSession?.activePlayerId ?? null}
+                  onRequestRoll={handleRequestRoll}
+                  onPushEvent={handlePushEvent}
+                  onSceneBreak={handleSceneBreak}
+                  onChangeCharacterStatus={handleChangeCharacterStatus}
+                  onStoryMoment={handleStoryMoment}
+                  onAddIllustration={handleAddIllustration}
+                  roster={roster}
+                  onInviteNewCharacter={handleInviteNewCharacter}
+                  clocks={clocks}
+                  onClocksChange={handleClocksChange}
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </main>
     </div>
   );
 }

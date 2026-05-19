@@ -140,8 +140,11 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   }, [storyId, sessionId, floorRoundsUrl]);
 
   // ── Poll for new turns + refresh characters ────────────────
+  const sessionStatus = campaignSession?.status;
+  const isTerminal = sessionStatus === "completed" || sessionStatus === "archived";
   useEffect(() => {
     if (!storyId || !sessionId || loading) return;
+    if (isTerminal) return;
 
     let charPollCount = 0;
     const controller = new AbortController();
@@ -225,7 +228,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       controller.abort();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [storyId, sessionId, loading, floorRoundsUrl]);
+  }, [storyId, sessionId, loading, floorRoundsUrl, isTerminal]);
 
   // ── Send turn ──────────────────────────────────────────────
   const sendTurn = useCallback(
@@ -237,7 +240,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
         metadata,
       };
 
-      const json = await campaignJsonRequest<Turn>(
+      const json = await campaignJsonRequest<Turn, { activePlayerId?: string | null }>(
         `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns`,
         {
           method: "POST",

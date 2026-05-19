@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, stories, playerCharacters } from "@/server/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { campaignSessions, stories, playerCharacters, sessionRoster } from "@/server/db/schema";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 
@@ -57,7 +57,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const activePlayerId = body.activePlayerId ?? null; // null = free-form mode
 
-    // Validate that the target user is the GM or has an active character in this campaign
+    // Validate that the target user has an active character in this campaign
+    // AND is actually engaged in *this* session's roster (not just a campaign
+    // member who hasn't joined the session, and not someone whose character
+    // has been retired/killed since the session started).
     if (activePlayerId !== null && activePlayerId !== story.userId) {
       const char = await db.query.playerCharacters.findFirst({
         where: and(
@@ -69,6 +72,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (!char) {
         return NextResponse.json(
           { error: { code: "BAD_REQUEST", message: "Target user is not an active player in this campaign" } },
+          { status: 400 }
+        );
+      }
+
+      const rosterEntry = await db.query.sessionRoster.findFirst({
+        where: and(
+          eq(sessionRoster.sessionId, sessionId),
+          eq(sessionRoster.userId, activePlayerId),
+          inArray(sessionRoster.status, ["present", "introduced"]),
+        ),
+      });
+      if (!rosterEntry) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Target user is not in this session's roster" } },
           { status: 400 }
         );
       }

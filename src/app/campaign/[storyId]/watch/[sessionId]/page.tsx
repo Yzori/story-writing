@@ -15,6 +15,7 @@ import StoryCanvas from "@/components/campaign/StoryCanvas";
 import LiveBadge from "@/components/shared/LiveBadge";
 import ReactionPicker from "@/components/campaign/spectator/ReactionPicker";
 import FloatingReactions from "@/components/campaign/spectator/FloatingReactions";
+import { isLogTurnType, isStoryTurnType } from "@/lib/campaign-turns";
 import TipButton from "@/components/campaign/spectator/TipButton";
 import TipModal from "@/components/campaign/spectator/TipModal";
 import TipEntry from "@/components/campaign/spectator/TipEntry";
@@ -66,13 +67,15 @@ export default function WatchSessionPage() {
     return list;
   }, [characters]);
 
-  // Split turns into story turns (prose) and log turns (ooc, rolls)
+  // Split turns into story turns (prose) and log turns (ooc, rolls,
+  // roll-requests). Use the shared classifiers so we match the play page:
+  // previously "roll" leaked into both buckets and showed up twice.
   const storyTurns = useMemo(
-    () => turns.filter((t) => t.type !== "ooc" && t.type !== "roll-request"),
+    () => turns.filter((t) => isStoryTurnType(t.type)),
     [turns]
   );
   const logTurns = useMemo(
-    () => turns.filter((t) => t.type === "ooc" || t.type === "roll" || t.type === "roll-request"),
+    () => turns.filter((t) => isLogTurnType(t.type)),
     [turns]
   );
   const canvasCharacters = useMemo<PlayerCharacter[]>(
@@ -240,7 +243,9 @@ export default function WatchSessionPage() {
             onPassTurn={() => {}}
             onEndSession={() => {}}
             onTurnExpired={() => {}}
-            onRollComplete={() => {}}
+            onRollSubmit={async () => {
+              throw new Error("Spectators cannot roll");
+            }}
             pendingRollRequest={null}
             myCharacterStatus={null}
             onLastWords={() => {}}

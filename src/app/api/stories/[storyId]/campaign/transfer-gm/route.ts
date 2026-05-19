@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { stories, playerCharacters, collaborators } from "@/server/db/schema";
-import { eq, and, isNull, or } from "drizzle-orm";
+import { stories, playerCharacters, collaborators, campaignSessions, campaignTurns } from "@/server/db/schema";
+import { eq, and, isNull, or, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { transferGmSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification, createBulkNotifications } from "@/server/services/notifications";
+import { parseRollRequestMetadata } from "@/lib/campaign-turns";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -91,12 +92,66 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Transfer ownership
-    const [updated] = await db
-      .update(stories)
-      .set({ userId: newGmUserId, updatedAt: new Date() })
-      .where(eq(stories.id, storyId))
-      .returning();
+    // Transfer ownership AND clear in-flight spotlight on active sessions,
+    // AND cancel open roll-requests issued by the old GM. Otherwise a player
+    // can answer a stale request and the auto-consequence gets authored
+    // under the new owner — the new GM inherits prose they never asked for.
+    const [updated] = await db.transaction(async (tx) => {
+      const [story] = await tx
+        .update(stories)
+        .set({ userId: newGmUserId, updatedAt: new Date() })
+        .where(eq(stories.id, storyId))
+        .returning();
+
+      const activeSessions = await tx
+        .select({ id: campaignSessions.id })
+        .from(campaignSessions)
+        .where(
+          and(
+            eq(campaignSessions.storyId, storyId),
+            eq(campaignSessions.status, "active"),
+          ),
+        );
+
+      await tx
+        .update(campaignSessions)
+        .set({ activePlayerId: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(campaignSessions.storyId, storyId),
+            eq(campaignSessions.status, "active"),
+          ),
+        );
+
+      if (activeSessions.length > 0) {
+        const sessionIds = activeSessions.map((s) => s.id);
+        const openRollRequests = await tx
+          .select({
+            id: campaignTurns.id,
+            metadata: campaignTurns.metadata,
+          })
+          .from(campaignTurns)
+          .where(
+            and(
+              inArray(campaignTurns.sessionId, sessionIds),
+              eq(campaignTurns.type, "roll-request"),
+            ),
+          );
+
+        for (const row of openRollRequests) {
+          const meta = parseRollRequestMetadata(row.metadata);
+          if (!meta || (meta.status ?? "open") !== "open") continue;
+          await tx
+            .update(campaignTurns)
+            .set({
+              metadata: JSON.stringify({ ...meta, status: "cancelled" }),
+            })
+            .where(eq(campaignTurns.id, row.id));
+        }
+      }
+
+      return [story];
+    });
 
     // Notify the new GM
     await createNotification(

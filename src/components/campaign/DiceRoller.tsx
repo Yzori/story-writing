@@ -141,7 +141,15 @@ function OutcomeTier({ total }: { total: number }) {
 interface DiceRollerProps {
   visible: boolean;
   onClose: () => void;
-  onRollComplete: (total: number, modifier: number, attribute: string) => void;
+  // The server resolves the dice. The client only sends intent (which approach,
+  // whether aspect is invoked); the server rolls with crypto-grade RNG and
+  // returns the resolved dice + tier so the UI can animate to the real result.
+  onRollSubmit: (intent: { attribute: string; aspectInvoked: boolean }) => Promise<{
+    dice: [number, number];
+    modifier: number;
+    total: number;
+    tier: "success" | "partial" | "failure";
+  }>;
   characters: PlayerCharacter[];
   currentUserId: string | null;
   preSelectedAttribute?: string | null;
@@ -151,14 +159,19 @@ interface DiceRollerProps {
   rollFatal?: boolean;
 }
 
-export default function DiceRoller({ visible, onClose, onRollComplete, characters, currentUserId, preSelectedAttribute, rollReason, rollOnSuccess, rollOnFailure, rollFatal }: DiceRollerProps) {
+const MIN_ANIMATION_MS = 900;
+
+export default function DiceRoller({ visible, onClose, onRollSubmit, characters, currentUserId, preSelectedAttribute, rollReason, rollOnSuccess, rollOnFailure, rollFatal }: DiceRollerProps) {
   const [rolling, setRolling] = useState(false);
   const [die1, setDie1] = useState<number | null>(null);
   const [die2, setDie2] = useState<number | null>(null);
+  const [serverResult, setServerResult] = useState<{
+    modifier: number;
+    total: number;
+    tier: "success" | "partial" | "failure";
+  } | null>(null);
   const [selectedApproach, setSelectedApproach] = useState<string | null>(null);
   const [aspectInvoked, setAspectInvoked] = useState(false);
-  const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const myChar = characters.find((c) => c.userId === currentUserId);
@@ -166,12 +179,14 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
   const approaches = stats?.approaches ?? { Bold: 0, Keen: 0, Subtle: 0 };
   const aspect = stats?.aspect ?? "";
 
-  // Compute modifier
+  // Predicted modifier (shown pre-roll only — the server's authoritative
+  // modifier overrides this once the roll resolves).
   const approachMod = selectedApproach ? (approaches[selectedApproach as keyof typeof approaches] ?? 0) : 0;
   const aspectMod = aspectInvoked && aspect ? 1 : 0;
-  const totalMod = approachMod + aspectMod;
+  const predictedMod = approachMod + aspectMod;
+  const totalMod = serverResult?.modifier ?? predictedMod;
 
-  const total = die1 !== null && die2 !== null ? die1 + die2 + totalMod : null;
+  const total = serverResult?.total ?? null;
 
   // Auto-select approach when GM pre-selects one
   useEffect(() => {
@@ -191,37 +206,47 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
     }
   }, [preSelectedAttribute]);
 
-  const executeRoll = () => {
+  const executeRoll = async () => {
     if (rolling) return;
-    // Capture selections at roll time to prevent manipulation during animation
-    const lockedApproach = selectedApproach;
+    const lockedApproach = selectedApproach ?? "none";
     const lockedAspectInvoked = aspectInvoked;
     setRolling(true);
     setDie1(null);
     setDie2(null);
+    setServerResult(null);
 
-    rollTimerRef.current = setTimeout(() => {
-      const r1 = Math.floor(Math.random() * 6) + 1;
-      const r2 = Math.floor(Math.random() * 6) + 1;
-      setDie1(r1);
-      setDie2(r2);
+    const startedAt = Date.now();
+    try {
+      const result = await onRollSubmit({
+        attribute: lockedApproach,
+        aspectInvoked: lockedAspectInvoked,
+      });
+      // Hold the spinning animation for a minimum duration so the roll
+      // feels physical even if the server responds in <100ms.
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_ANIMATION_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_ANIMATION_MS - elapsed));
+      }
+      setDie1(result.dice[0]);
+      setDie2(result.dice[1]);
+      setServerResult({ modifier: result.modifier, total: result.total, tier: result.tier });
+    } catch {
+      // Parent surfaces the toast; reset local state so the user can retry.
+      setDie1(null);
+      setDie2(null);
+      setServerResult(null);
+    } finally {
       setRolling(false);
-
-      completeTimerRef.current = setTimeout(() => {
-        const finalMod = (lockedApproach ? (approaches[lockedApproach as keyof typeof approaches] ?? 0) : 0) + (lockedAspectInvoked && aspect ? 1 : 0);
-        onRollComplete(r1 + r2 + finalMod, finalMod, lockedApproach ?? "none");
-      }, 2000);
-    }, 1200);
+    }
   };
 
   // Reset on close
   useEffect(() => {
     if (!visible) {
-      if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
-      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
       resetTimerRef.current = setTimeout(() => {
         setDie1(null);
         setDie2(null);
+        setServerResult(null);
         setRolling(false);
         setSelectedApproach(null);
         setAspectInvoked(false);
@@ -231,8 +256,6 @@ export default function DiceRoller({ visible, onClose, onRollComplete, character
 
   useEffect(() => {
     return () => {
-      if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
-      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     };
   }, []);

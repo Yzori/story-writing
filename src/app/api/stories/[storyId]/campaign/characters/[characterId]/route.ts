@@ -55,7 +55,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Only character owner or story owner can update
-    if (character.userId !== session.user.id && story.userId !== session.user.id) {
+    const isStoryOwner = story.userId === session.user.id;
+    if (character.userId !== session.user.id && !isStoryOwner) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "You can only edit your own character" } },
         { status: 403 }
@@ -75,6 +76,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           },
         },
         { status: 400 }
+      );
+    }
+
+    // Lifecycle status is GM-only: dead/retired/active flips drive roster
+    // state and would otherwise let a player self-revive their character.
+    if (parsed.data.status !== undefined && !isStoryOwner) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the GM can change a character's status" } },
+        { status: 403 }
       );
     }
 

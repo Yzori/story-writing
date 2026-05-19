@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { campaignRollResponses, campaignTurns, campaignSessions, playerCharacters, sessionRoster, users } from "@/server/db/schema";
@@ -6,9 +7,10 @@ import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
-import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollMetadata, parseRollRequestMetadata } from "@/lib/campaign-turns";
+import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollRequestMetadata } from "@/lib/campaign-turns";
 import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
 import { getActiveSessionPlayerIds } from "@/server/services/campaign-rolls";
+import { APPROACHES, parseStats } from "@/types/campaign";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 const DUPLICATE_ROLL_RESPONSE = "DUPLICATE_ROLL_RESPONSE";
@@ -286,12 +288,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const rollMetadata = parsed.data.type === "roll"
-      ? parseJsonObject(parsed.data.metadata)
+    // For a roll turn, we trust only the client's *intent* (which attribute
+    // they picked, whether they invoked their aspect, which roll-request they
+    // are responding to). Dice, total, tier, and content are recomputed below
+    // server-side with crypto-grade RNG; anything the client put in metadata
+    // for those fields is overwritten before persistence.
+    const rollIntent = parsed.data.type === "roll"
+      ? parseRollIntent(parsed.data.metadata)
       : null;
-    const rollRequestTurnId = typeof rollMetadata?.rollRequestTurnId === "string"
-      ? rollMetadata.rollRequestTurnId
-      : null;
+    const rollRequestTurnId = rollIntent?.rollRequestTurnId ?? null;
     let rollRequestMeta: ReturnType<typeof parseRollRequestMetadata> = null;
     let rollRequestTurn: typeof campaignTurns.$inferSelect | null = null;
 
@@ -353,6 +358,69 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           { status: 409 }
         );
       }
+
+      // A roll response must name the character that's actually rolling.
+      // Without this, a player could omit characterId, pocket the
+      // server-generated consequence, and skip the fatal-death status flip
+      // (which is gated on parsed.data.characterId further down).
+      if (!turnCharacter) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Choose the character making this roll" } },
+          { status: 400 }
+        );
+      }
+      if (turnCharacter.status !== "active") {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "This character is not active" } },
+          { status: 403 }
+        );
+      }
+    }
+
+    // ── Server-authoritative roll resolution ─────────────────────────────
+    // Client posts intent (attribute + aspect-invoked flag). Server rolls
+    // 2d6 with crypto, computes modifier from the character's actual stats,
+    // and rebuilds content/metadata. This is the only way to prevent a
+    // player from forging a favorable tier or dodging a fatal failure.
+    let contentToStore: string = parsed.data.content;
+    let serverRollTier: "success" | "partial" | "failure" | null = null;
+
+    if (parsed.data.type === "roll" && rollIntent) {
+      const rawAttribute = rollIntent.attribute ?? "";
+      const matchedApproach = APPROACHES.find(
+        (a) => a.toLowerCase() === rawAttribute.toLowerCase(),
+      );
+      const stats = turnCharacter ? parseStats(turnCharacter.stats) : null;
+      const approaches = stats?.approaches ?? { Bold: 0, Keen: 0, Subtle: 0 };
+      const aspect = stats?.aspect ?? "";
+      const approachMod = matchedApproach ? approaches[matchedApproach] ?? 0 : 0;
+      const aspectMod = rollIntent.aspectInvoked && aspect ? 1 : 0;
+      const modifier = approachMod + aspectMod;
+
+      const r1 = randomInt(1, 7);
+      const r2 = randomInt(1, 7);
+      const total = r1 + r2 + modifier;
+      const tier: "success" | "partial" | "failure" =
+        total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
+      serverRollTier = tier;
+
+      const tierLabel =
+        tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
+      const attrLabel = matchedApproach ?? "";
+      contentToStore = modifier !== 0
+        ? `Rolled 2d6${modifier >= 0 ? "+" : ""}${modifier}${attrLabel ? ` (${attrLabel.toUpperCase()})` : ""} = ${total} — ${tierLabel}`
+        : `Rolled 2d6 = ${total} — ${tierLabel}`;
+
+      metadataToStore = JSON.stringify({
+        dice: [r1, r2],
+        total,
+        modifier,
+        attribute: matchedApproach ?? rawAttribute,
+        tier,
+        die: "2d6",
+        fatal: rollRequestMeta?.fatal === true && tier === "failure",
+        ...(rollRequestTurnId ? { rollRequestTurnId } : {}),
+      });
     }
 
     // Hand the spotlight back to the GM after an assigned player posts a
@@ -360,9 +428,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // because the client cannot reassign (the active-player endpoint is
     // GM-only). Skip when the GM themselves posted.
     const posterIsPlayer = session.user.id !== check.story!.userId;
-    const playerCedesAssignedTurn = campaignSession.activePlayerId === session.user.id;
     let nextActivePlayerId: string | null = campaignSession.activePlayerId ?? null;
     const created = await db.transaction(async (tx) => {
+      // Lock the session row for the duration of the insert. Two purposes:
+      //   1. Serializes the `max(sortOrder) + 1` calculation so concurrent
+      //      turn POSTs for the same session can't pick the same sortOrder.
+      //   2. Lets us read the *current* activePlayerId under the lock, so
+      //      we don't yank the spotlight away from a player the GM just
+      //      assigned while we were processing this request.
+      const [locked] = await tx
+        .select({ activePlayerId: campaignSessions.activePlayerId })
+        .from(campaignSessions)
+        .where(eq(campaignSessions.id, sessionId))
+        .for("update");
+      const currentActivePlayerId = locked?.activePlayerId ?? null;
+      const playerCedesAssignedTurn = currentActivePlayerId === session.user.id;
+
       const [newTurn] = await tx
         .insert(campaignTurns)
         .values({
@@ -370,7 +451,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           userId: session.user.id,
           characterId: parsed.data.characterId ?? null,
           type: parsed.data.type,
-          content: parsed.data.content,
+          content: contentToStore,
           metadata: metadataToStore,
           sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
         })
@@ -382,6 +463,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           .update(campaignSessions)
           .set({ activePlayerId: nextActivePlayerId })
           .where(eq(campaignSessions.id, sessionId));
+      } else {
+        nextActivePlayerId = currentActivePlayerId;
       }
 
       if (parsed.data.type === "roll" && rollRequestMeta && rollRequestTurn) {
@@ -402,8 +485,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       if (parsed.data.type === "roll" && rollRequestMeta && rollRequestTurn) {
-        const parsedRollMeta = parseRollMetadata(parsed.data.metadata);
-        const tier = parsedRollMeta?.tier ?? "";
+        const tier = serverRollTier ?? "";
         const fatalFailure = rollRequestMeta.fatal === true && tier === "failure";
 
         if (rollRequestMeta.targetUserId !== "everyone") {

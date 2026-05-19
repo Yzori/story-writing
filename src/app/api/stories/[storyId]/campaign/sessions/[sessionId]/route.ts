@@ -118,15 +118,59 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.activePlayerId = null;
     }
 
+    const wantsActivation = parsed.data.status === "active";
+    // Use the explicitly-supplied opening if this PATCH is also editing it,
+    // otherwise fall back to whatever the session already has on file.
+    const finalOpening =
+      typeof parsed.data.opening === "string"
+        ? parsed.data.opening
+        : campaignSession.opening;
+
     // The UPDATE may fail with a unique_violation if a concurrent request
     // raced past the pre-flight check and won. PG error code 23505.
+    //
+    // We insert the opening narration INSIDE the same transaction as the
+    // status flip — and BEFORE the flip — so the moment a client sees
+    // status === "active", the opening turn is already there. Otherwise a
+    // fast player POST could land between the flip and the opening insert,
+    // pushing the opening's sortOrder past the first player turn.
+    //
+    // Re-read the session row under FOR UPDATE so two concurrent
+    // "start session" PATCHes can't both decide they're transitioning from
+    // draft to active and both insert the opening. The second one will see
+    // the locked status as already-active and skip the insert.
     let updated;
     try {
-      [updated] = await db
-        .update(campaignSessions)
-        .set(updateData)
-        .where(eq(campaignSessions.id, sessionId))
-        .returning();
+      updated = await db.transaction(async (tx) => {
+        const [locked] = await tx
+          .select({ status: campaignSessions.status })
+          .from(campaignSessions)
+          .where(eq(campaignSessions.id, sessionId))
+          .for("update");
+        const isFirstTransitionToActive =
+          wantsActivation && locked?.status !== "active";
+
+        if (isFirstTransitionToActive && finalOpening?.trim()) {
+          await tx
+            .insert(campaignTurns)
+            .values({
+              sessionId,
+              userId: session.user.id,
+              characterId: null,
+              type: "narration",
+              content: finalOpening.trim(),
+              metadata: JSON.stringify({ opening: true }),
+              sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
+            });
+        }
+
+        const [row] = await tx
+          .update(campaignSessions)
+          .set(updateData)
+          .where(eq(campaignSessions.id, sessionId))
+          .returning();
+        return row;
+      });
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
       if (code === "23505") {
@@ -155,24 +199,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           `/campaign/${storyId}/play/${sessionId}`
         );
       }
-    }
-
-    if (
-      parsed.data.status === "active" &&
-      campaignSession.status !== "active" &&
-      updated.opening?.trim()
-    ) {
-      await db
-        .insert(campaignTurns)
-        .values({
-          sessionId,
-          userId: session.user.id,
-          characterId: null,
-          type: "narration",
-          content: updated.opening.trim(),
-          metadata: JSON.stringify({ opening: true }),
-          sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
-        });
     }
 
     return NextResponse.json({ data: updated });

@@ -8,6 +8,7 @@ import ContextPanel from "@/components/campaign/ContextPanel";
 import AudiencePulsePanel from "@/components/campaign/spectator/AudiencePulsePanel";
 import ThemeToggle from "@/components/editor/ThemeToggle";
 import { parseRollRequestMetadata } from "@/lib/campaign-turns";
+import { APPROACHES, parseStats } from "@/types/campaign";
 import type {
   FloorRound,
   FloorRoundMode,
@@ -362,9 +363,25 @@ export default function DemoAdventurePage() {
     });
   }, [currentUserId, myCharacter, isGM, appendTurn]);
 
-  const handleRollComplete = useCallback((total: number, modifier: number, attribute: string) => {
-    if (!currentUserId || !pendingRollRequest) return;
+  const handleRollSubmit = useCallback(async (intent: { attribute: string; aspectInvoked: boolean }) => {
+    if (!currentUserId || !pendingRollRequest) {
+      throw new Error("No pending roll request");
+    }
+
+    // Demo is client-only — mirror the server's roll resolution so the
+    // DiceRoller stays on the new intent-based contract.
+    const matchedApproach = APPROACHES.find((a) => a.toLowerCase() === intent.attribute.toLowerCase());
+    const stats = myCharacter ? parseStats(myCharacter.stats) : null;
+    const approaches = stats?.approaches ?? { Bold: 0, Keen: 0, Subtle: 0 };
+    const aspect = stats?.aspect ?? "";
+    const approachMod = matchedApproach ? approaches[matchedApproach] ?? 0 : 0;
+    const aspectMod = intent.aspectInvoked && aspect ? 1 : 0;
+    const modifier = approachMod + aspectMod;
+    const r1 = Math.floor(Math.random() * 6) + 1;
+    const r2 = Math.floor(Math.random() * 6) + 1;
+    const total = r1 + r2 + modifier;
     const tier: "success" | "partial" | "failure" = total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
+    const attribute = matchedApproach ?? intent.attribute;
     const tierLabel = tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
     const rollContent = modifier !== 0
       ? `Rolled 2d6${modifier >= 0 ? "+" : ""}${modifier} (${attribute.toUpperCase()}) = ${total} — ${tierLabel}`
@@ -426,6 +443,7 @@ export default function DemoAdventurePage() {
     });
 
     setShowDiceRoller(false);
+    return { dice: [r1, r2] as [number, number], modifier, total, tier };
   }, [currentUserId, myCharacter, pendingRollRequest]);
 
   const handleUpdateRollRequest = useCallback((turnId: string, status: "closed" | "cancelled") => {
@@ -696,7 +714,7 @@ export default function DemoAdventurePage() {
             onPassTurn={handlePassTurn}
             onEndSession={() => {}}
             onTurnExpired={() => {}}
-            onRollComplete={handleRollComplete}
+            onRollSubmit={handleRollSubmit}
             pendingRollRequest={pendingRollRequest}
             myCharacterStatus={myCharacter?.status ?? null}
             onLastWords={() => {}}

@@ -40,12 +40,17 @@ interface StoryCanvasProps {
   sessionOpening: string | null;
   showDiceRoller: boolean;
   onCloseDiceRoller: () => void;
-  onCommitDraft: (content: string, type: string) => void;
+  onCommitDraft: (content: string, type: string) => void | Promise<void>;
   onPassTurn: (userId: string) => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
   onExtendTimer?: () => void;
-  onRollComplete: (total: number, modifier: number, attribute: string) => void;
+  onRollSubmit: (intent: { attribute: string; aspectInvoked: boolean }) => Promise<{
+    dice: [number, number];
+    modifier: number;
+    total: number;
+    tier: "success" | "partial" | "failure";
+  }>;
   pendingRollRequest: RollRequest | null;
   myCharacterStatus: string | null;
   onLastWords: (content: string) => void;
@@ -158,7 +163,7 @@ export default function StoryCanvas({
   onEndSession,
   onTurnExpired,
   onExtendTimer,
-  onRollComplete,
+  onRollSubmit,
   pendingRollRequest,
   myCharacterStatus,
   onLastWords,
@@ -736,9 +741,11 @@ export default function StoryCanvas({
       <DiceRoller
         visible={showDiceRoller}
         onClose={onCloseDiceRoller}
-        onRollComplete={(total, modifier, attribute) => {
-          onRollComplete(total, modifier, attribute);
-          onCloseDiceRoller();
+        onRollSubmit={async (intent) => {
+          const result = await onRollSubmit(intent);
+          // Let the player read the outcome before the modal slides away.
+          setTimeout(onCloseDiceRoller, 2500);
+          return result;
         }}
         characters={characters}
         currentUserId={currentUserId}

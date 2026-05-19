@@ -135,9 +135,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         title: campaignSession.title,
         status: campaignSession.status,
         activePlayerId: campaignSession.activePlayerId,
+        opening: campaignSession.opening,
+        epilogue: campaignSession.epilogue,
       },
       characters,
       spectatorCount,
+      story: {
+        id: story.id,
+        title: story.title,
+      },
     });
   } catch (error) {
     console.error("GET /api/.../spectate error:", error);
