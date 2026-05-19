@@ -30,6 +30,12 @@ export const createStorySchema = z.object({
   paragraphSpacing: z.enum(["tight", "normal", "loose"]).optional(),
   dailyWordTarget: z.number().int().min(0).optional(),
   isPublic: z.boolean().optional(),
+  campaignSeats: z.number().int().min(2).max(6).optional(),
+  campaignToneMood: z.number().int().min(0).max(100).optional(),
+  campaignToneScale: z.number().int().min(0).max(100).optional(),
+  campaignToneInfluence: z.number().int().min(0).max(100).optional(),
+  campaignCadence: z.string().max(160).optional(),
+  campaignAuditionPrompt: z.string().max(1000).optional(),
 });
 
 export const updateStorySchema = z.object({
@@ -59,6 +65,12 @@ export const updateStorySchema = z.object({
   dailyWordTarget: z.number().int().min(0).optional(),
   isPublic: z.boolean().optional(),
   writingMode: z.enum(["solo", "co-op", "campaign"]).optional(),
+  campaignSeats: z.number().int().min(2).max(6).optional(),
+  campaignToneMood: z.number().int().min(0).max(100).optional(),
+  campaignToneScale: z.number().int().min(0).max(100).optional(),
+  campaignToneInfluence: z.number().int().min(0).max(100).optional(),
+  campaignCadence: z.string().max(160).optional(),
+  campaignAuditionPrompt: z.string().max(1000).optional(),
   slug: z.string().min(1).max(500).optional(),
 });
 
@@ -275,9 +287,22 @@ export const updateLoreEntrySchema = z.object({
 
 // ── Player Characters ──────────────────────────────────────
 
+const portraitSchema = z
+  .string()
+  .max(250000, "Portrait must be smaller than 250KB")
+  .refine(
+    (value) =>
+      !value ||
+      value.startsWith("data:image/jpeg;base64,") ||
+      value.startsWith("data:image/png;base64,") ||
+      value.startsWith("data:image/webp;base64,") ||
+      /^https?:\/\/\S+$/i.test(value),
+    "Portrait must be a PNG, JPG, WebP, or image URL"
+  );
+
 export const createPlayerCharacterSchema = z.object({
   name: z.string().min(1, "Character name is required").max(200),
-  portrait: z.string().optional(),
+  portrait: portraitSchema.optional(),
   description: z.string().max(5000).optional(),
   traits: z.string().max(5000).optional(),
   backstory: z.string().max(10000).optional(),
@@ -286,7 +311,7 @@ export const createPlayerCharacterSchema = z.object({
 
 export const updatePlayerCharacterSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  portrait: z.string().optional(),
+  portrait: portraitSchema.optional(),
   description: z.string().max(5000).optional(),
   traits: z.string().max(5000).optional(),
   backstory: z.string().max(10000).optional(),
@@ -364,9 +389,31 @@ export const createFloorAudiencePulseSchema = z.object({
 
 // ── Campaign Applications ───────────────────────────────────
 
-export const createApplicationSchema = z.object({
-  pitch: z.string().min(1, "Pitch is required").max(5000),
-});
+export const createApplicationSchema = z
+  .object({
+    pitch: z.string().max(5000).optional(),
+    characterName: z.string().min(1).max(60).optional(),
+    characterArchetype: z.string().max(80).optional(),
+    characterKnownFor: z.string().max(120).optional(),
+    characterPortrait: portraitSchema.optional(),
+    firstGlimpse: z.string().max(1500).optional(),
+    playerCadence: z.string().max(80).optional(),
+    playerSpotlight: z.enum(["driver", "reactor", "fades"]).optional(),
+    writingSampleUrl: z.string().max(500).optional(),
+    voiceCadence: z.string().max(40).optional(),
+    voiceMood: z.string().max(40).optional(),
+    voiceRestraint: z.string().max(40).optional(),
+  })
+  .refine(
+    (data) =>
+      Boolean(data.pitch?.trim()) ||
+      Boolean(
+        data.characterName?.trim() &&
+          data.characterKnownFor?.trim() &&
+          data.firstGlimpse?.trim()
+      ),
+    { message: "Audition details are required" }
+  );
 
 export const updateApplicationSchema = z.object({
   status: z.enum(["approved", "declined", "voting"]),

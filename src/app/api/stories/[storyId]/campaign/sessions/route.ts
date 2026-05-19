@@ -46,6 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         storyId: campaignSessions.storyId,
         title: campaignSessions.title,
         summary: campaignSessions.summary,
+        opening: campaignSessions.opening,
         sortOrder: campaignSessions.sortOrder,
         status: campaignSessions.status,
         epilogue: campaignSessions.epilogue,

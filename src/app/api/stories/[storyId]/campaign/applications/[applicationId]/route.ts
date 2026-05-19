@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import {
   campaignApplications,
   collaborators,
+  playerCharacters,
   stories,
 } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -131,6 +132,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           role: "writer",
           status: "accepted",
           invitedBy: session.user.id,
+        });
+      }
+
+      const existingCharacter = await db.query.playerCharacters.findFirst({
+        where: and(
+          eq(playerCharacters.storyId, storyId),
+          eq(playerCharacters.userId, application.userId),
+          eq(playerCharacters.status, "active")
+        ),
+      });
+
+      if (!existingCharacter) {
+        await db.insert(playerCharacters).values({
+          storyId,
+          userId: application.userId,
+          name: application.characterName?.trim() || "Unnamed",
+          portrait: application.characterPortrait?.trim() || null,
+          description: application.characterKnownFor?.trim() || "",
+          traits: application.characterArchetype?.trim() || "",
+          backstory: application.firstGlimpse?.trim() || "",
         });
       }
 

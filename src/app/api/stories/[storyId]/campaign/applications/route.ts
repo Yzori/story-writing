@@ -7,7 +7,7 @@ import {
   stories,
   playerCharacters,
 } from "@/server/db/schema";
-import { eq, and, isNull, sql, desc } from "drizzle-orm";
+import { eq, and, isNull, sql, desc, or } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createApplicationSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
@@ -67,12 +67,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .groupBy(campaignVotes.applicationId)
       .as("no_votes");
 
-    let query = db
+    const query = db
       .select({
         id: campaignApplications.id,
         storyId: campaignApplications.storyId,
         userId: campaignApplications.userId,
         pitch: campaignApplications.pitch,
+        characterName: campaignApplications.characterName,
+        characterArchetype: campaignApplications.characterArchetype,
+        characterKnownFor: campaignApplications.characterKnownFor,
+        characterPortrait: campaignApplications.characterPortrait,
+        firstGlimpse: campaignApplications.firstGlimpse,
+        playerCadence: campaignApplications.playerCadence,
+        playerSpotlight: campaignApplications.playerSpotlight,
+        writingSampleUrl: campaignApplications.writingSampleUrl,
+        voiceCadence: campaignApplications.voiceCadence,
+        voiceMood: campaignApplications.voiceMood,
+        voiceRestraint: campaignApplications.voiceRestraint,
         status: campaignApplications.status,
         votingDeadline: campaignApplications.votingDeadline,
         createdAt: campaignApplications.createdAt,
@@ -94,7 +105,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           ? eq(campaignApplications.storyId, storyId)
           : and(
               eq(campaignApplications.storyId, storyId),
-              eq(campaignApplications.status, "voting")
+              or(
+                eq(campaignApplications.status, "voting"),
+                eq(campaignApplications.userId, session.user.id)
+              )
             )
       )
       .orderBy(desc(campaignApplications.createdAt));
@@ -184,12 +198,45 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const pitch =
+      parsed.data.pitch?.trim() ||
+      [
+        `**Character:** ${parsed.data.characterName?.trim() ?? "Unknown"}`,
+        `**Known for:** ${parsed.data.characterKnownFor?.trim() ?? ""}`,
+        parsed.data.characterArchetype?.trim()
+          ? `**What they bring:** ${parsed.data.characterArchetype.trim()}`
+          : null,
+        parsed.data.characterPortrait?.trim() ? "**Character portrait:** attached" : null,
+        "",
+        "**A first glimpse**",
+        parsed.data.firstGlimpse?.trim() ?? "",
+        "",
+        "**The Contract**",
+        parsed.data.playerCadence ? `Cadence: ${parsed.data.playerCadence}` : null,
+        parsed.data.playerSpotlight ? `Spotlight: ${parsed.data.playerSpotlight}` : null,
+        parsed.data.writingSampleUrl?.trim() ? `Reference: ${parsed.data.writingSampleUrl.trim()}` : null,
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n")
+        .slice(0, 5000);
+
     const [created] = await db
       .insert(campaignApplications)
       .values({
         storyId,
         userId: session.user.id,
-        pitch: parsed.data.pitch,
+        pitch,
+        characterName: parsed.data.characterName?.trim() || null,
+        characterArchetype: parsed.data.characterArchetype?.trim() || null,
+        characterKnownFor: parsed.data.characterKnownFor?.trim() || null,
+        characterPortrait: parsed.data.characterPortrait?.trim() || null,
+        firstGlimpse: parsed.data.firstGlimpse?.trim() || null,
+        playerCadence: parsed.data.playerCadence || null,
+        playerSpotlight: parsed.data.playerSpotlight || null,
+        writingSampleUrl: parsed.data.writingSampleUrl?.trim() || null,
+        voiceCadence: parsed.data.voiceCadence || null,
+        voiceMood: parsed.data.voiceMood || null,
+        voiceRestraint: parsed.data.voiceRestraint || null,
       })
       .returning();
 
