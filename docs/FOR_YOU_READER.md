@@ -2,7 +2,7 @@
 
 > A candlelit room where a story is already playing.
 
-The problem: returning readers currently face 4 decisions before they read a word (Landing → Browse → Story → Chapter). The For You reader removes all of them. You open Inkwell and you're already inside a chapter picked for you.
+The problem: returning readers currently face 4 decisions before they read a word (Landing → Browse → Story → Chapter). The For You reader removes all of them. You open Quiloria and you're already inside a chapter picked for you.
 
 This is not TikTok. We are stealing *decision-removal*, not vertical-feed aesthetics. Long-form reading is slow on purpose. The goal is to make *starting* instant; reading itself should still feel like sitting down with a book.
 
@@ -157,4 +157,4 @@ Steps 1-5 are the MVP. Everything after is polish and can ship separately.
 
 ## 11. The one thing we must not get wrong
 
-The For You reader succeeds if the user *forgets they were choosing anything*. It fails if it feels like a recommendation carousel, or a vertical-scroll feed, or a Medium clone. The test is the candlelit room: does opening Inkwell feel like walking into a story that was already in progress, waiting for you? If yes, ship it. If not, cut more chrome.
+The For You reader succeeds if the user *forgets they were choosing anything*. It fails if it feels like a recommendation carousel, or a vertical-scroll feed, or a Medium clone. The test is the candlelit room: does opening Quiloria feel like walking into a story that was already in progress, waiting for you? If yes, ship it. If not, cut more chrome.

@@ -1,8 +1,8 @@
-# Inkwell — Hero Video Creative Brief
+# Quiloria — Hero Video Creative Brief
 
 ## Overview
 
-We need a **10–15 second seamlessly looping 3D animation** for the hero section of [Inkwell](https://inkwell.app), a collaborative story-writing platform. The video sits in a gilded frame on a deep mahogany background, so it needs to feel warm, atmospheric, and magical — never cold or corporate.
+We need a **10–15 second seamlessly looping 3D animation** for the hero section of [Quiloria](https://quiloria.app), a collaborative story-writing platform. The video sits in a gilded frame on a deep mahogany background, so it needs to feel warm, atmospheric, and magical — never cold or corporate.
 
 The concept: **a split-screen showing a Writer and a Reader, connected by living words that transform into imagination.**
 
@@ -142,7 +142,7 @@ The video auto-plays muted on scroll-into-view. It should look beautiful both pl
 | Freelance (Fiverr/Upwork) | $300–$800 | Custom 3D, 1–2 revision rounds, good quality |
 | Specialist (Dribbble/ArtStation) | $1,000–$2,500 | High polish, art direction, source files, premium result |
 
-For Inkwell's premium positioning, we recommend the **mid-to-upper tier**.
+For Quiloria's premium positioning, we recommend the **mid-to-upper tier**.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Inkwell uses AI as private editorial support, not as the author of the work.
+Quiloria uses AI as private editorial support, not as the author of the work.
 Editor’s Desk handles selected-text polish and review. Story Intelligence uses
 cached artifacts, such as chapter summaries and continuity reports, so future
 features do not need to re-read a full manuscript on every request.

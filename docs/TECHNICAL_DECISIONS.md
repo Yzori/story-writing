@@ -1,4 +1,4 @@
-# Inkwell — Technical Decisions & Research
+# Quiloria — Technical Decisions & Research
 
 > Research-backed decisions for building the prose editor and platform foundation. Every choice here is informed by competitive analysis, framework evaluation, and typography/UX research conducted March 2026.
 

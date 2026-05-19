@@ -1,4 +1,4 @@
-# Inkwell Hero Video — AI Generation Prompts
+# Quiloria Hero Video — AI Generation Prompts
 
 ## Strategy
 
@@ -6,7 +6,7 @@
 2. **Runway ML Gen-3/Gen-4** → Animate each keyframe into ~5s clips
 3. **Edit** → Stitch clips, add transitions, loop point, grain overlay
 
-All prompts tuned to match Inkwell's warm mahogany + firelight gold palette.
+All prompts tuned to match Quiloria's warm mahogany + firelight gold palette.
 
 ---
 

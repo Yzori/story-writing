@@ -2,7 +2,7 @@
 
 ## Overview
 
-Adventure Mode is Inkwell's collaborative, tabletop-RPG-inspired play mode. It transforms a story into a live, GM-directed narrative experience where one person narrates the world (the Game Master) and others write as characters within it. The output is **prose**, not game stats -- every turn contributes to a story that can be compiled into publishable chapters.
+Adventure Mode is Quiloria's collaborative, tabletop-RPG-inspired play mode. It transforms a story into a live, GM-directed narrative experience where one person narrates the world (the Game Master) and others write as characters within it. The output is **prose**, not game stats -- every turn contributes to a story that can be compiled into publishable chapters.
 
 **Philosophy: Story-first, not game-first.** The dice exist to create dramatic tension, not to simulate physics. Character sheets are narrative tools (traits, backstory, a defining belief) rather than stat blocks. There are no hit points, no inventory slots, no initiative rolls. The GM directs the story; the dice create consequences.
 

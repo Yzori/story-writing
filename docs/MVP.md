@@ -1,4 +1,4 @@
-# Inkwell — MVP Blueprint
+# Quiloria — MVP Blueprint
 
 > A platform where stories are created together, experienced together, and brought to life across disciplines.
 
@@ -10,14 +10,14 @@ Creative storytelling is fragmented. Writers publish on Wattpad or Medium but ca
 
 ## The Insight
 
-Stories aren't written in isolation. Behind every great novel is a web of editors, beta readers, cover artists, and an audience that fuels the creator. Inkwell makes that web visible, accessible, and native to the platform.
+Stories aren't written in isolation. Behind every great novel is a web of editors, beta readers, cover artists, and an audience that fuels the creator. Quiloria makes that web visible, accessible, and native to the platform.
 
 ## Core Principles
 
 1. **Creativity-first language** — No git jargon. No "repositories" or "pull requests." The interface speaks in the language of storytelling: drafts, threads, paths, suggestions, retellings.
 2. **Writers stay in control** — Readers can influence, react, and suggest — but the creator always holds the pen. Collaboration is opt-in, never forced.
 3. **Show the craft** — Revision history, collaboration credits, and the creative process itself are part of the experience. Readers can see how a story evolved, not just the final product.
-4. **Multi-discipline by design** — A story on Inkwell can be prose, illustrated prose, a comic, or interactive fiction. The platform doesn't privilege one format.
+4. **Multi-discipline by design** — A story on Quiloria can be prose, illustrated prose, a comic, or interactive fiction. The platform doesn't privilege one format.
 
 ---
 
@@ -25,7 +25,7 @@ Stories aren't written in isolation. Behind every great novel is a web of editor
 
 We reject technical jargon. Every concept gets a name that feels native to storytelling:
 
-| Concept | Inkwell Term | What it means |
+| Concept | Quiloria Term | What it means |
 |---|---|---|
 | Repository | **Story Project** | The home for a story — chapters, art, notes, collaborators |
 | Branch | **Path** | An alternate version or direction for a story |
@@ -58,7 +58,7 @@ Not rigid categories — more like hats people wear. One person can wear many.
 
 Three things. If these work, the platform has legs:
 
-1. **Writing + reading on Inkwell feels better than the alternatives** — the editor is a joy, the reading experience is beautiful, serialization is native
+1. **Writing + reading on Quiloria feels better than the alternatives** — the editor is a joy, the reading experience is beautiful, serialization is native
 2. **Collaboration between creatives actually happens** — a writer finds an illustrator, they work on a story together, the result is better than either could do alone
 3. **Readers feel like participants, not passengers** — without overriding the creator's vision
 
@@ -88,7 +88,7 @@ Every Story Project selects a format at creation. The format determines the edit
 **Prose** — Novels, novellas, short stories, serial fiction
 - Block-based rich text editor with chapters as the primary unit
 - Support for inline illustrations, full-bleed art blocks, and chapter header art
-- The classic Inkwell experience: beautiful typography, generous margins, the feeling of reading a real book
+- The classic Quiloria experience: beautiful typography, generous margins, the feeling of reading a real book
 - Collaboration: writers suggest edits, illustrators place art within the text
 
 **Webtoon / Comic** — Vertical-scroll comics, manga-style panels, graphic novels
@@ -165,7 +165,7 @@ Each format gets:
 
 ### Phase 2 — "The Workshop" (Collaborate)
 
-This is what makes Inkwell different. Creative collaboration as a first-class feature.
+This is what makes Quiloria different. Creative collaboration as a first-class feature.
 
 #### Open Calls
 - A writer can post an **Open Call** on their Story Project: "Looking for an illustrator for a dark fantasy serial" with details on style, scope, and commitment
@@ -418,7 +418,7 @@ Not vanity metrics. Signals that the core loops work:
 
 ### The approach: editor-first development
 
-The editors are the product. If a writer opens Inkwell and it doesn't feel better than Word, Scrivener, or a plain notepad — nothing else matters. Discovery, community, collaboration — all of that is worthless if the creative tool itself isn't exceptional.
+The editors are the product. If a writer opens Quiloria and it doesn't feel better than Word, Scrivener, or a plain notepad — nothing else matters. Discovery, community, collaboration — all of that is worthless if the creative tool itself isn't exceptional.
 
 Current tools fail creators in specific ways:
 - **Word / Google Docs** — built for business documents. They don't understand chapters, scenes, pacing, or tone. Formatting is a chore. No concept of a "story" as a structured object.
@@ -435,7 +435,7 @@ PHASE 0 — "The Craft" (Editors + Reading Views)
 │
 │   Build these as standalone tools. No auth, no accounts, no social
 │   features. Just the purest possible creative tools. A writer should
-│   be able to open Inkwell and start writing immediately — and never
+│   be able to open Quiloria and start writing immediately — and never
 │   want to go back to Word.
 │
 ├── Prose Editor
