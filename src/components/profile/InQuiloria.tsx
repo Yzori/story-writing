@@ -6,7 +6,7 @@ import { Feather, BookOpen, ArrowRight, Clock } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import type { ApiStory } from "@/types/api";
 
-interface InTheInkwellProps {
+interface InQuiloriaProps {
   stories: ApiStory[];
 }
 
@@ -24,7 +24,7 @@ function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function InTheInkwell({ stories }: InTheInkwellProps) {
+export default function InQuiloria({ stories }: InQuiloriaProps) {
   // Pick the most-recently-updated draft or in-progress story.
   const candidates = stories.filter(
     (s) => s.status === "draft" || s.status === "in-progress"
@@ -57,7 +57,7 @@ export default function InTheInkwell({ stories }: InTheInkwellProps) {
             The work in hand
           </p>
           <h2 className="mt-1 font-display text-xl text-paper sm:text-2xl">
-            In the inkwell
+            In Quiloria
           </h2>
         </div>
       </div>

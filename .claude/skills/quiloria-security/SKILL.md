@@ -1,7 +1,7 @@
 ---
-name: inkwell-security
+name: quiloria-security
 description: >
-  Apply security best practices when building features for the Inkwell
+  Apply security best practices when building features for the Quiloria
   writing platform. Use when implementing authentication, authorization,
   input handling, file uploads, API routes, database queries, or any
   code that handles user data. Use when user says "auth", "login",
@@ -10,15 +10,15 @@ description: >
   Also activates during API route creation and middleware work.
 ---
 
-# Inkwell Security Skill
+# Quiloria Security Skill
 
-Security guidelines for the Inkwell writing platform. This skill
+Security guidelines for the Quiloria writing platform. This skill
 should influence all backend and frontend code that touches user
 data, authentication, or external input.
 
 ## Threat Model
 
-Inkwell handles:
+Quiloria handles:
 - **User credentials** (email, password, OAuth tokens)
 - **User content** (stories, chapters — potentially sensitive creative work)
 - **File uploads** (cover images)

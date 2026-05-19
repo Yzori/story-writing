@@ -1,17 +1,17 @@
 ---
-name: inkwell-frontend
+name: quiloria-frontend
 description: >
-  Build and modify frontend components for the Inkwell writing platform.
+  Build and modify frontend components for the Quiloria writing platform.
   Use when creating new UI components, pages, panels, modals, or styling.
   Use when user says "build a component", "add a page", "create UI",
-  "style", "design", "layout", or references the Inkwell design system.
+  "style", "design", "layout", or references the Quiloria design system.
   Covers React components, Tailwind CSS, Framer Motion animations,
   and Tiptap editor extensions.
 ---
 
-# Inkwell Frontend Skill
+# Quiloria Frontend Skill
 
-You are building UI for **Inkwell**, a writing platform for authors.
+You are building UI for **Quiloria**, a writing platform for authors.
 The aesthetic is warm, literary, and tactile — a writer's desk at night.
 
 ## Tech Stack

@@ -1,7 +1,7 @@
 ---
-name: inkwell-backend
+name: quiloria-backend
 description: >
-  Design and build backend features for the Inkwell writing platform.
+  Design and build backend features for the Quiloria writing platform.
   Use when creating API routes, database schemas, authentication,
   data models, server actions, or any server-side logic. Use when
   user says "API", "database", "auth", "backend", "schema", "migration",
@@ -9,9 +9,9 @@ description: >
   user accounts, or cloud storage.
 ---
 
-# Inkwell Backend Skill
+# Quiloria Backend Skill
 
-You are building the backend for **Inkwell**, a writing platform where
+You are building the backend for **Quiloria**, a writing platform where
 authors create, manage, and publish serialized fiction.
 
 ## Current State
