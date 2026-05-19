@@ -1,6 +1,7 @@
 "use client";
 
 import { Extension } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 
 export type ParagraphAlignmentKey = "left" | "center" | "right" | "justify";
 
@@ -52,17 +53,44 @@ export const ParagraphAlignment = Extension.create({
           const nextAlignment = normalizeAlignment(alignment);
           if (!nextAlignment) return false;
 
-          const { from, to } = state.selection;
+          const { from, to, empty } = state.selection;
           let changed = false;
           const tr = state.tr;
+          const textAlign = nextAlignment === "left" ? null : nextAlignment;
+
+          if (empty) {
+            const anchor = state.selection.$from;
+            for (let depth = anchor.depth; depth > 0; depth -= 1) {
+              const node = anchor.node(depth);
+              if (node.type.name !== "paragraph") continue;
+              const pos = anchor.before(depth);
+              if (node.attrs.textAlign !== textAlign) {
+                tr.setNodeMarkup(pos, undefined, { ...node.attrs, textAlign });
+                dispatch?.(tr.scrollIntoView());
+              }
+              return true;
+            }
+          }
 
           state.doc.nodesBetween(from, to, (node, pos) => {
             if (node.type.name !== "paragraph") return;
-            const textAlign = nextAlignment === "left" ? null : nextAlignment;
             if (node.attrs.textAlign === textAlign) return;
             tr.setNodeMarkup(pos, undefined, { ...node.attrs, textAlign });
             changed = true;
           });
+
+          if (!changed && state.selection instanceof TextSelection) {
+            const anchor = state.selection.$from;
+            for (let depth = anchor.depth; depth > 0; depth -= 1) {
+              const node = anchor.node(depth);
+              if (node.type.name !== "paragraph") continue;
+              const pos = anchor.before(depth);
+              if (node.attrs.textAlign === textAlign) return true;
+              tr.setNodeMarkup(pos, undefined, { ...node.attrs, textAlign });
+              changed = true;
+              break;
+            }
+          }
 
           if (!changed) return true;
           dispatch?.(tr.scrollIntoView());
@@ -75,4 +103,3 @@ export const ParagraphAlignment = Extension.create({
     };
   },
 });
-

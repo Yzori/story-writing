@@ -155,7 +155,7 @@ export default function GoalsPanel({ goals, onUpdate, onClose }: GoalsPanelProps
             Last 7 Days
           </span>
           <div className="flex items-end gap-1.5 h-16">
-            {last7.map((day, i) => (
+            {last7.map((day) => (
               <div
                 key={day.date}
                 className="flex-1 flex flex-col items-center gap-1"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { Chapter } from "@/types/editor";
 import { SearchMatch, searchInChapters, replaceInHtml, SearchOptions } from "@/client/search";
@@ -41,7 +41,10 @@ export default function SearchReplace({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const options: SearchOptions = { caseSensitive, wholeWord };
+  const options: SearchOptions = useMemo(
+    () => ({ caseSensitive, wholeWord }),
+    [caseSensitive, wholeWord]
+  );
 
   const doSearch = useCallback(() => {
     if (!query.trim()) {
@@ -55,7 +58,7 @@ export default function SearchReplace({
     const results = searchInChapters(searchScope, query, options);
     setMatches(results);
     setActiveMatch(0);
-  }, [query, chapters, activeChapterId, allChapters, caseSensitive, wholeWord]);
+  }, [query, chapters, activeChapterId, allChapters, options]);
 
   useEffect(() => {
     const timer = setTimeout(doSearch, 200);

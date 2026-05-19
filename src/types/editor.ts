@@ -1,5 +1,5 @@
 /**
- * Client-side data models and factories for the Inkwell editor.
+ * Client-side data models and factories for the Quiloria editor.
  */
 
 import { ContentRating, StoryStatus } from "@/config/genres";

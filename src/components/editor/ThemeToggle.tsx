@@ -5,20 +5,17 @@ import { useState, useEffect } from "react";
 import { type Theme, setTheme, getStoredTheme } from "@/client/theme";
 
 export default function ThemeToggle() {
-  const [current, setCurrent] = useState<Theme>("dark");
+  const [current, setCurrent] = useState<Theme>(() => getStoredTheme());
 
   useEffect(() => {
-    const stored = getStoredTheme();
-    setCurrent(stored);
-    setTheme(stored);
-  }, []);
+    setTheme(current);
+  }, [current]);
 
   const isDark = current === "dark";
 
   const toggleTheme = () => {
     const next: Theme = isDark ? "light" : "dark";
     setCurrent(next);
-    setTheme(next);
   };
 
   return (

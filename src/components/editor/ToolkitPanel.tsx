@@ -47,6 +47,35 @@ interface ToolCard {
   onClick: () => void;
 }
 
+function ToolRow({ tool, onClose }: { tool: ToolCard; onClose: () => void }) {
+  return (
+    <button
+      onClick={() => {
+        tool.onClick();
+        onClose();
+      }}
+      className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-amber/[0.04]"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-subtle/55 text-text-ghost transition-colors group-hover:bg-amber/10 group-hover:text-amber">
+        {tool.icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[12px] font-medium text-text-secondary transition-colors group-hover:text-paper">
+          {tool.label}
+        </span>
+        <span className="mt-0.5 block truncate text-[10px] text-text-ghost">
+          {tool.description}
+        </span>
+      </span>
+      {tool.badge && (
+        <span className="max-w-[90px] shrink-0 truncate rounded-full bg-amber/10 px-2 py-0.5 text-[9px] text-amber">
+          {tool.badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function ToolkitPanel({
   onClose,
   onOpenMetadata,
@@ -264,12 +293,12 @@ export default function ToolkitPanel({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 8, scale: 0.97 }}
         transition={{ type: "spring", stiffness: 500, damping: 35 }}
-        className="fixed bottom-14 left-4 z-50 w-[400px] max-h-[calc(100vh-120px)] bg-surface border border-border rounded-2xl shadow-2xl shadow-void/40 overflow-hidden flex flex-col"
+        className="fixed bottom-14 left-4 z-50 flex max-h-[calc(100vh-120px)] w-[420px] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl shadow-void/40"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber/10 flex items-center justify-center text-amber">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber/10 text-amber">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9.5 1.5L2 9l4.5 4.5L14 6" />
                 <path d="M11.5 3.5l1 1" />
@@ -277,13 +306,16 @@ export default function ToolkitPanel({
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-paper">Toolkit</h3>
-              <p className="text-[10px] text-text-ghost">Your writing tools</p>
+              <h3 className="text-sm font-medium text-paper">Story Controls</h3>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-text-ghost">
+                Publish, prepare, plan, collaborate, and export this story.
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-text-ghost hover:text-text-secondary hover:bg-subtle/30 transition-colors"
+            className="rounded-lg p-1.5 text-text-ghost transition-colors hover:bg-subtle/30 hover:text-text-secondary"
+            aria-label="Close story controls"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <line x1="4" y1="4" x2="10" y2="10" />
@@ -293,16 +325,33 @@ export default function ToolkitPanel({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {/* Publish toggle */}
-          <div className="px-1">
+          <div className="rounded-lg border border-border bg-elevated/35 p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">
+                  Publishing
+                </p>
+                <p className="mt-0.5 text-[11px] text-text-secondary">
+                  {isPublic ? "This story is visible on Browse." : "Draft only. Readers cannot find it yet."}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                  isPublic ? "bg-sage/10 text-sage" : "bg-amber/10 text-amber"
+                }`}
+              >
+                {isPublic ? "Live" : "Draft"}
+              </span>
+            </div>
             <button
               onClick={() => {
                 onTogglePublish();
               }}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
                 isPublic
-                  ? "bg-subtle/50 border border-border text-text-secondary hover:bg-subtle/80"
+                  ? "border border-border bg-subtle/50 text-text-secondary hover:bg-subtle/80"
                   : "bg-amber text-void hover:bg-amber/90"
               }`}
             >
@@ -324,43 +373,16 @@ export default function ToolkitPanel({
                 </>
               )}
             </button>
-            <p className="text-[10px] text-text-ghost text-center mt-1.5">
-              {isPublic ? "Your story is live on Browse" : "Make your story visible on Browse"}
-            </p>
           </div>
 
           {sections.map((section) => (
-            <div key={section.title}>
-              <p className="text-[9px] uppercase tracking-[0.15em] text-text-ghost px-2 mb-2">
+            <div key={section.title} className="rounded-lg border border-border/70 bg-elevated/20 p-2">
+              <p className="mb-1.5 px-1 text-[9px] uppercase tracking-[0.15em] text-text-ghost">
                 {section.title}
               </p>
-              <div className={`grid gap-1.5 ${section.tools.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+              <div className="space-y-0.5">
                 {section.tools.map((tool) => (
-                  <button
-                    key={tool.label}
-                    onClick={() => {
-                      tool.onClick();
-                      onClose();
-                    }}
-                    className="group flex flex-col items-start gap-2 p-3 rounded-xl border border-border hover:border-amber/20 hover:bg-amber/[0.03] transition-all text-left"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-subtle/50 group-hover:bg-amber/10 flex items-center justify-center text-text-ghost group-hover:text-amber transition-colors">
-                      {tool.icon}
-                    </div>
-                    <div className="min-w-0 w-full">
-                      <p className="text-[12px] font-medium text-text-secondary group-hover:text-paper transition-colors truncate">
-                        {tool.label}
-                      </p>
-                      <p className="text-[10px] text-text-ghost mt-0.5 leading-snug line-clamp-2">
-                        {tool.description}
-                      </p>
-                      {tool.badge && (
-                        <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded-full bg-amber/10 text-amber text-[9px] truncate max-w-full">
-                          {tool.badge}
-                        </span>
-                      )}
-                    </div>
-                  </button>
+                  <ToolRow key={tool.label} tool={tool} onClose={onClose} />
                 ))}
               </div>
             </div>
@@ -368,10 +390,10 @@ export default function ToolkitPanel({
         </div>
 
         {/* Danger zone */}
-        <div className="px-4 py-3 border-t border-border">
+        <div className="border-t border-border px-4 py-3">
           <button
             onClick={onDeleteStory}
-            className="flex items-center gap-2 text-[12px] text-text-ghost hover:text-rose transition-colors"
+            className="flex items-center gap-2 text-[12px] text-text-ghost transition-colors hover:text-rose"
           >
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M2 4h12M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1M6 7v5M10 7v5M3 4l1 9a2 2 0 002 2h4a2 2 0 002-2l1-9" />
@@ -381,7 +403,7 @@ export default function ToolkitPanel({
         </div>
 
         {/* Footer hint */}
-        <div className="px-4 py-2.5 border-t border-border flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
           <p className="text-[10px] text-text-ghost">
             <kbd className="px-1 py-0.5 rounded bg-subtle text-[9px] font-mono">Ctrl K</kbd>
             {" "}for all commands

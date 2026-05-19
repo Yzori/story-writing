@@ -23,7 +23,14 @@ type ChapterSaveResult = {
   version: number;
   status: number;
   ok: boolean;
-  json: { data?: { version?: number; id?: string } } | null;
+  json: {
+    data?: {
+      version?: number;
+      id?: string;
+      serverVersion?: number;
+      clientVersion?: number;
+    };
+  } | null;
 };
 
 type UseChapterAutosaveOptions = {
@@ -34,6 +41,16 @@ type UseChapterAutosaveOptions = {
 
 function conflictStorageKey(storyId: string, chapterId: string) {
   return `quiloria-conflict-${storyId}-${chapterId}`;
+}
+
+export function clearConflictChapterDraft(storyId: string, chapterId: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.removeItem(conflictStorageKey(storyId, chapterId));
+  } catch {
+    // Best effort cleanup only.
+  }
 }
 
 export function localDraftStorageKey(storyId: string, chapterId: string) {
@@ -123,6 +140,45 @@ export function reconcileSuccessfulChapterSaves(
   }
 }
 
+function reconcileSuccessfulResults(
+  pendingSaves: Map<string, PendingSave>,
+  storyId: string,
+  results: ChapterSaveResult[],
+) {
+  const successfulResults = results.filter((result) => result.ok);
+  reconcileSuccessfulChapterSaves(pendingSaves, successfulResults);
+
+  for (const result of successfulResults) {
+    if (!pendingSaves.has(result.chapterId)) {
+      clearLocalChapterDraft(storyId, result.chapterId);
+      clearConflictChapterDraft(storyId, result.chapterId);
+    }
+  }
+}
+
+function syncChapterVersions(
+  updateProject: (updater: (prev: StoryProject) => StoryProject) => void,
+  results: ChapterSaveResult[],
+) {
+  const versions = new Map<string, number>();
+  for (const { chapterId, json, status } of results) {
+    const version = status === 409 ? json?.data?.serverVersion : json?.data?.version;
+    if (typeof version === "number") {
+      versions.set(chapterId, version);
+    }
+  }
+
+  if (versions.size === 0) return;
+
+  updateProject((prev) => ({
+    ...prev,
+    chapters: prev.chapters.map((chapter) => {
+      const version = versions.get(chapter.id);
+      return version === undefined ? chapter : { ...chapter, version };
+    }),
+  }));
+}
+
 export function useChapterAutosave({
   storyId,
   updateProject,
@@ -184,12 +240,10 @@ export function useChapterAutosave({
           });
 
           let json: ChapterSaveResult["json"] = null;
-          if (response.ok) {
-            try {
-              json = await response.clone().json();
-            } catch {
-              // Ignore malformed response bodies; status still drives behavior.
-            }
+          try {
+            json = await response.clone().json();
+          } catch {
+            // Ignore malformed response bodies; status still drives behavior.
           }
 
           return {
@@ -209,6 +263,9 @@ export function useChapterAutosave({
       }
 
       if (results.some((result) => result.status === 409)) {
+        syncChapterVersions(updateProject, results);
+        reconcileSuccessfulResults(pendingSaves.current, storyId, results);
+
         for (const { chapterId, content: snapshotContent, version, status } of results) {
           if (status !== 409) continue;
           const current = pendingSaves.current.get(chapterId);
@@ -222,31 +279,29 @@ export function useChapterAutosave({
             pendingSaves.current.delete(chapterId);
           }
         }
+
         failedSaves.current.clear();
+        for (const result of results) {
+          if (!result.ok && result.status !== 409) {
+            failedSaves.current.set(result.chapterId, {
+              content: result.content,
+              version: result.version,
+            });
+            writeLocalChapterDraft(storyId, result.chapterId, {
+              content: result.content,
+              version: result.version,
+              reason: "failed-save",
+            });
+          }
+        }
         setSaveState("conflict");
-        toast("Another user edited this chapter. Your draft has been saved locally.", "error");
+        toast("Server version changed. Your draft is saved locally.", "error");
         return false;
       }
 
       if (results.every((result) => result.ok)) {
-        for (const { chapterId, json } of results) {
-          const newVersion = json?.data?.version;
-          if (typeof newVersion === "number") {
-            updateProject((prev) => ({
-              ...prev,
-              chapters: prev.chapters.map((chapter) =>
-                chapter.id === chapterId ? { ...chapter, version: newVersion } : chapter,
-              ),
-            }));
-          }
-        }
-
-        reconcileSuccessfulChapterSaves(pendingSaves.current, results);
-        for (const result of results) {
-          if (!pendingSaves.current.has(result.chapterId)) {
-            clearLocalChapterDraft(storyId, result.chapterId);
-          }
-        }
+        syncChapterVersions(updateProject, results);
+        reconcileSuccessfulResults(pendingSaves.current, storyId, results);
         failedSaves.current.clear();
 
         if (pendingSaves.current.size > 0) {
@@ -340,12 +395,10 @@ export function useChapterAutosave({
           });
 
           let json: ChapterSaveResult["json"] = null;
-          if (response.ok) {
-            try {
-              json = await response.clone().json();
-            } catch {
-              // Ignore malformed response bodies; status still drives behavior.
-            }
+          try {
+            json = await response.clone().json();
+          } catch {
+            // Ignore malformed response bodies; status still drives behavior.
           }
 
           return {
@@ -365,7 +418,12 @@ export function useChapterAutosave({
       }
 
       if (results.some((result) => result.status === 409)) {
-        for (const [chapterId, { content, version }] of entries) {
+        syncChapterVersions(updateProject, results);
+        reconcileSuccessfulResults(pendingSaves.current, storyId, results);
+        failedSaves.current.clear();
+
+        for (const { chapterId, content, version, status } of results) {
+          if (status !== 409) continue;
           writeLocalChapterDraft(storyId, chapterId, {
             content,
             version,
@@ -373,28 +431,27 @@ export function useChapterAutosave({
           });
           preserveConflictDraft(storyId, chapterId, content);
         }
-        failedSaves.current.clear();
+
+        for (const { chapterId, content, version, ok, status } of results) {
+          if (ok || status === 409) continue;
+          failedSaves.current.set(chapterId, { content, version });
+          writeLocalChapterDraft(storyId, chapterId, {
+            content,
+            version,
+            reason: "failed-save",
+          });
+        }
         setSaveState("conflict");
-        toast("Another user edited this chapter. Your draft has been saved locally.", "error");
+        toast("Server version changed. Your draft is saved locally.", "error");
         return;
       }
 
       if (results.every((result) => result.ok)) {
-        for (const { chapterId, json } of results) {
-          const newVersion = json?.data?.version;
-          if (typeof newVersion === "number") {
-            updateProject((prev) => ({
-              ...prev,
-              chapters: prev.chapters.map((chapter) =>
-                chapter.id === chapterId ? { ...chapter, version: newVersion } : chapter,
-              ),
-            }));
-          }
-        }
-
+        syncChapterVersions(updateProject, results);
         reconcileSuccessfulChapterSaves(pendingSaves.current, results);
         for (const result of results) {
           clearLocalChapterDraft(storyId, result.chapterId);
+          clearConflictChapterDraft(storyId, result.chapterId);
         }
         failedSaves.current.clear();
         setSaveState("saved");

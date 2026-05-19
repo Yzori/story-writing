@@ -145,7 +145,12 @@ export default function HistoryPanel({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: labelInput.trim() || `Version ${snapshots.length + 1}` }),
+          body: JSON.stringify({
+            label: labelInput.trim() || `Version ${snapshots.length + 1}`,
+            content: chapter.content,
+            wordCount: chapter.wordCount,
+            version: chapter.version,
+          }),
         }
       );
       if (res.ok) {

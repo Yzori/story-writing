@@ -8,13 +8,14 @@ import Typography from "@tiptap/extension-typography";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import Focus from "@tiptap/extension-focus";
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type UIEvent } from "react";
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
 import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
 import MentionDropdown from "./MentionDropdown";
+import ChapterLandmarkMenu from "./ChapterLandmarkMenu";
 import { IllustrationBlock } from "./extensions/IllustrationBlock";
 import { CommentMark } from "./extensions/CommentMark";
 import { CharacterMention, MentionCharacter } from "./extensions/CharacterMention";
@@ -67,6 +68,7 @@ interface ProseEditorProps {
   content: string;
   onUpdate: (content: string, wordCount: number) => void;
   onEditorReady: (editor: Editor) => void;
+  editorClassName?: string;
   onComment?: () => void;
   onMentionClick?: (characterId: string) => void;
   characters?: MentionCharacter[];
@@ -77,12 +79,18 @@ export default function ProseEditor({
   content,
   onUpdate,
   onEditorReady,
+  editorClassName = "",
   onComment,
   onMentionClick,
   characters = [],
   characterDetails = [],
 }: ProseEditorProps) {
   const focusModeRef = useRef(false);
+  const rootClassName = `tiptap-editor ${editorClassName}`.trim();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollTrackRef = useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isDraggingScroll, setIsDraggingScroll] = useState(false);
 
   const [sceneBreakPicker, setSceneBreakPicker] = useState<{
     pos: DOMRect;
@@ -101,6 +109,43 @@ export default function ProseEditor({
   const sceneBreakLabelInputRef = useRef<HTMLInputElement>(null);
   const sceneBreakPickerNodePos = sceneBreakPicker?.nodePos;
   const isTextLinePicker = sceneBreakPicker?.currentStyle === "text-line";
+
+  const handleEditorScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    const maxScroll = element.scrollHeight - element.clientHeight;
+    setScrollProgress(maxScroll > 0 ? element.scrollTop / maxScroll : 0);
+  }, []);
+
+  const scrollToTrackPoint = useCallback((clientY: number) => {
+    const container = scrollContainerRef.current;
+    const track = scrollTrackRef.current;
+    if (!container || !track) return;
+
+    const rect = track.getBoundingClientRect();
+    const progress = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    container.scrollTop = progress * maxScroll;
+    setScrollProgress(progress);
+  }, []);
+
+  const handleMagicScrollPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDraggingScroll(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    scrollToTrackPoint(event.clientY);
+  }, [scrollToTrackPoint]);
+
+  const handleMagicScrollPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    scrollToTrackPoint(event.clientY);
+  }, [scrollToTrackPoint]);
+
+  const handleMagicScrollPointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setIsDraggingScroll(false);
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -130,7 +175,7 @@ export default function ProseEditor({
     content,
     editorProps: {
       attributes: {
-        class: "tiptap-editor",
+        class: rootClassName,
       },
     },
     onUpdate: ({ editor }) => {
@@ -141,6 +186,17 @@ export default function ProseEditor({
     },
     immediatelyRender: false,
   });
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.setOptions({
+      editorProps: {
+        attributes: {
+          class: rootClassName,
+        },
+      },
+    });
+  }, [editor, rootClassName]);
 
   // Sync content when switching chapters
   const setContent = useCallback(
@@ -368,8 +424,30 @@ export default function ProseEditor({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[680px] mx-auto px-8 pb-64 min-h-full" onClick={handleEditorClick} onMouseOver={handleMentionMouseOver} onMouseOut={handleMentionMouseOut}>
+    <div
+      ref={scrollContainerRef}
+      className={`flex-1 min-h-0 overflow-y-auto editor-scrollbar editor-scroll-stage ${
+        isDraggingScroll ? "editor-scroll-stage-dragging" : "scroll-smooth"
+      }`}
+      onScroll={handleEditorScroll}
+      style={{ "--editor-scroll-progress": scrollProgress } as CSSProperties}
+    >
+      <div className="editor-scroll-glass editor-scroll-glass-top" aria-hidden="true" />
+      <div className="editor-scroll-glass editor-scroll-glass-bottom" aria-hidden="true" />
+      <div className="editor-scroll-magic" aria-hidden="true">
+        <div
+          ref={scrollTrackRef}
+          className="editor-scroll-magic-track"
+          onPointerDown={handleMagicScrollPointerDown}
+          onPointerMove={handleMagicScrollPointerMove}
+          onPointerUp={handleMagicScrollPointerEnd}
+          onPointerCancel={handleMagicScrollPointerEnd}
+        >
+          <div className="editor-scroll-magic-fill" />
+          <div className="editor-scroll-magic-spark" />
+        </div>
+      </div>
+      <div className="max-w-[680px] mx-auto px-4 sm:px-8 pb-64 min-h-full" onClick={handleEditorClick} onMouseOver={handleMentionMouseOver} onMouseOut={handleMentionMouseOut}>
         <FloatingToolbar editor={editor} onComment={onComment} />
         <div className="sticky top-4 z-20 mb-4 flex items-center gap-2 pointer-events-none">
           <button
@@ -381,14 +459,15 @@ export default function ProseEditor({
               setInsertMenuRequest((value) => value + 1);
             }}
             className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-elevated/80 px-2.5 py-1 text-[11px] text-text-ghost shadow-lg shadow-black/10 backdrop-blur-md transition-all hover:border-amber/30 hover:bg-amber/[0.06] hover:text-paper pointer-events-auto"
-            title="Insert heading, scene break, quote, or illustration"
+            title="Add blocks: illustration, scene break, heading, quote. Shortcut: /"
             aria-label="Insert block"
           >
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
               <path d="M8 3v10M3 8h10" />
             </svg>
-            Insert
+            Insert block
           </button>
+          <ChapterLandmarkMenu editor={editor} />
         </div>
         <SlashMenu editor={editor} anchorRef={insertButtonRef} openSignal={insertMenuRequest} />
         <MentionDropdown editor={editor} characters={characters} />

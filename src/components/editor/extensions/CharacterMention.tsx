@@ -2,8 +2,6 @@
 
 import { Node, mergeAttributes } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 
 // ── Mention Node ────────────────────────────────────────────
 // Inline atom node that renders as a styled <span> with the character's color.

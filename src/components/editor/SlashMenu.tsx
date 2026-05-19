@@ -184,6 +184,52 @@ const SLASH_ITEMS: SlashMenuItem[] = [
   },
 ];
 
+const INSERT_PRIORITY = [
+  "illustration",
+  "illustration-full",
+  "illustration-header",
+  "scene-break",
+  "h1",
+  "h2",
+  "h3",
+  "quote",
+  "align-left",
+  "align-center",
+  "align-right",
+  "align-justify",
+  "bullet-list",
+  "ordered-list",
+];
+
+const MENU_WIDTH = 320;
+const MENU_MARGIN = 8;
+const MENU_BOTTOM_CLEARANCE = 96;
+
+function getMenuPosition(x: number, y: number) {
+  if (typeof window === "undefined") {
+    return { x, y, maxHeight: 520 };
+  }
+
+  const clampedX = Math.max(
+    MENU_MARGIN,
+    Math.min(x, window.innerWidth - MENU_WIDTH - MENU_MARGIN)
+  );
+  const availableHeight = window.innerHeight - y - MENU_BOTTOM_CLEARANCE;
+
+  return {
+    x: clampedX,
+    y,
+    maxHeight: Math.max(240, Math.min(520, availableHeight)),
+  };
+}
+
+function getInsertCategory(id: string) {
+  if (id.startsWith("illustration")) return "Visual";
+  if (id === "scene-break" || id.startsWith("h") || id === "quote") return "Structure";
+  if (id.startsWith("align")) return "Paragraph";
+  return "Lists";
+}
+
 interface SlashMenuProps {
   editor: Editor;
   anchorRef?: RefObject<HTMLElement | null>;
@@ -194,19 +240,39 @@ export default function SlashMenu({ editor, anchorRef, openSignal = 0 }: SlashMe
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0, maxHeight: 520 });
   const [openedFromButton, setOpenedFromButton] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const filtered = useMemo(() =>
-    query
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.toLowerCase();
+    const matches = normalizedQuery
       ? SLASH_ITEMS.filter(
           (item) =>
-            item.label.toLowerCase().includes(query.toLowerCase()) ||
-            item.description.toLowerCase().includes(query.toLowerCase())
+            item.label.toLowerCase().includes(normalizedQuery) ||
+            item.description.toLowerCase().includes(normalizedQuery)
         )
-      : SLASH_ITEMS,
-    [query]
+      : SLASH_ITEMS;
+
+    return [...matches].sort((a, b) => {
+      const aPriority = INSERT_PRIORITY.indexOf(a.id);
+      const bPriority = INSERT_PRIORITY.indexOf(b.id);
+      return (aPriority === -1 ? 999 : aPriority) - (bPriority === -1 ? 999 : bPriority);
+    });
+  }, [query]);
+
+  const groupedItems = useMemo(
+    () =>
+      filtered.map((item, index) => {
+        const category = getInsertCategory(item.id);
+        const previous = index > 0 ? getInsertCategory(filtered[index - 1].id) : null;
+        return {
+          item,
+          category,
+          showCategory: category !== previous,
+        };
+      }),
+    [filtered]
   );
 
   const closeMenu = useCallback(() => {
@@ -293,7 +359,7 @@ export default function SlashMenu({ editor, anchorRef, openSignal = 0 }: SlashMe
 
         // Position the menu below the cursor
         const coords = editor.view.coordsAtPos(from);
-        setPosition({ x: coords.left, y: coords.bottom + 8 });
+        setPosition(getMenuPosition(coords.left, coords.bottom + 8));
 
         if (!open) setOpen(true);
       } else if (open) {
@@ -321,10 +387,10 @@ export default function SlashMenu({ editor, anchorRef, openSignal = 0 }: SlashMe
       setQuery("");
       setSelectedIndex(0);
       setOpenedFromButton(true);
-      setPosition({
-        x: rect ? rect.left : fallbackCoords.left,
-        y: rect ? rect.bottom + 8 : fallbackCoords.bottom + 8,
-      });
+      setPosition(getMenuPosition(
+        rect ? rect.left : fallbackCoords.left,
+        rect ? rect.bottom + 8 : fallbackCoords.bottom + 8
+      ));
       setOpen(true);
     });
 
@@ -361,45 +427,60 @@ export default function SlashMenu({ editor, anchorRef, openSignal = 0 }: SlashMe
             role="listbox"
             aria-label="Insert block"
             aria-activedescendant={filtered[selectedIndex] ? `slash-menu-item-${selectedIndex}` : undefined}
-            className="w-[260px] py-1.5 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 overflow-hidden"
+            className="w-[320px] max-w-[calc(100vw-1rem)] overflow-y-auto py-1.5 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50"
+            style={{ maxHeight: position.maxHeight }}
           >
-            <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost px-3 py-1.5">
-              Insert block
-            </p>
+            <div className="px-3 py-2 border-b border-border/60">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">
+                Add to chapter
+              </p>
+              <p className="mt-1 text-[11px] text-text-secondary">
+                Images, dividers, headings, quotes, and paragraph layout.
+              </p>
+            </div>
             {filtered.length > 0 ? (
-              filtered.map((item, index) => (
-                <button
-                  key={item.id}
-                  id={`slash-menu-item-${index}`}
-                  role="option"
-                  aria-selected={index === selectedIndex}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    executeItem(item);
-                  }}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
-                    index === selectedIndex
-                      ? "bg-amber/10 text-paper"
-                      : "text-text-secondary hover:text-paper"
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    index === selectedIndex ? "bg-amber/15 text-amber" : "bg-surface text-text-tertiary"
-                  }`}>
-                    {item.icon}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm">{item.label}</p>
-                    <p className="text-[11px] text-text-ghost truncate">{item.description}</p>
-                  </div>
-                </button>
+              groupedItems.map(({ item, category, showCategory }, index) => (
+                <div key={item.id}>
+                  {showCategory && (
+                    <p className="px-3 pb-1 pt-2 text-[9px] uppercase tracking-[0.14em] text-text-ghost">
+                      {category}
+                    </p>
+                  )}
+                  <button
+                    id={`slash-menu-item-${index}`}
+                    role="option"
+                    aria-selected={index === selectedIndex}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      executeItem(item);
+                    }}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                      index === selectedIndex
+                        ? "bg-amber/10 text-paper"
+                        : "text-text-secondary hover:text-paper"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      index === selectedIndex ? "bg-amber/15 text-amber" : "bg-surface text-text-tertiary"
+                    }`}>
+                      {item.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm">{item.label}</p>
+                      <p className="text-[11px] text-text-ghost truncate">{item.description}</p>
+                    </div>
+                  </button>
+                </div>
               ))
             ) : (
               <p className="px-3 py-3 text-[12px] text-text-ghost">
                 No matching inserts
               </p>
             )}
+            <div className="border-t border-border/60 px-3 py-2 text-[10px] text-text-ghost">
+              Type <span className="font-mono text-text-secondary">/</span> on an empty line to open this menu while writing.
+            </div>
           </div>
         </motion.div>
       )}

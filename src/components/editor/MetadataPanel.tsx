@@ -258,7 +258,7 @@ export default function MetadataPanel({
               className="w-full bg-elevated border border-border rounded-lg px-3 py-2.5 text-[13px] text-text leading-relaxed font-reading italic outline-none placeholder:text-text-ghost placeholder:not-italic focus:border-amber/30 transition-colors resize-none"
             />
             <p className="text-[10px] text-text-ghost mt-1.5 leading-relaxed">
-              Shown on browse cards and the For You feed. Optional but high-leverage — the story's first taste.
+              Shown on browse cards and the For You feed. Optional but high-leverage — the story&apos;s first taste.
             </p>
           </section>
 

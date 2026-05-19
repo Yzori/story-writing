@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const ONBOARDING_KEY = "inkwell-editor-onboarding-seen";
-const ONBOARDING_STEP_KEY = "inkwell-editor-onboarding-step";
+const ONBOARDING_KEY = "quiloria-editor-onboarding-seen";
+const ONBOARDING_STEP_KEY = "quiloria-editor-onboarding-step";
 
 interface Hint {
   id: string;

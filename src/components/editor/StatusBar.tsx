@@ -250,14 +250,14 @@ function StatusBar({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 50, opacity: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 w-full px-4 flex justify-center lg:pl-[344px] xl:pr-[360px]"
+      className="absolute bottom-3 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 w-full px-2 sm:px-4 flex justify-center lg:pl-[344px] xl:pr-[360px]"
     >
-      <div className={`relative flex items-center gap-3 sm:gap-5 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full bg-paper/[0.03] border backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] font-body max-w-full overflow-visible ${
+      <div className={`relative flex max-w-[calc(100vw-1rem)] items-center gap-2 sm:gap-5 px-2.5 py-2 sm:px-6 sm:py-2.5 rounded-full bg-paper/[0.03] border backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] font-body overflow-visible ${
         saveState === "error" || saveState === "conflict" ? "border-amber/25" : "border-paper/5"
       }`}>
 
         {/* Left: Tools drawer */}
-        <div className="relative flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setToolsOpen((open) => !open)}
             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full transition-all ${
@@ -275,7 +275,7 @@ function StatusBar({
           </button>
 
           {toolsOpen && (
-            <div className="absolute bottom-full left-0 mb-3 w-[280px] rounded-2xl border border-paper/10 bg-elevated/95 p-2 shadow-2xl backdrop-blur-2xl">
+            <div className="absolute bottom-full left-1/2 mb-3 w-[min(280px,calc(100vw-1rem))] -translate-x-1/2 rounded-2xl border border-paper/10 bg-elevated/95 p-2 shadow-2xl backdrop-blur-2xl">
               <div className="px-3 py-2">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Writing tools</p>
               </div>
@@ -312,14 +312,14 @@ function StatusBar({
         <div className="w-[1px] h-5 bg-border shrink-0" />
 
         {/* Center: Session timer + Progress ring + Word counts */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           {/* Session timer */}
           <SessionTimer />
 
           <div className="w-[1px] h-5 bg-border shrink-0 hidden sm:block" />
 
           {/* Progress ring + daily words */}
-          <div className="flex items-center gap-2.5">
+          <div className="hidden min-[420px]:flex items-center gap-2.5">
             {dailyTarget > 0 && <ProgressRing progress={progress} />}
             <div className="flex flex-col items-start shrink-0">
               <span className="text-[11px] font-mono text-amber leading-none">
@@ -347,29 +347,29 @@ function StatusBar({
           </div>
 
           {/* Save state */}
-          <div className="w-[1px] h-5 bg-border shrink-0" />
+          <div className="w-[1px] h-5 bg-border shrink-0 hidden min-[420px]:block" />
           <span
             aria-live="polite"
-            className={`text-[11px] shrink-0 ${
+            className={`text-[11px] shrink-0 max-w-[96px] sm:max-w-none truncate ${
               saveState === "error" ? "text-rose" : saveState === "conflict" ? "text-amber" : "text-text-tertiary"
             }`}
           >
             {saveState === "idle" && (
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
-                <span className="text-text-ghost">Saved</span>
+                <span className="text-text-ghost hidden min-[420px]:inline">Saved</span>
               </span>
             )}
             {saveState === "saving" && (
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full border border-paper/40 border-t-transparent animate-spin" />
-                Saving
+                <span className="hidden min-[420px]:inline">Saving</span>
               </span>
             )}
             {saveState === "saved" && (
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
-                Saved
+                <span className="hidden min-[420px]:inline">Saved</span>
               </span>
             )}
             {saveState === "error" && "Save failed"}
@@ -379,7 +379,7 @@ function StatusBar({
                   <path d="M8 1L15 14H1L8 1z" />
                   <path d="M8 6v4M8 12v.5" />
                 </svg>
-                Conflict — reload
+                <span className="hidden min-[420px]:inline">Needs review</span>
               </span>
             )}
           </span>

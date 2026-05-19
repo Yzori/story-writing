@@ -540,7 +540,7 @@ export default function CommandPalette({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -10 }}
             transition={{ type: "spring", stiffness: 500, damping: 35 }}
-            className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[480px] max-h-[420px] bg-elevated border border-border-active rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden flex flex-col"
+            className="fixed top-[12%] sm:top-[20%] left-1/2 -translate-x-1/2 w-[calc(100vw-1rem)] sm:w-[480px] max-h-[min(70vh,420px)] bg-elevated border border-border-active rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden flex flex-col"
           >
             {/* Search */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
@@ -589,7 +589,7 @@ export default function CommandPalette({
                         <div className="flex-1 min-w-0">
                           <span className="text-sm">{cmd.label}</span>
                           {cmd.description && (
-                            <span className="text-xs text-text-ghost ml-2">
+                            <span className="block sm:inline text-xs text-text-ghost sm:ml-2">
                               {cmd.description}
                             </span>
                           )}
@@ -612,7 +612,7 @@ export default function CommandPalette({
             </div>
 
             {/* Help hint */}
-            <div className="px-4 py-2 text-[10px] text-text-ghost border-t border-border/30 flex items-center gap-2">
+            <div className="hidden px-4 py-2 text-[10px] text-text-ghost border-t border-border/30 sm:flex items-center gap-2">
               <kbd className="px-1 py-0.5 rounded bg-surface/50 border border-border/50 text-[9px]">/</kbd>
               <span>in editor for quick insert</span>
               <span className="mx-1 text-border">&middot;</span>

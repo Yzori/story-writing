@@ -24,9 +24,7 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
     [characters, query]
   );
 
-  useEffect(() => {
-    setSelectedIndex((i) => Math.min(i, Math.max(filtered.length - 1, 0)));
-  }, [filtered.length]);
+  const activeIndex = Math.min(selectedIndex, Math.max(filtered.length - 1, 0));
 
   const insertMention = useCallback(
     (character: MentionCharacter) => {
@@ -96,8 +94,8 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
       } else if (key === "ArrowUp") {
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (key === "Enter" || key === "Tab") {
-        if (filtered[selectedIndex]) {
-          insertMention(filtered[selectedIndex]);
+        if (filtered[activeIndex]) {
+          insertMention(filtered[activeIndex]);
         }
       } else if (key === "Escape") {
         setOpen(false);
@@ -108,7 +106,7 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
 
     window.addEventListener("mention-keydown", handleKey);
     return () => window.removeEventListener("mention-keydown", handleKey);
-  }, [open, filtered, selectedIndex, insertMention]);
+  }, [open, filtered, activeIndex, insertMention]);
 
   // Close on click outside
   useEffect(() => {
@@ -140,8 +138,8 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
             role="listbox"
             aria-label="Mention a character"
             aria-activedescendant={
-              filtered[selectedIndex]
-                ? `mention-item-${selectedIndex}`
+              filtered[activeIndex]
+                ? `mention-item-${activeIndex}`
                 : undefined
             }
             className="w-[240px] py-1.5 rounded-xl bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 overflow-hidden"
@@ -154,14 +152,14 @@ export default function MentionDropdown({ editor, characters }: MentionDropdownP
                 key={character.id}
                 id={`mention-item-${index}`}
                 role="option"
-                aria-selected={index === selectedIndex}
+                aria-selected={index === activeIndex}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   insertMention(character);
                 }}
                 onMouseEnter={() => setSelectedIndex(index)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
-                  index === selectedIndex
+                  index === activeIndex
                     ? "bg-amber/10 text-paper"
                     : "text-text-secondary hover:text-paper"
                 }`}
