@@ -468,7 +468,7 @@ export default function ForYouReader({
   // Loading first chapter
   if (loadingQueue && queue.length === 0) {
     return (
-      <div className="fixed inset-0 bg-void flex items-center justify-center">
+      <div className="reader-foryou-shell fixed inset-0 bg-void flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -484,7 +484,7 @@ export default function ForYouReader({
   // Empty queue — terse mood
   if (!loadingQueue && queue.length === 0) {
     return (
-      <div className="fixed inset-0 bg-void flex items-center justify-center">
+      <div className="reader-foryou-shell fixed inset-0 bg-void flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -507,7 +507,7 @@ export default function ForYouReader({
 
   return (
     <div
-      className="fixed top-14 left-0 right-0 bottom-0 bg-void overflow-hidden select-text"
+      className="reader-foryou-shell fixed top-14 left-0 right-0 bottom-0 bg-void overflow-hidden select-text"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -520,7 +520,7 @@ export default function ForYouReader({
             animate={{ opacity: 0.08 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.2 }}
-            className="absolute inset-0 pointer-events-none"
+            className="reader-foryou-cover absolute inset-0 pointer-events-none"
             style={{
               backgroundImage: `url(${bgCover})`,
               backgroundSize: "cover",
@@ -531,7 +531,7 @@ export default function ForYouReader({
         )}
       </AnimatePresence>
       {/* Candlelight vignette */}
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.65)_100%)]" />
+      <div className="reader-foryou-vignette absolute inset-0 pointer-events-none" />
 
       {/* Top-left: dimmed title chip */}
       <AnimatePresence>
@@ -539,7 +539,7 @@ export default function ForYouReader({
           <motion.div
             key={`chip-${current.storyId}`}
             initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 0.6, y: 0 }}
+            animate={{ opacity: 0.82, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
             className="absolute top-5 left-6 z-10 max-w-xs"
@@ -571,7 +571,7 @@ export default function ForYouReader({
           <motion.div
             key={`reason-${current?.storyId}`}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
+            animate={{ opacity: 0.72 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, delay: 0.8 }}
             className="absolute top-5 right-6 z-10 font-display text-text-ghost text-[11px] italic tracking-wide"
@@ -585,9 +585,9 @@ export default function ForYouReader({
       <div
         ref={readerRef}
         onScroll={handleScroll}
-        className="relative h-full w-full overflow-y-auto scroll-smooth"
+        className="reader-foryou-scroll relative h-full w-full overflow-y-auto scroll-smooth"
       >
-        <div className="min-h-full flex flex-col items-center px-6 pt-16 pb-32">
+        <div className="reader-foryou-stage min-h-full flex flex-col items-center px-6 pt-16 pb-32">
           <AnimatePresence mode="wait">
             {currentChapter ? (
               <motion.article
@@ -596,7 +596,7 @@ export default function ForYouReader({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-                className="max-w-[680px] w-full"
+                className="reader-foryou-article max-w-[680px] w-full"
               >
                 <h1 className="font-display text-paper text-3xl md:text-4xl mb-2 tracking-tight">
                   {currentChapter.title}

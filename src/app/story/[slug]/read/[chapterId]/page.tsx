@@ -18,6 +18,7 @@ import IllustratedReader from "@/components/reader/IllustratedReader";
 import SceneClip from "@/components/reader/SceneClip";
 import ClipSelectionFAB from "@/components/reader/ClipSelectionFAB";
 import ChapterLockScreen from "@/components/reader/ChapterLockScreen";
+import SupportFooter from "@/components/story/SupportFooter";
 import { normalizeTypographySettings } from "@/lib/typography";
 
 const READER_PREFS_KEY = "quiloria-reader-prefs";
@@ -124,6 +125,7 @@ export default function ChapterReadPage() {
   const [storyAuthorName, setStoryAuthorName] = useState<string>("");
   const [clipPassage, setClipPassage] = useState<string | null>(null);
   const [storyId, setStoryId] = useState<string | null>(null);
+  const [storyUserId, setStoryUserId] = useState<string | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
   const [mode, setMode] = useState<ReadingMode>("paginated");
@@ -182,6 +184,7 @@ export default function ChapterReadPage() {
         setStoryId(story.id);
         setStoryCoverUrl(story.coverImageUrl || null);
         setStoryAuthorName(story.author?.displayName || "");
+        setStoryUserId(story.author?.id || story.userId || null);
         setTypography(normalizeTypographySettings(story));
 
         // Convert chapter list (these are summaries from the story endpoint)
@@ -681,6 +684,21 @@ export default function ChapterReadPage() {
           chapterId={chapterId}
           contentRef={annotationContentRef}
         />
+      )}
+
+      {/* Unified support footer at chapter end */}
+      {storyId && storyUserId && (
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <SupportFooter
+            storyId={storyId}
+            writerId={storyUserId}
+            writerName={storyAuthorName || "the author"}
+            chapterTitle={activeChapter?.title}
+            hasNextChapter={activeChapterIndex < chapters.length - 1}
+            isAuthenticated={Boolean(session?.user)}
+            isOwner={session?.user?.id === storyUserId}
+          />
+        </div>
       )}
 
       {/* Comments section */}
