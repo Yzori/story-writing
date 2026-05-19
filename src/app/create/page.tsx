@@ -120,6 +120,17 @@ export default function CreatePage() {
   const [format, setFormat] = useState("novel");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [synopsis, setSynopsis] = useState("");
+  const [adventureInvitation, setAdventureInvitation] = useState("");
+  const [campaignCadence, setCampaignCadence] = useState("One scene per week");
+  const [campaignAuditionPrompt, setCampaignAuditionPrompt] = useState(
+    "Write the moment we first meet your character. Where are they? What are they doing? What do they want, and what stops them from getting it?"
+  );
+  const [charterSeats, setCharterSeats] = useState(6);
+  const [charterTone, setCharterTone] = useState({
+    mood: 62,
+    scale: 45,
+    influence: 35,
+  });
   const [contentRating, setContentRating] = useState("everyone");
   const [contentNotes, setContentNotes] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -169,6 +180,13 @@ export default function CreatePage() {
           writingMode,
           genres: selectedGenres,
           synopsis: synopsis || undefined,
+          hook: writingMode === "campaign" && adventureInvitation ? adventureInvitation : undefined,
+          campaignSeats: writingMode === "campaign" ? charterSeats : undefined,
+          campaignToneMood: writingMode === "campaign" ? charterTone.mood : undefined,
+          campaignToneScale: writingMode === "campaign" ? charterTone.scale : undefined,
+          campaignToneInfluence: writingMode === "campaign" ? charterTone.influence : undefined,
+          campaignCadence: writingMode === "campaign" ? campaignCadence : undefined,
+          campaignAuditionPrompt: writingMode === "campaign" ? campaignAuditionPrompt : undefined,
           contentRating,
           contentNotes: contentNotes.length > 0 ? contentNotes : undefined,
           coverImageUrl: coverPreview || undefined,
@@ -178,7 +196,14 @@ export default function CreatePage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error?.message || "Failed to create story");
+        const details = json.error?.details?.fieldErrors
+          ? Object.entries(json.error.details.fieldErrors)
+              .flatMap(([field, messages]) =>
+                Array.isArray(messages) ? messages.map((message) => `${field}: ${message}`) : []
+              )
+              .join(" ")
+          : "";
+        setError([json.error?.message, details].filter(Boolean).join(" — ") || "Failed to create story");
         return;
       }
 
@@ -215,6 +240,37 @@ export default function CreatePage() {
   const synopsisPreview = synopsis.length > 0
     ? synopsis.length > 70 ? synopsis.slice(0, 70) + "..." : synopsis
     : null;
+
+  if (isCampaign) {
+    return (
+      <CampaignCharterCreate
+        title={title}
+        setTitle={setTitle}
+        synopsis={synopsis}
+        setSynopsis={setSynopsis}
+        selectedGenres={selectedGenres}
+        toggleGenre={toggleGenre}
+        contentRating={contentRating}
+        setContentRating={setContentRating}
+        contentNotes={contentNotes}
+        setContentNotes={setContentNotes}
+        adventureInvitation={adventureInvitation}
+        setAdventureInvitation={setAdventureInvitation}
+        campaignCadence={campaignCadence}
+        setCampaignCadence={setCampaignCadence}
+        campaignAuditionPrompt={campaignAuditionPrompt}
+        setCampaignAuditionPrompt={setCampaignAuditionPrompt}
+        charterSeats={charterSeats}
+        setCharterSeats={setCharterSeats}
+        charterTone={charterTone}
+        setCharterTone={setCharterTone}
+        isSubmitting={isSubmitting}
+        error={error}
+        onSubmit={handleSubmit}
+        onBack={() => setWritingMode(null)}
+      />
+    );
+  }
 
   return (
     <div className="create-details relative min-h-screen bg-void overflow-x-hidden">
@@ -260,7 +316,7 @@ export default function CreatePage() {
         transition={{ duration: 0.4 }}
         className="relative z-10"
       >
-        <div className="max-w-6xl mx-auto px-4 lg:px-8 pt-20 pb-20 flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-20 pb-20 flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
 
           {/* ── LEFT: The Book (sticky) ──────────────────────── */}
           <div className="w-full lg:w-auto lg:sticky lg:top-20 flex flex-col items-center lg:items-start shrink-0">
@@ -460,26 +516,36 @@ export default function CreatePage() {
           </div>
 
           {/* ── RIGHT: Form fields ───────────────────────────── */}
-          <div className="flex-1 min-w-0 w-full lg:max-w-xl">
+          <div className="flex-1 min-w-0 w-full lg:max-w-2xl">
             {/* Ambient glow behind form */}
             <div
               className="absolute -inset-8 rounded-3xl pointer-events-none hidden lg:block"
               style={{ boxShadow: accent.ambientGlow }}
             />
 
-            {/* Form card */}
-            <div className="create-details-form-panel relative rounded-xl border border-border bg-surface/95 backdrop-blur-xl p-6 sm:p-8 lg:p-10 shadow-elevated">
+            {/* Dossier */}
+            <div className="create-details-form-panel create-details-dossier relative rounded-lg border border-border bg-surface/90 backdrop-blur-xl shadow-elevated">
               {/* Top edge highlight */}
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border-active to-transparent rounded-t-xl" />
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border-active to-transparent rounded-t-lg" />
 
-              <div className="space-y-9">
+              <div className="px-6 pt-6 sm:px-9 sm:pt-8 lg:px-11 lg:pt-10">
+                <p className="font-body text-[10px] uppercase tracking-[0.18em] text-text-ghost mb-2">
+                  {isCampaign ? "Campaign Dossier" : "Story Dossier"}
+                </p>
+                <h2 className="font-display text-[26px] text-paper leading-tight">
+                  {isCampaign ? "Prepare the table" : "Prepare the manuscript"}
+                </h2>
+              </div>
+
+              <div className="create-details-sections px-6 pb-6 sm:px-9 sm:pb-8 lg:px-11 lg:pb-10">
                 {/* Title input */}
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
+                  className="create-details-section pt-8"
                 >
-                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-3 block font-body">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block font-body">
                     {isCampaign ? "Adventure Title" : "Story Title"}
                   </label>
                   <input
@@ -487,7 +553,7 @@ export default function CreatePage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={isCampaign ? "Untitled Adventure" : "Untitled Story"}
-                    className={`w-full font-display text-2xl text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-border pb-3 ${accent.inputFocus} transition-colors`}
+                    className={`create-details-title-input w-full font-display text-[30px] sm:text-[34px] text-paper bg-transparent outline-none placeholder:text-text-secondary/50 border-b border-border pb-3 ${accent.inputFocus} transition-colors`}
                     required
                   />
                 </motion.div>
@@ -511,8 +577,9 @@ export default function CreatePage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.32 }}
+                  className="create-details-section py-8"
                 >
-                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-3 block font-body">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block font-body">
                     {isCampaign ? "Adventure Premise" : "Synopsis"}
                   </label>
                   <textarea
@@ -524,9 +591,9 @@ export default function CreatePage() {
                         : "A brief description of your story. What will draw readers in?"
                     }
                     rows={4}
-                    className={`w-full bg-elevated border border-border rounded-xl px-4 py-3.5 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 placeholder:italic transition-all resize-none leading-relaxed ${accent.synopsisFocus}`}
+                    className={`create-details-premise w-full bg-transparent border border-border rounded-lg px-4 py-3.5 text-[14px] text-text font-body outline-none placeholder:text-text-secondary/55 placeholder:italic transition-all resize-none leading-relaxed ${accent.synopsisFocus}`}
                   />
-                  <p className="text-[11px] text-text-ghost mt-1.5">{synopsis.length}/500</p>
+                  <p className="text-[11px] text-text-ghost mt-2 font-body">{synopsis.length}/500</p>
                 </motion.div>
 
                 {/* Format — only for solo + co-op */}
@@ -535,8 +602,9 @@ export default function CreatePage() {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.36 }}
+                    className="create-details-section py-8"
                   >
-                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-3 block font-body">
+                    <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block font-body">
                       Format
                     </label>
                     <div className="grid grid-cols-3 gap-2.5">
@@ -581,18 +649,17 @@ export default function CreatePage() {
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.36 }}
-                    className="rounded-xl border border-violet/20 p-5 relative overflow-hidden bg-violet/[0.03]"
+                    className="create-details-section py-7"
                   >
-                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-violet/8 rounded-full blur-2xl pointer-events-none" />
-                    <div className="flex items-start gap-3.5 relative z-10">
-                      <div className="w-9 h-9 rounded-lg bg-violet/10 border border-violet/15 flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-9 h-9 rounded-md bg-violet/10 border border-violet/15 flex items-center justify-center shrink-0 mt-0.5">
                         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet">
                           <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3L10 14.5 5.1 17l.9-5.3-4-3.9 5.5-.8z" />
                         </svg>
                       </div>
                       <div>
-                        <p className="text-paper text-[13px] font-display font-semibold mb-1">You&apos;ll be the Game Master</p>
-                        <p className="text-text-secondary text-[12px] leading-relaxed">
+                        <p className="text-paper text-[13px] font-body font-semibold mb-1">You&apos;ll be the Game Master</p>
+                        <p className="text-text-secondary text-[12px] leading-relaxed font-body">
                           Create sessions, narrate the world, and guide your players through the story.
                         </p>
                       </div>
@@ -605,8 +672,9 @@ export default function CreatePage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.44 }}
+                  className="create-details-section py-8"
                 >
-                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-3 block font-body">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block font-body">
                     {isCampaign ? "Setting & Genres" : "Genres"}
                     <span className="text-text-tertiary ml-2 normal-case tracking-normal text-[11px]">
                       {selectedGenres.length}/5
@@ -656,7 +724,7 @@ export default function CreatePage() {
                       value={genreSearch}
                       onChange={(e) => { setGenreSearch(e.target.value); if (e.target.value) setShowAllGenres(true); }}
                       placeholder="Search genres..."
-                      className={`w-full bg-elevated border border-border rounded-lg pl-9 pr-3 py-2 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 ${accent.synopsisFocus} transition-colors`}
+                      className={`w-full bg-transparent border border-border rounded-md pl-9 pr-3 py-2 text-[13px] text-text font-body outline-none placeholder:text-text-secondary/50 ${accent.synopsisFocus} transition-colors`}
                     />
                   </div>
 
@@ -699,11 +767,12 @@ export default function CreatePage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.52 }}
+                  className="create-details-section py-8"
                 >
-                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-3 block font-body">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-3 block font-body">
                     Content Rating
                   </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid sm:grid-cols-2 gap-2">
                     {CONTENT_RATINGS.map((rating) => {
                       const isSelected = contentRating === rating.value;
                       return (
@@ -711,10 +780,10 @@ export default function CreatePage() {
                           key={rating.value}
                           type="button"
                           onClick={() => setContentRating(rating.value)}
-                          className={`px-4 py-2 rounded-xl border text-[12px] font-body transition-all duration-200 cursor-pointer flex flex-col items-start ${
+                          className={`px-3.5 py-3 rounded-md border text-[12px] font-body transition-all duration-200 cursor-pointer flex flex-col items-start ${
                             isSelected
                               ? accent.ratingSelected
-                              : "border-border text-text-secondary bg-elevated hover:border-border-active"
+                              : "border-border text-text-secondary bg-transparent hover:border-border-active hover:bg-elevated/50"
                           }`}
                         >
                           <span className="font-medium">{rating.label}</span>
@@ -732,8 +801,9 @@ export default function CreatePage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.56 }}
+                  className="create-details-section py-8"
                 >
-                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-secondary mb-1.5 block font-body">
+                  <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-1.5 block font-body">
                     Content Notes
                   </label>
                   <p className="text-[11px] text-text-ghost mb-3 font-body">
@@ -760,7 +830,7 @@ export default function CreatePage() {
                           }
                           className={`px-2.5 py-1 rounded-full text-[11px] border font-body transition-all duration-200 cursor-pointer ${
                             isSelected
-                              ? `bg-amber/10 text-amber border-amber/30`
+                              ? accent.selectedGenrePill
                               : "border-border text-text-secondary hover:border-border-active hover:bg-elevated"
                           }`}
                         >
@@ -776,12 +846,12 @@ export default function CreatePage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 }}
-                  className="flex items-center gap-4 pt-4"
+                  className="create-details-actions flex items-center gap-4 pt-7"
                 >
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`group relative font-display font-semibold px-8 py-3.5 rounded-full transition-all duration-300 text-[14px] flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden cursor-pointer hover:scale-[1.02] ${
+                    className={`group relative font-body font-semibold px-7 py-3 rounded-md transition-all duration-300 text-[13px] flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden cursor-pointer hover:scale-[1.01] ${
                       isCampaign
                         ? "bg-violet text-white"
                         : accent.submitBg
@@ -831,13 +901,710 @@ export default function CreatePage() {
   );
 }
 
+function CampaignCharterCreate({
+  title,
+  setTitle,
+  synopsis,
+  setSynopsis,
+  selectedGenres,
+  toggleGenre,
+  contentRating,
+  setContentRating,
+  contentNotes,
+  setContentNotes,
+  adventureInvitation,
+  setAdventureInvitation,
+  campaignCadence,
+  setCampaignCadence,
+  campaignAuditionPrompt,
+  setCampaignAuditionPrompt,
+  charterSeats,
+  setCharterSeats,
+  charterTone,
+  setCharterTone,
+  isSubmitting,
+  error,
+  onSubmit,
+  onBack,
+}: {
+  title: string;
+  setTitle: (value: string) => void;
+  synopsis: string;
+  setSynopsis: (value: string) => void;
+  selectedGenres: string[];
+  toggleGenre: (genre: string) => void;
+  contentRating: string;
+  setContentRating: (value: string) => void;
+  contentNotes: string[];
+  setContentNotes: React.Dispatch<React.SetStateAction<string[]>>;
+  adventureInvitation: string;
+  setAdventureInvitation: (value: string) => void;
+  campaignCadence: string;
+  setCampaignCadence: (value: string) => void;
+  campaignAuditionPrompt: string;
+  setCampaignAuditionPrompt: (value: string) => void;
+  charterSeats: number;
+  setCharterSeats: (value: number) => void;
+  charterTone: {
+    mood: number;
+    scale: number;
+    influence: number;
+  };
+  setCharterTone: React.Dispatch<React.SetStateAction<{
+    mood: number;
+    scale: number;
+    influence: number;
+  }>>;
+  isSubmitting: boolean;
+  error: string | null;
+  onSubmit: (e: React.FormEvent) => void;
+  onBack: () => void;
+}) {
+  const [showAllSignals, setShowAllSignals] = useState(false);
+  const signalChoices = showAllSignals ? GENRES : POPULAR_GENRES;
+  const previewTitle = title.trim() || "Untitled Adventure";
+  const previewPremise =
+    synopsis.trim() ||
+    "A salt-road city has begun receiving maps of rooms that do not exist yet. Each morning, one more door appears exactly where the ink predicted.";
+  const previewInvitation =
+    adventureInvitation.trim() ||
+    "Bring a character with a debt, a false name, or a reason to distrust maps. The first session opens at the archive fire.";
+  const rating = CONTENT_RATINGS.find((item) => item.value === contentRating) ?? CONTENT_RATINGS[0];
+  const filledSeats = 0;
+  const toneSummary = summarizeCharterTone(charterTone);
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-void text-paper">
+      <div className="pointer-events-none fixed inset-0">
+        <Image
+          src="/adventure_mode.png"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover opacity-[0.06] saturate-[0.55] blur-[2px]"
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,var(--t-gold-glow)_0%,transparent_45%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_55%,transparent_30%,rgba(8,5,3,0.85)_100%)]" />
+        <CharterGrain />
+      </div>
+
+      <form onSubmit={onSubmit} className="relative z-10 mx-auto max-w-[1320px] px-6 pt-24 pb-24 lg:px-10">
+        <header className="flex flex-wrap items-center justify-between gap-4 pb-10">
+          <nav className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-text-ghost">
+            <button type="button" onClick={onBack} className="transition-colors hover:text-text">
+              Write
+            </button>
+            <CharterPip />
+            <span>Adventures</span>
+            <CharterPip />
+            <span className="text-gold/85">Draft charter</span>
+          </nav>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/[0.06] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-gold/80">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
+              Draft
+            </span>
+            <button
+              type="button"
+              onClick={onBack}
+              className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-ghost transition-colors hover:text-text"
+            >
+              Change mode
+            </button>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <article className="relative">
+            <div className="relative rounded-[18px] border border-gold/[0.12] bg-gradient-to-br from-surface/85 via-surface/72 to-elevated/88 p-7 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.75)] backdrop-blur-2xl sm:p-12">
+              <CharterCorner className="absolute left-3 top-3" />
+              <CharterCorner className="absolute right-3 top-3 -scale-x-100" />
+              <CharterCorner className="absolute left-3 bottom-3 -scale-y-100" />
+              <CharterCorner className="absolute right-3 bottom-3 -scale-100" />
+
+              <section className="text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.36em] text-gold/65">
+                  An Adventure Charter
+                </p>
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  <span className="h-px w-20 bg-gradient-to-r from-transparent to-gold/40" />
+                  <CharterFleuron size={14} />
+                  <span className="h-px w-20 bg-gradient-to-l from-transparent to-gold/40" />
+                </div>
+                <input
+                  aria-label="Adventure title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="The Ashen Cartographer"
+                  required
+                  className="mt-5 w-full appearance-none border-0 !bg-transparent text-center font-display text-[40px] font-medium leading-[1.05] tracking-[-0.005em] text-text outline-none placeholder:text-text-ghost/60 focus:ring-0 sm:text-[56px]"
+                />
+                <div className="mt-6 inline-flex items-center gap-2.5 text-[12px]">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-ghost">
+                    chartered by
+                  </span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-gold/30 bg-gradient-to-br from-gold/25 via-gold/10 to-copper/10 font-display text-[10px] font-bold text-gold">
+                    Y
+                  </span>
+                  <span className="font-display text-[14px] italic text-text">You</span>
+                </div>
+              </section>
+
+              <CharterDivider />
+
+              <CharterSection index="I" label="Premise" hint="The first thing applicants read">
+                <textarea
+                  aria-label="Adventure premise"
+                  value={synopsis}
+                  onChange={(e) => setSynopsis(e.target.value)}
+                  placeholder="A salt-road city has begun receiving maps of rooms that do not exist yet..."
+                  className="block w-full resize-none rounded-md border border-gold/[0.08] bg-surface/40 px-5 py-5 font-reading text-[20px] leading-[1.55] text-text outline-none transition-colors placeholder:text-text-ghost focus:border-gold/30"
+                  rows={5}
+                />
+                <p className="mt-2 text-right font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                  {synopsis.trim().split(/\s+/).filter(Boolean).length} / 240 words
+                </p>
+              </CharterSection>
+
+              <CharterDivider />
+
+              <CharterSection index="II" label="Story Direction">
+                <div className="space-y-6">
+                  <CharterToneSlider
+                    label="Bright wonder"
+                    rightLabel="Haunted dread"
+                    value={charterTone.mood}
+                    onChange={(value) => setCharterTone((prev) => ({ ...prev, mood: value }))}
+                  />
+                  <CharterToneSlider
+                    label="Personal stakes"
+                    rightLabel="Epic stakes"
+                    value={charterTone.scale}
+                    onChange={(value) => setCharterTone((prev) => ({ ...prev, scale: value }))}
+                  />
+                  <CharterToneSlider
+                    label="GM-led"
+                    rightLabel="Audience-shaped"
+                    value={charterTone.influence}
+                    onChange={(value) => setCharterTone((prev) => ({ ...prev, influence: value }))}
+                  />
+                </div>
+
+                <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                    Setting signals
+                  </p>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                    {selectedGenres.length}/5
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {signalChoices.map((genre, index) => {
+                    const selected = selectedGenres.includes(genre);
+                    return (
+                      <button
+                        key={genre}
+                        type="button"
+                        onClick={() => toggleGenre(genre)}
+                        disabled={!selected && selectedGenres.length >= 5}
+                        className={`relative rounded-md border px-3 py-1 font-body text-[12px] tracking-wide transition-colors ${
+                          selected || (selectedGenres.length === 0 && index === 0)
+                            ? "border-gold/30 bg-gradient-to-b from-gold/15 to-transparent text-paper"
+                            : selectedGenres.length >= 5
+                            ? "cursor-not-allowed border-border/50 bg-surface/20 text-text-ghost/50"
+                            : "border-border bg-surface/40 text-text-secondary hover:border-gold/30 hover:text-paper"
+                        }`}
+                      >
+                        {genre}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSignals((value) => !value)}
+                    className="rounded-md border border-dashed border-border/70 px-3 py-1 font-body text-[12px] text-text-ghost transition-colors hover:border-gold/40 hover:text-gold"
+                  >
+                    {showAllSignals ? "show popular" : "+ add signal"}
+                  </button>
+                </div>
+
+                <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                  Seats available
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[2, 3, 4, 5, 6].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setCharterSeats(count)}
+                      className={`rounded-md border px-3 py-1.5 font-body text-[12px] transition-colors ${
+                        charterSeats === count
+                          ? "border-gold/35 bg-gold/[0.08] text-gold"
+                          : "border-border bg-surface/40 text-text-secondary hover:border-gold/30 hover:text-paper"
+                      }`}
+                    >
+                      {count} seats
+                    </button>
+                  ))}
+                </div>
+              </CharterSection>
+
+              <CharterDivider />
+
+              <CharterSection index="III" label="Reader Guidance">
+                <div className="grid gap-7 sm:grid-cols-[1fr_1fr]">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      Rating
+                    </p>
+                    <div className="mt-3 grid grid-cols-4 gap-1.5">
+                      {CONTENT_RATINGS.map((item) => {
+                        const active = item.value === contentRating;
+                        return (
+                          <button
+                            key={item.value}
+                            type="button"
+                            onClick={() => setContentRating(item.value)}
+                            className={`relative rounded-md border px-2 py-2 font-body text-[11px] transition-colors ${
+                              active
+                                ? "border-gold/40 bg-gradient-to-b from-gold/[0.18] to-gold/[0.04] text-paper shadow-[0_0_18px_rgba(212,175,55,0.18)]"
+                                : "border-border bg-surface/40 text-text-secondary hover:border-border-active"
+                            }`}
+                          >
+                            {item.label}
+                            {active && (
+                              <span className="absolute inset-x-2 -bottom-px h-px bg-gradient-to-r from-transparent via-gold/70 to-transparent" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      Content notes
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {["Violence", "Gore", "Sexual Content", "Strong Language", "Self-Harm", "Substance Use", "Abuse", "Horror", "Death", "Discrimination"].map((note) => {
+                        const active = contentNotes.includes(note);
+                        return (
+                          <button
+                            key={note}
+                            type="button"
+                            onClick={() =>
+                              setContentNotes((prev) =>
+                                prev.includes(note)
+                                  ? prev.filter((item) => item !== note)
+                                  : prev.length >= 10
+                                  ? prev
+                                  : [...prev, note]
+                              )
+                            }
+                            className={`rounded-full border px-2.5 py-1 font-body text-[11px] transition-colors ${
+                              active
+                                ? "border-gold/30 bg-gold/[0.08] text-gold"
+                                : "border-border bg-elevated/60 text-text-secondary hover:border-gold/40 hover:text-gold"
+                            }`}
+                          >
+                            {note}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </CharterSection>
+
+              <CharterDivider />
+
+              <CharterSection index="IV" label="Opening Invitation" hint="First words at the table">
+                <blockquote className="relative rounded-md border border-gold/[0.14] bg-gradient-to-br from-surface/55 to-elevated/45 px-7 py-7">
+                  <span className="pointer-events-none absolute -top-3 left-4 font-display text-[44px] leading-none text-gold/40">
+                    “
+                  </span>
+                  <textarea
+                    aria-label="Opening invitation"
+                    value={adventureInvitation}
+                    onChange={(e) => setAdventureInvitation(e.target.value)}
+                    maxLength={280}
+                    placeholder="Bring a character with a debt, a false name, or a reason to distrust maps. The first session opens at the archive fire."
+                    rows={3}
+                    className="block w-full resize-none bg-transparent font-reading text-[17px] italic leading-[1.6] text-text outline-none placeholder:text-text-ghost"
+                  />
+                  <span className="pointer-events-none absolute -bottom-8 right-4 font-display text-[44px] leading-none text-gold/40">
+                    ”
+                  </span>
+                </blockquote>
+                <p className="mt-2 text-right font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                  {adventureInvitation.length}/280
+                </p>
+              </CharterSection>
+
+              <CharterDivider />
+
+              <CharterSection index="V" label="Audition Brief" hint="What applicants answer before they join">
+                <div className="grid gap-5">
+                  <label className="block">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      Table cadence
+                    </span>
+                    <input
+                      value={campaignCadence}
+                      onChange={(e) => setCampaignCadence(e.target.value.slice(0, 160))}
+                      placeholder="One scene per week · Sundays"
+                      className="mt-2 block w-full rounded-md border border-gold/[0.08] bg-surface/40 px-4 py-3 font-body text-[13px] text-text outline-none transition-colors placeholder:text-text-ghost focus:border-gold/30"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      Character prompt
+                    </span>
+                    <textarea
+                      value={campaignAuditionPrompt}
+                      onChange={(e) => setCampaignAuditionPrompt(e.target.value.slice(0, 1000))}
+                      placeholder="Set the scene applicants should answer in character."
+                      rows={4}
+                      className="mt-2 block w-full resize-none rounded-md border border-gold/[0.08] bg-surface/40 px-4 py-3 font-reading text-[15px] leading-relaxed text-text outline-none transition-colors placeholder:text-text-ghost focus:border-gold/30"
+                    />
+                    <span className="mt-2 block text-right font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      {campaignAuditionPrompt.length}/1000
+                    </span>
+                  </label>
+                </div>
+              </CharterSection>
+
+              {error && (
+                <div className="mt-8 rounded-md border border-rose/25 bg-rose/10 px-4 py-3 font-body text-[13px] text-rose">
+                  {error}
+                </div>
+              )}
+
+              <div className="my-10 flex items-center justify-center gap-4">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-gold/30" />
+                <CharterFleuron size={20} />
+                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-gold/30" />
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="group relative flex items-center gap-4 rounded-full border border-gold/40 bg-gradient-to-b from-gold/22 via-gold/12 to-copper/12 px-7 py-3.5 font-display text-[15px] font-semibold text-gold shadow-[0_0_40px_rgba(212,175,55,0.22)] transition-all hover:border-gold/70 hover:text-paper hover:shadow-[0_0_60px_rgba(212,175,55,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CharterWaxSeal />
+                  <span>{isSubmitting ? "Sealing..." : "Seal & open the table"}</span>
+                  <span className="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-gold/70 group-hover:text-paper/80 sm:inline">
+                    creates adventure
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="font-body text-[12px] text-text-ghost transition-colors hover:text-text"
+                >
+                  Save as draft later · change mode
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-text-ghost">
+                  <CharterFleuron size={10} />
+                  What applicants see
+                </p>
+              </div>
+
+              <div className="relative rounded-2xl border border-gold/15 bg-gradient-to-br from-elevated/92 to-surface/88 p-3 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.7)]">
+                <div className="relative overflow-hidden rounded-xl">
+                  <div className="relative aspect-[5/4]">
+                    <Image
+                      src="/adventure_mode.png"
+                      alt=""
+                      fill
+                      sizes="420px"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-elevated via-elevated/30 to-transparent" />
+                    <div className="absolute right-3 top-3">
+                      <CharterWaxSeal />
+                    </div>
+                  </div>
+                  <div className="absolute inset-x-4 bottom-4">
+                    <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-gold/80">
+                      An adventure by you
+                    </p>
+                    <h3 className="mt-1 font-display text-[24px] leading-[0.98] text-paper">
+                      {previewTitle}
+                    </h3>
+                  </div>
+                </div>
+
+                <p className="mt-4 px-2 font-reading text-[13px] leading-[1.55] text-text-secondary">
+                  {previewPremise.length > 160 ? previewPremise.slice(0, 160) + "..." : previewPremise}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-1.5 px-2">
+                  {(selectedGenres.length > 0 ? selectedGenres : ["Fantasy", "Mystery", "Dark Fantasy"]).slice(0, 3).map((genre) => (
+                    <span
+                      key={genre}
+                      className="rounded-full border border-border bg-surface/50 px-2 py-0.5 font-body text-[10px] text-text-secondary"
+                    >
+                      {genre}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center gap-3 rounded-lg border border-gold/[0.12] bg-void/30 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: charterSeats }).map((_, index) => (
+                      <CharterLantern key={index} lit={index < filledSeats} />
+                    ))}
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      Seats
+                    </p>
+                    <p className="font-display text-[14px] text-paper">
+                      {filledSeats} of {charterSeats}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="mt-2 text-center font-mono text-[9px] uppercase tracking-[0.2em] text-text-ghost">
+                  {rating.label}
+                  {contentNotes.slice(0, 3).map((note) => ` · ${note.toLowerCase()}`)}
+                </p>
+                <p className="mt-3 border-t border-border pt-3 text-center font-body text-[12px] leading-relaxed text-text-secondary">
+                  {previewInvitation}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-elevated/70 p-5 backdrop-blur-xl">
+                <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-gold/70">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
+                  Charter pulse
+                </p>
+                <div className="mt-4 space-y-3.5">
+                  <CharterPulseRow label="Status" value="Drafting" accent />
+                  <CharterPulseRow label="Tone" value={toneSummary} />
+                  <CharterPulseRow label="Seats" value={`${charterSeats} open`} />
+                  <CharterPulseRow label="First table" value="created after seal" />
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </form>
+    </main>
+  );
+}
+
+function CharterSection({
+  index,
+  label,
+  hint,
+  children,
+}: {
+  index: string;
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-9">
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="font-display text-[14px] tracking-[0.2em] text-gold/60">{index}</span>
+        <h2 className="font-display text-[19px] tracking-tight text-paper">{label}</h2>
+        {hint && (
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+            · {hint}
+          </span>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function CharterDivider() {
+  return <div className="mt-9 h-px bg-gradient-to-r from-transparent via-gold/15 to-transparent" />;
+}
+
+function CharterPip() {
+  return <span className="h-0.5 w-0.5 rounded-full bg-text-ghost/50" />;
+}
+
+function CharterFleuron({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-gold/70">
+      <path
+        d="M12 3v6M12 15v6M3 12h6M15 12h6"
+        stroke="currentColor"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+      <path
+        d="M7.8 7.8l2 2M14.2 14.2l2 2M14.2 9.8l2-2M9.8 14.2l-2 2"
+        stroke="currentColor"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+    </svg>
+  );
+}
+
+function CharterCorner({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`text-gold/30 ${className}`}
+      aria-hidden
+    >
+      <path
+        d="M2 2h7M2 2v7M2 9c4.5 0 7-2.5 7-7"
+        stroke="currentColor"
+        strokeWidth="0.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CharterToneSlider({
+  label,
+  rightLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  rightLabel: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+        <span>{label}</span>
+        <span>{rightLabel}</span>
+      </div>
+      <div className="relative mt-2 h-5">
+        <div className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-gradient-to-r from-gold/25 via-border to-gold/25" />
+        <div
+          className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-gold/60 bg-gradient-to-br from-gold to-copper shadow-[0_0_10px_rgba(212,175,55,0.55)]"
+          style={{ left: `calc(${value}% - 6px)` }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          aria-label={`${label} to ${rightLabel}`}
+          className="absolute inset-0 h-5 w-full cursor-pointer appearance-none bg-transparent opacity-0"
+        />
+      </div>
+    </div>
+  );
+}
+
+function summarizeCharterTone({
+  mood,
+  scale,
+  influence,
+}: {
+  mood: number;
+  scale: number;
+  influence: number;
+}) {
+  const moodLabel = mood >= 60 ? "haunted" : mood <= 40 ? "wondrous" : "balanced";
+  const scaleLabel = scale >= 60 ? "epic" : scale <= 40 ? "intimate" : "wide-ranging";
+  const influenceLabel =
+    influence >= 60 ? "audience-shaped" : influence <= 40 ? "GM-led" : "shared direction";
+  return `${moodLabel}, ${scaleLabel}, ${influenceLabel}`;
+}
+
+function CharterLantern({ lit }: { lit: boolean }) {
+  return (
+    <span
+      className={`inline-block h-2.5 w-2.5 rounded-full transition-all ${
+        lit
+          ? "bg-gradient-to-br from-gold to-copper shadow-[0_0_8px_rgba(212,175,55,0.6)]"
+          : "border border-border bg-elevated"
+      }`}
+    />
+  );
+}
+
+function CharterWaxSeal() {
+  return (
+    <span className="relative inline-flex h-8 w-8 items-center justify-center">
+      <span className="absolute inset-0 rounded-full bg-gradient-to-br from-ruby/80 via-ruby/55 to-copper/55 shadow-[0_0_12px_rgba(178,34,52,0.45),inset_-2px_-2px_4px_rgba(0,0,0,0.4),inset_2px_2px_4px_rgba(255,255,255,0.12)]" />
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="relative text-paper/90"
+        aria-hidden
+      >
+        <path d="M12 3l2.4 5.2 5.6.6-4.2 3.8 1.3 5.5L12 15.5 6.9 18.1l1.3-5.5L4 8.8l5.6-.6z" fill="currentColor" opacity="0.9" />
+      </svg>
+    </span>
+  );
+}
+
+function CharterPulseRow({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+        {label}
+      </span>
+      <span className={`font-body text-[12px] ${accent ? "font-semibold text-gold" : "text-text"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function CharterGrain() {
+  return (
+    <svg
+      className="absolute inset-0 h-full w-full opacity-[0.028] mix-blend-overlay"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <filter id="create-charter-grain">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#create-charter-grain)" />
+    </svg>
+  );
+}
+
 // ── Mode Selection (Step 1) — Card Panels ─────────────────
 
 const MODES = [
   {
     id: "solo" as WritingMode,
-    title: "The Study",
-    subtitle: "Write solo",
+    title: "Solo Story",
+    subtitle: "The Study",
     description: "A quiet room. A desk by the window. Your story, your pace.",
     features: ["Rich prose editor", "Story bible", "Export anywhere"],
     image: "/solo_story_mode.png",
@@ -848,8 +1615,8 @@ const MODES = [
   },
   {
     id: "co-op" as WritingMode,
-    title: "The Workshop",
-    subtitle: "Collaborate on a story",
+    title: "Co-op Story",
+    subtitle: "The Workshop",
     description: "A long table. Maps and manuscripts. Stories charted side by side.",
     features: ["Invite collaborators", "Shared lore book", "Agreements & credit"],
     image: "/coop_story_mode.png",
@@ -860,8 +1627,8 @@ const MODES = [
   },
   {
     id: "campaign" as WritingMode,
-    title: "The Tavern",
-    subtitle: "Run an adventure",
+    title: "Adventure",
+    subtitle: "The Tavern",
     description: "A round table. Dice on wood. Heroes waiting for their tale.",
     features: ["GM narration & turns", "Character sheets", "Session adventures"],
     badge: "New",
@@ -887,12 +1654,12 @@ function ModeSelection({
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-6 relative overflow-hidden bg-void">
+    <div className="create-mode-selection min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-6 relative overflow-hidden bg-void">
       {/* Dynamic Ambient Background — blurs with enough weight to register in light mode */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-violet/8 blur-[120px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-amber/10 blur-[120px]" />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-teal/8 blur-[120px]" />
+      <div className="create-mode-ambient absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="create-mode-ambient-violet absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-violet/8 blur-[120px]" />
+        <div className="create-mode-ambient-amber absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-amber/10 blur-[120px]" />
+        <div className="create-mode-ambient-teal absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-teal/8 blur-[120px]" />
       </div>
 
       <motion.div
@@ -940,7 +1707,7 @@ function ModeSelection({
               onMouseLeave={() => !selectedMode && setHoveredMode(null)}
               onClick={() => !selectedMode && handleSelect(mode.id)}
               disabled={!!selectedMode}
-              className={`relative rounded-3xl overflow-hidden group border border-border bg-surface focus:outline-none transition-all duration-500 cursor-pointer shadow-card ${
+              className={`create-mode-card relative overflow-hidden group border border-border bg-surface focus:outline-none transition-all duration-500 cursor-pointer shadow-card ${
                 isHovered && !selectedMode ? `shadow-card-hover ` + mode.borderColor : ""
               } ${isSelected ? `shadow-card-hover ` + mode.borderColor : ""}`}
             >
@@ -957,8 +1724,8 @@ function ModeSelection({
                 />
 
                 {/* Vignette & Gradients — fade into the card's own surface color so light mode looks clean */}
-                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent opacity-95" />
-                <div className="absolute inset-0 bg-gradient-to-b from-surface/40 via-transparent to-transparent opacity-60" />
+                <div className="create-mode-card-fade-bottom absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent opacity-95" />
+                <div className="create-mode-card-fade-top absolute inset-0 bg-gradient-to-b from-surface/40 via-transparent to-transparent opacity-60" />
 
                 {/* Selection Glow Flash */}
                 <AnimatePresence>
@@ -974,7 +1741,7 @@ function ModeSelection({
               </div>
 
               {/* Content Overlay */}
-              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 flex flex-col justify-end h-full">
+              <div className="create-mode-card-content absolute inset-x-0 bottom-0 p-6 sm:p-8 flex flex-col justify-end h-full">
 
                 {/* Top Badge Overlay */}
                 <div className="absolute top-6 left-6 flex justify-between w-[calc(100%-3rem)]">
@@ -990,17 +1757,21 @@ function ModeSelection({
                     animate={{
                       color: isHovered || isSelected ? `var(--color-${mode.color})` : "var(--color-text-ghost)"
                     }}
-                    className={`text-[12px] uppercase tracking-[0.15em] mb-2 transition-colors duration-300 ${mode.textColor}`}
+                    className={`create-mode-card-subtitle text-[12px] font-semibold uppercase tracking-[0.15em] mb-2 transition-colors duration-300 ${mode.textColor}`}
                   >
                     {mode.subtitle}
                   </motion.p>
 
                   <motion.h2
                     layout="position"
-                    className="font-display text-3xl sm:text-4xl font-medium text-paper mb-4"
+                    className="create-mode-card-title font-body text-[30px] sm:text-[34px] font-semibold leading-[1.08] text-paper mb-3"
                   >
                     {mode.title}
                   </motion.h2>
+
+                  <p className="text-text-secondary text-[14px] leading-relaxed font-body">
+                    {mode.description}
+                  </p>
 
                   <AnimatePresence>
                     {(isHovered || isSelected) && (
@@ -1011,11 +1782,7 @@ function ModeSelection({
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         className="w-full overflow-hidden"
                       >
-                        <div className="pt-4 border-t border-border mt-2">
-                          <p className="text-text-secondary text-[14px] leading-relaxed mb-6 font-body">
-                            {mode.description}
-                          </p>
-
+                        <div className="pt-5 border-t border-border mt-5">
                           <ul className="space-y-3">
                             {mode.features.map((feat, i) => (
                               <motion.li

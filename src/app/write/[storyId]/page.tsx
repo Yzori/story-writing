@@ -53,6 +53,7 @@ import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
 import {
+  clearConflictChapterDraft,
   clearLocalChapterDraft,
   readLocalChapterDraft,
   useChapterAutosave,
@@ -166,7 +167,7 @@ function DraftRecoveryBanner({
     : savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const copy =
     notice.reason === "conflict"
-      ? "A collaborator changed this chapter while your draft was still local."
+      ? "The server has a newer version of this chapter. Your local draft is still safe."
       : notice.reason === "failed-save"
         ? "The last save did not reach the server, so this browser kept a copy."
         : "This browser has writing that has not been confirmed by the server.";
@@ -663,13 +664,15 @@ export default function WriteStoryPage() {
   // ── Editor settings persistence ───────────────────────────
   // Goals are editor-local. Typography is now story-backed, but we keep a
   // local copy as a quick draft cache for older/local projects.
+  const projectGoals = project?.goals;
+  const projectTypography = project?.typography;
   useEffect(() => {
-    if (!project) return;
+    if (!projectGoals || !projectTypography) return;
     saveEditorSettings(storyId, {
-      goals: project.goals,
-      typography: project.typography,
+      goals: projectGoals,
+      typography: projectTypography,
     });
-  }, [storyId, project?.goals, project?.typography]);
+  }, [storyId, projectGoals, projectTypography]);
 
   // ── Right panel toggle ────────────────────────────────────
   const togglePanel = useCallback(
@@ -773,7 +776,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen, togglePanel, flushPendingSaves, project?.chapters, project?.activeChapterId, handleSelectChapter]);
+  }, [commandOpen, togglePanel, flushPendingSaves, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
 
   useEffect(() => {
     return () => {
@@ -804,18 +807,6 @@ export default function WriteStoryPage() {
     }
 
     if (draft.content === chapter.content) {
-      clearLocalChapterDraft(storyId, chapter.id);
-      setDraftRecovery(null);
-      return;
-    }
-
-    const draftTime = Date.parse(draft.savedAt);
-    const chapterTime = chapter.updatedAt;
-    if (
-      draft.reason === "autosave" &&
-      Number.isFinite(draftTime) &&
-      draftTime <= chapterTime
-    ) {
       clearLocalChapterDraft(storyId, chapter.id);
       setDraftRecovery(null);
       return;
@@ -939,32 +930,6 @@ export default function WriteStoryPage() {
       });
     },
     [mutateJson, updateProject, storyId]
-  );
-
-  const handleUpdateChapterStatus = useCallback(
-    async (id: string, status: "draft" | "published") => {
-      const previousStatus = project?.chapters.find((chapter) => chapter.id === id)?.status ?? "draft";
-      updateProject((prev) => ({
-        ...prev,
-        chapters: prev.chapters.map((chapter) =>
-          chapter.id === id ? { ...chapter, status } : chapter
-        ),
-      }));
-
-      await mutateJson(`/api/stories/${storyId}/chapters/${id}`, {
-        body: { status },
-        errorMessage: "Couldn't update chapter status",
-        rollback: () => {
-          updateProject((prev) => ({
-            ...prev,
-            chapters: prev.chapters.map((chapter) =>
-              chapter.id === id ? { ...chapter, status: previousStatus } : chapter
-            ),
-          }));
-        },
-      });
-    },
-    [mutateJson, project?.chapters, storyId, updateProject]
   );
 
   // ── Publish chapter flow (confirmation + share) ──────────
@@ -1119,13 +1084,13 @@ export default function WriteStoryPage() {
 
   const handleUpdateContent = useCallback(
     (content: string, wordCount: number) => {
-      updateProject((prev) => {
-        const chapterId = prev.activeChapterId;
-        if (chapterId) {
-          const chapter = prev.chapters.find((c) => c.id === chapterId);
-          queueSave(chapterId, content, chapter?.version ?? 1);
-        }
+      const chapterId = project?.activeChapterId;
+      if (chapterId) {
+        const chapter = project?.chapters.find((c) => c.id === chapterId);
+        queueSave(chapterId, content, chapter?.version ?? 1);
+      }
 
+      updateProject((prev) => {
         const updated = {
           ...prev,
           chapters: prev.chapters.map((c) =>
@@ -1145,7 +1110,7 @@ export default function WriteStoryPage() {
       });
       scheduleSave();
     },
-    [updateProject, scheduleSave, queueSave]
+    [project?.activeChapterId, project?.chapters, queueSave, scheduleSave, updateProject]
   );
 
   const handleUpdateStoryTitle = useCallback(
@@ -1346,17 +1311,18 @@ export default function WriteStoryPage() {
       editorInstance.chain().focus().insertContentAt({ from, to }, suggestion).run();
       setShowAIAssistant(false);
     },
-    [editorInstance]
+    [editorInstance, setShowAIAssistant]
   );
 
   const handleRestoreSnapshot = useCallback(
     (snapshot: ChapterSnapshot) => {
+      const chapterId = project?.activeChapterId;
+      if (chapterId) {
+        const chapter = project.chapters.find((c) => c.id === chapterId);
+        queueSave(chapterId, snapshot.content, chapter?.version ?? 1);
+      }
+
       updateProject((prev) => {
-        const chapterId = prev.activeChapterId;
-        if (chapterId) {
-          const chapter = prev.chapters.find((c) => c.id === chapterId);
-          queueSave(chapterId, snapshot.content, chapter?.version ?? 1);
-        }
         return {
           ...prev,
           chapters: prev.chapters.map((c) =>
@@ -1373,7 +1339,7 @@ export default function WriteStoryPage() {
       });
       scheduleSave();
     },
-    [updateProject, scheduleSave, queueSave]
+    [project?.activeChapterId, project?.chapters, queueSave, scheduleSave, updateProject]
   );
 
   // ── Outline handler ─────────────────────────────────────
@@ -1990,7 +1956,7 @@ export default function WriteStoryPage() {
       </aside>
 
       {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
-      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-y-auto scroll-smooth transition-[opacity,padding] duration-500 ${leftInsetClass} ${rightInsetClass} ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
+      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-hidden transition-[opacity,padding] duration-500 ${leftInsetClass} ${rightInsetClass} ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
 
         {/* Search bar */}
         <AnimatePresence>
@@ -2036,7 +2002,7 @@ export default function WriteStoryPage() {
 
                 {/* Sticky chapter header */}
                 <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03] pt-3">
-                  <div className="max-w-[680px] mx-auto px-8 pb-3">
+                  <div className="max-w-[680px] mx-auto px-4 sm:px-8 pb-3">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
@@ -2050,9 +2016,9 @@ export default function WriteStoryPage() {
                         {activeChapterIndex !== undefined ? `${getFormatLabels(storyFormat).singular} ${activeChapterIndex + 1}` : ""}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <h1
-                        className="text-xl md:text-2xl font-display text-paper/90 outline-none focus:text-amber/90 transition-colors cursor-text"
+                        className="min-w-0 flex-1 truncate text-xl md:text-2xl font-display text-paper/90 outline-none focus:text-amber/90 transition-colors cursor-text"
                         contentEditable
                         suppressContentEditableWarning
                         spellCheck={false}
@@ -2071,7 +2037,7 @@ export default function WriteStoryPage() {
                       >
                         {activeChapter.title ?? "Untitled"}
                       </h1>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         {/* Co-op: Collaborator presence + team controls */}
                         {writingMode !== "solo" && (
                           <div className="hidden sm:flex items-center gap-1.5">
@@ -2166,12 +2132,13 @@ export default function WriteStoryPage() {
                                 openPublishDialog(activeChapter.id, activeChapter.title);
                               }
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] border border-sage/30 text-sage hover:bg-sage/10 transition-all"
+                            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] border border-sage/30 text-sage hover:bg-sage/10 transition-all"
                           >
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                               <path d="M2 6l3 3 5-5" />
                             </svg>
-                            Publish Chapter
+                            <span className="hidden min-[420px]:inline">Publish Chapter</span>
+                            <span className="min-[420px]:hidden">Publish</span>
                           </button>
                         ) : (
                           <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-sage/10 text-sage/60" title="This chapter is visible to readers">
@@ -2193,9 +2160,9 @@ export default function WriteStoryPage() {
                   </div>
                 </div>
 
-                <div className="w-full flex-1 min-h-0 flex pt-8">
+                <div className="w-full flex-1 min-h-0 flex pt-4 sm:pt-8">
                   <div
-                    className={`flex-1 min-w-0 ${typographyClassName(project.typography)} ${
+                    className={`flex-1 min-w-0 min-h-0 flex flex-col ${typographyClassName(project.typography)} ${
                       focusMode ? "focus-mode" : ""
                     }`}
                   >
@@ -2249,6 +2216,7 @@ export default function WriteStoryPage() {
                         content={activeChapter.content}
                         onUpdate={handleUpdateContent}
                         onEditorReady={handleEditorReady}
+                        editorClassName={typographyClassName(project.typography)}
                       />
                     ) : (
                       <ProseEditor
@@ -2256,6 +2224,7 @@ export default function WriteStoryPage() {
                         content={activeChapter.content}
                         onUpdate={handleUpdateContent}
                         onEditorReady={handleEditorReady}
+                        editorClassName={typographyClassName(project.typography)}
                         onComment={handleAddComment}
                         onMentionClick={handleMentionClick}
                         characters={mentionCharacters}
@@ -2420,12 +2389,13 @@ export default function WriteStoryPage() {
             className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-amber/10 border border-amber/20 backdrop-blur-xl text-amber text-sm shadow-2xl"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span>Another collaborator edited this chapter. Your draft is saved locally.</span>
+            <span>Server version changed. Your draft is saved locally.</span>
             <button
               onClick={() => window.location.reload()}
+              title="Load the latest server version. Your local draft remains recoverable."
               className="px-3 py-1.5 rounded-lg bg-amber/20 hover:bg-amber/30 transition-colors font-medium text-xs"
             >
-              Reload
+              Load latest
             </button>
             <button
               onClick={() => {
@@ -2443,40 +2413,51 @@ export default function WriteStoryPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-surface/50 border border-border hover:bg-surface transition-colors font-medium text-xs text-text-secondary"
             >
-              Copy my draft
+              Copy draft
             </button>
             <button
-              onClick={() => {
-                setSaveState("idle");
-                // Force save with current version (override)
-                if (project) {
-                  const ch = project.chapters.find((c) => c.id === project.activeChapterId);
-                  if (ch) {
-                    fetch(`/api/stories/${storyId}/chapters/${ch.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ content: ch.content }),
-                    }).then((r) => {
-                      if (r.ok) {
-                        r.json().then((json) => {
-                          if (json.data?.version) {
-                            updateProject((prev) => ({
-                              ...prev,
-                              chapters: prev.chapters.map((c) =>
-                                c.id === json.data.id ? { ...c, version: json.data.version } : c
-                              ),
-                            }));
-                          }
-                        });
-                        toast("Your version saved", "success");
-                      }
-                    });
+              onClick={async () => {
+                const ch = project?.chapters.find((c) => c.id === project.activeChapterId);
+                if (!ch) return;
+
+                setSaveState("saving");
+                try {
+                  const response = await fetch(`/api/stories/${storyId}/chapters/${ch.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content: ch.content }),
+                  });
+
+                  if (!response.ok) {
+                    setSaveState("conflict");
+                    toast("Couldn’t save your version. Your draft is still local.", "error");
+                    return;
                   }
+
+                  const json = await response.json();
+                  const savedChapter = json.data;
+                  if (savedChapter?.id && typeof savedChapter.version === "number") {
+                    updateProject((prev) => ({
+                      ...prev,
+                      chapters: prev.chapters.map((c) =>
+                        c.id === savedChapter.id ? { ...c, version: savedChapter.version } : c
+                      ),
+                    }));
+                  }
+
+                  clearLocalChapterDraft(storyId, ch.id);
+                  clearConflictChapterDraft(storyId, ch.id);
+                  setSaveState("saved");
+                  window.setTimeout(() => setSaveState("idle"), 2000);
+                  toast("Your version saved", "success");
+                } catch {
+                  setSaveState("conflict");
+                  toast("Network error. Your draft is still local.", "error");
                 }
               }}
               className="px-3 py-1.5 rounded-lg bg-surface/50 border border-border hover:bg-surface transition-colors font-medium text-xs text-text-secondary"
             >
-              Keep mine
+              Save my draft
             </button>
           </motion.div>
         )}
@@ -2714,8 +2695,8 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       {/* ── 6. Right Context + Panels ─────────────────────── */}
-      <div className={`absolute inset-y-0 right-0 z-40 flex max-w-[calc(100vw-56px)] transition-[width] duration-300 ${
-        rightPanel === "none" ? rightContextCollapsed ? "w-0 xl:w-12" : "w-0 xl:w-[360px]" : "w-[360px]"
+      <div className={`editor-side-shell absolute inset-y-0 right-0 z-40 flex max-w-full transition-[width] duration-300 ${
+        rightPanel === "none" ? rightContextCollapsed ? "w-0 xl:w-12" : "w-0 xl:w-[360px]" : "w-full sm:w-[360px]"
       }`}>
         {rightPanel === "none" && rightContextCollapsed && !commandOpen && (
           <aside className="hidden h-full w-12 flex-col items-center border-l border-border bg-surface/80 py-3 backdrop-blur-2xl xl:flex">
