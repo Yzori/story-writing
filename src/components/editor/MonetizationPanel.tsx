@@ -7,7 +7,7 @@ import { formatNumber } from "@/lib/format";
 
 /**
  * MonetizationPanel — unified writer view of Circle, per-chapter gating, and
- * Scriptorium offerings. Shows at-a-glance status for each surface and links to
+ * Commission offerings. Shows at-a-glance status for each surface and links to
  * the existing configuration flows.
  *
  * The panel deliberately does NOT duplicate configuration UI — for per-chapter
@@ -336,7 +336,7 @@ export default function MonetizationPanel({
                       <path d="M2 3h12v10H2zM5 7h6M5 10h3" />
                     </svg>
                   }
-                  title="Scriptorium offerings"
+                  title="Commission offerings"
                   status={
                     hasOfferings
                       ? `${offerings.length} active offering${offerings.length === 1 ? "" : "s"}`
@@ -352,7 +352,7 @@ export default function MonetizationPanel({
                   }
                   action={
                     <Link
-                      href="/scriptorium/offerings"
+                      href="/commissions/offerings"
                       className="text-amethyst hover:text-lavender text-[12px] tracking-wide transition-colors"
                     >
                       {hasOfferings ? "Manage offerings →" : "Create offering →"}

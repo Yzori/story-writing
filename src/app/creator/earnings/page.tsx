@@ -46,6 +46,12 @@ export default function CreatorEarningsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
+      <Link
+        href="/creator/monetization"
+        className="mb-5 inline-flex items-center gap-1.5 text-[12px] text-text-ghost transition-colors hover:text-amber"
+      >
+        ← Monetization hub
+      </Link>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         {/* Header */}
         <div className="flex items-start justify-between mb-6 gap-4">

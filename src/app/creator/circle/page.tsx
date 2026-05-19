@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import { dropsToUsd } from "@/lib/constants";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -688,6 +689,12 @@ export default function CreatorCirclePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <Link
+        href="/creator/monetization"
+        className="mb-5 inline-flex items-center gap-1.5 text-[12px] text-text-ghost transition-colors hover:text-amber"
+      >
+        ← Monetization hub
+      </Link>
       {/* Header */}
       <motion.div {...fadeUp} transition={{ duration: 0.4 }}>
         <h1 className="font-display text-3xl font-bold text-paper sm:text-4xl">
