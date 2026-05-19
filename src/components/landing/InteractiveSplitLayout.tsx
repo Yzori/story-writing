@@ -7,8 +7,8 @@ import type { FeaturedStoryData, ShelfStoryData } from "@/lib/landing-data";
 
 // ── Mock data (marketing illustration) ──────────────────────
 // Used for cells whose claim ("12-day streak", "three writers in the room",
-// "$284 this month", interactive previews) doesn't map to a single real
-// user record on the anon homepage. Treat as art direction, not metrics.
+// "adventure previews") doesn't map to a single real user record on the anon
+// homepage. Treat as art direction, not metrics.
 
 const FOR_YOU_TAGS = ["Fantasy", "Slow-burn", "Sapphic", "Novella", "Found family"];
 
@@ -662,52 +662,50 @@ function CoWriteCell() {
   );
 }
 
-function EarnCell() {
+function AdventureCell() {
   return (
-    <div className="group relative rounded-2xl border border-sage/25 bg-surface/55 backdrop-blur-sm overflow-hidden p-6 hover:border-sage/40 hover:bg-surface/70 transition-all duration-500 h-full">
+    <Link
+      href="/demo-adventure"
+      className="group relative block rounded-2xl border border-sage/25 bg-surface/55 backdrop-blur-sm overflow-hidden p-6 hover:border-sage/40 hover:bg-surface/70 transition-all duration-500 h-full"
+    >
       <div className="absolute inset-0 bg-sage/5 opacity-50 pointer-events-none" />
-      <div className="relative">
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-sage/10 to-transparent pointer-events-none" />
+      <div className="relative h-full flex flex-col">
         <div className="flex items-center justify-between mb-3 gap-2">
           <p className="text-[10px] uppercase tracking-[0.18em] text-sage/85 font-display">
-            Earn
+            Adventure mode
           </p>
           <span className="text-[10px] text-sage/90 font-body px-2 py-0.5 rounded-full bg-sage/10 border border-sage/25 whitespace-nowrap">
-            92% to creator
+            Live table
           </span>
         </div>
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="font-display text-3xl text-paper font-medium leading-none">$284</span>
-          <span className="text-text-secondary text-[13px] font-body">this month</span>
+        <h3 className="font-display text-xl text-paper font-medium leading-tight mb-4">
+          Turn a story into a playable session
+        </h3>
+        <div className="relative mb-4 h-14 rounded-lg border border-sage/15 bg-void/25 overflow-hidden">
+          <svg className="absolute inset-0 w-full h-full text-sage/55" viewBox="0 0 220 72" fill="none" aria-hidden>
+            <path d="M18 54 C52 20 82 24 110 42 S166 58 202 18" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="4 6" />
+            <circle cx="18" cy="54" r="4" fill="currentColor" opacity="0.8" />
+            <circle cx="110" cy="42" r="4" fill="currentColor" opacity="0.55" />
+            <circle cx="202" cy="18" r="4" fill="currentColor" opacity="0.8" />
+          </svg>
+          <div className="absolute left-4 top-3 px-2 py-1 rounded-md bg-surface/80 border border-sage/20 text-[10px] text-sage font-mono">
+            d20: 17
+          </div>
+          <div className="absolute right-4 bottom-3 px-2 py-1 rounded-md bg-walnut/40 border border-border text-[10px] text-text-secondary font-body">
+            Next turn
+          </div>
         </div>
-        <svg
-          className="w-full h-8 mb-3 text-sage/70"
-          viewBox="0 0 100 24"
-          preserveAspectRatio="none"
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M0 18 L15 16 L30 14 L45 13 L60 9 L75 7 L100 4 L100 24 L0 24 Z"
-            fill="currentColor"
-            opacity="0.12"
-          />
-          <path
-            d="M0 18 L15 16 L30 14 L45 13 L60 9 L75 7 L100 4"
-            stroke="currentColor"
-            strokeWidth="1.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <div className="flex items-center gap-2 text-[11px] text-text-tertiary font-body">
-          <span>Tips $84</span>
-          <span aria-hidden>·</span>
-          <span>Subs $147</span>
-          <span aria-hidden>·</span>
-          <span>Comms $53</span>
+        <p className="text-text-secondary text-[12px] font-body leading-relaxed mb-4">
+          Maps, dice rolls, turns, and audience pulse keep the fiction moving.
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-text-tertiary font-body mt-auto">
+          <span className="px-2 py-1 rounded-full bg-walnut/30 border border-border">Map</span>
+          <span className="px-2 py-1 rounded-full bg-walnut/30 border border-border">Rolls</span>
+          <span className="px-2 py-1 rounded-full bg-walnut/30 border border-border">Session log</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -757,7 +755,7 @@ function Bento({ featured }: { featured: FeaturedStoryData }) {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <EarnCell />
+            <AdventureCell />
           </motion.div>
         </div>
       </div>
