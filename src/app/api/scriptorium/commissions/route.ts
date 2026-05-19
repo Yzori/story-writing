@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       offering.artisanId,
       "circle", // reusing for now, could add "commission" type
       `New commission request for "${offering.title}"`,
-      `/scriptorium?tab=commissions`
+      `/commissions?tab=commissions`
     );
 
     return NextResponse.json({ commission }, { status: 201 });

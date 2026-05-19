@@ -847,7 +847,7 @@ function SuccessScreen({ onDone }: { onDone: () => void }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
       >
-        Your service is now live in the Scriptorium. Patrons can discover
+        Your service is now live in Commissions. Patrons can discover
         and commission you starting now.
       </motion.p>
       <motion.button
@@ -1262,7 +1262,7 @@ export default function MyOfferingsPage() {
             My Offerings
           </h1>
           <p className="text-text-secondary text-base max-w-lg mx-auto leading-relaxed">
-            Sign in to manage your Scriptorium offerings.
+            Sign in to manage your commission offerings.
           </p>
         </div>
       </div>

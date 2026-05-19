@@ -39,6 +39,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/scriptorium/offerings",
+        destination: "/commissions/offerings",
+        permanent: false,
+      },
+      {
+        source: "/scriptorium/commissions/:commissionId",
+        destination: "/commissions/:commissionId",
+        permanent: false,
+      },
+      {
+        source: "/scriptorium",
+        destination: "/commissions",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -169,7 +169,7 @@ export async function PATCH(
           isSystemMessage: true,
         });
 
-        createNotification(commission.patronId, "circle", `Your commission received a quote: ${price} drops`, `/scriptorium?tab=commissions`);
+        createNotification(commission.patronId, "circle", `Your commission received a quote: ${price} drops`, `/commissions?tab=commissions`);
         break;
       }
 
@@ -223,7 +223,7 @@ export async function PATCH(
           isSystemMessage: true,
         });
 
-        createNotification(commission.artisanId, "circle", "Commission accepted — work can begin!", `/scriptorium?tab=commissions`);
+        createNotification(commission.artisanId, "circle", "Commission accepted — work can begin!", `/commissions?tab=commissions`);
         break;
       }
 
@@ -250,7 +250,7 @@ export async function PATCH(
           isDelivery: true,
         });
 
-        createNotification(commission.patronId, "circle", "Your commission has been delivered!", `/scriptorium?tab=commissions`);
+        createNotification(commission.patronId, "circle", "Your commission has been delivered!", `/commissions?tab=commissions`);
         break;
       }
 
@@ -318,7 +318,7 @@ export async function PATCH(
           isSystemMessage: true,
         });
 
-        createNotification(commission.artisanId, "circle", `Commission completed! ${creatorShare} drops released to you.`, `/scriptorium?tab=commissions`);
+        createNotification(commission.artisanId, "circle", `Commission completed! ${creatorShare} drops released to you.`, `/commissions?tab=commissions`);
         break;
       }
 
@@ -350,7 +350,7 @@ export async function PATCH(
           content: message || "Revision requested.",
         });
 
-        createNotification(commission.artisanId, "circle", "Revision requested on your commission", `/scriptorium?tab=commissions`);
+        createNotification(commission.artisanId, "circle", "Revision requested on your commission", `/commissions?tab=commissions`);
         break;
       }
 
@@ -401,7 +401,7 @@ export async function PATCH(
         }
 
         const otherId = isPatron ? commission.artisanId : commission.patronId;
-        createNotification(otherId, "circle", "A commission has been cancelled", `/scriptorium?tab=commissions`);
+        createNotification(otherId, "circle", "A commission has been cancelled", `/commissions?tab=commissions`);
         break;
       }
 
@@ -445,7 +445,7 @@ export async function PATCH(
           tags: JSON.stringify(reviewTags || []),
         });
 
-        createNotification(commission.artisanId, "circle", `You received a ${rating}-star testimonial!`, `/scriptorium`);
+        createNotification(commission.artisanId, "circle", `You received a ${rating}-star testimonial!`, `/commissions`);
         break;
       }
 

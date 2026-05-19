@@ -945,11 +945,11 @@ export default function CommissionDetailPage() {
     return (
       <div className="px-4 pt-12 pb-20 max-w-4xl mx-auto">
         <Link
-          href="/scriptorium"
+          href="/commissions"
           className="inline-flex items-center gap-1.5 text-text-secondary text-sm hover:text-text transition-colors mb-8"
         >
           <ArrowLeftIcon />
-          Back to Scriptorium
+          Back to Commissions
         </Link>
         <motion.div
           className="text-center py-16"
@@ -991,11 +991,11 @@ export default function CommissionDetailPage() {
           transition={{ duration: 0.3 }}
         >
           <Link
-            href="/scriptorium"
+            href="/commissions"
             className="inline-flex items-center gap-1.5 text-text-secondary text-sm hover:text-text transition-colors mb-6"
           >
             <ArrowLeftIcon />
-            Back to Scriptorium
+            Back to Commissions
           </Link>
         </motion.div>
 
