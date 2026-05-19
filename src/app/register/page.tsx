@@ -7,6 +7,13 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 
 const DEMO_DRAFT_KEY = "quiloria-demo-draft-v1";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_LENGTH = 128;
+
+type RegisterField = "displayName" | "email" | "password" | "confirmPassword";
+type RegisterTouched = Record<RegisterField, boolean>;
+type RegisterErrors = Partial<Record<RegisterField, string>>;
 
 interface DemoDraft {
   title?: string;
@@ -28,6 +35,53 @@ function readDemoDraft(): DemoDraft | null {
 
 function clearDemoDraft() {
   try { localStorage.removeItem(DEMO_DRAFT_KEY); } catch {}
+}
+
+function getRegisterErrors(
+  displayName: string,
+  email: string,
+  password: string,
+  confirmPassword: string,
+): RegisterErrors {
+  const errors: RegisterErrors = {};
+  const trimmedDisplayName = displayName.trim();
+  const trimmedEmail = email.trim();
+
+  if (!trimmedDisplayName) {
+    errors.displayName = "Display name is required.";
+  } else if (trimmedDisplayName.length > 100) {
+    errors.displayName = "Display name must be under 100 characters.";
+  }
+
+  if (!trimmedEmail) {
+    errors.email = "Email is required.";
+  } else if (trimmedEmail.length > MAX_EMAIL_LENGTH || !EMAIL_REGEX.test(trimmedEmail)) {
+    errors.email = "Enter a valid email address.";
+  }
+
+  if (!password) {
+    errors.password = "Password is required.";
+  } else if (password.length < 8) {
+    errors.password = "Password must be at least 8 characters.";
+  } else if (password.length > MAX_PASSWORD_LENGTH) {
+    errors.password = "Password must be under 128 characters.";
+  }
+
+  if (!confirmPassword) {
+    errors.confirmPassword = "Confirm your password.";
+  } else if (password && password !== confirmPassword) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+
+  return errors;
+}
+
+function fieldClasses(hasError: boolean) {
+  return `w-full bg-elevated/80 border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all ${
+    hasError
+      ? "border-rose/40 focus:border-rose/50 focus-visible:ring-rose/30"
+      : "border-border focus:border-amber/40 focus-visible:ring-amber/40"
+  }`;
 }
 
 /**
@@ -78,47 +132,50 @@ async function importDemoDraft(draft: DemoDraft): Promise<string | null> {
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const fromDemo = searchParams?.get("source") === "demo";
   const intent = searchParams?.get("intent"); // "write" | "read" | null
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [touched, setTouched] = useState<RegisterTouched>({
+    displayName: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  const validationErrors = getRegisterErrors(displayName, email, password, confirmPassword);
+  const shouldShowError = (field: RegisterField) => (touched[field] || submitted) && !!validationErrors[field];
+  const isValid = Object.keys(validationErrors).length === 0;
 
   // Detect a demo draft so we can show a friendly banner and tailor the redirect.
   useEffect(() => {
     setHasDraft(!!readDemoDraft());
   }, []);
 
-  function validate(): string | null {
-    if (!displayName.trim()) return "Display name is required.";
-    if (displayName.trim().length > 100) return "Display name must be under 100 characters.";
-    if (password.length < 8) return "Password must be at least 8 characters.";
-    if (password !== confirmPassword) return "Passwords do not match.";
-    return null;
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+    setSubmitted(true);
+
+    if (!isValid) return;
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName, email, password }),
+        body: JSON.stringify({ displayName: displayName.trim(), email: email.trim(), password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Registration failed. Please try again."); setLoading(false); return; }
 
-      const result = await signIn("credentials", { email, password, redirect: false });
+      const result = await signIn("credentials", { email: email.trim(), password, redirect: false });
       if (result?.error) {
         router.push("/login");
         return;
@@ -204,7 +261,7 @@ function RegisterForm() {
             <div className="min-w-0">
               <p className="text-paper text-[12px] font-medium">Your draft is ready to save</p>
               <p className="text-text-ghost text-[11px] mt-0.5 leading-relaxed">
-                We'll import your demo writing as your first chapter.
+                We&apos;ll import your demo writing as your first chapter.
               </p>
             </div>
           </motion.div>
@@ -231,12 +288,24 @@ function RegisterForm() {
                 id="displayName"
                 type="text"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => {
+                  setDisplayName(e.target.value);
+                  setTouched((current) => ({ ...current, displayName: true }));
+                  setError("");
+                }}
+                onBlur={() => setTouched((current) => ({ ...current, displayName: true }))}
                 required
                 maxLength={100}
                 placeholder="Your pen name"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
+                aria-invalid={shouldShowError("displayName")}
+                aria-describedby={shouldShowError("displayName") ? "display-name-error" : undefined}
+                className={fieldClasses(shouldShowError("displayName"))}
               />
+              {shouldShowError("displayName") && (
+                <p id="display-name-error" className="mt-1.5 text-[11px] leading-relaxed text-rose">
+                  {validationErrors.displayName}
+                </p>
+              )}
             </div>
 
             <div>
@@ -247,12 +316,24 @@ function RegisterForm() {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setTouched((current) => ({ ...current, email: true }));
+                  setError("");
+                }}
+                onBlur={() => setTouched((current) => ({ ...current, email: true }))}
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
+                aria-invalid={shouldShowError("email")}
+                aria-describedby={shouldShowError("email") ? "email-error" : undefined}
+                className={fieldClasses(shouldShowError("email"))}
               />
+              {shouldShowError("email") && (
+                <p id="email-error" className="mt-1.5 text-[11px] leading-relaxed text-rose">
+                  {validationErrors.email}
+                </p>
+              )}
             </div>
 
             <div>
@@ -263,12 +344,25 @@ function RegisterForm() {
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setTouched((current) => ({ ...current, password: true }));
+                  setError("");
+                }}
+                onBlur={() => setTouched((current) => ({ ...current, password: true }))}
                 required
+                maxLength={MAX_PASSWORD_LENGTH + 1}
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
+                aria-invalid={shouldShowError("password")}
+                aria-describedby={shouldShowError("password") ? "password-error" : undefined}
+                className={fieldClasses(shouldShowError("password"))}
               />
+              {shouldShowError("password") && (
+                <p id="password-error" className="mt-1.5 text-[11px] leading-relaxed text-rose">
+                  {validationErrors.password}
+                </p>
+              )}
             </div>
 
             <div>
@@ -279,17 +373,30 @@ function RegisterForm() {
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setTouched((current) => ({ ...current, confirmPassword: true }));
+                  setError("");
+                }}
+                onBlur={() => setTouched((current) => ({ ...current, confirmPassword: true }))}
                 required
+                maxLength={MAX_PASSWORD_LENGTH + 1}
                 autoComplete="new-password"
                 placeholder="Repeat your password"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
+                aria-invalid={shouldShowError("confirmPassword")}
+                aria-describedby={shouldShowError("confirmPassword") ? "confirm-password-error" : undefined}
+                className={fieldClasses(shouldShowError("confirmPassword"))}
               />
+              {shouldShowError("confirmPassword") && (
+                <p id="confirm-password-error" className="mt-1.5 text-[11px] leading-relaxed text-rose">
+                  {validationErrors.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isValid}
               className="w-full bg-amber text-void font-semibold px-6 py-2.5 rounded-full hover:bg-amber-light transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm hover:shadow-md hover:shadow-amber/15"
             >
               {loading ? "Creating account..." : "Create account"}
@@ -303,16 +410,19 @@ function RegisterForm() {
             <div className="flex-1 h-px bg-border" />
           </div>
 
-          {/* GitHub OAuth */}
+          {/* Google OAuth */}
           <button
             type="button"
-            onClick={() => signIn("github", { callbackUrl: intent === "write" ? "/create" : "/welcome" })}
+            onClick={() => signIn("google", { callbackUrl: intent === "write" ? "/create" : "/welcome" })}
             className="w-full flex items-center justify-center gap-2.5 bg-elevated/80 border border-border text-text-secondary font-medium px-6 py-2.5 rounded-full hover:text-paper hover:border-border-active transition-all duration-200 text-sm"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M14.5 8.15c0-.52-.05-1.01-.14-1.49H8v2.69h3.64a3.1 3.1 0 0 1-1.35 2.04v1.77h2.18c1.28-1.19 2.03-2.94 2.03-5.01Z" fill="currentColor" />
+              <path d="M8 14.8c1.83 0 3.37-.61 4.49-1.64l-2.18-1.77c-.61.41-1.39.65-2.31.65-1.77 0-3.26-1.2-3.8-2.8H1.95v1.82A6.78 6.78 0 0 0 8 14.8Z" fill="currentColor" opacity="0.8" />
+              <path d="M4.2 9.24a4.04 4.04 0 0 1 0-2.48V4.94H1.95a6.81 6.81 0 0 0 0 6.12L4.2 9.24Z" fill="currentColor" opacity="0.65" />
+              <path d="M8 3.96c.99 0 1.88.34 2.58 1.01l1.94-1.95A6.52 6.52 0 0 0 8 1.2a6.78 6.78 0 0 0-6.05 3.74L4.2 6.76c.54-1.6 2.03-2.8 3.8-2.8Z" fill="currentColor" opacity="0.9" />
             </svg>
-            Continue with GitHub
+            Continue with Google
           </button>
 
           {/* Reassurance footer */}

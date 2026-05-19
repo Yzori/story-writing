@@ -2,38 +2,77 @@
 
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type LoginField = "email" | "password";
+type LoginTouched = Record<LoginField, boolean>;
+type LoginErrors = Partial<Record<LoginField, string>>;
+
+function getLoginErrors(email: string, password: string): LoginErrors {
+  const errors: LoginErrors = {};
+  const trimmedEmail = email.trim();
+
+  if (!trimmedEmail) {
+    errors.email = "Email is required.";
+  } else if (!EMAIL_REGEX.test(trimmedEmail)) {
+    errors.email = "Enter a valid email address.";
+  }
+
+  if (!password) {
+    errors.password = "Password is required.";
+  }
+
+  return errors;
+}
+
+function fieldClasses(hasError: boolean) {
+  return `w-full bg-elevated/80 border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all ${
+    hasError
+      ? "border-rose/40 focus:border-rose/50 focus-visible:ring-rose/30"
+      : "border-border focus:border-amber/40 focus-visible:ring-amber/40"
+  }`;
+}
+
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const rawCallback = searchParams.get("callbackUrl") || "/dashboard";
   const callbackUrl = rawCallback.startsWith("/") && !rawCallback.startsWith("//") ? rawCallback : "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [touched, setTouched] = useState<LoginTouched>({ email: false, password: false });
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const validationErrors = getLoginErrors(email, password);
+  const shouldShowError = (field: LoginField) => (touched[field] || submitted) && !!validationErrors[field];
+  const isValid = Object.keys(validationErrors).length === 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setSubmitted(true);
+
+    if (!isValid) return;
+
     setLoading(true);
 
     try {
       const result = await signIn("credentials", {
-        email,
+        email: email.trim(),
         password,
+        callbackUrl,
         redirect: false,
       });
 
       if (result?.error) {
         setError("Invalid email or password. Please try again.");
       } else {
-        router.push(callbackUrl);
-        router.refresh();
+        window.location.assign(callbackUrl);
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -92,12 +131,24 @@ function LoginForm() {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setTouched((current) => ({ ...current, email: true }));
+                  setError("");
+                }}
+                onBlur={() => setTouched((current) => ({ ...current, email: true }))}
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
+                aria-invalid={shouldShowError("email")}
+                aria-describedby={shouldShowError("email") ? "email-error" : undefined}
+                className={fieldClasses(shouldShowError("email"))}
               />
+              {shouldShowError("email") && (
+                <p id="email-error" className="mt-1.5 text-[11px] leading-relaxed text-rose">
+                  {validationErrors.email}
+                </p>
+              )}
             </div>
 
             <div>
@@ -108,12 +159,24 @@ function LoginForm() {
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setTouched((current) => ({ ...current, password: true }));
+                  setError("");
+                }}
+                onBlur={() => setTouched((current) => ({ ...current, password: true }))}
                 required
                 autoComplete="current-password"
                 placeholder="Enter your password"
-                className="w-full bg-elevated/80 border border-border rounded-xl px-3.5 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40 focus-visible:ring-2 focus-visible:ring-amber/40 focus-visible:ring-offset-2 focus-visible:ring-offset-void transition-all"
+                aria-invalid={shouldShowError("password")}
+                aria-describedby={shouldShowError("password") ? "password-error" : undefined}
+                className={fieldClasses(shouldShowError("password"))}
               />
+              {shouldShowError("password") && (
+                <p id="password-error" className="mt-1.5 text-[11px] leading-relaxed text-rose">
+                  {validationErrors.password}
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end">
@@ -124,7 +187,7 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isValid}
               className="w-full bg-amber text-void font-semibold px-6 py-2.5 rounded-full hover:bg-amber-light transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm hover:shadow-md hover:shadow-amber/15"
             >
               {loading ? "Signing in..." : "Sign in"}
@@ -138,16 +201,19 @@ function LoginForm() {
             <div className="flex-1 h-px bg-border" />
           </div>
 
-          {/* GitHub OAuth */}
+          {/* Google OAuth */}
           <button
             type="button"
-            onClick={() => signIn("github", { callbackUrl })}
+            onClick={() => signIn("google", { callbackUrl })}
             className="w-full flex items-center justify-center gap-2.5 bg-elevated/80 border border-border text-text-secondary font-medium px-6 py-2.5 rounded-full hover:text-paper hover:border-border-active transition-all duration-200 text-sm"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M14.5 8.15c0-.52-.05-1.01-.14-1.49H8v2.69h3.64a3.1 3.1 0 0 1-1.35 2.04v1.77h2.18c1.28-1.19 2.03-2.94 2.03-5.01Z" fill="currentColor" />
+              <path d="M8 14.8c1.83 0 3.37-.61 4.49-1.64l-2.18-1.77c-.61.41-1.39.65-2.31.65-1.77 0-3.26-1.2-3.8-2.8H1.95v1.82A6.78 6.78 0 0 0 8 14.8Z" fill="currentColor" opacity="0.8" />
+              <path d="M4.2 9.24a4.04 4.04 0 0 1 0-2.48V4.94H1.95a6.81 6.81 0 0 0 0 6.12L4.2 9.24Z" fill="currentColor" opacity="0.65" />
+              <path d="M8 3.96c.99 0 1.88.34 2.58 1.01l1.94-1.95A6.52 6.52 0 0 0 8 1.2a6.78 6.78 0 0 0-6.05 3.74L4.2 6.76c.54-1.6 2.03-2.8 3.8-2.8Z" fill="currentColor" opacity="0.9" />
             </svg>
-            Continue with GitHub
+            Continue with Google
           </button>
         </div>
 
