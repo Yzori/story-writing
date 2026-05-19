@@ -61,7 +61,7 @@ export default function SessionLog({
         <button
           onClick={onToggleCollapse}
           className="w-8 h-8 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text hover:bg-subtle/60 transition-all cursor-pointer"
-          title="Expand Session Log"
+          title="Expand Canon Feed"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="9 18 15 12 9 6" />
@@ -84,14 +84,14 @@ export default function SessionLog({
       <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md pb-4 shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">Session Log</h2>
+            <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">Canon Feed</h2>
             <p className="text-text-tertiary text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
           </div>
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
               className="w-7 h-7 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-subtle/60 transition-all cursor-pointer"
-              title="Collapse Session Log"
+              title="Collapse Canon Feed"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15 18 9 12 15 6" />

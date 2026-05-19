@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useAdventureDraft } from "@/hooks/use-adventure-draft";
+import { commitAdventureDraft, useAdventureDraft } from "@/hooks/use-adventure-draft";
 import { useSpeechDraft } from "@/hooks/use-speech-draft";
 
 interface TurnTypeOption {
@@ -14,7 +14,7 @@ interface AdventureDraftComposerProps {
   sessionId: string;
   isGM: boolean;
   myCharName: string | null;
-  onCommitDraft: (content: string, type: string) => void;
+  onCommitDraft: (content: string, type: string) => void | Promise<void>;
 }
 
 const GM_TYPES: TurnTypeOption[] = [
@@ -92,6 +92,8 @@ export default function AdventureDraftComposer({
   const {
     hasSpeechSupport,
     isListening,
+    interimTranscript,
+    speechError,
     toggleListening,
     stopListening,
   } = useSpeechDraft({ setDraftContent });
@@ -100,20 +102,16 @@ export default function AdventureDraftComposer({
   const renderPreview = getRenderPreview(myCharName);
 
   const handleCommit = () => {
-    if (!draftContent.trim()) return;
-
-    let content = draftContent.trim();
-    if (!isGM && myCharName) {
-      const namePattern = new RegExp(`^${myCharName}\\s*`, "i");
-      content = content.replace(namePattern, "");
-      if (!content) return;
-    }
-
-    if (isListening) {
-      stopListening();
-    }
-    onCommitDraft(content, draftType);
-    clearDraft();
+    void commitAdventureDraft({
+      draftContent,
+      draftType,
+      isGM,
+      myCharName,
+      isListening,
+      stopListening,
+      onCommitDraft,
+      clearDraft,
+    });
   };
 
   return (
@@ -193,7 +191,7 @@ export default function AdventureDraftComposer({
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-border-subtle">
           <div className="text-xs text-text-secondary font-serif italic flex items-center gap-3">
-            <span>{isGM ? "The narrator sets the stage." : "Take your time. The party is waiting."}</span>
+            <span>{isGM ? "The Director sets the stage." : "Take your time. The party is waiting."}</span>
             {draftSaved && draftContent && (
               <span className="text-text-ghost text-[10px] not-italic">Draft saved</span>
             )}
@@ -231,6 +229,25 @@ export default function AdventureDraftComposer({
             </button>
           </div>
         </div>
+        <AnimatePresence>
+          {(interimTranscript || speechError) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 rounded-xl border border-border-subtle bg-subtle/20 px-3 py-2 text-[11px] leading-relaxed text-text-tertiary">
+                {interimTranscript ? (
+                  <span className="font-serif italic text-text-secondary">{interimTranscript}</span>
+                ) : speechError ? (
+                  <span className="text-rose/70">{speechError}</span>
+                ) : null}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

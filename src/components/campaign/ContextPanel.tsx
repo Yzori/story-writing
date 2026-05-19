@@ -90,7 +90,7 @@ export default function ContextPanel({
         <button
           onClick={onToggleCollapse}
           className="w-8 h-8 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text hover:bg-subtle/50 transition-all cursor-pointer"
-          title={isGM ? "Expand GM Dashboard" : "Expand Character Sheet"}
+          title={isGM ? "Expand Director Console" : "Expand Character Engine"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="15 18 9 12 15 6" />
@@ -125,14 +125,14 @@ export default function ContextPanel({
               </svg>
             </div>
             <div className="flex-1">
-              <h2 className="text-sm font-bold text-amber/90">Game Master</h2>
-              <p className="text-[10px] text-text-tertiary uppercase tracking-widest">Dashboard & Tools</p>
+              <h2 className="text-sm font-bold text-amber/90">Director</h2>
+              <p className="text-[10px] text-text-tertiary uppercase tracking-widest">Pressure & Canon</p>
             </div>
             {onToggleCollapse && (
               <button
                 onClick={onToggleCollapse}
                 className="w-7 h-7 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-subtle/50 transition-all cursor-pointer"
-                title="Collapse GM Dashboard"
+                title="Collapse Director Console"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="9 18 15 12 9 6" />
@@ -164,10 +164,10 @@ export default function ContextPanel({
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
-                GM Moves
+                Director Moves
               </h3>
               <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-                Fast levers for pressure, pacing, and scene texture.
+                Fast levers for pressure, pacing, and canon.
               </p>
             </div>
 
@@ -585,7 +585,7 @@ export default function ContextPanel({
             <button
               onClick={onToggleCollapse}
               className="w-7 h-7 rounded-full bg-subtle/30 border border-border flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-subtle/50 transition-all cursor-pointer"
-              title="Collapse Character Sheet"
+              title="Collapse Character Engine"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9 18 15 12 9 6" />

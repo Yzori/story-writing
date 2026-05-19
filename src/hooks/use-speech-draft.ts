@@ -27,7 +27,7 @@ interface SpeechRecognitionInstance {
   interimResults: boolean;
   lang: string;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event?: { error?: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -49,6 +49,8 @@ interface UseSpeechDraftOptions {
 interface UseSpeechDraftResult {
   hasSpeechSupport: boolean;
   isListening: boolean;
+  interimTranscript: string;
+  speechError: string | null;
   toggleListening: () => void;
   stopListening: () => void;
 }
@@ -64,11 +66,14 @@ export function useSpeechDraft({
 }: UseSpeechDraftOptions): UseSpeechDraftResult {
   const [isListening, setIsListening] = useState(false);
   const [hasSpeechSupport] = useState(() => getSpeechRecognitionConstructor() !== null);
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
     setIsListening(false);
+    setInterimTranscript("");
   }, []);
 
   const toggleListening = useCallback(() => {
@@ -78,47 +83,63 @@ export function useSpeechDraft({
     }
 
     const SpeechRecognitionAPI = getSpeechRecognitionConstructor();
-    if (!SpeechRecognitionAPI) return;
+    if (!SpeechRecognitionAPI) {
+      setSpeechError("Voice dictation is not available in this browser.");
+      return;
+    }
 
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
-
-    let finalTranscript = "";
+    setSpeechError(null);
+    setInterimTranscript("");
 
     recognition.onresult = (event) => {
-      let interim = "";
+      let finalText = "";
+      let interimText = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const text = event.results[i][0].transcript;
+        const text = event.results[i][0].transcript.trim();
         if (event.results[i].isFinal) {
-          finalTranscript += text;
+          finalText += `${text} `;
         } else {
-          interim = text;
+          interimText = text;
         }
       }
 
-      setDraftContent((prev) => {
-        const base = prev.endsWith(" ") || prev === "" ? prev : prev + " ";
-        const finalized = finalTranscript ? base + finalTranscript : prev;
-        finalTranscript = "";
-        return interim
-          ? finalized + (finalized.endsWith(" ") || finalized === "" ? "" : " ") + interim
-          : finalized;
-      });
+      if (finalText) {
+        setDraftContent((prev) => {
+          const base = prev.trimEnd();
+          const spacer = base ? " " : "";
+          return `${base}${spacer}${finalText.trim()}`;
+        });
+      }
+      setInterimTranscript(interimText);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      setSpeechError(
+        event?.error === "not-allowed"
+          ? "Microphone access was blocked."
+          : "Voice dictation stopped.",
+      );
+      setInterimTranscript("");
       setIsListening(false);
     };
 
     recognition.onend = () => {
+      setInterimTranscript("");
       setIsListening(false);
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch {
+      setSpeechError("Voice dictation could not start.");
+      setIsListening(false);
+    }
   }, [isListening, setDraftContent, stopListening]);
 
   useEffect(() => {
@@ -130,6 +151,8 @@ export function useSpeechDraft({
   return {
     hasSpeechSupport,
     isListening,
+    interimTranscript,
+    speechError,
     toggleListening,
     stopListening,
   };

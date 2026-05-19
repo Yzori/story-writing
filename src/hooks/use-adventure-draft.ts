@@ -4,16 +4,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 export function adventureDraftContentKey(sessionId: string) {
-  return `inkwell-draft-${sessionId}`;
+  return `quiloria-draft-${sessionId}`;
 }
 
 export function adventureDraftTypeKey(sessionId: string) {
-  return `inkwell-draft-type-${sessionId}`;
+  return `quiloria-draft-type-${sessionId}`;
 }
 
 type UseAdventureDraftOptions = {
   sessionId: string;
   initialType: string;
+};
+
+type CommitAdventureDraftOptions = {
+  draftContent: string;
+  draftType: string;
+  isGM: boolean;
+  myCharName: string | null;
+  isListening: boolean;
+  stopListening: () => void;
+  onCommitDraft: (content: string, type: string) => void | Promise<void>;
+  clearDraft: () => void;
 };
 
 function loadDraftContent(sessionId: string) {
@@ -32,6 +43,34 @@ function loadDraftType(sessionId: string, initialType: string) {
   } catch {
     return initialType;
   }
+}
+
+export async function commitAdventureDraft({
+  draftContent,
+  draftType,
+  isGM,
+  myCharName,
+  isListening,
+  stopListening,
+  onCommitDraft,
+  clearDraft,
+}: CommitAdventureDraftOptions) {
+  if (!draftContent.trim()) return false;
+
+  let content = draftContent.trim();
+  if (!isGM && myCharName) {
+    const namePattern = new RegExp(`^${myCharName}\\s*`, "i");
+    content = content.replace(namePattern, "");
+    if (!content) return false;
+  }
+
+  if (isListening) {
+    stopListening();
+  }
+
+  await onCommitDraft(content, draftType);
+  clearDraft();
+  return true;
 }
 
 export function useAdventureDraft({ sessionId, initialType }: UseAdventureDraftOptions) {
