@@ -47,7 +47,7 @@ const OFFERINGS: OfferingMock[] = [
     craftLabel: "Ghostwriting",
     artist: "Rowan Vex",
     artistInitial: "R",
-    title: "Serialized prose, 5k–8k words/week",
+    title: "Serialized novels, 5k–8k words/week",
     excerpt:
       "Long-haul ghostwriting for serialized novels. I keep a continuity log so your voice stays yours even when the schedule slips.",
     priceFrom: 900,
@@ -63,7 +63,7 @@ const OFFERINGS: OfferingMock[] = [
     artistInitial: "I",
     title: "A line edit that doesn't flatten you",
     excerpt:
-      "I work on the sentence level. Pacing, rhythm, dialogue tells. I will not iron the strange out of your prose — that's what readers came for.",
+      "I work on the sentence level. Pacing, rhythm, dialogue tells. I will not iron the strange out of your writing — that's what readers came for.",
     priceFrom: 180,
     delivery: "5–7 days",
     completed: 62,
@@ -133,7 +133,7 @@ const OFFERINGS: OfferingMock[] = [
     artist: "Sade Park",
     artistInitial: "S",
     title: "Vertical-scroll panel packs",
-    excerpt: "10–30 panels per episode, lettering included, designed for the prose-and-panels hybrid format.",
+    excerpt: "10–30 panels per episode, lettering included, designed for the novel-and-panels hybrid format.",
     swatch: "from-violet/40 via-rose/30 to-teal/20",
     priceFrom: 420,
     delivery: "per episode",
@@ -162,7 +162,7 @@ const OFFERINGS: OfferingMock[] = [
     artist: "Theon Halloran",
     artistInitial: "T",
     title: "I run your table",
-    scope: ["8-session arc", "Voice acting + scene framing", "Session recaps in narrative prose"],
+    scope: ["8-session arc", "Voice acting + scene framing", "Session recaps written as narrative"],
     excerpt: "",
     priceFrom: 680,
     delivery: "weekly",
@@ -772,7 +772,7 @@ function BriefComposer({
               </motion.div>
             )}
 
-            {/* Step 3: prose brief */}
+            {/* Step 3: written brief */}
             <FieldLabel n="iii" label="Tell them what you need" />
             <textarea
               value={briefText}

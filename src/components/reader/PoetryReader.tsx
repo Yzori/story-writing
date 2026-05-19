@@ -55,7 +55,7 @@ export default function PoetryReader({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className={`prose-reader poetry-reader ${fontClass || ""}`}
+          className={`novel-reader poetry-reader ${fontClass || ""}`}
           style={
             fontSizeValue
               ? ({ "--reader-font-size": fontSizeValue } as React.CSSProperties)

@@ -1606,7 +1606,7 @@ const MODES = [
     title: "Solo Story",
     subtitle: "The Study",
     description: "A quiet room. A desk by the window. Your story, your pace.",
-    features: ["Rich prose editor", "Story bible", "Export anywhere"],
+    features: ["Rich novel editor", "Story bible", "Export anywhere"],
     image: "/solo_story_mode.png",
     color: "amber",
     glowColor: "bg-amber/30",

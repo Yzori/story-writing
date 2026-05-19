@@ -98,7 +98,7 @@ export default function PlacesPanel({
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {ordered.length === 0 ? (
           <div className="px-3 py-12 text-center text-[13px] italic text-text-ghost">
-            No places yet. Drop a scene break in the prose and one lands here
+            No places yet. Drop a scene break in the story and one lands here
             automatically.
           </div>
         ) : (

@@ -57,7 +57,7 @@ export default function IllustratedReader({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className={`prose-reader illustrated-reader ${fontClass || ""} ${typographyClassName(typography)}`}
+          className={`novel-reader illustrated-reader ${fontClass || ""} ${typographyClassName(typography)}`}
           style={
             fontSizeValue
               ? ({ "--reader-font-size": fontSizeValue } as React.CSSProperties)

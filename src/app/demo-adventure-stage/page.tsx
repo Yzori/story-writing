@@ -166,7 +166,7 @@ const CHARACTERS: Character[] = [
         name: "Names in the Dark",
         kind: "bond",
         trigger: "When another character admits fear aloud",
-        effect: "Take their fear into the prose and give them a clear next action.",
+        effect: "Take their fear into the story and give them a clear next action.",
       },
     ],
     stats: [
@@ -327,6 +327,7 @@ export default function DemoAdventureStagePage() {
   const [composerMode, setComposerMode] = useState<ComposerMode>("write");
   const [draft, setDraft] = useState("");
   const [selectedPin, setSelectedPin] = useState("altar");
+  const [focusMode, setFocusMode] = useState(false);
 
   const isGM = role === "gm";
   const isAudience = role === "audience";
@@ -364,7 +365,11 @@ export default function DemoAdventureStagePage() {
   }
 
   return (
-    <div className="adventure-mode mt-14 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden bg-void text-paper">
+    <div className={`adventure-mode flex flex-col overflow-hidden bg-void text-paper ${
+      focusMode
+        ? "fixed inset-0 z-[80] h-screen"
+        : "mt-14 h-[calc(100vh-3.5rem)]"
+    }`}>
       <header className="z-40 border-b border-border bg-void/90 backdrop-blur-xl">
         <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -404,6 +409,29 @@ export default function DemoAdventureStagePage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFocusMode((value) => !value)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+              aria-label={focusMode ? "Show platform navigation" : "Enter focus mode"}
+              title={focusMode ? "Show platform navigation" : "Enter focus mode"}
+            >
+              {focusMode ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <path d="M8 3v5H3" />
+                  <path d="M16 3v5h5" />
+                  <path d="M8 21v-5H3" />
+                  <path d="M16 21v-5h5" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <path d="M3 9V3h6" />
+                  <path d="M21 9V3h-6" />
+                  <path d="M3 15v6h6" />
+                  <path d="M21 15v6h-6" />
+                </svg>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setDrawer(drawer === "map" ? null : "map")}

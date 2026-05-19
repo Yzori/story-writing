@@ -35,15 +35,15 @@ export default function ClipSelectionFAB({
         setPos(null);
         return;
       }
-      // Only react when the selection is inside the prose-reader (the actual
+      // Only react when the selection is inside the novel-reader (the actual
       // chapter content, not the comment thread or sidebar).
       const range = sel.getRangeAt(0);
       const container = range.commonAncestorContainer as Node;
       const inProse =
         container instanceof Element
-          ? container.closest?.(".prose-reader, .screenplay-reader-content, .poetry-reader")
+          ? container.closest?.(".novel-reader, .screenplay-reader-content, .poetry-reader")
           : container.parentElement?.closest?.(
-              ".prose-reader, .screenplay-reader-content, .poetry-reader",
+              ".novel-reader, .screenplay-reader-content, .poetry-reader",
             );
       if (!inProse) {
         setPos(null);

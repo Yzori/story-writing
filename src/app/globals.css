@@ -516,7 +516,7 @@ html.theme-light .reader-foryou-article .text-text-ghost {
   color: color-mix(in srgb, var(--t-text-secondary) 72%, var(--t-text));
 }
 
-html.theme-light .reader-foryou-article .prose-reader {
+html.theme-light .reader-foryou-article .novel-reader {
   color: color-mix(in srgb, var(--t-text) 82%, var(--t-paper));
 }
 
@@ -812,67 +812,67 @@ body::after {
 
 .typography-line-compact.tiptap-editor p,
 .typography-line-compact .tiptap-editor p,
-.prose-reader.typography-line-compact {
+.novel-reader.typography-line-compact {
   line-height: 1.6;
 }
 
 .typography-line-comfortable.tiptap-editor p,
 .typography-line-comfortable .tiptap-editor p,
-.prose-reader.typography-line-comfortable {
+.novel-reader.typography-line-comfortable {
   line-height: 1.8;
 }
 
 .typography-line-relaxed.tiptap-editor p,
 .typography-line-relaxed .tiptap-editor p,
-.prose-reader.typography-line-relaxed {
+.novel-reader.typography-line-relaxed {
   line-height: 2;
 }
 
 .typography-paragraph-tight.tiptap-editor p,
 .typography-paragraph-tight .tiptap-editor p,
-.prose-reader.typography-paragraph-tight p {
+.novel-reader.typography-paragraph-tight p {
   margin-bottom: 0.5em;
 }
 
 .typography-paragraph-normal.tiptap-editor p,
 .typography-paragraph-normal .tiptap-editor p,
-.prose-reader.typography-paragraph-normal p {
+.novel-reader.typography-paragraph-normal p {
   margin-bottom: 1em;
 }
 
 .typography-paragraph-loose.tiptap-editor p,
 .typography-paragraph-loose .tiptap-editor p,
-.prose-reader.typography-paragraph-loose p {
+.novel-reader.typography-paragraph-loose p {
   margin-bottom: 1.5em;
 }
 
 .typography-indent.tiptap-editor p,
 .typography-indent .tiptap-editor p,
-.prose-reader.typography-indent p {
+.novel-reader.typography-indent p {
   text-indent: 1.5em;
 }
 
 .typography-indent.tiptap-editor p:first-of-type,
 .typography-indent .tiptap-editor p:first-of-type,
-.prose-reader.typography-indent p:first-of-type {
+.novel-reader.typography-indent p:first-of-type {
   text-indent: 0;
 }
 
 .typography-align-left.tiptap-editor p,
 .typography-align-left .tiptap-editor p,
-.prose-reader.typography-align-left p {
+.novel-reader.typography-align-left p {
   text-align: left;
 }
 
 .typography-align-center.tiptap-editor p,
 .typography-align-center .tiptap-editor p,
-.prose-reader.typography-align-center p {
+.novel-reader.typography-align-center p {
   text-align: center;
 }
 
 .typography-align-justified.tiptap-editor p,
 .typography-align-justified .tiptap-editor p,
-.prose-reader.typography-align-justified p {
+.novel-reader.typography-align-justified p {
   text-align: justify;
   text-wrap: pretty;
 }
@@ -1017,7 +1017,7 @@ body::after {
 /* Scene break — a real block element, not a void <hr> */
 
 .tiptap-editor .scene-break,
-.prose-reader hr {
+.novel-reader hr {
   display: block;
   text-align: center;
   margin: 2.5em 0;
@@ -1053,35 +1053,35 @@ body::after {
   background: var(--t-gold-glow);
 }
 
-.prose-reader hr {
+.novel-reader hr {
   border: none;
   height: auto;
   overflow: visible;
 }
 
-.prose-reader hr::before {
+.novel-reader hr::before {
   content: "\2042";
 }
 
 /* Variants */
 .scene-break-fleuron .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="fleuron"]::before,
-.scene-break-fleuron .prose-reader hr::before,
-.prose-reader.scene-break-fleuron hr::before { content: "\2767"; font-size: 1.4rem; letter-spacing: 0; }
+.scene-break-fleuron .novel-reader hr::before,
+.novel-reader.scene-break-fleuron hr::before { content: "\2767"; font-size: 1.4rem; letter-spacing: 0; }
 .scene-break-dots .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="dots"]::before,
-.scene-break-dots .prose-reader hr::before,
-.prose-reader.scene-break-dots hr::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
+.scene-break-dots .novel-reader hr::before,
+.novel-reader.scene-break-dots hr::before { content: "\2022  \2022  \2022"; letter-spacing: 0.3em; font-size: 0.9rem; }
 .scene-break-line .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="line"]::before { content: ""; display: block; width: 4em; height: 1px; background: var(--t-text-ghost); margin: 0 auto; }
-.scene-break-line .prose-reader hr,
-.prose-reader.scene-break-line hr { height: 1px; width: 4em; background: var(--t-text-ghost); margin: 2.5em auto; }
-.scene-break-line .prose-reader hr::before,
-.prose-reader.scene-break-line hr::before { content: ""; }
-.scene-break-text-line .prose-reader hr,
-.prose-reader.scene-break-text-line hr { height: 1px; width: 100%; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); margin: 2.5em auto; }
-.scene-break-text-line .prose-reader hr::before,
-.prose-reader.scene-break-text-line hr::before { content: ""; }
+.scene-break-line .novel-reader hr,
+.novel-reader.scene-break-line hr { height: 1px; width: 4em; background: var(--t-text-ghost); margin: 2.5em auto; }
+.scene-break-line .novel-reader hr::before,
+.novel-reader.scene-break-line hr::before { content: ""; }
+.scene-break-text-line .novel-reader hr,
+.novel-reader.scene-break-text-line hr { height: 1px; width: 100%; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); margin: 2.5em auto; }
+.scene-break-text-line .novel-reader hr::before,
+.novel-reader.scene-break-text-line hr::before { content: ""; }
 .scene-break-text-line .tiptap-editor .scene-break:not([data-scene-break-style]) { display: flex; align-items: center; gap: 0.85em; color: var(--t-text-ghost); }
 .scene-break-text-line .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .scene-break-text-line .tiptap-editor .scene-break:not([data-scene-break-style])::after { content: ""; display: block; flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent); }
@@ -1093,29 +1093,29 @@ body::after {
 .tiptap-editor .scene-break[data-scene-break-style="space"] { margin: 3.5em 0; }
 .scene-break-space .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="space"]::before { content: ""; height: 1.2rem; }
-.scene-break-space .prose-reader hr,
-.prose-reader.scene-break-space hr { margin: 3.5em auto; }
-.scene-break-space .prose-reader hr::before,
-.prose-reader.scene-break-space hr::before { content: ""; }
+.scene-break-space .novel-reader hr,
+.novel-reader.scene-break-space hr { margin: 3.5em auto; }
+.scene-break-space .novel-reader hr::before,
+.novel-reader.scene-break-space hr::before { content: ""; }
 .scene-break-asterism .tiptap-editor .scene-break:not([data-scene-break-style])::before,
 .tiptap-editor .scene-break[data-scene-break-style="asterism"]::before,
-.scene-break-asterism .prose-reader hr::before,
-.prose-reader.scene-break-asterism hr::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
+.scene-break-asterism .novel-reader hr::before,
+.novel-reader.scene-break-asterism hr::before { content: "\2042"; letter-spacing: 0.5em; font-size: 1.2rem; }
 
 /* Drop caps — ornate, like an illuminated manuscript */
 .drop-caps.tiptap-editor p:first-of-type,
 .drop-caps .tiptap-editor p:first-of-type,
-.drop-caps.prose-reader p:first-of-type,
-.drop-caps .prose-reader p:first-of-type,
-.prose-reader.drop-caps p:first-of-type {
+.drop-caps.novel-reader p:first-of-type,
+.drop-caps .novel-reader p:first-of-type,
+.novel-reader.drop-caps p:first-of-type {
   text-align: left !important;
 }
 
 .drop-caps.tiptap-editor p:first-of-type::first-letter,
 .drop-caps .tiptap-editor p:first-of-type::first-letter,
-.drop-caps.prose-reader p:first-of-type::first-letter,
-.drop-caps .prose-reader p:first-of-type::first-letter,
-.prose-reader.drop-caps p:first-of-type::first-letter {
+.drop-caps.novel-reader p:first-of-type::first-letter,
+.drop-caps .novel-reader p:first-of-type::first-letter,
+.novel-reader.drop-caps p:first-of-type::first-letter {
   float: left;
   font-family: var(--font-display), serif;
   font-size: 3.6em;
@@ -1176,7 +1176,7 @@ body::after {
 }
 
 /* Decorative dividers outside the editor */
-:where(.prose-reader, .campaign-prose) .scene-break {
+:where(.novel-reader, .campaign-novel) .scene-break {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1185,27 +1185,27 @@ body::after {
   user-select: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break::before,
-:where(.prose-reader, .campaign-prose) .scene-break::after {
+:where(.novel-reader, .campaign-novel) .scene-break::before,
+:where(.novel-reader, .campaign-novel) .scene-break::after {
   content: "";
   flex: 1;
   height: 1px;
   background: linear-gradient(to right, transparent, var(--t-text-ghost), transparent);
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break .scene-break-label {
+:where(.novel-reader, .campaign-novel) .scene-break .scene-break-label {
   display: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="asterism"]::before,
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="asterism"]::after,
-:where(.prose-reader, .campaign-prose).scene-break-asterism .scene-break:not([data-scene-break-style])::before,
-:where(.prose-reader, .campaign-prose).scene-break-asterism .scene-break:not([data-scene-break-style])::after {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="asterism"]::before,
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="asterism"]::after,
+:where(.novel-reader, .campaign-novel).scene-break-asterism .scene-break:not([data-scene-break-style])::before,
+:where(.novel-reader, .campaign-novel).scene-break-asterism .scene-break:not([data-scene-break-style])::after {
   content: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="asterism"] .scene-break-label::before,
-:where(.prose-reader, .campaign-prose).scene-break-asterism .scene-break:not([data-scene-break-style]) .scene-break-label::before {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="asterism"] .scene-break-label::before,
+:where(.novel-reader, .campaign-novel).scene-break-asterism .scene-break:not([data-scene-break-style]) .scene-break-label::before {
   content: "\2042";
   display: block;
   color: var(--t-gold-dark);
@@ -1213,30 +1213,30 @@ body::after {
   letter-spacing: 0.5em;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="fleuron"]::before,
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="fleuron"]::after,
-:where(.prose-reader, .campaign-prose).scene-break-fleuron .scene-break:not([data-scene-break-style])::before,
-:where(.prose-reader, .campaign-prose).scene-break-fleuron .scene-break:not([data-scene-break-style])::after {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="fleuron"]::before,
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="fleuron"]::after,
+:where(.novel-reader, .campaign-novel).scene-break-fleuron .scene-break:not([data-scene-break-style])::before,
+:where(.novel-reader, .campaign-novel).scene-break-fleuron .scene-break:not([data-scene-break-style])::after {
   content: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="fleuron"] .scene-break-label::before,
-:where(.prose-reader, .campaign-prose).scene-break-fleuron .scene-break:not([data-scene-break-style]) .scene-break-label::before {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="fleuron"] .scene-break-label::before,
+:where(.novel-reader, .campaign-novel).scene-break-fleuron .scene-break:not([data-scene-break-style]) .scene-break-label::before {
   content: "\2767";
   display: block;
   color: var(--t-gold-dark);
   font-size: 1.4rem;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="dots"]::before,
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="dots"]::after,
-:where(.prose-reader, .campaign-prose).scene-break-dots .scene-break:not([data-scene-break-style])::before,
-:where(.prose-reader, .campaign-prose).scene-break-dots .scene-break:not([data-scene-break-style])::after {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="dots"]::before,
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="dots"]::after,
+:where(.novel-reader, .campaign-novel).scene-break-dots .scene-break:not([data-scene-break-style])::before,
+:where(.novel-reader, .campaign-novel).scene-break-dots .scene-break:not([data-scene-break-style])::after {
   content: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="dots"] .scene-break-label::before,
-:where(.prose-reader, .campaign-prose).scene-break-dots .scene-break:not([data-scene-break-style]) .scene-break-label::before {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="dots"] .scene-break-label::before,
+:where(.novel-reader, .campaign-novel).scene-break-dots .scene-break:not([data-scene-break-style]) .scene-break-label::before {
   content: "\2022  \2022  \2022";
   display: block;
   color: var(--t-gold-dark);
@@ -1244,20 +1244,20 @@ body::after {
   letter-spacing: 0.3em;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="line"],
-:where(.prose-reader, .campaign-prose).scene-break-line .scene-break:not([data-scene-break-style]) {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="line"],
+:where(.novel-reader, .campaign-novel).scene-break-line .scene-break:not([data-scene-break-style]) {
   gap: 0;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="line"] .scene-break-label,
-:where(.prose-reader, .campaign-prose).scene-break-line .scene-break:not([data-scene-break-style]) .scene-break-label,
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"] .scene-break-label,
-:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style]) .scene-break-label {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="line"] .scene-break-label,
+:where(.novel-reader, .campaign-novel).scene-break-line .scene-break:not([data-scene-break-style]) .scene-break-label,
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="space"] .scene-break-label,
+:where(.novel-reader, .campaign-novel).scene-break-space .scene-break:not([data-scene-break-style]) .scene-break-label {
   display: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="text-line"] .scene-break-label,
-:where(.prose-reader, .campaign-prose).scene-break-text-line .scene-break:not([data-scene-break-style]) .scene-break-label {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="text-line"] .scene-break-label,
+:where(.novel-reader, .campaign-novel).scene-break-text-line .scene-break:not([data-scene-break-style]) .scene-break-label {
   display: block;
   flex: 0 0 auto;
   color: var(--t-gold-dark);
@@ -1267,15 +1267,15 @@ body::after {
   text-transform: uppercase;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"]::before,
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"]::after,
-:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style])::before,
-:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style])::after {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="space"]::before,
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="space"]::after,
+:where(.novel-reader, .campaign-novel).scene-break-space .scene-break:not([data-scene-break-style])::before,
+:where(.novel-reader, .campaign-novel).scene-break-space .scene-break:not([data-scene-break-style])::after {
   content: none;
 }
 
-:where(.prose-reader, .campaign-prose) .scene-break[data-scene-break-style="space"],
-:where(.prose-reader, .campaign-prose).scene-break-space .scene-break:not([data-scene-break-style]) {
+:where(.novel-reader, .campaign-novel) .scene-break[data-scene-break-style="space"],
+:where(.novel-reader, .campaign-novel).scene-break-space .scene-break:not([data-scene-break-style]) {
   margin: 3.5em 0;
   min-height: 1.2rem;
 }
@@ -1343,7 +1343,7 @@ body::after {
 
 /* ─── Reader Prose ──────────────────────────────────────────── */
 
-.prose-reader {
+.novel-reader {
   color: var(--t-text);
   font-family: var(--font-reading), var(--font-body), system-ui, serif;
   font-size: var(--reader-font-size, 1.1rem);
@@ -1351,26 +1351,26 @@ body::after {
   font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "onum" 1, "pnum" 1;
 }
 
-.prose-reader.font-serif {
+.novel-reader.font-serif {
   font-family: var(--font-playfair), Georgia, serif;
 }
 
-.prose-reader.font-sans {
+.novel-reader.font-sans {
   font-family: var(--font-dm-sans), var(--font-body), system-ui, sans-serif;
   font-feature-settings: "kern" 1, "liga" 1;
 }
 
-.prose-reader.font-mono {
+.novel-reader.font-mono {
   font-family: var(--font-plex-mono), "Courier New", monospace;
   font-size: 1rem;
   line-height: 1.9;
 }
 
-.prose-reader p {
+.novel-reader p {
   margin-bottom: 1.1em;
 }
 
-.prose-reader h1 {
+.novel-reader h1 {
   font-family: var(--font-display), serif;
   font-size: 2rem;
   font-weight: 700;
@@ -1380,7 +1380,7 @@ body::after {
   line-height: 1.3;
 }
 
-.prose-reader h2 {
+.novel-reader h2 {
   font-family: var(--font-display), serif;
   font-size: 1.5rem;
   font-weight: 600;
@@ -1390,7 +1390,7 @@ body::after {
   line-height: 1.35;
 }
 
-.prose-reader h3 {
+.novel-reader h3 {
   font-family: var(--font-display), serif;
   font-size: 1.2rem;
   font-weight: 600;
@@ -1400,7 +1400,7 @@ body::after {
   line-height: 1.4;
 }
 
-.prose-reader blockquote {
+.novel-reader blockquote {
   border-left: 2px solid var(--t-gold);
   padding-left: 1.5em;
   margin: 1.5em 0;
@@ -1408,7 +1408,7 @@ body::after {
   font-style: italic;
 }
 
-.prose-reader hr {
+.novel-reader hr {
   border: none;
   margin: 2.5em auto;
   width: 100%;
@@ -1416,49 +1416,49 @@ body::after {
   justify-content: center;
 }
 
-.prose-reader hr::after {
+.novel-reader hr::after {
   content: "";
   color: var(--t-gold-dark);
   font-size: 1.3rem;
 }
 
-.prose-reader em {
+.novel-reader em {
   font-style: italic;
   color: var(--t-paper);
 }
 
-.prose-reader strong {
+.novel-reader strong {
   font-weight: 600;
   color: var(--t-paper);
 }
 
-.prose-reader mark {
+.novel-reader mark {
   background-color: var(--t-gold-soft);
   color: var(--t-paper);
   border-radius: 2px;
   padding: 0 2px;
 }
 
-.prose-reader ul,
-.prose-reader ol {
+.novel-reader ul,
+.novel-reader ol {
   padding-left: 1.5em;
   margin-bottom: 1em;
 }
 
-.prose-reader li {
+.novel-reader li {
   margin-bottom: 0.3em;
   line-height: 1.7;
 }
 
-.prose-reader ul li {
+.novel-reader ul li {
   list-style-type: disc;
 }
 
-.prose-reader ol li {
+.novel-reader ol li {
   list-style-type: decimal;
 }
 
-.prose-reader img {
+.novel-reader img {
   max-width: 100%;
   border-radius: 8px;
   margin: 1.5em 0;
@@ -1512,17 +1512,17 @@ body::after {
 /* ─── Poetry Editor & Reader ──────────────────────────────── */
 
 .tiptap-editor .stanza,
-.prose-reader .stanza {
+.novel-reader .stanza {
   margin-bottom: 2em;
 }
 
 .tiptap-editor .stanza:last-child,
-.prose-reader .stanza:last-child {
+.novel-reader .stanza:last-child {
   margin-bottom: 0;
 }
 
 .tiptap-editor .poetry-line,
-.prose-reader .poetry-line {
+.novel-reader .poetry-line {
   margin: 0;
   padding: 0;
   line-height: 1.8;
@@ -1536,7 +1536,7 @@ body::after {
 /* ─── Screenplay Editor & Reader ──────────────────────────── */
 
 .tiptap-editor [data-type="scene-heading"],
-.prose-reader [data-type="scene-heading"] {
+.novel-reader [data-type="scene-heading"] {
   text-transform: uppercase;
   font-weight: 700;
   margin-top: 2em;
@@ -1546,13 +1546,13 @@ body::after {
 }
 
 .tiptap-editor [data-type="action"],
-.prose-reader [data-type="action"] {
+.novel-reader [data-type="action"] {
   margin-bottom: 0.8em;
   line-height: 1.6;
 }
 
 .tiptap-editor [data-type="character-name"],
-.prose-reader [data-type="character-name"] {
+.novel-reader [data-type="character-name"] {
   text-transform: uppercase;
   text-align: center;
   margin-top: 1.2em;
@@ -1563,7 +1563,7 @@ body::after {
 }
 
 .tiptap-editor [data-type="dialogue"],
-.prose-reader [data-type="dialogue"] {
+.novel-reader [data-type="dialogue"] {
   text-align: left;
   padding-left: 20%;
   padding-right: 20%;
@@ -1572,7 +1572,7 @@ body::after {
 }
 
 .tiptap-editor [data-type="parenthetical"],
-.prose-reader [data-type="parenthetical"] {
+.novel-reader [data-type="parenthetical"] {
   font-style: italic;
   text-align: center;
   padding-left: 25%;
@@ -1582,7 +1582,7 @@ body::after {
 }
 
 .tiptap-editor [data-type="transition"],
-.prose-reader [data-type="transition"] {
+.novel-reader [data-type="transition"] {
   text-transform: uppercase;
   text-align: right;
   margin-top: 1em;

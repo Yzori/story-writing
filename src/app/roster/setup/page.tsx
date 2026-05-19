@@ -11,7 +11,7 @@ import { GENRES } from "@/config/genres";
 // ── Constants ───────────────────────────────────────────────
 
 const ROLE_CRAFTS = [
-  { id: "writer", label: "Writer", desc: "Prose, narrative", color: "amber", icon: "M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" },
+  { id: "writer", label: "Writer", desc: "Novels, narrative", color: "amber", icon: "M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" },
   { id: "illustrator", label: "Illustrator", desc: "Art, covers", color: "lavender", icon: "M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zM12 9a3 3 0 100 6 3 3 0 000-6z" },
   { id: "editor", label: "Editor", desc: "Shaping, editing", color: "teal", icon: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" },
   { id: "worldbuilder", label: "Architect", desc: "Lore, magic", color: "sage", icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" },

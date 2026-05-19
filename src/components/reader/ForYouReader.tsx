@@ -611,7 +611,7 @@ export default function ForYouReader({
                   </div>
                 )}
                 <div
-                  className="prose-reader text-text text-[1.1rem] leading-[1.85] font-serif"
+                  className="novel-reader text-text text-[1.1rem] leading-[1.85] font-serif"
                   dangerouslySetInnerHTML={{ __html: currentChapter.content }}
                 />
                 {currentChapter.authorNoteAfter && (

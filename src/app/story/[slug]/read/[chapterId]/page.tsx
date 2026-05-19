@@ -141,11 +141,11 @@ export default function ChapterReadPage() {
   const commentsRef = useRef<HTMLDivElement>(null);
   const annotationContentRef = useRef<HTMLDivElement>(null);
 
-  // Find the prose-reader div for annotations after content renders
+  // Find the novel-reader div for annotations after content renders
   useEffect(() => {
     if (storyFormat !== "novel" || !activeChapter) return;
     const timer = setTimeout(() => {
-      const el = document.querySelector(".prose-reader") as HTMLDivElement | null;
+      const el = document.querySelector(".novel-reader") as HTMLDivElement | null;
       if (el) annotationContentRef.current = el;
     }, 200);
     return () => clearTimeout(timer);

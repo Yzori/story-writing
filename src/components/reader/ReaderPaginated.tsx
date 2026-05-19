@@ -199,7 +199,7 @@ export default function ReaderPaginated({
                 {chapterTitle}
               </h1>
               <div
-                className={`prose-reader ${fontClass || ""} ${typographyClassName(typography)}`}
+                className={`novel-reader ${fontClass || ""} ${typographyClassName(typography)}`}
                 style={fontSizeValue ? { "--reader-font-size": fontSizeValue } as React.CSSProperties : undefined}
                 dangerouslySetInnerHTML={{ __html: sanitizedContent }}
               />

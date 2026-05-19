@@ -194,7 +194,7 @@ export default function TypographyPanel({
               </button>
             </div>
             <p className="text-[11px] text-text-ghost mb-3">
-              Indents prose paragraphs across the story, except opening paragraphs.
+              Indents paragraphs across the story, except opening paragraphs.
             </p>
 
             {/* Preview */}
@@ -222,7 +222,7 @@ export default function TypographyPanel({
               Story Line Spacing
             </label>
             <p className="text-[11px] text-text-ghost mb-3">
-              Changes the line height for prose paragraphs throughout the story.
+              Changes the line height for paragraphs throughout the story.
             </p>
 
             <div className="flex gap-2">
@@ -267,7 +267,7 @@ export default function TypographyPanel({
               Paragraph Alignment
             </label>
             <p className="text-[11px] text-text-ghost mb-3">
-              Aligns prose paragraphs across the story.
+              Aligns paragraphs across the story.
             </p>
 
             <div className="flex gap-2">
@@ -313,7 +313,7 @@ export default function TypographyPanel({
               Story Paragraph Spacing
             </label>
             <p className="text-[11px] text-text-ghost mb-3">
-              Sets the space between prose paragraphs throughout the story.
+              Sets the space between paragraphs throughout the story.
             </p>
 
             <div className="flex gap-2">
