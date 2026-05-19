@@ -71,6 +71,11 @@ export const updateStorySchema = z.object({
   campaignToneInfluence: z.number().int().min(0).max(100).optional(),
   campaignCadence: z.string().max(160).optional(),
   campaignAuditionPrompt: z.string().max(1000).optional(),
+  // URL of a map background for the campaign's SpatialMap view. Capped at
+  // 4096 chars on purpose — the avatar bloat incident showed how data:
+  // URIs in DB columns blow up auth cookies. Real image upload lives in a
+  // separate task; for now this accepts URLs (or small inline SVG).
+  mapImageUrl: z.string().max(4096).nullable().optional(),
   slug: z.string().min(1).max(500).optional(),
 });
 
@@ -387,6 +392,16 @@ export const createFloorAudiencePulseSchema = z.object({
   submissionId: z.string().uuid(),
 });
 
+export const createFloorAudienceSparkSchema = z.object({
+  token: z.string().min(1).max(200),
+  content: z.string().min(1, "Spark is required").max(500),
+  amount: z.number().int().min(25).max(500).default(25),
+});
+
+export const updateFloorAudienceSparkSchema = z.object({
+  action: z.enum(["promote", "reject"]),
+});
+
 // ── Campaign Applications ───────────────────────────────────
 
 export const createApplicationSchema = z
@@ -561,3 +576,40 @@ export const guildProfileSchema = z.object({
   yearsWriting: z.number().int().min(0).max(100).optional(),
   lookingFor: z.string().max(500).optional(),
 });
+
+// ── Places (Adventure-Mode Map) ────────────────────────────
+
+export const PLACE_MOOD_VALUES = [
+  "tense",
+  "calm",
+  "ominous",
+  "triumphant",
+  "melancholy",
+  "chaotic",
+  "mysterious",
+  "romantic",
+] as const;
+
+const placeCoord = z.number().int().min(0).max(100);
+
+export const createPlaceSchema = z.object({
+  name: z.string().min(1, "Name is required").max(120),
+  description: z.string().max(2000).optional(),
+  mood: z.enum(PLACE_MOOD_VALUES).optional(),
+  x: placeCoord.optional(),
+  y: placeCoord.optional(),
+});
+
+export const updatePlaceSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).optional(),
+  mood: z.enum(PLACE_MOOD_VALUES).nullable().optional(),
+  // null clears the coord (un-places the pin); undefined leaves it alone.
+  x: placeCoord.nullable().optional(),
+  y: placeCoord.nullable().optional(),
+});
+
+// Story map-image URL. Capped tight on purpose — the avatar incident
+// taught us not to let big data: URIs live in DB columns. URLs only,
+// short data: SVGs accepted as a convenience.
+export const storyMapImageSchema = z.string().max(4096).nullable();

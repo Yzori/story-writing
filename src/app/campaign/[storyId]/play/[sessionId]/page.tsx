@@ -45,13 +45,16 @@ export default function SessionPlayPage() {
     previousMood,
     sendTurn,
     setActivePlayer,
+    patchStory,
     updateSession,
     updateRoster,
     editTurn,
     updateRollRequest,
+    updateBargain,
     createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
+    updateAudienceSpark,
     updateFloorRound,
     clocks,
     setClocks,
@@ -62,6 +65,7 @@ export default function SessionPlayPage() {
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
   const [showContextDrawer, setShowContextDrawer] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [epilogueText, setEpilogueText] = useState("");
   const [activeStoryMoment, setActiveStoryMoment] = useState<{
@@ -200,6 +204,45 @@ export default function SessionPlayPage() {
     [sendTurn, myCharacter, showToast]
   );
 
+  const handleOfferBargain = useCallback(
+    async (body: { targetUserId: string; targetLabel: string; gain: string; price: string }) => {
+      try {
+        const content =
+          `The Director offers ${body.targetLabel} a bargain: ${body.gain} The price: ${body.price}`;
+        await sendTurn(
+          "consequence",
+          content,
+          undefined,
+          JSON.stringify({
+            kind: "bargain",
+            targetUserId: body.targetUserId,
+            targetLabel: body.targetLabel,
+            gain: body.gain,
+            price: body.price,
+            status: "open",
+          }),
+        );
+        showToast("Bargain offered");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to offer bargain");
+        throw err;
+      }
+    },
+    [sendTurn, showToast],
+  );
+
+  const handleResolveBargain = useCallback(
+    async (turnId: string, response: "accepted" | "refused") => {
+      try {
+        await updateBargain(turnId, response);
+        showToast(response === "accepted" ? "Bargain accepted" : "Bargain refused");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to answer bargain");
+      }
+    },
+    [showToast, updateBargain],
+  );
+
   // GM picks who goes next
   const handlePassTurn = useCallback(
     async (userId: string) => {
@@ -221,7 +264,7 @@ export default function SessionPlayPage() {
         } catch {
           // The floor round itself controls submissions; spotlight sync can recover on the next GM action.
         }
-        showToast(audiencePulseEnabled ? "Crossroads opened with Audience Pulse" : mode === "vote" ? "Crossroads opened for table voting" : "Crossroads opened for GM pick");
+        showToast(audiencePulseEnabled ? "Crossroads opened with Audience Pulse" : mode === "vote" ? "Crossroads opened for table voting" : "Crossroads opened for Director pick");
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to open Crossroads");
       }
@@ -251,6 +294,18 @@ export default function SessionPlayPage() {
       }
     },
     [voteFloorSubmission, showToast],
+  );
+
+  const handleUpdateAudienceSpark = useCallback(
+    async (roundId: string, sparkId: string, action: "promote" | "reject") => {
+      try {
+        await updateAudienceSpark(roundId, sparkId, action);
+        showToast(action === "promote" ? "Audience Spark promoted to vote options" : "Audience Spark passed");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to update Audience Spark");
+      }
+    },
+    [updateAudienceSpark, showToast],
   );
 
   const handleUpdateFloorRound = useCallback(
@@ -644,6 +699,10 @@ export default function SessionPlayPage() {
   const activePlayerCharacter = characters.find((c) => c.userId === campaignSession?.activePlayerId);
   const spotlightLabel = activePlayerCharacter?.name
     ?? (campaignSession?.activePlayerId ? "Player joining…" : "Director");
+  const activeCharacters = rosterCharacters.length > 0
+    ? rosterCharacters.filter((c) => c.status === "active")
+    : characters.filter((c) => c.status === "active");
+  const canPassSpotlight = isGM && campaignSession?.status === "active" && !floorRound;
   const currentScene = (() => {
     for (let i = storyTurns.length - 1; i >= 0; i--) {
       const turn = storyTurns[i];
@@ -668,9 +727,43 @@ export default function SessionPlayPage() {
     : pendingRollRequest
       ? `${pendingRollRequest.attribute} check pending`
       : "Canon live";
+  const phaseLabel = floorRound
+    ? floorRound.status === "open"
+      ? "Crossroads Open"
+      : floorRound.status === "voting"
+        ? "Table Vote"
+        : floorRound.status === "closed"
+          ? "Director Resolving"
+          : "Crossroads"
+    : pendingRollRequest
+      ? "Check Pending"
+      : campaignSession?.activePlayerId
+        ? "Spotlight"
+        : "Director Beat";
+  const phaseHint = floorRound
+    ? floorRound.prompt
+    : pendingRollRequest
+      ? pendingRollRequest.reason
+      : campaignSession?.activePlayerId
+        ? `${spotlightLabel} is writing the next beat.`
+        : isGM
+          ? "Frame the scene, call a check, or pass the spotlight."
+          : "Waiting for the Director to frame the next beat.";
+  const sceneTexture = Array.from(
+    new Set(
+      (currentScene.aspects.length > 0
+        ? currentScene.aspects
+        : [currentScene.mood, campaignSession?.status ?? "live"]
+      ).filter(Boolean),
+    ),
+  );
 
   return (
-    <div className="adventure-mode flex h-screen w-screen flex-col overflow-hidden bg-void text-paper selection:bg-amber/30">
+    <div className={`adventure-mode flex w-screen flex-col overflow-hidden bg-void text-paper selection:bg-amber/30 ${
+      focusMode
+        ? "fixed inset-0 z-[80] h-screen"
+        : "mt-14 h-[calc(100vh-3.5rem)]"
+    }`}>
       {/* Toast */}
       <AnimatePresence>
         {toast && (
@@ -771,14 +864,59 @@ export default function SessionPlayPage() {
           </div>
 
           <div className="hidden min-w-0 items-center gap-2 md:flex">
-            {currentScene.aspects.slice(0, 3).map((aspect) => (
-              <span key={aspect} className="max-w-[150px] truncate rounded-full border border-border bg-subtle/20 px-3 py-1.5 text-[10px] text-text-tertiary">
-                {aspect}
-              </span>
+            {activeCharacters.slice(0, 5).map((character) => (
+              <button
+                key={character.id}
+                type="button"
+                onClick={() => canPassSpotlight ? handlePassTurn(character.userId) : undefined}
+                className={`flex min-h-9 items-center gap-2 rounded-full border px-2.5 transition-colors ${
+                  campaignSession?.activePlayerId === character.userId
+                    ? "border-amber/40 bg-amber/10 text-amber"
+                    : "border-border bg-subtle/20 text-text-secondary hover:border-border-active hover:text-paper"
+                } ${canPassSpotlight ? "cursor-pointer" : "cursor-default"}`}
+                title={canPassSpotlight ? `Pass spotlight to ${character.name}` : character.name}
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-elevated text-[10px]">
+                  {character.name.charAt(0).toUpperCase()}
+                </span>
+                <span className="hidden max-w-[90px] truncate text-[10px] lg:inline">{character.name}</span>
+              </button>
             ))}
           </div>
 
           <div className="flex items-center gap-2">
+            {isGM && (
+              <button
+                type="button"
+                onClick={handleEndSession}
+                className="hidden min-h-10 rounded-full border border-border bg-subtle/20 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary transition-colors hover:border-rose/30 hover:text-rose sm:inline-flex sm:items-center"
+              >
+                End Session
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setFocusMode((value) => !value)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+              aria-label={focusMode ? "Show platform navigation" : "Enter focus mode"}
+              title={focusMode ? "Show platform navigation" : "Enter focus mode"}
+            >
+              {focusMode ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <path d="M8 3v5H3" />
+                  <path d="M16 3v5h5" />
+                  <path d="M8 21v-5H3" />
+                  <path d="M16 21v-5h5" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <path d="M3 9V3h6" />
+                  <path d="M21 9V3h-6" />
+                  <path d="M3 15v6h6" />
+                  <path d="M21 15v6h-6" />
+                </svg>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setShowLogDrawer(true)}
@@ -810,6 +948,43 @@ export default function SessionPlayPage() {
                 </svg>
               )}
             </button>
+          </div>
+        </div>
+        <div className="border-t border-border-subtle px-3 py-3 sm:px-5">
+          <div className="grid gap-3 lg:grid-cols-[minmax(220px,0.9fr)_minmax(280px,1.35fr)_minmax(180px,0.7fr)]">
+            <div className="rounded-lg border border-amber/20 bg-amber/[0.04] px-4 py-3">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-amber">{phaseLabel}</p>
+              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-text-secondary">{phaseHint}</p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-subtle/15 px-4 py-3">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-text-ghost">Scene Texture</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {sceneTexture.slice(0, 5).map((aspect, index) => (
+                  <span
+                    key={`${aspect}-${index}`}
+                    className="rounded-full border border-border bg-elevated/60 px-3 py-1 text-[10px] text-text-secondary"
+                  >
+                    {aspect}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-subtle/15 px-4 py-3">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-text-ghost">Pressure</p>
+              <p className="mt-1 text-[12px] font-medium text-paper">{pressureLabel}</p>
+              {primaryClock && (
+                <div className="mt-2 flex gap-1">
+                  {Array.from({ length: primaryClock.segments }).map((_, index) => (
+                    <span
+                      key={index}
+                      className={`h-1.5 flex-1 rounded-full ${index < primaryClock.filled ? "bg-amber" : "bg-subtle"}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -877,9 +1052,12 @@ export default function SessionPlayPage() {
         showDiceRoller={showDiceRoller || !!pendingRollRequest}
         onCloseDiceRoller={() => setShowDiceRoller(false)}
         onCommitDraft={handleCommitDraft}
+        onOfferBargain={handleOfferBargain}
+        onResolveBargain={handleResolveBargain}
         onCreateFloorRound={handleCreateFloorRound}
         onSubmitFloorResponse={handleSubmitFloorResponse}
         onVoteFloorSubmission={handleVoteFloorSubmission}
+        onUpdateAudienceSpark={handleUpdateAudienceSpark}
         onUpdateFloorRound={handleUpdateFloorRound}
         onPassTurn={handlePassTurn}
         onEndSession={handleEndSession}
@@ -891,9 +1069,15 @@ export default function SessionPlayPage() {
         onLastWords={handleLastWords}
         onReaction={handleReaction}
         onEditTurn={handleEditTurn}
-        mapPins={[]}
-        onAddMapPin={() => showToast("Map pins coming soon")}
-        onRemoveMapPin={() => showToast("Map pins coming soon")}
+        mapImageUrl={story?.mapImageUrl ?? null}
+        onUpdateMapImage={async (url) => {
+          try {
+            await patchStory({ mapImageUrl: url });
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "Failed to update map");
+          }
+        }}
+        showSessionChrome={false}
       />
 
       <AnimatePresence>

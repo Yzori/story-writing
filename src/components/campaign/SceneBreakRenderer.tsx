@@ -16,7 +16,13 @@ export default function SceneBreakRenderer({ turn }: SceneBreakRendererProps) {
   const classes = SCENE_BREAK_MOOD_CLASSES[mood] ?? DEFAULT_SCENE_BREAK_CLASSES;
 
   return (
-    <div className="flex items-center gap-4 my-12 px-4">
+    <div
+      // Stable anchor for the Places sidebar's click-to-jump behavior.
+      // scrollIntoView() targets this id when a player picks a place.
+      id={`turn-${turn.id}`}
+      data-turn-id={turn.id}
+      className="flex items-center gap-4 my-12 px-4 scroll-mt-24"
+    >
       <div className={`flex-1 h-px bg-gradient-to-r from-transparent ${classes.line} to-transparent`} />
       {title ? (
         <span className={`text-[10px] uppercase tracking-[0.3em] font-display ${classes.text}`}>

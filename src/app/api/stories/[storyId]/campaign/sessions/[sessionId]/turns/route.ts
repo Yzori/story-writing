@@ -1,13 +1,13 @@
 import { randomInt } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignRollResponses, campaignTurns, campaignSessions, playerCharacters, sessionRoster, users } from "@/server/db/schema";
+import { campaignRollResponses, campaignTurns, campaignSessions, places, playerCharacters, sessionRoster, users } from "@/server/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
-import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollRequestMetadata } from "@/lib/campaign-turns";
+import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollRequestMetadata, parseSceneBreakMetadata } from "@/lib/campaign-turns";
 import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
 import { getActiveSessionPlayerIds } from "@/server/services/campaign-rolls";
 import { APPROACHES, parseStats } from "@/types/campaign";
@@ -286,6 +286,65 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: "open",
         requiredUserIds,
       });
+    }
+
+    // Auto-link scene-breaks to a place. If the GM supplies a locationId we
+    // trust it (after verifying it belongs to this story); otherwise we
+    // upsert a place keyed off the scene-break's title so the Places list
+    // populates without any GM busywork. The unique index on (storyId,
+    // nameKey) makes "different scenes with the same title" idempotent.
+    if (parsed.data.type === "scene-break") {
+      const sceneMeta = parseSceneBreakMetadata(metadataToStore) ?? {};
+      let resolvedLocationId: string | null = sceneMeta.locationId ?? null;
+
+      if (resolvedLocationId) {
+        const existing = await db.query.places.findFirst({
+          where: and(
+            eq(places.id, resolvedLocationId),
+            eq(places.storyId, storyId),
+          ),
+        });
+        if (!existing) {
+          // Don't 400 — just drop the bad id and fall through to the
+          // title-based path so the scene still lands.
+          resolvedLocationId = null;
+        }
+      }
+
+      if (!resolvedLocationId && sceneMeta.title?.trim()) {
+        const name = sceneMeta.title.trim();
+        const nameKey = name.toLowerCase();
+        const [inserted] = await db
+          .insert(places)
+          .values({
+            storyId,
+            name,
+            nameKey,
+            mood: sceneMeta.mood ?? null,
+            autoCreated: true,
+          })
+          .onConflictDoNothing({
+            target: [places.storyId, places.nameKey],
+          })
+          .returning({ id: places.id });
+        if (inserted) {
+          resolvedLocationId = inserted.id;
+        } else {
+          const [existing] = await db
+            .select({ id: places.id })
+            .from(places)
+            .where(and(eq(places.storyId, storyId), eq(places.nameKey, nameKey)))
+            .limit(1);
+          resolvedLocationId = existing?.id ?? null;
+        }
+      }
+
+      if (resolvedLocationId) {
+        metadataToStore = JSON.stringify({
+          ...sceneMeta,
+          locationId: resolvedLocationId,
+        });
+      }
     }
 
     // For a roll turn, we trust only the client's *intent* (which attribute

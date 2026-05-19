@@ -131,6 +131,10 @@ export const stories = pgTable("stories", {
   campaignAuditionPrompt: text("campaign_audition_prompt")
     .notNull()
     .default("Write the moment we first meet your character. Where are they? What are they doing? What do they want, and what stops them from getting it?"),
+  // Optional URL of a map image overlaid by the SpatialMap view. Capped at
+  // the API layer (Zod max 4096) — never accept fat data: URIs here, the
+  // avatar mistake showed how those balloon NextAuth cookies.
+  mapImageUrl: text("map_image_url"),
   monetizationModel: text("monetization_model").notNull().default("free"), // 'free' | 'freemium' | 'gated'
   freeChapterCount: integer("free_chapter_count").notNull().default(3), // min free chapters for freemium
   defaultGatingTier: text("default_gating_tier").notNull().default("standard"), // default tier for new gated chapters
@@ -1009,6 +1013,52 @@ export const loreEntriesRelations = relations(loreEntries, ({ one }) => ({
   }),
 }));
 
+// ── Places (Adventure-Mode Map) ─────────────────────────────
+//
+// A `place` is a named location a campaign references. Scene-break turns
+// carry an optional locationId pointing here; when a fresh scene-break
+// title is posted the server upserts a row so the Places list populates
+// for free. Coordinates are percentage 0-100 over the (optional) story
+// map image — null when the GM hasn't placed the pin yet. Migration
+// 0038_campaign_places.sql defines the CHECK constraints + unique index
+// on (story_id, name_key).
+
+export const places = pgTable(
+  "places",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    mood: text("mood"),
+    description: text("description").notNull().default(""),
+    x: integer("x"),
+    y: integer("y"),
+    autoCreated: boolean("auto_created").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_places_story_id").on(table.storyId),
+    uniqueIndex("places_story_name_unique").on(table.storyId, table.nameKey),
+  ],
+);
+
+export const placesRelations = relations(places, ({ one }) => ({
+  story: one(stories, {
+    fields: [places.storyId],
+    references: [stories.id],
+  }),
+}));
+
 // ── Workshop Messages (Co-op Chat + Activity Feed) ─────────
 
 export const workshopMessages = pgTable("workshop_messages", {
@@ -1398,14 +1448,13 @@ export const campaignFloorSubmissions = pgTable("campaign_floor_submissions", {
   roundId: uuid("round_id")
     .notNull()
     .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  characterId: uuid("character_id")
-    .notNull()
-    .references(() => playerCharacters.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  characterId: uuid("character_id").references(() => playerCharacters.id, { onDelete: "cascade" }),
   type: text("type").notNull().default("action"),
   content: text("content").notNull(),
+  source: text("source").notNull().default("player"), // 'player' | 'audience_spark'
+  sourceLabel: text("source_label"),
+  audienceSparkId: uuid("audience_spark_id"),
   status: text("status").notNull().default("submitted"), // 'submitted' | 'selected' | 'rejected'
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -1413,6 +1462,27 @@ export const campaignFloorSubmissions = pgTable("campaign_floor_submissions", {
 }, (table) => [
   unique("campaign_floor_submission_round_user_unique").on(table.roundId, table.userId),
   index("idx_campaign_floor_submissions_round").on(table.roundId),
+]);
+
+export const campaignFloorAudienceSparks = pgTable("campaign_floor_audience_sparks", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  roundId: uuid("round_id")
+    .notNull()
+    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  content: text("content").notNull(),
+  amount: integer("amount").notNull().default(25),
+  status: text("status").notNull().default("pending"), // 'pending' | 'promoted' | 'rejected'
+  promotedSubmissionId: uuid("promoted_submission_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  index("idx_campaign_floor_audience_sparks_round").on(table.roundId, table.status),
+  index("idx_campaign_floor_audience_sparks_user").on(table.userId, table.createdAt),
 ]);
 
 export const campaignFloorVotes = pgTable("campaign_floor_votes", {
@@ -1468,6 +1538,7 @@ export const campaignFloorRoundsRelations = relations(campaignFloorRounds, ({ on
   submissions: many(campaignFloorSubmissions),
   votes: many(campaignFloorVotes),
   audiencePulses: many(campaignFloorAudiencePulses),
+  audienceSparks: many(campaignFloorAudienceSparks),
 }));
 
 export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissions, ({ one, many }) => ({
@@ -1485,6 +1556,21 @@ export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissi
   }),
   votes: many(campaignFloorVotes),
   audiencePulses: many(campaignFloorAudiencePulses),
+}));
+
+export const campaignFloorAudienceSparksRelations = relations(campaignFloorAudienceSparks, ({ one }) => ({
+  round: one(campaignFloorRounds, {
+    fields: [campaignFloorAudienceSparks.roundId],
+    references: [campaignFloorRounds.id],
+  }),
+  user: one(users, {
+    fields: [campaignFloorAudienceSparks.userId],
+    references: [users.id],
+  }),
+  promotedSubmission: one(campaignFloorSubmissions, {
+    fields: [campaignFloorAudienceSparks.promotedSubmissionId],
+    references: [campaignFloorSubmissions.id],
+  }),
 }));
 
 export const campaignFloorVotesRelations = relations(campaignFloorVotes, ({ one }) => ({

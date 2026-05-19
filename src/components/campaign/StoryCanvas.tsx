@@ -10,8 +10,7 @@ import IllustrationTurn from "./IllustrationTurn";
 import InitiativeBar from "./InitiativeBar";
 import DiceRoller from "./DiceRoller";
 import SessionLobby from "./SessionLobby";
-import LoreMap from "./LoreMap";
-import type { MapPin } from "./LoreMap";
+import MapOverlay from "./MapOverlay";
 import SceneBreakRenderer from "./SceneBreakRenderer";
 import SessionEndedBlock from "./SessionEndedBlock";
 import TurnRenderer from "./TurnRenderer";
@@ -23,8 +22,6 @@ import {
   MOOD_TINT_COLORS,
   MOOD_VIGNETTE_COLORS,
 } from "./ProseAssembler";
-
-export type { MapPin };
 
 interface StoryCanvasProps {
   sessionId: string;
@@ -41,6 +38,13 @@ interface StoryCanvasProps {
   showDiceRoller: boolean;
   onCloseDiceRoller: () => void;
   onCommitDraft: (content: string, type: string) => void | Promise<void>;
+  onOfferBargain?: (body: {
+    targetUserId: string;
+    targetLabel: string;
+    gain: string;
+    price: string;
+  }) => Promise<void>;
+  onResolveBargain?: (turnId: string, response: "accepted" | "refused") => void | Promise<void>;
   onPassTurn: (userId: string) => void;
   onEndSession: () => void;
   onTurnExpired: () => void;
@@ -60,12 +64,12 @@ interface StoryCanvasProps {
   previousEpilogue?: string | null;
   previousMood?: string | null;
   onBeginSession?: () => void;
-  mapImage?: string | null;
-  mapPins?: MapPin[];
-  currentMapPinId?: string | null;
-  onAddMapPin?: (pin: Omit<MapPin, "id">) => void;
-  onRemoveMapPin?: (pinId: string) => void;
-  onSetCurrentMapPin?: (pinId: string) => void;
+  /** Campaign map background URL (story.mapImageUrl). The MapOverlay renders
+   *  it as the SpatialMap canvas. Null until the GM sets one. */
+  mapImageUrl?: string | null;
+  /** PATCHes story.mapImageUrl. GM-only on the server; null clears the
+   *  background. The overlay only invokes this when isGM is true. */
+  onUpdateMapImage?: (url: string | null) => Promise<void> | void;
   logTurns?: Turn[];
   roster?: SessionRosterEntry[];
   rosterCharacters?: PlayerCharacter[];
@@ -79,10 +83,12 @@ interface StoryCanvasProps {
     body: { characterId: string; type: string; content: string },
   ) => Promise<void>;
   onVoteFloorSubmission?: (roundId: string, submissionId: string) => Promise<void>;
+  onUpdateAudienceSpark?: (roundId: string, sparkId: string, action: "promote" | "reject") => Promise<void>;
   onUpdateFloorRound?: (
     roundId: string,
     body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
   ) => Promise<void>;
+  showSessionChrome?: boolean;
 }
 
 // ── Reaction System ──────────────────────────────────────────
@@ -159,6 +165,8 @@ export default function StoryCanvas({
   showDiceRoller,
   onCloseDiceRoller,
   onCommitDraft,
+  onOfferBargain,
+  onResolveBargain,
   onPassTurn,
   onEndSession,
   onTurnExpired,
@@ -173,12 +181,8 @@ export default function StoryCanvas({
   previousEpilogue,
   previousMood,
   onBeginSession,
-  mapImage,
-  mapPins,
-  currentMapPinId,
-  onAddMapPin,
-  onRemoveMapPin,
-  onSetCurrentMapPin,
+  mapImageUrl,
+  onUpdateMapImage,
   logTurns = [],
   roster,
   rosterCharacters,
@@ -189,7 +193,9 @@ export default function StoryCanvas({
   onCreateFloorRound,
   onSubmitFloorResponse,
   onVoteFloorSubmission,
+  onUpdateAudienceSpark,
   onUpdateFloorRound,
+  showSessionChrome = true,
 }: StoryCanvasProps) {
   const TURNS_PER_BATCH = 50;
   const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
@@ -269,6 +275,7 @@ export default function StoryCanvas({
     floorRound,
   });
   const canWrite = interactionState.canWriteDirect;
+  const canShowComposer = canWrite || (isActive && !isCharGone);
 
   // Find who's currently writing for the lock screen
   const activeChar = characters.find((c) => c.userId === activePlayerId);
@@ -326,41 +333,49 @@ export default function StoryCanvas({
 
   // Stable player color map
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
+  const bargainTargets = useMemo(() => {
+    const seen = new Set<string>();
+    return (rosterCharacters?.length ? rosterCharacters : characters)
+      .filter((character) => {
+        if (character.status !== "active" || seen.has(character.userId)) return false;
+        seen.add(character.userId);
+        return true;
+      })
+      .map((character) => {
+        return { userId: character.userId, label: character.name };
+      });
+  }, [characters, rosterCharacters]);
 
   // ── Mood & Aspects — derive from latest scene-break ──────────
   const { currentMood, currentSceneAspects } = getCurrentSceneState(storyTurns);
 
   const moodTint = currentMood ? MOOD_TINT_COLORS[currentMood] ?? null : null;
   const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
-  const currentMapPin = mapPins?.find((pin) => pin.id === currentMapPinId) ?? mapPins?.[0] ?? null;
+
+  // Count scene-break turns. The MapOverlay refreshes its places list
+  // whenever this changes, so server-auto-created places (those upserted
+  // behind a freshly-posted scene-break) appear without manual refresh.
+  const sceneBreakCount = useMemo(
+    () => storyTurns.filter((t) => t.type === "scene-break").length,
+    [storyTurns],
+  );
 
   return (
     <div className="flex-1 h-full flex flex-col relative bg-void">
-      {/* Map Toggle */}
-      {!showMap && (
+      {/* Places / Map toggle */}
+      {showSessionChrome && !showMap && (
         <div className="absolute right-3 top-3 z-50 flex max-w-[calc(100%-2rem)] flex-col items-end gap-2 sm:right-4 sm:top-28">
           <button
             onClick={() => setShowMap(true)}
             className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-border bg-black/45 px-3 py-2 text-xs text-text-secondary backdrop-blur-md transition-colors hover:bg-subtle/50 hover:text-paper sm:min-h-10 sm:bg-subtle/30 sm:px-4"
-            aria-label={`World Map${mapPins?.length ? ` · ${mapPins.length}` : ""}`}
+            aria-label="Places and map"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
               <line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" />
             </svg>
-            <span className="hidden sm:inline">{`World Map${mapPins?.length ? ` · ${mapPins.length}` : ""}`}</span>
+            <span className="hidden sm:inline">Places</span>
           </button>
-          {currentMapPin && (
-            <button
-              type="button"
-              onClick={() => setShowMap(true)}
-              className="hidden max-w-[260px] rounded-xl border border-amber/20 bg-black/45 px-3 py-2 text-left shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors hover:border-amber/35 hover:bg-amber/10 sm:block"
-              title="Open world map"
-            >
-              <span className="block text-[9px] uppercase tracking-[0.2em] text-amber">Current Location</span>
-              <span className="mt-0.5 block truncate text-[12px] font-medium text-paper">{currentMapPin.label}</span>
-            </button>
-          )}
         </div>
       )}
 
@@ -389,24 +404,26 @@ export default function StoryCanvas({
       </div>
 
       {/* Initiative Bar */}
-      <InitiativeBar
-        characters={characters}
-        rosterCharacters={rosterCharacters}
-        activePlayerId={activePlayerId}
-        currentUserId={currentUserId}
-        isGM={isGM}
-        sessionTitle={sessionTitle}
-        sessionStatus={sessionStatus}
-        onPassTurn={onPassTurn}
-        onEndSession={onEndSession}
-        onTurnExpired={onTurnExpired}
-        onExtendTimer={onExtendTimer}
-        floorRound={floorRound}
-      />
+      {showSessionChrome && (
+        <InitiativeBar
+          characters={characters}
+          rosterCharacters={rosterCharacters}
+          activePlayerId={activePlayerId}
+          currentUserId={currentUserId}
+          isGM={isGM}
+          sessionTitle={sessionTitle}
+          sessionStatus={sessionStatus}
+          onPassTurn={onPassTurn}
+          onEndSession={onEndSession}
+          onTurnExpired={onTurnExpired}
+          onExtendTimer={onExtendTimer}
+          floorRound={floorRound}
+        />
+      )}
 
       {/* Scene Aspect Tags — floating pills below initiative bar */}
       <AnimatePresence>
-        {currentSceneAspects.length > 0 && sessionStatus === "active" && (
+        {showSessionChrome && currentSceneAspects.length > 0 && sessionStatus === "active" && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -443,7 +460,7 @@ export default function StoryCanvas({
       </AnimatePresence>
 
       {/* Story Canvas */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-10 pb-28 px-4 sm:px-8 lg:px-12 flex flex-col items-center z-10 relative scroll-smooth sm:pt-16 sm:pb-36 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-10 pb-72 px-4 sm:px-8 lg:px-12 flex flex-col items-center z-10 relative scroll-smooth sm:pt-16 sm:pb-80 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
 
         {/* Floating reaction bubbles — positioned above story content */}
         <AnimatePresence>
@@ -532,7 +549,17 @@ export default function StoryCanvas({
                   <div key={group[0].id}>
                     <p className="relative group/para">
                       {group.map((turn, ti) => (
-                        <TurnRenderer key={turn.id} turn={turn} idx={ti} group={group} globalIdx={globalIdx + ti} playerUserIds={playerUserIds} />
+                        <TurnRenderer
+                          key={turn.id}
+                          turn={turn}
+                          idx={ti}
+                          group={group}
+                          globalIdx={globalIdx + ti}
+                          playerUserIds={playerUserIds}
+                          currentUserId={currentUserId}
+                          isGM={isGM}
+                          onResolveBargain={onResolveBargain}
+                        />
                       ))}
                       {pi === paragraphs.length - 1 && !groupHasEditable && (
                         <span className="inline-block w-1.5 h-5 bg-amber/40 ml-1 animate-pulse align-middle" />
@@ -598,26 +625,30 @@ export default function StoryCanvas({
           )}
         </div>
 
-        {!spectatorMode && (
+        {!spectatorMode && floorRound && (
           <FloorRoundPanel
             floorRound={floorRound}
             isGM={isGM}
             myCharacter={myCharacter ?? null}
             isActive={isActive}
-            onCreateRound={onCreateFloorRound ?? (async () => {})}
             onSubmitResponse={onSubmitFloorResponse ?? (async () => {})}
             onVoteSubmission={onVoteFloorSubmission ?? (async () => {})}
+            onUpdateAudienceSpark={onUpdateAudienceSpark ?? (async () => {})}
             onUpdateRound={onUpdateFloorRound ?? (async () => {})}
           />
         )}
 
         {/* Draft Box */}
-        {canWrite && (
+        {canShowComposer && (
           <AdventureDraftComposer
             sessionId={sessionId}
             isGM={isGM}
             myCharName={myCharName}
             onCommitDraft={onCommitDraft}
+            onOfferBargain={onOfferBargain}
+            onCreateFloorRound={onCreateFloorRound}
+            hasActiveCrossroads={!!floorRound}
+            bargainTargets={bargainTargets}
           />
         )}
 
@@ -756,9 +787,9 @@ export default function StoryCanvas({
         rollFatal={pendingRollRequest?.fatal ?? false}
       />
 
-      {/* Map Overlay */}
+      {/* Places + Map overlay */}
       <AnimatePresence>
-        {showMap && (
+        {showMap && storyId && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -767,15 +798,16 @@ export default function StoryCanvas({
             className="absolute inset-0 z-40 flex flex-col overflow-hidden border border-amber/20 bg-ink shadow-[0_20px_60px_rgba(0,0,0,0.8)] sm:inset-x-8 sm:inset-y-8 sm:rounded-3xl"
           >
             <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] pointer-events-none" />
-            <LoreMap
-              mapImage={mapImage ?? null}
-              pins={mapPins ?? []}
+            <MapOverlay
+              storyId={storyId}
+              storyTurns={storyTurns}
+              mapImageUrl={mapImageUrl ?? null}
               isGM={isGM}
-              currentPinId={currentMapPinId}
-              onAddPin={onAddMapPin ?? (() => {})}
-              onRemovePin={onRemoveMapPin}
-              onSetCurrentPin={onSetCurrentMapPin}
               onClose={() => setShowMap(false)}
+              onUpdateMapImage={async (url) => {
+                if (onUpdateMapImage) await onUpdateMapImage(url);
+              }}
+              sceneBreakCount={sceneBreakCount}
             />
           </motion.div>
         )}

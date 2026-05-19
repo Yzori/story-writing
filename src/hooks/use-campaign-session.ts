@@ -330,6 +330,25 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     return json.data ?? [];
   }, [storyId, sessionId]);
 
+  // ── Patch the parent story (mapImageUrl, charter fields, etc.) ───
+  // Centralises "PATCH /api/stories/[id] then refresh local state" so
+  // callers don't double-fetch. Returns the updated story.
+  const patchStory = useCallback(
+    async (patch: Record<string, unknown>) => {
+      const json = await campaignJsonRequest<StoryData>(
+        `/api/stories/${storyId}`,
+        {
+          method: "PATCH",
+          body: patch,
+          fallbackError: "Failed to update story",
+        },
+      );
+      if (json.data) setStory((prev) => (prev ? { ...prev, ...json.data } : json.data ?? null));
+      return json.data ?? null;
+    },
+    [storyId],
+  );
+
   // ── Update session (status, title, etc.) ───────────────────
   const updateSession = useCallback(
     async (data: Record<string, unknown>) => {
@@ -398,6 +417,24 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     [storyId, sessionId],
   );
 
+  const updateBargain = useCallback(
+    async (turnId: string, response: "accepted" | "refused") => {
+      const json = await campaignJsonRequest<Turn>(
+        `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}/bargain`,
+        {
+          method: "PATCH",
+          body: { response },
+          fallbackError: "Failed to answer bargain",
+        },
+      );
+      if (json.data) {
+        setTurns((prev) => prev.map((turn) => (turn.id === turnId ? json.data as Turn : turn)));
+      }
+      return json.data as Turn;
+    },
+    [storyId, sessionId],
+  );
+
   const refreshFloorRound = useCallback(async () => {
     const json = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
     setFloorRound(json.data ?? null);
@@ -446,6 +483,19 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     return json.data ?? null;
   }, [floorRoundsUrl]);
 
+  const updateAudienceSpark = useCallback(async (roundId: string, sparkId: string, action: "promote" | "reject") => {
+    const json = await campaignJsonRequest<FloorRound>(
+      `${floorRoundsUrl}/${roundId}/sparks/${sparkId}`,
+      {
+        method: "PATCH",
+        body: { action },
+        fallbackError: "Failed to update Audience Spark",
+      },
+    );
+    setFloorRound(json.data ?? null);
+    return json.data ?? null;
+  }, [floorRoundsUrl]);
+
   const updateFloorRound = useCallback(
     async (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => {
       const json = await campaignJsonRequest<FloorRound | null>(
@@ -487,14 +537,17 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     previousMood,
     sendTurn,
     setActivePlayer,
+    patchStory,
     updateSession,
     updateRoster,
     editTurn,
     updateRollRequest,
+    updateBargain,
     refreshFloorRound,
     createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
+    updateAudienceSpark,
     updateFloorRound,
     clocks,
     setClocks,

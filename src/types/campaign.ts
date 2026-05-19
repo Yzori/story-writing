@@ -11,7 +11,7 @@ export interface Turn {
   sortOrder: number;
   createdAt: string;
   user: {
-    id: string;
+    id: string | null;
     displayName: string | null;
     avatarUrl: string | null;
   };
@@ -74,20 +74,40 @@ export type FloorRoundStatus = "open" | "voting" | "closed" | "resolved" | "canc
 export interface FloorSubmission {
   id: string;
   roundId: string;
-  userId: string;
-  characterId: string;
+  userId: string | null;
+  characterId: string | null;
   type: CampaignTurnType;
   content: string;
+  source: "player" | "audience_spark";
+  sourceLabel: string | null;
+  audienceSparkId: string | null;
   status: "submitted" | "selected" | "rejected";
   createdAt: string;
   characterName: string | null;
   user: {
-    id: string;
+    id: string | null;
     displayName: string | null;
     avatarUrl: string | null;
   };
   voteCount: number;
   audiencePulseCount: number;
+  isMine: boolean;
+}
+
+export interface FloorAudienceSpark {
+  id: string;
+  roundId: string;
+  userId: string | null;
+  content: string;
+  amount: number;
+  status: "pending" | "promoted" | "rejected";
+  promotedSubmissionId: string | null;
+  createdAt: string;
+  user: {
+    id: string | null;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
   isMine: boolean;
 }
 
@@ -103,6 +123,7 @@ export interface FloorRound {
   createdAt: string;
   updatedAt: string;
   submissions: FloorSubmission[];
+  audienceSparks: FloorAudienceSpark[];
   myVoteSubmissionId: string | null;
   voteCount: number;
   eligibleVoterCount: number;
@@ -116,6 +137,9 @@ export interface StoryData {
   id: string;
   userId: string;
   title: string;
+  /** Background image for the campaign's SpatialMap. Null until the GM
+   *  sets one via the map overlay's "Set map" dialog. */
+  mapImageUrl?: string | null;
 }
 
 export interface CharacterStats {

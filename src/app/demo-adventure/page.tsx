@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
-import type { MapPin } from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
 import AudiencePulsePanel from "@/components/campaign/spectator/AudiencePulsePanel";
 import ThemeToggle from "@/components/editor/ThemeToggle";
@@ -164,6 +163,9 @@ const INITIAL_FLOOR_ROUND: FloorRound = {
       type: "action",
       content:
         "draws his blade and steps between Lyra and the altar, ready for whatever crawls out of the dark.",
+      source: "player",
+      sourceLabel: null,
+      audienceSparkId: null,
       status: "submitted",
       createdAt: "2026-05-15T20:03:30Z",
       characterName: "Kaelen",
@@ -180,6 +182,9 @@ const INITIAL_FLOOR_ROUND: FloorRound = {
       type: "description",
       content:
         "The dead in the walls start whispering at once. Elara raises a hand — not to fight, but to listen.",
+      source: "player",
+      sourceLabel: null,
+      audienceSparkId: null,
       status: "submitted",
       createdAt: "2026-05-15T20:03:45Z",
       characterName: "Elara",
@@ -189,6 +194,7 @@ const INITIAL_FLOOR_ROUND: FloorRound = {
       isMine: false,
     },
   ],
+  audienceSparks: [],
   myVoteSubmissionId: null,
   voteCount: 1,
   eligibleVoterCount: 3,
@@ -198,40 +204,9 @@ const INITIAL_FLOOR_ROUND: FloorRound = {
   myAudiencePulseSubmissionId: null,
 };
 
-const INITIAL_MAP_PINS: MapPin[] = [
-  {
-    id: "map-gate",
-    x: 31,
-    y: 62,
-    label: "Shattered Gate",
-    mood: "melancholy",
-    description: "Where the party entered beneath broken moonlit arches.",
-  },
-  {
-    id: "map-throne",
-    x: 52,
-    y: 48,
-    label: "Old Throne Room",
-    mood: "ominous",
-    description: "Cracked pillars, dead banners, and the first pulse of the Crown.",
-  },
-  {
-    id: "map-altar",
-    x: 64,
-    y: 42,
-    label: "Waking Altar",
-    mood: "tense",
-    description: "Current scene. The runes are heating under Lyra's hand.",
-  },
-  {
-    id: "map-tunnel",
-    x: 74,
-    y: 58,
-    label: "Collapsed Escape Tunnel",
-    mood: "mysterious",
-    description: "Half-buried stairs descend toward moving air.",
-  },
-];
+// Map fixtures lived here under the old client-only MapPin model. The
+// real map view now talks to /api/.../campaign/places — demo-adventure
+// is a fixture-only sandbox so the map overlay just renders empty here.
 
 type ViewAs = "gm" | "lyra" | "kaelen" | "elara" | "spectator";
 
@@ -260,8 +235,6 @@ export default function DemoAdventurePage() {
   const [turns, setTurns] = useState<Turn[]>(INITIAL_TURNS);
   const [floorRound, setFloorRound] = useState<FloorRound | null>(INITIAL_FLOOR_ROUND);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [mapPins, setMapPins] = useState<MapPin[]>(INITIAL_MAP_PINS);
-  const [currentMapPinId, setCurrentMapPinId] = useState("map-altar");
   const [chatInput, setChatInput] = useState("");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<"log" | "context" | null>(null);
@@ -499,6 +472,7 @@ export default function DemoAdventurePage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         submissions: [],
+        audienceSparks: [],
         myVoteSubmissionId: null,
         voteCount: 0,
         eligibleVoterCount: ACTIVE_PLAYER_USER_IDS.length,
@@ -524,6 +498,9 @@ export default function DemoAdventurePage() {
           characterId: body.characterId,
           type: body.type as Turn["type"],
           content: body.content,
+          source: "player",
+          sourceLabel: null,
+          audienceSparkId: null,
           status: "submitted",
           createdAt: new Date().toISOString(),
           characterName: char?.name ?? null,
@@ -563,7 +540,7 @@ export default function DemoAdventurePage() {
           const selected = prev.submissions.find((s) => s.id === body.selectedSubmissionId);
           if (selected) {
             appendTurn({
-              userId: selected.userId,
+              userId: selected.userId ?? GM_USER_ID,
               characterId: selected.characterId,
               type: selected.type,
               content: selected.content,
@@ -604,32 +581,6 @@ export default function DemoAdventurePage() {
     if (!isGM || floorRound) return;
     setActivePlayerId(userId);
   }, [floorRound, isGM]);
-
-  const handleAddMapPin = useCallback((pin: Omit<MapPin, "id">) => {
-    setMapPins((prev) => [...prev, { ...pin, id: `map-${Date.now()}` }]);
-  }, []);
-
-  const handleRemoveMapPin = useCallback((pinId: string) => {
-    setMapPins((prev) => prev.filter((pin) => pin.id !== pinId));
-    setCurrentMapPinId((prev) => prev === pinId ? "map-altar" : prev);
-  }, []);
-
-  const handleSetCurrentMapPin = useCallback((pinId: string) => {
-    if (!isGM) return;
-    const pin = mapPins.find((item) => item.id === pinId);
-    if (!pin) return;
-    setCurrentMapPinId(pinId);
-    appendTurn({
-      userId: GM_USER_ID,
-      characterId: null,
-      type: "narration",
-      content: `The map is turned toward ${pin.label}. ${pin.description ?? "The party's attention shifts there."}`,
-      metadata: null,
-      user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
-      characterName: null,
-      characterPortrait: null,
-    });
-  }, [appendTurn, isGM, mapPins]);
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -719,11 +670,6 @@ export default function DemoAdventurePage() {
             myCharacterStatus={myCharacter?.status ?? null}
             onLastWords={() => {}}
             spectatorMode={isSpectator}
-            mapPins={mapPins}
-            currentMapPinId={currentMapPinId}
-            onAddMapPin={handleAddMapPin}
-            onRemoveMapPin={handleRemoveMapPin}
-            onSetCurrentMapPin={handleSetCurrentMapPin}
             floorRound={floorRound}
             onCreateFloorRound={handleCreateFloorRound}
             onSubmitFloorResponse={handleSubmitFloorResponse}

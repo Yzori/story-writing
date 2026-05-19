@@ -107,6 +107,10 @@ export const sceneBreakMetadataSchema = z.object({
   mood: z.string().optional(),
   aspects: z.array(z.string()).optional(),
   cinematic: z.boolean().optional(),
+  // Links the scene-break to a row in `places`. Server fills this in on
+  // post when the GM doesn't supply one — see the auto-create logic in
+  // /api/.../turns POST. Treated as opaque on the client.
+  locationId: z.string().uuid().optional(),
 });
 
 export const illustrationMetadataSchema = z.object({
@@ -114,10 +118,23 @@ export const illustrationMetadataSchema = z.object({
   caption: z.string().optional(),
 });
 
+export const bargainMetadataSchema = z.object({
+  kind: z.literal("bargain"),
+  targetUserId: targetUserIdSchema,
+  targetLabel: tidyText(120),
+  gain: tidyText(700),
+  price: tidyText(700),
+  status: z.enum(["open", "accepted", "refused", "cancelled"]).optional(),
+  responseUserId: z.string().max(64).optional(),
+  responseLabel: tidyText(120).optional(),
+  resolvedAt: z.string().max(80).optional(),
+});
+
 export type RollRequestMetadata = z.infer<typeof rollRequestMetadataSchema>;
 export type RollMetadata = z.infer<typeof rollMetadataSchema>;
 export type SceneBreakMetadata = z.infer<typeof sceneBreakMetadataSchema>;
 export type IllustrationMetadata = z.infer<typeof illustrationMetadataSchema>;
+export type BargainMetadata = z.infer<typeof bargainMetadataSchema>;
 
 function parseMetadata<T>(metadata: string | null | undefined, schema: z.ZodType<T>): T | null {
   if (!metadata) return null;
@@ -149,4 +166,8 @@ export function parseSceneBreakMetadata(metadata: string | null | undefined) {
 
 export function parseIllustrationMetadata(metadata: string | null | undefined) {
   return parseMetadata(metadata, illustrationMetadataSchema);
+}
+
+export function parseBargainMetadata(metadata: string | null | undefined) {
+  return parseMetadata(metadata, bargainMetadataSchema);
 }
