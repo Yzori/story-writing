@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 
 const CONTENT_RATINGS = [
   { value: "everyone", label: "All Ages", description: "Show only stories rated for everyone" },
@@ -21,32 +22,33 @@ const READING_FONTS = [
 
 type SyncStatus = "synced" | "local-only" | "loading";
 
+function readLocalPreference(key: string, fallback: string) {
+  if (typeof window === "undefined") return fallback;
+  return localStorage.getItem(key) || fallback;
+}
+
+function readLocalReadingMode() {
+  if (typeof window === "undefined") return "paginated";
+  try {
+    const prefs = JSON.parse(localStorage.getItem("quiloria-reader-prefs") || "{}");
+    return typeof prefs.mode === "string" ? prefs.mode : "paginated";
+  } catch {
+    return "paginated";
+  }
+}
+
 export default function SettingsPage() {
   const { data: session, status: sessionStatus } = useSession();
-  const [comfortRating, setComfortRating] = useState("everyone");
-  const [readingFont, setReadingFont] = useState("default");
-  const [readingMode, setReadingMode] = useState("paginated");
+  const [comfortRating, setComfortRating] = useState(() => readLocalPreference("quiloria-comfort-rating", "everyone"));
+  const [readingFont, setReadingFont] = useState(() => readLocalPreference("quiloria-reading-font", "default"));
+  const [readingMode, setReadingMode] = useState(() => readLocalReadingMode());
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [emailDigestMode, setEmailDigestMode] = useState<"instant" | "daily" | "weekly" | "off">("instant");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
-
-  const loadLocalPrefs = useCallback(() => {
-    const rating = localStorage.getItem("quiloria-comfort-rating");
-    if (rating) setComfortRating(rating);
-    const font = localStorage.getItem("quiloria-reading-font");
-    if (font) setReadingFont(font);
-    try {
-      const prefs = JSON.parse(localStorage.getItem("quiloria-reader-prefs") || "{}");
-      if (prefs.mode) setReadingMode(prefs.mode);
-    } catch {}
-  }, []);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("local-only");
 
   useEffect(() => {
-    // Always load localStorage first as fallback
-    loadLocalPrefs();
-
     if (sessionStatus === "loading") return;
 
     if (session?.user) {
@@ -70,10 +72,8 @@ export default function SettingsPage() {
           // API failed — stay with localStorage values
           setSyncStatus("local-only");
         });
-    } else {
-      setSyncStatus("local-only");
     }
-  }, [session, sessionStatus, loadLocalPrefs]);
+  }, [session, sessionStatus]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -107,20 +107,23 @@ export default function SettingsPage() {
   };
 
   const labelClass = "text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block";
-  const cardClass = "card-page p-6";
+  const cardClass = "rounded-2xl border border-border bg-surface/68 p-5 shadow-[var(--t-shadow-card)] sm:p-6";
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div className="mx-auto max-w-4xl">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-border bg-ink/45 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="section-label text-[10px] mb-2 max-w-[140px]">Preferences</p>
-            <h1 className="font-display text-2xl text-paper font-semibold">Settings</h1>
+            <p className="section-label mb-2 max-w-[140px] text-[10px]">Preferences</p>
+            <h2 className="font-display text-2xl font-semibold text-paper">Reading and notifications</h2>
+            <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-text-secondary">
+              Set the defaults that shape browsing, reading, and how often Quiloria reaches you outside the app.
+            </p>
           </div>
           {session?.user && (
             <Link
               href={`/profile/${session.user.id}/edit`}
-              className="text-text-ghost hover:text-paper text-[12px] flex items-center gap-1.5 transition-colors"
+              className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-border bg-elevated/60 px-3 py-2 text-[12px] text-text-secondary transition-colors hover:border-text-ghost/40 hover:text-paper"
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="5" r="3" />
@@ -132,7 +135,7 @@ export default function SettingsPage() {
         </div>
       </motion.div>
 
-      <div className="space-y-6">
+      <div className="grid gap-5">
         {/* Account Info */}
         {session?.user && (
           <motion.div
@@ -144,9 +147,12 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber/20 to-amber/5 border border-amber/15 flex items-center justify-center text-amber font-display font-semibold text-sm overflow-hidden flex-shrink-0">
                 {(session.user as { image?: string | null }).image ? (
-                  <img
+                  <Image
                     src={(session.user as { image?: string | null }).image!}
                     alt=""
+                    width={40}
+                    height={40}
+                    unoptimized
                     className="w-full h-full rounded-full object-cover"
                   />
                 ) : (
@@ -161,7 +167,7 @@ export default function SettingsPage() {
               </div>
               <Link
                 href={`/profile/${session.user.id}/edit`}
-                className="ml-auto text-amber text-[12px] font-medium hover:text-amber-light transition-colors flex-shrink-0"
+              className="ml-auto flex-shrink-0 rounded-lg border border-amber/20 bg-amber/[0.06] px-3 py-1.5 text-[12px] font-medium text-amber transition-colors hover:bg-amber/[0.12]"
               >
                 Edit Profile
               </Link>
@@ -182,7 +188,7 @@ export default function SettingsPage() {
             Stories above your threshold are hidden from browse &amp; search by default.
             This preference is private.
           </p>
-          <div className="space-y-1.5">
+          <div className="grid gap-2 sm:grid-cols-2">
             {CONTENT_RATINGS.map((rating) => (
               <button
                 key={rating.value}
@@ -190,7 +196,7 @@ export default function SettingsPage() {
                 className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
                   comfortRating === rating.value
                     ? "border-amber/30 bg-amber/[0.06] text-amber"
-                    : "border-transparent text-text-secondary hover:bg-subtle/30"
+                    : "border-border bg-ink/35 text-text-secondary hover:bg-subtle/30"
                 }`}
               >
                 <span className="text-[13px] font-medium block sm:inline">{rating.label}</span>
@@ -208,7 +214,7 @@ export default function SettingsPage() {
           className={cardClass}
         >
           <label className={labelClass}>Default Reading Mode</label>
-          <div className="flex gap-3 mb-6">
+          <div className="grid gap-3 sm:grid-cols-2 mb-6">
             {[
               { value: "paginated", label: "Paginated", desc: "Page-by-page, like a book" },
               { value: "scroll", label: "Scroll", desc: "Continuous scrolling" },
@@ -216,7 +222,7 @@ export default function SettingsPage() {
               <button
                 key={mode.value}
                 onClick={() => setReadingMode(mode.value)}
-                className={`flex-1 px-4 py-3 rounded-xl border transition-all text-left ${
+                className={`px-4 py-3 rounded-xl border transition-all text-left ${
                   readingMode === mode.value
                     ? "border-amber/30 bg-amber/[0.06]"
                     : "border-border hover:border-border-active"
@@ -254,13 +260,13 @@ export default function SettingsPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className={`${cardClass} mt-6`}
+            className={cardClass}
           >
             <label className={labelClass}>Email cadence</label>
             <p className="text-text-secondary text-[12px] mb-4 leading-relaxed">
               How often we email you about new chapters, comments on your work, collaboration invites, and updates from authors you follow.
             </p>
-            <div className="space-y-1.5">
+            <div className="grid gap-2">
               {[
                 { value: "instant", label: "Send each one as it happens", description: "One email per event. Best for low-volume readers." },
                 { value: "daily", label: "Daily digest", description: "One email each morning summarizing yesterday." },
@@ -279,7 +285,7 @@ export default function SettingsPage() {
                     className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
                       selected
                         ? "border-amber/30 bg-amber/[0.06] text-amber"
-                        : "border-transparent text-text-secondary hover:bg-subtle/30"
+                        : "border-border bg-ink/35 text-text-secondary hover:bg-subtle/30"
                     }`}
                   >
                     <span className="text-[13px] font-medium block sm:inline">{opt.label}</span>
@@ -296,7 +302,7 @@ export default function SettingsPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="flex items-center gap-4 pt-2"
+          className="sticky bottom-4 z-10 flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-surface/90 p-3 shadow-[var(--t-shadow-elevated)] backdrop-blur-xl"
         >
           <button
             onClick={handleSave}

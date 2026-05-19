@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 
 const TIERS = [
   {
@@ -40,7 +38,6 @@ interface PurchaseRecord {
 }
 
 export default function InkDropsPage() {
-  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [balance, setBalance] = useState<number | null>(null);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
@@ -94,21 +91,14 @@ export default function InkDropsPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10">
+    <div className="mx-auto max-w-5xl">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <Link
-            href="/settings"
-            className="text-text-ghost hover:text-paper transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M10 12L6 8l4-4" />
-            </svg>
-          </Link>
+        <div className="mb-6 rounded-2xl border border-border bg-ink/45 p-5">
+          <p className="section-label mb-2 max-w-[160px] text-[10px]">Ink Drops</p>
           <div>
-            <h1 className="font-display text-2xl text-paper font-bold">Ink Drops</h1>
-            <p className="text-text-secondary text-sm">
+            <h2 className="font-display text-2xl font-semibold text-paper sm:text-3xl">Balance and purchases</h2>
+            <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-text-secondary">
               The platform currency. Spend on tips, unlocks, polls, subscriptions, and commissions.
             </p>
           </div>
@@ -119,7 +109,7 @@ export default function InkDropsPage() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-8 rounded-xl border border-border bg-surface/30 p-5"
+          className="mb-6 rounded-2xl border border-border bg-surface/68 p-5 shadow-[var(--t-shadow-card)] sm:p-6"
         >
           <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3">What Ink Drops do</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-[12px]">
@@ -180,9 +170,10 @@ export default function InkDropsPage() {
         </AnimatePresence>
 
         {/* Current balance */}
-        <div className="mb-8 p-5 card-page">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
+        <div className="mb-6 rounded-2xl border border-gold/20 bg-gradient-to-br from-gold/[0.10] to-surface/60 p-5 shadow-[var(--t-shadow-card)] sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gold">
                 <path d="M8 2C8 2 4 6 4 9a4 4 0 008 0c0-3-4-7-4-7z" />
               </svg>
@@ -193,21 +184,25 @@ export default function InkDropsPage() {
                 {balance !== null ? balance.toLocaleString() : "—"}
               </p>
             </div>
+            </div>
+            <p className="max-w-sm text-[12px] leading-relaxed text-text-secondary">
+              Drops are prepaid balance. Purchases are handled through checkout before any balance is added.
+            </p>
           </div>
         </div>
 
         {/* Tier cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
           {TIERS.map((tier, i) => (
             <motion.div
               key={tier.key}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
-              className={`relative p-5 rounded-xl border transition-all ${
+              className={`relative rounded-2xl border p-5 transition-all ${
                 tier.popular
                   ? "bg-gold/5 border-gold/25 shadow-[0_0_30px_rgba(200,150,60,0.06)]"
-                  : "card-page"
+                  : "border-border bg-surface/68 shadow-[var(--t-shadow-card)]"
               }`}
             >
               {tier.popular && (
@@ -236,7 +231,7 @@ export default function InkDropsPage() {
               <button
                 onClick={() => handleBuy(tier.key)}
                 disabled={purchasing !== null}
-                className={`w-full py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                className={`w-full rounded-lg py-2 text-sm font-medium transition-all cursor-pointer ${
                   tier.popular
                     ? "bg-gold/15 border border-gold/30 text-gold hover:bg-gold/25"
                     : "bg-elevated/50 border border-border text-text hover:border-gold/30 hover:text-gold"
@@ -258,7 +253,7 @@ export default function InkDropsPage() {
             <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">
               Purchase History
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-2 rounded-2xl border border-border bg-surface/50 p-2">
               {purchases.map((p, i) => (
                 <div
                   key={i}
