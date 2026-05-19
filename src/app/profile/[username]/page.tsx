@@ -11,7 +11,7 @@ import FeaturedManuscript from "@/components/profile/FeaturedManuscript";
 import CollectedWorks from "@/components/profile/CollectedWorks";
 import StudioRail from "@/components/profile/StudioRail";
 import Threshold from "@/components/profile/Threshold";
-import InTheInkwell from "@/components/profile/InTheInkwell";
+import InQuiloria from "@/components/profile/InQuiloria";
 import ReadingTaste from "@/components/profile/ReadingTaste";
 import DeskNotes from "@/components/profile/DeskNotes";
 import type { ApiStory } from "@/types/api";
@@ -304,7 +304,7 @@ export default function ProfilePage() {
           ownStories={profile.stories}
         />
 
-        {isOwnProfile && <InTheInkwell stories={profile.stories} />}
+        {isOwnProfile && <InQuiloria stories={profile.stories} />}
 
         {featured && <FeaturedManuscript story={featured} isOwner={isOwnProfile} />}
 

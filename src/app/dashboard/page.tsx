@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
-  Bell,
   BookOpen,
   Bookmark,
   ChevronRight,
@@ -23,30 +22,12 @@ import {
 } from "lucide-react";
 import type { ApiStory } from "@/types/api";
 
-const letters = [
-  { from: "Maren Holt", subject: "left a margin note", detail: "The lighthouse image is doing serious work here.", time: "12m" },
-  { from: "Kaelen Vex", subject: "is waiting at your table", detail: "The party has voted. Canon needs your hand.", time: "26m" },
-  { from: "The Scriptorium", subject: "sent a commission inquiry", detail: "Character portrait packet, 4 scenes, rush optional.", time: "1h" },
-] as const;
-
-const fallbackShelves = [
-  { title: "The Salt-Keeper's Daughter", kind: "Draft", progress: "Chapter 12", accent: "bg-amber/15 text-amber", href: "/create" },
-  { title: "Glass Orchard", kind: "Reading", progress: "68% read", accent: "bg-sage/15 text-sage", href: "/read" },
-  { title: "The Obsidian Crown", kind: "Campaign", progress: "Live table", accent: "bg-lavender/15 text-lavender", href: "/browse" },
-  { title: "Neon Grifters", kind: "Followed", progress: "New chapter", accent: "bg-teal/15 text-teal", href: "/browse" },
-] as const;
-
-const rooms = [
-  { name: "Throne Room", label: "Live adventure", occupants: "6 at table", icon: Map },
-  { name: "The North Alcove", label: "Writers room", occupants: "Maren drafting", icon: PenLine },
-  { name: "Moonlit Machines", label: "Jam noticeboard", occupants: "42 entries", icon: Sparkles },
-] as const;
 
 type LibraryPhase = "morning" | "day" | "dusk" | "night";
 
 const phaseConfig = {
   morning: {
-    label: "Morning light",
+    label: "Morning glow",
     eyebrow: "The library is opening",
     prompt: "The reading lamps soften as the day begins.",
     image: "/dashboard/study-morning.png",
@@ -58,7 +39,7 @@ const phaseConfig = {
     icon: Sunrise,
   },
   day: {
-    label: "Day desk",
+    label: "Midday",
     eyebrow: "The library is awake",
     prompt: "Sunlit stacks keep your open threads in reach.",
     image: "/dashboard/study-afternoon.png",
@@ -70,7 +51,7 @@ const phaseConfig = {
     icon: Sun,
   },
   dusk: {
-    label: "Dusk lamps",
+    label: "Golden hour",
     eyebrow: "The lamps are being lit",
     prompt: "The shelves gather your unfinished work into the warmest light.",
     image: "/dashboard/study-night.png",
@@ -82,7 +63,7 @@ const phaseConfig = {
     icon: Sunset,
   },
   night: {
-    label: "Night study",
+    label: "Lamplight",
     eyebrow: "The quiet stacks are listening",
     prompt: "Ink, letters, and live tables settle into lamplight.",
     image: "/dashboard/study-night.png",
@@ -235,21 +216,115 @@ function AmbientLibraryBackdrop({ phase }: { phase: (typeof phaseConfig)[Library
   );
 }
 
+const NOTIF_LABELS: Record<string, string> = {
+  comment: "a margin note",
+  spark: "a spark",
+  follow: "a new reader",
+  chapter: "a new chapter",
+  update: "an update",
+};
+
+function relativeShort(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return "now";
+  const m = Math.floor(ms / 60_000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
+// ── Phase-keyed action card (replaces the old "Moonlit Machines" noticeboard) ──
+//   The dashboard's single most prominent CTA, shaped by the current phase.
+
+const PHASE_ACTION = {
+  morning: {
+    eyebrow: "Today's intention",
+    title: "What will you touch first?",
+    body: "The lamps are soft. Set the chapter you want to move and the day finds a thread.",
+    ctaLabel: "Open the manuscript",
+  },
+  day: {
+    eyebrow: "The room is loud",
+    title: "Answer what's stacking.",
+    body: "Letters land warmest at midday. The reader on the other end is still at their desk.",
+    ctaLabel: "Read the letters",
+  },
+  dusk: {
+    eyebrow: "Wrap-up",
+    title: "What landed today?",
+    body: "Note the line you don't want to lose. Post an update, or leave a margin word for tomorrow.",
+    ctaLabel: "Open the manuscript",
+  },
+  night: {
+    eyebrow: "Quiet desk",
+    title: "Deep work is welcome here.",
+    body: "The room is empty besides you. Open the page and stay until the lamp dims.",
+    ctaLabel: "Open the manuscript",
+  },
+} as const;
+
+function PhaseActionCard({
+  phase,
+  activeStory,
+  activeHref,
+  unreadLetters,
+}: {
+  phase: LibraryPhase;
+  activeStory: ApiStory | null;
+  activeHref: string;
+  unreadLetters: number;
+}) {
+  const action = PHASE_ACTION[phase];
+  // At "day" the CTA goes to letters if there are unread; otherwise to the manuscript.
+  const ctaHref = phase === "day" && unreadLetters > 0 ? "/notifications" : activeHref;
+  const ctaLabel = phase === "day" && unreadLetters > 0
+    ? `Read ${unreadLetters} letter${unreadLetters === 1 ? "" : "s"}`
+    : action.ctaLabel;
+  return (
+    <section className="overflow-hidden rounded-[1.5rem] border border-border bg-surface/88 shadow-[var(--t-shadow-card)] backdrop-blur-xl">
+      <div className="relative min-h-44 p-5">
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-amber/20 bg-amber/[0.07]" />
+        <div className="absolute bottom-4 right-4 h-20 w-32 rotate-6 rounded-xl border border-border bg-elevated/35 shadow-[var(--t-shadow-card)]" />
+        <div className="absolute left-5 top-5 h-20 w-14 rotate-[-8deg] rounded-md border border-rose/20 bg-rose/[0.07]" />
+        <div className="relative">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-amber">{action.eyebrow}</p>
+          <h2 className="mt-2 font-display text-2xl text-paper">{action.title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            {action.body}
+            {!activeStory && phase !== "day" && (
+              <> Start your first story to fill the desk.</>
+            )}
+          </p>
+          <Link
+            href={!activeStory && phase !== "day" ? "/create" : ctaHref}
+            className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-4 text-sm text-amber transition-colors hover:bg-amber/15"
+          >
+            <ScrollText size={15} />
+            {!activeStory && phase !== "day" ? "Start a story" : ctaLabel}
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EnvelopeLetter({
-  letter,
+  notif,
   index,
 }: {
-  letter: (typeof letters)[number];
+  notif: ApiNotification;
   index: number;
 }) {
   const rotations = ["sm:rotate-[-0.7deg]", "sm:rotate-[0.6deg]", "sm:rotate-[-0.4deg]"];
-
+  const subject = NOTIF_LABELS[notif.type] ?? "a letter";
   return (
     <Link
-      href="/notifications"
-      className={`group relative block overflow-hidden rounded-2xl border border-border bg-elevated p-3.5 shadow-[var(--t-shadow-card)] transition-all hover:-translate-y-0.5 hover:border-lavender/35 ${index > 0 ? "sm:-mt-2" : ""} ${rotations[index]}`}
+      href={notif.href || "/notifications"}
+      className={`group relative block overflow-hidden rounded-2xl border bg-elevated p-3.5 shadow-[var(--t-shadow-card)] transition-all hover:-translate-y-0.5 hover:border-lavender/35 ${index > 0 ? "sm:-mt-2" : ""} ${rotations[index % rotations.length]} ${notif.read ? "border-border" : "border-lavender/30"}`}
     >
-      <div className="absolute inset-x-0 top-0 h-1 bg-lavender/20" />
+      <div className={`absolute inset-x-0 top-0 h-1 ${notif.read ? "bg-lavender/15" : "bg-lavender/40"}`} />
       <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-lavender/[0.035] to-transparent" />
       <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full border border-lavender/20 bg-lavender/[0.07]" />
       <div className="absolute bottom-0 left-0 h-14 w-full border-t border-lavender/10 bg-gradient-to-t from-lavender/[0.045] to-transparent [clip-path:polygon(0_100%,50%_26%,100%_100%)]" />
@@ -258,11 +333,10 @@ function EnvelopeLetter({
           <MessageSquareText size={14} />
         </span>
         <span className="min-w-0">
-          <span className="block font-display text-[15px] leading-snug text-paper">{letter.from}</span>
-          <span className="block text-[13px] text-text-secondary">{letter.subject}</span>
-          <span className="mt-1.5 line-clamp-2 block text-[11px] leading-relaxed text-text-secondary">{letter.detail}</span>
+          <span className="block text-[10px] uppercase tracking-[0.18em] text-text-ghost">{subject}</span>
+          <span className="mt-1 line-clamp-2 block text-[13px] leading-relaxed text-paper">{notif.message}</span>
           <span className="mt-2 inline-flex rounded-full border border-border bg-subtle/30 px-2 py-0.5 text-[9px] uppercase tracking-wider text-text-ghost">
-            {letter.time} ago
+            {relativeShort(notif.createdAt)} ago
           </span>
         </span>
       </div>
@@ -270,12 +344,136 @@ function EnvelopeLetter({
   );
 }
 
-function DeskObjectPanel() {
+// ── PHASE-REACTIVE DESK TONE ──────────────────────────────────────────────
+//   Defines how the lamp / window light / vignette respond to time of day.
+//   Day: lamp off, daylight wash bright, no vignette.
+//   Dusk: lamp warm, golden ambient, light vignette.
+//   Night: lamp dominant, no daylight, heavy vignette.
+//   Morning: lamp ember, faint cool wash, slight vignette.
+const DESK_TONE: Record<LibraryPhase, {
+  lampOpacity: [number, number, number];
+  lampColor: string;
+  windowOpacity: number;
+  windowColor: string;
+  windowCx: number;
+  windowCy: number;
+  vignette: number;
+  paperTint: string;
+  paperTintOpacity: number;
+  woodOpacity: number;
+  state: string;
+}> = {
+  morning: {
+    lampOpacity: [0.02, 0.04, 0.02],
+    lampColor: "#D4A843",
+    windowOpacity: 0.10,
+    windowColor: "#8AB0D0",
+    windowCx: 40,
+    windowCy: 0,
+    vignette: 0.18,
+    paperTint: "#FFD9B5",
+    paperTintOpacity: 0.05,
+    woodOpacity: 0.6,
+    state: "ember",
+  },
+  day: {
+    lampOpacity: [0.008, 0.014, 0.008],
+    lampColor: "#D4A843",
+    windowOpacity: 0.18,
+    windowColor: "#B8C8DC",
+    windowCx: 120,
+    windowCy: -20,
+    vignette: 0,
+    paperTint: "#FFFFFF",
+    paperTintOpacity: 0,
+    woodOpacity: 1,
+    state: "off",
+  },
+  dusk: {
+    lampOpacity: [0.05, 0.08, 0.05],
+    lampColor: "#E8A833",
+    windowOpacity: 0.07,
+    windowColor: "#D4A843",
+    windowCx: 200,
+    windowCy: 10,
+    vignette: 0.22,
+    paperTint: "#E8A833",
+    paperTintOpacity: 0.06,
+    woodOpacity: 0.85,
+    state: "warm",
+  },
+  night: {
+    lampOpacity: [0.10, 0.16, 0.10],
+    lampColor: "#E8A833",
+    windowOpacity: 0,
+    windowColor: "#000000",
+    windowCx: 120,
+    windowCy: 0,
+    vignette: 0.55,
+    paperTint: "#A66F18",
+    paperTintOpacity: 0.08,
+    woodOpacity: 0.4,
+    state: "lit",
+  },
+};
+
+function DeskObjectPanel({
+  phase = "night",
+  now,
+  manuscriptTitle = "An empty page",
+  manuscriptMeta = "— · waiting",
+  readerNotesCount = 0,
+  deadlineLabel = "—",
+  campaignTitle = null,
+  campaignPlayerCount = 0,
+  shelfSpines = ["Salt", "Crown", "Notes"],
+}: {
+  phase?: LibraryPhase;
+  now?: Date | null;
+  manuscriptTitle?: string;
+  manuscriptMeta?: string;
+  readerNotesCount?: number;
+  deadlineLabel?: string;
+  campaignTitle?: string | null;
+  campaignPlayerCount?: number;
+  shelfSpines?: [string, string, string];
+}) {
+  const tone = DESK_TONE[phase];
+  // SVG text doesn't ellipsize — clip long titles by hand
+  const manuscriptDisplay = manuscriptTitle.length > 26 ? manuscriptTitle.slice(0, 25) + "…" : manuscriptTitle;
+  const campaignDisplay = campaignTitle
+    ? (campaignTitle.length > 18 ? campaignTitle.slice(0, 17).toUpperCase() + "…" : campaignTitle.toUpperCase())
+    : "NO LIVE TABLE";
+  const campaignFooter = campaignTitle
+    ? `● ${campaignPlayerCount || 0} at the table`
+    : "the chair is empty";
+  const stickyDisplay = readerNotesCount > 99 ? "99+" : String(readerNotesCount);
+  // Real time on the pocket watch — compute endpoint coords from angles in the dial's local
+  // coords (center at 0,0). Avoids the SVG transform-origin gotcha entirely.
+  const clockDate = now ?? new Date();
+  const hours12 = clockDate.getHours() % 12;
+  const minutes = clockDate.getMinutes();
+  const seconds = clockDate.getSeconds();
+  const handEnd = (angleDeg: number, length: number) => {
+    const r = (angleDeg * Math.PI) / 180;
+    return { x: Math.sin(r) * length, y: -Math.cos(r) * length };
+  };
+  const hourEnd = handEnd((hours12 + minutes / 60) * 30, 15);
+  const minuteEnd = handEnd((minutes + seconds / 60) * 6, 22);
+  const secondEnd = handEnd(seconds * 6, 24);
   return (
     <aside className="relative overflow-hidden rounded-3xl border border-border bg-ink/60 p-5 shadow-[var(--t-shadow-card)]">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[10px] uppercase tracking-[0.22em] text-text-ghost">Desk objects</p>
-        <p className="text-[9px] uppercase tracking-[0.16em] text-text-ghost/70">lamp · lit</p>
+        <motion.p
+          key={phase}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          className="text-[9px] uppercase tracking-[0.16em] text-text-ghost/70"
+        >
+          lamp · {tone.state}
+        </motion.p>
       </div>
 
       {/* ── ILLUSTRATED DESK ─────────────────────────────────────── */}
@@ -283,10 +481,23 @@ function DeskObjectPanel() {
         <svg
           viewBox="0 0 240 400"
           className="block h-auto w-full"
-          aria-label="An illustrated writer's desk seen from above — wood-grained surface in lamp light, a shelf of three books, an open manuscript page with a quill resting on it, a brass pocket watch counting down a deadline, a violet sticky note tallying reader notes, a parchment scroll for the open campaign table, and a single d20."
+          aria-label={`An illustrated writer's desk at ${phase} — wood-grained surface, a shelf of three books, an open manuscript page with a quill, a brass pocket watch, a violet sticky note, a parchment scroll, and a single d20. The lamp is ${tone.state}.`}
         >
+          <defs>
+            <radialGradient id="desk-vignette" cx="50%" cy="55%" r="70%">
+              <stop offset="40%" stopColor="#000" stopOpacity="0" />
+              <stop offset="100%" stopColor="#000" stopOpacity="1" />
+            </radialGradient>
+          </defs>
+
           {/* WOOD GRAIN (very subtle, mode-tolerant) */}
-          <g stroke="#000" strokeOpacity="0.18" strokeWidth="0.3" fill="none">
+          <motion.g
+            stroke="#000"
+            strokeWidth="0.3"
+            fill="none"
+            animate={{ strokeOpacity: 0.18 * tone.woodOpacity }}
+            transition={{ duration: 1.2, ease: "easeInOut" }}
+          >
             <path d="M 0 28 Q 60 26 120 28 T 240 30" />
             <path d="M 0 76 Q 80 74 160 78 T 240 76" />
             <path d="M 0 128 Q 100 126 200 128 T 240 130" />
@@ -294,26 +505,61 @@ function DeskObjectPanel() {
             <path d="M 0 240 Q 110 238 180 240 T 240 242" />
             <path d="M 0 296 Q 50 294 130 296 T 240 298" />
             <path d="M 0 348 Q 90 346 170 348 T 240 350" />
-          </g>
-          <g stroke="#A88030" strokeOpacity="0.06" strokeWidth="0.3" fill="none">
+          </motion.g>
+          <motion.g
+            stroke="#A88030"
+            strokeWidth="0.3"
+            fill="none"
+            animate={{ strokeOpacity: 0.06 * tone.woodOpacity }}
+            transition={{ duration: 1.2, ease: "easeInOut" }}
+          >
             <line x1="0" y1="60" x2="240" y2="62" />
             <line x1="0" y1="158" x2="240" y2="156" />
             <line x1="0" y1="218" x2="240" y2="220" />
             <line x1="0" y1="324" x2="240" y2="322" />
-          </g>
+          </motion.g>
 
-          {/* LAMP POOL — warm pool of candlelight (gently breathing) */}
+          {/* WINDOW LIGHT — daylight wash falling on the desk (phase-driven) */}
+          <motion.ellipse
+            cx={tone.windowCx}
+            cy={tone.windowCy}
+            rx="180"
+            ry="200"
+            initial={false}
+            animate={{
+              fill: tone.windowColor,
+              fillOpacity: tone.windowOpacity,
+              cx: tone.windowCx,
+              cy: tone.windowCy,
+            }}
+            transition={{ duration: 1.4, ease: "easeInOut" }}
+          />
+
+          {/* LAMP POOL — warm pool of candlelight (breathing + phase-keyed) */}
           <motion.ellipse
             cx="120"
             cy="200"
             rx="150"
             ry="120"
-            fill="#D4A843"
-            fillOpacity="0.045"
-            animate={{ fillOpacity: [0.03, 0.06, 0.03] }}
-            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+            initial={false}
+            animate={{
+              fill: tone.lampColor,
+              fillOpacity: tone.lampOpacity,
+            }}
+            transition={{
+              fill: { duration: 1.2, ease: "easeInOut" },
+              fillOpacity: { duration: 9, repeat: Infinity, ease: "easeInOut" },
+            }}
           />
-          <ellipse cx="120" cy="195" rx="80" ry="60" fill="#D4A843" fillOpacity="0.04" />
+          <motion.ellipse
+            cx="120"
+            cy="195"
+            rx="80"
+            ry="60"
+            initial={false}
+            animate={{ fill: tone.lampColor, fillOpacity: tone.lampOpacity[1] * 0.7 }}
+            transition={{ duration: 1.2, ease: "easeInOut" }}
+          />
 
           {/* ═══ SHELF ROW (top) ═══ */}
           <g>
@@ -322,19 +568,19 @@ function DeskObjectPanel() {
             <rect x="86" y="24" width="30" height="4" fill="#A88030" />
             <line x1="91" y1="24" x2="91" y2="108" stroke="#A88030" strokeOpacity="0.35" strokeWidth="0.4" />
             <line x1="111" y1="24" x2="111" y2="108" stroke="#A88030" strokeOpacity="0.35" strokeWidth="0.4" />
-            <text x="101" y="70" fontFamily="serif" fontStyle="italic" fontSize="10" fill="#EDE8D8" textAnchor="middle" transform="rotate(-90 101 70)">Salt</text>
+            <text x="101" y="70" fontFamily="serif" fontStyle="italic" fontSize="10" fill="#EDE8D8" textAnchor="middle" transform="rotate(-90 101 70)">{shelfSpines[0]}</text>
 
             {/* Crown — rose */}
             <rect x="118" y="34" width="18" height="74" fill="#5C2E3A" stroke="#2A0F18" strokeWidth="0.5" />
             <rect x="118" y="30" width="18" height="4" fill="#A88030" />
             <line x1="122" y1="30" x2="122" y2="108" stroke="#A88030" strokeOpacity="0.3" strokeWidth="0.3" />
             <line x1="132" y1="30" x2="132" y2="108" stroke="#A88030" strokeOpacity="0.3" strokeWidth="0.3" />
-            <text x="127" y="72" fontFamily="serif" fontStyle="italic" fontSize="9" fill="#EDE8D8" textAnchor="middle" transform="rotate(-90 127 72)">Crown</text>
+            <text x="127" y="72" fontFamily="serif" fontStyle="italic" fontSize="9" fill="#EDE8D8" textAnchor="middle" transform="rotate(-90 127 72)">{shelfSpines[1]}</text>
 
             {/* Notes — sage */}
             <rect x="138" y="40" width="14" height="68" fill="#3A4D40" stroke="#1F2820" strokeWidth="0.5" />
             <rect x="138" y="36" width="14" height="4" fill="#A88030" />
-            <text x="145" y="74" fontFamily="serif" fontStyle="italic" fontSize="8" fill="#EDE8D8" textAnchor="middle" transform="rotate(-90 145 74)">Notes</text>
+            <text x="145" y="74" fontFamily="serif" fontStyle="italic" fontSize="8" fill="#EDE8D8" textAnchor="middle" transform="rotate(-90 145 74)">{shelfSpines[2]}</text>
 
             {/* Brass bookends */}
             <path d="M 78 108 L 78 84 L 84 84 L 84 108 Z" fill="#A88030" />
@@ -371,9 +617,9 @@ function DeskObjectPanel() {
               textLength="92"
               lengthAdjust="spacingAndGlyphs"
             >
-              Salt-Keeper&apos;s Daughter
+              {manuscriptDisplay}
             </text>
-            <text x="22" y="38" fontFamily="sans-serif" fontSize="6" fill="#75675A">Chapter 12 · 3,420 words</text>
+            <text x="22" y="38" fontFamily="sans-serif" fontSize="6" fill="#75675A">{manuscriptMeta}</text>
             <g stroke="#201813" strokeOpacity="0.78" strokeWidth="0.55" strokeLinecap="round">
               <line x1="22" y1="52" x2="92" y2="52" />
               <line x1="22" y1="64" x2="104" y2="64" />
@@ -451,24 +697,40 @@ function DeskObjectPanel() {
             <text x="14" y="2" fontFamily="serif" fontSize="6" fill="#3A3850" textAnchor="middle">III</text>
             <text x="0" y="19" fontFamily="serif" fontSize="6" fill="#3A3850" textAnchor="middle">VI</text>
             <text x="-14" y="2" fontFamily="serif" fontSize="6" fill="#3A3850" textAnchor="middle">IX</text>
-            <line x1="0" y1="0" x2="-13" y2="11" stroke="#B8697A" strokeWidth="2.2" strokeLinecap="round" />
-            <line x1="0" y1="0" x2="0" y2="-21" stroke="#3A3850" strokeWidth="1.3" strokeLinecap="round" />
-            <motion.line
-              x1="0"
-              y1="3"
-              x2="0"
-              y2="-24"
+            {/* Hour hand — short, rose */}
+            <line
+              x1={0}
+              y1={0}
+              x2={hourEnd.x}
+              y2={hourEnd.y}
+              stroke="#B8697A"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+            {/* Minute hand — long, slate */}
+            <line
+              x1={0}
+              y1={0}
+              x2={minuteEnd.x}
+              y2={minuteEnd.y}
+              stroke="#3A3850"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+            {/* Second hand — slim, amber */}
+            <line
+              x1={0}
+              y1={0}
+              x2={secondEnd.x}
+              y2={secondEnd.y}
               stroke="#A66F18"
               strokeWidth="0.5"
               strokeLinecap="round"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-              style={{ transformOrigin: "0px 0px" }}
             />
             <circle r="2.4" fill="#B8697A" />
             <circle r="0.9" fill="#2C2418" />
-            <text x="0" y="52" fontFamily="serif" fontStyle="italic" fontWeight="500" fontSize="13" fill="#B8697A" textAnchor="middle">8h left</text>
-            <text x="0" y="62" fontFamily="sans-serif" fontSize="6" fill="#75675A" letterSpacing="1.6" textAnchor="middle">DEADLINE</text>
+            <text x="0" y="52" fontFamily="serif" fontStyle="italic" fontWeight="500" fontSize="11" fill="#B8697A" textAnchor="middle">{deadlineLabel}</text>
+            <text x="0" y="62" fontFamily="sans-serif" fontSize="6" fill="#75675A" letterSpacing="1.6" textAnchor="middle">NEXT SHIFT</text>
           </g>
 
           {/* ═══ STICKY NOTE — reader notes ═══ */}
@@ -478,7 +740,7 @@ function DeskObjectPanel() {
             <rect width="62" height="5" fill="#7A6CA8" rx="1.5" />
             <circle cx="31" cy="2.5" r="3.5" fill="#A88030" />
             <circle cx="31.7" cy="1.8" r="1.3" fill="#EDE8D8" fillOpacity="0.6" />
-            <text x="31" y="40" fontFamily="serif" fontWeight="600" fontSize="26" fill="#EDE8D8" textAnchor="middle">7</text>
+            <text x="31" y="40" fontFamily="serif" fontWeight="600" fontSize={stickyDisplay.length > 2 ? 20 : 26} fill="#EDE8D8" textAnchor="middle">{stickyDisplay}</text>
             <text x="31" y="52" fontFamily="sans-serif" fontSize="6" fill="#EDE8D8" fillOpacity="0.92" letterSpacing="1.2" textAnchor="middle">READER NOTES</text>
           </g>
 
@@ -494,9 +756,9 @@ function DeskObjectPanel() {
             <circle cx="20" cy="22" r="7.5" fill="#B8697A" fillOpacity="0.55" />
             <circle cx="20" cy="22" r="5.5" fill="none" stroke="#2A0F18" strokeWidth="0.4" />
             <path d="M 17 19 L 23 25 M 23 19 L 17 25" stroke="#2A0F18" strokeWidth="0.7" strokeLinecap="round" />
-            <text x="34" y="14" fontFamily="sans-serif" fontSize="6" fill="#75675A" letterSpacing="1.4">OBSIDIAN CROWN</text>
-            <text x="34" y="28" fontFamily="serif" fontStyle="italic" fontWeight="500" fontSize="11" fill="#201813">table waiting</text>
-            <text x="34" y="40" fontFamily="sans-serif" fontSize="6.5" fill="#4F7D62">● 6 at the table</text>
+            <text x="34" y="14" fontFamily="sans-serif" fontSize="6" fill="#75675A" letterSpacing="1.4">{campaignDisplay}</text>
+            <text x="34" y="28" fontFamily="serif" fontStyle="italic" fontWeight="500" fontSize="11" fill="#201813">{campaignTitle ? "table waiting" : "no campaign yet"}</text>
+            <text x="34" y="40" fontFamily="sans-serif" fontSize="6.5" fill={campaignTitle ? "#4F7D62" : "#75675A"}>{campaignFooter}</text>
           </g>
 
           {/* ═══ D20 die — sitting beside the scroll ═══ */}
@@ -508,6 +770,32 @@ function DeskObjectPanel() {
             <polygon points="0,1 -10,-3 -7,9" fill="#5A5870" fillOpacity="0.25" />
             <text x="0" y="3" fontFamily="serif" fontWeight="600" fontSize="7" fill="#D4A843" textAnchor="middle">20</text>
           </g>
+
+          {/* ═══ PHASE TINT — warms the whole scene at dusk/night ═══ */}
+          <motion.rect
+            x="0"
+            y="0"
+            width="240"
+            height="400"
+            initial={false}
+            animate={{ fill: tone.paperTint, opacity: tone.paperTintOpacity }}
+            transition={{ duration: 1.4, ease: "easeInOut" }}
+            style={{ mixBlendMode: "soft-light" }}
+            pointerEvents="none"
+          />
+
+          {/* ═══ VIGNETTE — corners darken at night, fade in/out by phase ═══ */}
+          <motion.rect
+            x="0"
+            y="0"
+            width="240"
+            height="400"
+            fill="url(#desk-vignette)"
+            initial={false}
+            animate={{ opacity: tone.vignette }}
+            transition={{ duration: 1.4, ease: "easeInOut" }}
+            pointerEvents="none"
+          />
         </svg>
       </div>
 
@@ -647,10 +935,20 @@ function StudyWindowClock({ phaseKey, now }: { phaseKey: LibraryPhase; now: Date
   );
 }
 
+interface ApiNotification {
+  id: string;
+  type: "chapter" | "spark" | "follow" | "comment" | "update" | string;
+  message: string;
+  href: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [now, setNow] = useState<Date | null>(null);
   const [stories, setStories] = useState<ApiStory[]>([]);
+  const [notifs, setNotifs] = useState<ApiNotification[]>([]);
   const phaseKey = now ? getLibraryPhase(now) : "night";
   const phase = phaseConfig[phaseKey];
   const guidance = phaseGuidance[phaseKey];
@@ -665,6 +963,15 @@ export default function DashboardPage() {
       .then((json) => {
         if (!cancelled && json.data?.stories) {
           setStories(json.data.stories);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/notifications?limit=10")
+      .then((response) => response.json())
+      .then((json) => {
+        if (!cancelled && Array.isArray(json.data)) {
+          setNotifs(json.data);
         }
       })
       .catch(() => {});
@@ -689,14 +996,14 @@ export default function DashboardPage() {
         : `/write/${activeStory.id}`
     : "/create";
 
-  const activeTitle = activeStory?.title ?? "The Salt-Keeper's Daughter";
+  const activeTitle = activeStory?.title ?? "An empty page";
   const activeChapter = activeStory?.chapterCount
     ? `Chapter ${activeStory.chapterCount}`
-    : "Chapter 12";
+    : activeStory
+      ? "Chapter 1"
+      : "—";
 
   const shelfItems = useMemo(() => {
-    if (stories.length === 0) return fallbackShelves;
-
     const accents = [
       "bg-amber/15 text-amber",
       "bg-sage/15 text-sage",
@@ -711,6 +1018,36 @@ export default function DashboardPage() {
       accent: accents[index % accents.length],
       href: story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`,
     }));
+  }, [stories]);
+
+  // ── Live data wired into the desk + side blocks ──────────────────────────
+  const activeWordCount = activeStory?.totalWords ?? 0;
+  const unreadCommentsCount = useMemo(
+    () => notifs.filter((n) => n.type === "comment" && !n.read).length,
+    [notifs]
+  );
+  const liveCampaigns = useMemo(
+    () =>
+      stories
+        .filter((s) => s.writingMode === "campaign")
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [stories]
+  );
+  const liveCampaign = liveCampaigns[0] ?? null;
+  const nextPhaseInfo = now ? getNextPhase(now) : null;
+  // Short labels for the three little books on the desk shelf (max 6/5/4 chars by visual width)
+  const shelfSpines = useMemo<[string, string, string]>(() => {
+    const shortSpine = (title: string, max: number) => {
+      const trimmed = title.replace(/^(The|A|An)\s+/i, "").trim();
+      const firstWord = trimmed.split(/\s+/)[0] || trimmed;
+      return firstWord.slice(0, max) || title.slice(0, max);
+    };
+    const fallbacks: [string, string, string] = ["Salt", "Crown", "Notes"];
+    return [
+      stories[0] ? shortSpine(stories[0].title, 6) : fallbacks[0],
+      stories[1] ? shortSpine(stories[1].title, 5) : fallbacks[1],
+      stories[2] ? shortSpine(stories[2].title, 5) : fallbacks[2],
+    ];
   }, [stories]);
 
   useEffect(() => {
@@ -743,21 +1080,6 @@ export default function DashboardPage() {
               <span className="block text-[10px] uppercase tracking-[0.18em] text-text-ghost">{phase.eyebrow}</span>
             </span>
           </Link>
-          <nav className="hidden items-center gap-2 md:flex">
-            {["Desk", "Letters", "Shelves", "Rooms"].map((item, index) => (
-              <button
-                key={item}
-                className={`rounded-full px-3 py-1.5 text-[12px] transition-colors ${
-                  index === 0 ? "bg-amber/15 text-amber" : "text-text-secondary hover:bg-subtle/40 hover:text-paper"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-          </nav>
-          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-elevated text-text-secondary">
-            <Bell size={16} />
-          </button>
         </header>
 
         <section className="mt-5 overflow-hidden rounded-[1.75rem] border border-border bg-surface/70 shadow-[var(--t-shadow-card)]">
@@ -811,7 +1133,20 @@ export default function DashboardPage() {
                     The manuscript remembers where you stopped.
                   </h1>
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-text-secondary md:text-base">
-                    {phase.prompt} Return to <span className="text-paper">{activeTitle}</span>, {activeChapter.toLowerCase()}. A reader has marked the lighthouse scene, and your last line is still warm.
+                    {phase.prompt}{" "}
+                    {activeStory ? (
+                      <>
+                        Return to <span className="text-paper">{activeTitle}</span>, {activeChapter.toLowerCase()}
+                        {unreadCommentsCount > 0 && (
+                          <>
+                            {" "}— {unreadCommentsCount} reader note{unreadCommentsCount === 1 ? "" : "s"} waiting
+                          </>
+                        )}
+                        .
+                      </>
+                    ) : (
+                      <>The shelves are empty. Start a story to open the desk.</>
+                    )}
                   </p>
 
                   <div className="relative mt-8">
@@ -857,45 +1192,95 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <DeskObjectPanel />
+                <DeskObjectPanel
+                  phase={phaseKey}
+                  now={now}
+                  manuscriptTitle={activeTitle}
+                  manuscriptMeta={
+                    activeStory
+                      ? `${activeChapter} · ${activeWordCount.toLocaleString()} words`
+                      : `${activeChapter} · draft`
+                  }
+                  readerNotesCount={unreadCommentsCount}
+                  deadlineLabel={nextPhaseInfo ? `${nextPhaseInfo.until} to ${nextPhaseInfo.label.toLowerCase()}` : "—"}
+                  campaignTitle={liveCampaign?.title ?? null}
+                  campaignPlayerCount={liveCampaign?.playerCount ?? 0}
+                  shelfSpines={shelfSpines}
+                />
               </div>
             </motion.div>
 
             <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <section className="rounded-[1.5rem] border border-border bg-surface/82 p-5 shadow-[var(--t-shadow-card)] backdrop-blur-xl">
-                <SectionTitle eyebrow="Your shelves" title="Works in reach" action="Open library" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                {shelfItems.map((item) => (
-                    <Link key={item.title} href={item.href} className="group rounded-2xl border border-border bg-elevated/65 p-4 transition-colors hover:border-amber/30">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${item.accent}`}>{item.kind}</span>
-                        <BookOpen size={15} className="text-text-ghost group-hover:text-amber" />
-                      </div>
-                      <h3 className="mt-4 font-display text-lg text-paper">{item.title}</h3>
-                      <p className="mt-1 text-[12px] text-text-secondary">{item.progress}</p>
-                    </Link>
-                  ))}
-                </div>
+                <SectionTitle
+                  eyebrow="Your shelves"
+                  title={shelfItems.length > 0 ? "Works in reach" : "The shelves are empty"}
+                  action={shelfItems.length > 0 ? "Open library" : undefined}
+                />
+                {shelfItems.length === 0 ? (
+                  <Link
+                    href="/create"
+                    className="block rounded-2xl border border-dashed border-border bg-elevated/40 p-6 text-center transition-colors hover:border-amber/30"
+                  >
+                    <BookOpen size={20} className="mx-auto mb-3 text-text-ghost" />
+                    <p className="font-display text-base text-paper">Start your first story</p>
+                    <p className="mt-1 text-[12px] italic text-text-ghost">
+                      A novel, a webtoon, a campaign — pick the format and the shelf fills.
+                    </p>
+                  </Link>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {shelfItems.map((item) => (
+                      <Link key={item.title} href={item.href} className="group rounded-2xl border border-border bg-elevated/65 p-4 transition-colors hover:border-amber/30">
+                        <div className="flex items-start justify-between gap-3">
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${item.accent}`}>{item.kind}</span>
+                          <BookOpen size={15} className="text-text-ghost group-hover:text-amber" />
+                        </div>
+                        <h3 className="mt-4 font-display text-lg text-paper">{item.title}</h3>
+                        <p className="mt-1 text-[12px] text-text-secondary">{item.progress}</p>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section className="rounded-[1.5rem] border border-border bg-surface/82 p-5 shadow-[var(--t-shadow-card)] backdrop-blur-xl">
-                <SectionTitle eyebrow="Rooms down the hall" title="The library is awake" action="Explore" />
+                <SectionTitle
+                  eyebrow="Rooms down the hall"
+                  title={liveCampaigns.length > 0 ? "Your live tables" : "No tables open"}
+                  action={liveCampaigns.length > 0 ? "Browse" : "Start one"}
+                />
                 <div className="space-y-3">
-                  {rooms.map((room) => {
-                    const Icon = room.icon;
-                    return (
-                      <Link key={room.name} href="/browse" className="flex items-center gap-4 rounded-2xl border border-border bg-elevated/65 p-4 transition-colors hover:border-sage/30">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-subtle/30 text-sage">
-                          <Icon size={18} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[10px] uppercase tracking-[0.18em] text-text-ghost">{room.label}</span>
-                          <span className="mt-0.5 block truncate font-display text-base text-paper">{room.name}</span>
-                        </span>
-                        <span className="text-[11px] text-text-secondary">{room.occupants}</span>
-                      </Link>
-                    );
-                  })}
+                  {liveCampaigns.length === 0 ? (
+                    <Link
+                      href="/create"
+                      className="block rounded-2xl border border-dashed border-border bg-elevated/30 p-4 text-[12.5px] italic text-text-ghost transition-colors hover:border-sage/30 hover:text-text-secondary"
+                    >
+                      No campaigns yet. The hallway is quiet — start one to open a room.
+                    </Link>
+                  ) : (
+                    liveCampaigns.slice(0, 3).map((campaign) => {
+                      const count = campaign.playerCount ?? 0;
+                      return (
+                        <Link
+                          key={campaign.id}
+                          href={`/campaign/${campaign.id}`}
+                          className="flex items-center gap-4 rounded-2xl border border-border bg-elevated/65 p-4 transition-colors hover:border-sage/30"
+                        >
+                          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-subtle/30 text-sage">
+                            <Map size={18} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[10px] uppercase tracking-[0.18em] text-text-ghost">Campaign</span>
+                            <span className="mt-0.5 block truncate font-display text-base text-paper">{campaign.title}</span>
+                          </span>
+                          <span className="text-[11px] text-text-secondary">
+                            {count > 0 ? `${count} at table` : "no players yet"}
+                          </span>
+                        </Link>
+                      );
+                    })
+                  )}
                 </div>
               </section>
             </div>
@@ -903,32 +1288,30 @@ export default function DashboardPage() {
 
           <aside className="space-y-6 lg:sticky lg:top-5 lg:self-start">
             <section className="rounded-[1.5rem] border border-border bg-surface/88 p-5 shadow-[var(--t-shadow-card)] backdrop-blur-xl">
-              <SectionTitle eyebrow="Letters" title="Needs your hand" />
+              <SectionTitle
+                eyebrow="Letters"
+                title={notifs.length > 0 ? "Needs your hand" : "The post is quiet"}
+                action={notifs.length > 3 ? "See all" : undefined}
+              />
               <div className="space-y-3 sm:space-y-0">
-                {letters.map((letter, index) => (
-                  <EnvelopeLetter key={`${letter.from}-${letter.time}`} letter={letter} index={index} />
-                ))}
+                {notifs.length === 0 ? (
+                  <p className="rounded-2xl border border-border bg-elevated/40 p-4 text-[12.5px] italic text-text-ghost">
+                    No letters waiting. New comments, sparks, and follows will land here.
+                  </p>
+                ) : (
+                  notifs.slice(0, 3).map((notif, index) => (
+                    <EnvelopeLetter key={notif.id} notif={notif} index={index} />
+                  ))
+                )}
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-[1.5rem] border border-border bg-surface/88 shadow-[var(--t-shadow-card)] backdrop-blur-xl">
-              <div className="relative min-h-44 p-5">
-                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-amber/20 bg-amber/[0.07]" />
-                <div className="absolute bottom-4 right-4 h-20 w-32 rotate-6 rounded-xl border border-border bg-elevated/35 shadow-[var(--t-shadow-card)]" />
-                <div className="absolute left-5 top-5 h-20 w-14 rotate-[-8deg] rounded-md border border-rose/20 bg-rose/[0.07]" />
-                <div className="relative">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-amber">Noticeboard</p>
-                  <h2 className="mt-2 font-display text-2xl text-paper">Moonlit Machines closes tonight.</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                    Your draft is eligible. The board is busy, but there&apos;s still time to pin a final revision.
-                  </p>
-                  <button className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-4 text-sm text-amber">
-                    <ScrollText size={15} />
-                    View notice
-                  </button>
-                </div>
-              </div>
-            </section>
+            <PhaseActionCard
+              phase={phaseKey}
+              activeStory={activeStory}
+              activeHref={activeHref}
+              unreadLetters={notifs.filter((n) => !n.read).length}
+            />
           </aside>
         </section>
 

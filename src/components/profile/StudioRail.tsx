@@ -80,7 +80,7 @@ export default function StudioRail({ offerings, isOwner }: StudioRailProps) {
           </div>
           {isOwner && offerings.length > 0 && (
             <Link
-              href="/scriptorium/offerings"
+              href="/commissions/offerings"
               className="inline-flex items-center gap-1 rounded-full border border-border bg-elevated/70 px-3 py-1.5 text-[11px] text-text-secondary transition-colors hover:text-paper"
             >
               Manage offerings
@@ -98,7 +98,7 @@ export default function StudioRail({ offerings, isOwner }: StudioRailProps) {
             </p>
             {isOwner && (
               <Link
-                href="/scriptorium/offerings"
+                href="/commissions/offerings"
                 className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-amber/25 bg-amber/[0.08] px-4 py-1.5 text-[12px] font-medium text-amber transition-colors hover:bg-amber/[0.14]"
               >
                 List your first offering
@@ -119,7 +119,7 @@ export default function StudioRail({ offerings, isOwner }: StudioRailProps) {
                   transition={{ delay: 0.04 * i, duration: 0.35 }}
                 >
                   <Link
-                    href="/scriptorium"
+                    href="/commissions"
                     className="group block h-full rounded-2xl border border-border bg-elevated/55 p-4 transition-all hover:-translate-y-0.5 hover:border-amber/30"
                   >
                     <div className="mb-2 flex flex-wrap items-center gap-2">
