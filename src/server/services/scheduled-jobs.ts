@@ -193,13 +193,13 @@ export async function processCommissionAutoComplete(): Promise<{
           commission.artisanId,
           "circle",
           `Commission auto-completed. ${creatorShare} drops released to you.`,
-          `/scriptorium`
+          `/commissions`
         );
         createNotification(
           commission.patronId,
           "circle",
           "A commission was auto-completed after 7 days without response.",
-          `/scriptorium`
+          `/commissions`
         );
 
         completed++;

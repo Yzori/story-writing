@@ -41,7 +41,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
     const canReadDrafts = isOwner || isCollaborator;
 
-    if (!canReadDrafts && (!story.isPublic || story.status !== "published")) {
+    const hasPublicAccess =
+      story.isPublic &&
+      (story.status === "published" || story.writingMode === "campaign");
+
+    if (!canReadDrafts && !hasPublicAccess) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }

@@ -65,6 +65,16 @@ describe("GET /api/stories/[storyId]/chapters", () => {
     expect((body as any).data).toHaveLength(2);
   });
 
+  it("includes chapter versions when loading editor content", async () => {
+    const req = createMockRequest("/api/stories/story-1/chapters?withContent=true");
+    const res = await GET(req, createMockParams({ storyId: "story-1" }));
+    const { status, body } = await getResponseData(res);
+    const data = (body as { data: Array<{ version: number }> }).data;
+
+    expect(status).toBe(200);
+    expect(data[0].version).toBe(mockChapters[0].version);
+  });
+
   it("returns 404 for non-existent story", async () => {
     vi.resetModules();
 

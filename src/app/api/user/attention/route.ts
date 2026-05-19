@@ -203,7 +203,7 @@ export async function GET() {
         kind: "commission",
         label: `Quote a commission`,
         detail: briefPreview,
-        href: `/scriptorium/commissions/${c.id}`,
+        href: `/commissions/${c.id}`,
         createdAt: c.createdAt as unknown as string,
       });
     }

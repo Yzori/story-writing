@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters, playerCharacters, campaignSessions } from "@/server/db/schema";
-import { eq, ne, isNull, desc, lt, and, sql, count, ilike } from "drizzle-orm";
+import { eq, ne, isNull, desc, lt, and, sql, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { LEGACY_RATING_MAP } from "@/config/genres";
 import { generateSlug } from "@/lib/utils";
@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { title, contentNotes, contentRating, ...rest } = parsed.data;
-    const slug = generateSlug(title);
+    const slug = await generateUniqueStorySlug(title);
 
     // Normalize legacy G/PG/PG13/R/MA values to the canonical
     // everyone/teen/mature/explicit scheme used by readers' comfort filter.
@@ -270,4 +270,17 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+async function generateUniqueStorySlug(title: string) {
+  const baseSlug = generateSlug(title) || "story";
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while (await db.query.stories.findFirst({ where: eq(stories.slug, slug) })) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
 }

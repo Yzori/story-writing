@@ -4,10 +4,10 @@ import {
   chapters,
   stories,
   contentUnlocks,
-  users,
   inkDropTransactions,
+  users,
 } from "@/server/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
@@ -33,11 +33,33 @@ export async function GET(
         earlyAccessDays: chapters.earlyAccessDays,
         earlyAccessUntil: chapters.earlyAccessUntil,
         storyId: chapters.storyId,
+        status: chapters.status,
+        deletedAt: chapters.deletedAt,
       })
       .from(chapters)
       .where(and(eq(chapters.id, chapterId), eq(chapters.storyId, storyId)));
 
     if (!chapter) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
+    const [story] = await db
+      .select({
+        userId: stories.userId,
+        isPublic: stories.isPublic,
+        deletedAt: stories.deletedAt,
+      })
+      .from(stories)
+      .where(eq(stories.id, storyId));
+
+    const isOwner = Boolean(userId && story?.userId === userId);
+    if (
+      !story ||
+      (!isOwner && (!story.isPublic || story.deletedAt || chapter.status !== "published" || chapter.deletedAt))
+    ) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Chapter not found" } },
         { status: 404 }
@@ -70,11 +92,7 @@ export async function GET(
 
     // Check if user is story owner
     if (userId && !unlocked) {
-      const [story] = await db
-        .select({ userId: stories.userId })
-        .from(stories)
-        .where(eq(stories.id, storyId));
-      if (story?.userId === userId) {
+      if (isOwner) {
         unlocked = true;
       }
     }
@@ -122,9 +140,18 @@ export async function POST(
         id: chapters.id,
         gatingTier: chapters.gatingTier,
         storyId: chapters.storyId,
+        status: chapters.status,
+        deletedAt: chapters.deletedAt,
       })
       .from(chapters)
-      .where(and(eq(chapters.id, chapterId), eq(chapters.storyId, storyId)));
+      .where(
+        and(
+          eq(chapters.id, chapterId),
+          eq(chapters.storyId, storyId),
+          eq(chapters.status, "published"),
+          isNull(chapters.deletedAt)
+        )
+      );
 
     if (!chapter) {
       return NextResponse.json(
@@ -158,11 +185,11 @@ export async function POST(
 
     // Get story owner for revenue split
     const [story] = await db
-      .select({ userId: stories.userId })
+      .select({ userId: stories.userId, isPublic: stories.isPublic, deletedAt: stories.deletedAt })
       .from(stories)
       .where(eq(stories.id, storyId));
 
-    if (!story) {
+    if (!story || !story.isPublic || story.deletedAt) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
@@ -176,25 +203,29 @@ export async function POST(
 
     // Atomic: debit reader, credit creator (70/30), log, create unlock
     const result = await db.transaction(async (tx) => {
-      const [reader] = await tx.execute(
-        sql`SELECT ink_drop_balance FROM users WHERE id = ${userId} FOR UPDATE`
-      );
-      const balance = Number((reader as any)?.ink_drop_balance ?? 0);
+      const [reader] = await tx
+        .select({ inkDropBalance: users.inkDropBalance })
+        .from(users)
+        .where(eq(users.id, userId))
+        .for("update");
+      const balance = reader?.inkDropBalance ?? 0;
 
       if (balance < price) {
         return { error: "INSUFFICIENT_BALANCE" as const, balance, price };
       }
 
       // Debit reader
-      await tx.execute(
-        sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${price} WHERE id = ${userId}`
-      );
+      await tx
+        .update(users)
+        .set({ inkDropBalance: sql`${users.inkDropBalance} - ${price}` })
+        .where(eq(users.id, userId));
 
       // Credit creator (70%)
       const creatorShare = Math.floor(price * 0.7);
-      await tx.execute(
-        sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${story.userId}`
-      );
+      await tx
+        .update(users)
+        .set({ inkDropBalance: sql`${users.inkDropBalance} + ${creatorShare}` })
+        .where(eq(users.id, story.userId));
 
       // Log transaction
       await tx.insert(inkDropTransactions).values({

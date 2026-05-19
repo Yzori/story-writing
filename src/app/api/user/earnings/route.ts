@@ -5,6 +5,9 @@ import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 
+const EARNING_TYPES = ["tip", "unlock", "circle", "commission", "donation", "crossroads"];
+const CREATOR_SHARE_SQL = sql<number>`floor(${inkDropTransactions.amount} * 0.7)`;
+
 /**
  * GET /api/user/earnings
  * Returns creator earnings stats and recent tip history.
@@ -27,14 +30,15 @@ export async function GET(request: NextRequest) {
     // Aggregate stats
     const [stats] = await db
       .select({
-        totalEarned: sql<number>`coalesce(sum(${inkDropTransactions.amount}), 0)`,
+        totalEarned: sql<number>`coalesce(sum(${CREATOR_SHARE_SQL}), 0)`,
+        totalGross: sql<number>`coalesce(sum(${inkDropTransactions.amount}), 0)`,
         tipCount: sql<number>`count(*)`,
       })
       .from(inkDropTransactions)
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission", "donation", "crossroads"])
+          inArray(inkDropTransactions.type, EARNING_TYPES)
         )
       );
 
@@ -45,13 +49,13 @@ export async function GET(request: NextRequest) {
 
     const [monthStats] = await db
       .select({
-        tipsThisMonth: sql<number>`coalesce(sum(${inkDropTransactions.amount}), 0)`,
+        tipsThisMonth: sql<number>`coalesce(sum(${CREATOR_SHARE_SQL}), 0)`,
       })
       .from(inkDropTransactions)
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission", "donation", "crossroads"]),
+          inArray(inkDropTransactions.type, EARNING_TYPES),
           gte(inkDropTransactions.createdAt, monthStart)
         )
       );
@@ -69,7 +73,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission", "donation", "crossroads"])
+          inArray(inkDropTransactions.type, EARNING_TYPES)
         )
       )
       .groupBy(inkDropTransactions.fromUserId, users.displayName, users.name)
@@ -92,7 +96,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission", "donation", "crossroads"])
+          inArray(inkDropTransactions.type, EARNING_TYPES)
         )
       )
       .orderBy(desc(inkDropTransactions.createdAt))
@@ -102,25 +106,31 @@ export async function GET(request: NextRequest) {
     const breakdownRows = await db
       .select({
         type: inkDropTransactions.type,
-        total: sql<number>`coalesce(sum(${inkDropTransactions.amount}), 0)`,
+        total: sql<number>`coalesce(sum(${CREATOR_SHARE_SQL}), 0)`,
+        grossTotal: sql<number>`coalesce(sum(${inkDropTransactions.amount}), 0)`,
         count: sql<number>`count(*)`,
       })
       .from(inkDropTransactions)
       .where(
         and(
           eq(inkDropTransactions.toUserId, userId),
-          inArray(inkDropTransactions.type, ["tip", "unlock", "circle", "commission", "donation", "crossroads"])
+          inArray(inkDropTransactions.type, EARNING_TYPES)
         )
       )
       .groupBy(inkDropTransactions.type);
 
-    const breakdown: Record<string, { total: number; count: number }> = {};
+    const breakdown: Record<string, { total: number; grossTotal: number; count: number }> = {};
     for (const row of breakdownRows) {
-      breakdown[row.type] = { total: Number(row.total), count: Number(row.count) };
+      breakdown[row.type] = {
+        total: Number(row.total),
+        grossTotal: Number(row.grossTotal),
+        count: Number(row.count),
+      };
     }
 
     return NextResponse.json({
       totalEarned: Number(stats.totalEarned),
+      totalGross: Number(stats.totalGross),
       tipCount: Number(stats.tipCount),
       tipsThisMonth: Number(monthStats.tipsThisMonth),
       breakdown,
@@ -133,9 +143,10 @@ export async function GET(request: NextRequest) {
       recentTips: recentTips.map((t) => ({
         id: t.id,
         from: t.fromDisplayName || t.fromName || "Anonymous",
-        amount: t.amount,
+        amount: Math.floor(t.amount * 0.7),
+        grossAmount: t.amount,
         message: t.message,
-        type: (t as any).type,
+        type: t.type,
         createdAt: t.createdAt,
       })),
     });

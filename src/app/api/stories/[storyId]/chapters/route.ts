@@ -55,7 +55,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const selectFields: Record<string, unknown> = {
+    const selectFields = {
       id: chapters.id,
       storyId: chapters.storyId,
       title: chapters.title,
@@ -65,13 +65,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       authorNoteBefore: chapters.authorNoteBefore,
       authorNoteAfter: chapters.authorNoteAfter,
       outline: chapters.outline,
+      version: chapters.version,
       createdAt: chapters.createdAt,
       updatedAt: chapters.updatedAt,
     };
-
-    if (withContent) {
-      selectFields.content = chapters.content;
-    }
 
     const conditions = [eq(chapters.storyId, storyId), isNull(chapters.deletedAt)];
 
@@ -80,11 +77,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       conditions.push(eq(chapters.status, "published"));
     }
 
-    const results = await db
-      .select(selectFields as any)
-      .from(chapters)
-      .where(and(...conditions))
-      .orderBy(asc(chapters.sortOrder), asc(chapters.createdAt));
+    const results = withContent
+      ? await db
+          .select({
+            ...selectFields,
+            content: chapters.content,
+          })
+          .from(chapters)
+          .where(and(...conditions))
+          .orderBy(asc(chapters.sortOrder), asc(chapters.createdAt))
+      : await db
+          .select(selectFields)
+          .from(chapters)
+          .where(and(...conditions))
+          .orderBy(asc(chapters.sortOrder), asc(chapters.createdAt));
 
     return NextResponse.json({ data: results });
   } catch (error) {

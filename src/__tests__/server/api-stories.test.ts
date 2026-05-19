@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { createMockRequest, createMockStory, getResponseData } from "../helpers";
+import { createMockParams, createMockRequest, createMockStory, getResponseData } from "../helpers";
 
 describe("GET /api/stories", () => {
   let GET: (request: NextRequest) => Promise<any>;
@@ -175,6 +175,88 @@ describe("GET /api/stories", () => {
 
     expect(status).toBe(500);
     expect((body as any).error.code).toBe("INTERNAL_ERROR");
+  });
+});
+
+describe("GET public campaign stories", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue(null),
+    }));
+  });
+
+  function mockPublicDraftCampaignDb() {
+    const campaign = createMockStory({
+      id: "campaign-1",
+      slug: "rea-2s633f",
+      writingMode: "campaign",
+      isPublic: true,
+      status: "draft",
+      contentNotes: "[]",
+    });
+
+    const selectMock = vi
+      .fn()
+      .mockImplementationOnce(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([
+              {
+                id: "author-1",
+                displayName: "Author",
+                name: "Author",
+                avatarUrl: null,
+                bio: null,
+                role: "writer",
+              },
+            ]),
+          }),
+        }),
+      }))
+      .mockImplementationOnce(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      }));
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        select: selectMock,
+        query: {
+          stories: { findFirst: vi.fn().mockResolvedValue(campaign) },
+          collaborators: { findFirst: vi.fn().mockResolvedValue(null) },
+        },
+      },
+    }));
+  }
+
+  it("loads a public campaign by slug even before the story status is published", async () => {
+    mockPublicDraftCampaignDb();
+
+    const mod = await import("@/app/api/stories/by-slug/[slug]/route");
+    const req = createMockRequest("/api/stories/by-slug/rea-2s633f");
+    const res = await mod.GET(req, createMockParams({ slug: "rea-2s633f" }));
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(200);
+    expect((body as any).data.id).toBe("campaign-1");
+    expect((body as any).data.chapters).toEqual([]);
+  });
+
+  it("loads a public campaign by id for non-owner campaign pages", async () => {
+    mockPublicDraftCampaignDb();
+
+    const mod = await import("@/app/api/stories/[storyId]/route");
+    const req = createMockRequest("/api/stories/campaign-1");
+    const res = await mod.GET(req, createMockParams({ storyId: "campaign-1" }));
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(200);
+    expect((body as any).data.id).toBe("campaign-1");
+    expect((body as any).data.bibleEntries).toEqual([]);
   });
 });
 

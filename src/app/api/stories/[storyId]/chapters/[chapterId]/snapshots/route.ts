@@ -5,6 +5,8 @@ import { eq, and, isNull, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { sanitizeHtml } from "@/server/sanitize";
+import { countWords } from "@/lib/utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -94,16 +96,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const body = await request.json().catch(() => ({}));
     const label = typeof body.label === "string" ? body.label.slice(0, 200) : "";
+    const content =
+      typeof body.content === "string"
+        ? sanitizeHtml(body.content)
+        : check.chapter!.content || "";
+    const wordCount =
+      typeof body.wordCount === "number" && Number.isFinite(body.wordCount)
+        ? Math.max(0, Math.round(body.wordCount))
+        : countWords(content);
+    const version =
+      typeof body.version === "number" && Number.isFinite(body.version)
+        ? Math.max(1, Math.round(body.version))
+        : (check.chapter as { version?: number }).version ?? null;
 
     const [snapshot] = await db
       .insert(chapterSnapshots)
       .values({
         chapterId,
-        content: check.chapter!.content || "",
-        wordCount: check.chapter!.wordCount || 0,
+        content,
+        wordCount,
         label,
         userId: session.user.id,
-        version: (check.chapter as { version?: number }).version ?? null,
+        version,
       })
       .returning();
 
