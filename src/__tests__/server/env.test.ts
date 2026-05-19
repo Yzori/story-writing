@@ -32,15 +32,15 @@ describe("Environment Validation", () => {
     expect(mod.env.AUTH_SECRET).toBe("test-secret-value");
   });
 
-  it("allows optional GitHub vars to be absent", async () => {
+  it("allows optional OAuth vars to be absent", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/test");
     vi.stubEnv("AUTH_SECRET", "test-secret");
-    vi.stubEnv("GITHUB_CLIENT_ID", "");
-    vi.stubEnv("GITHUB_CLIENT_SECRET", "");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
 
     const mod = await import("@/server/env");
     // Empty strings pass through as optional — Zod treats them as present
-    expect(mod.env.GITHUB_CLIENT_ID).toBeDefined();
+    expect(mod.env.GOOGLE_CLIENT_ID).toBeDefined();
   });
 
   it("accepts valid NODE_ENV values", async () => {

@@ -17,6 +17,7 @@ vi.mock("@/server/password", () => ({
 
 vi.mock("@/server/api-utils", () => ({
   applyRateLimit: vi.fn(() => null),
+  applyPersistentRateLimit: vi.fn(() => Promise.resolve(null)),
 }));
 
 describe("POST /api/auth/register", () => {
@@ -55,6 +56,7 @@ describe("POST /api/auth/register", () => {
 
     vi.doMock("@/server/api-utils", () => ({
       applyRateLimit: vi.fn().mockReturnValue(null),
+      applyPersistentRateLimit: vi.fn().mockResolvedValue(null),
     }));
 
     const mod = await import("@/app/api/auth/register/route");

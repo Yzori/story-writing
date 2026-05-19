@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { eq, and, gt, isNull, sql } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit } from "@/server/api-utils";
+import { sha256Hex } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {
     // Strict rate limit: 10 attempts per 15 minutes per IP
-    const limited = applyRateLimit(request, null, "write", {
+    const limited = await applyPersistentRateLimit(request, null, "write", {
       max: 10,
       windowSeconds: 900,
     });
@@ -44,18 +45,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find valid (non-expired, unused) token
+    const tokenHash = await sha256Hex(token);
+
+    // Atomically consume a valid (non-expired, unused) token.
     const [resetToken] = await db
-      .select()
-      .from(passwordResetTokens)
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
       .where(
         and(
-          eq(passwordResetTokens.token, token),
+          eq(passwordResetTokens.token, tokenHash),
           gt(passwordResetTokens.expiresAt, new Date()),
           isNull(passwordResetTokens.usedAt)
         )
       )
-      .limit(1);
+      .returning({
+        id: passwordResetTokens.id,
+        userId: passwordResetTokens.userId,
+      });
 
     if (!resetToken) {
       return NextResponse.json(
@@ -64,18 +70,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark token as used immediately to prevent replay
-    await db
-      .update(passwordResetTokens)
-      .set({ usedAt: new Date() })
-      .where(eq(passwordResetTokens.id, resetToken.id));
-
     // Hash new password and update user
     const hashedPassword = await hashPassword(password);
 
     await db
       .update(users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
+      .set({
+        password: hashedPassword,
+        passwordChangedAt: new Date(),
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, resetToken.userId));
 
     // Delete all tokens for this user (invalidate any other reset links)
@@ -86,7 +91,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: "Password has been reset successfully.",
     });
-  } catch (error) {
+  } catch {
     console.error("Reset password error");
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },

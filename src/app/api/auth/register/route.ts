@@ -3,13 +3,13 @@ import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { sql } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit } from "@/server/api-utils";
 import { normalizeEmail } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {
     // Strict rate limit: 5 registrations per hour per IP
-    const limited = applyRateLimit(request, null, "write", {
+    const limited = await applyPersistentRateLimit(request, null, "write", {
       max: 5,
       windowSeconds: 3600,
     });

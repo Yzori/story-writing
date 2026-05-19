@@ -1,14 +1,13 @@
-import { auth } from "@/server/auth";
-import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
 import { validateCsrf } from "@/server/csrf";
 
 const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings", "/roster/setup", "/campaign", "/creator"];
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];
 const authPages = ["/login", "/register"];
 
-export default auth((req) => {
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
 
   // CSRF protection for API routes with mutating methods
   // Skip CSRF for webhook routes (they use their own signature verification)
@@ -21,6 +20,15 @@ export default auth((req) => {
   const isProtected = protectedPaths.some((path) => pathname.startsWith(path))
     || protectedPatterns.some((pattern) => pattern.test(pathname));
   const isAuthPage = authPages.some((path) => pathname.startsWith(path));
+  const needsAuthState = isProtected || isAuthPage;
+  const token = needsAuthState
+    ? await getToken({
+        req,
+        secret: process.env.AUTH_SECRET,
+        secureCookie: process.env.NODE_ENV === "production",
+      })
+    : null;
+  const isLoggedIn = !!token && token.invalid !== true;
 
   // Redirect unauthenticated users away from protected routes
   if (isProtected && !isLoggedIn) {
@@ -35,7 +43,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [

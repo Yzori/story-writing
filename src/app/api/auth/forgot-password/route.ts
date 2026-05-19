@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit } from "@/server/api-utils";
 import { sendEmail, passwordResetEmail } from "@/server/services/email";
-import { normalizeEmail } from "@/server/auth-utils";
+import { createSecureToken, getCanonicalAppUrl, normalizeEmail, sha256Hex } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {
     // Strict rate limit: 5 requests per 15 minutes per IP
-    const limited = applyRateLimit(request, null, "write", {
+    const limited = await applyPersistentRateLimit(request, null, "write", {
       max: 5,
       windowSeconds: 900,
     });
@@ -48,16 +48,17 @@ export async function POST(request: NextRequest) {
       .where(eq(passwordResetTokens.userId, user.id));
 
     // Generate token and expiry (1 hour)
-    const token = crypto.randomUUID();
+    const token = createSecureToken();
+    const tokenHash = await sha256Hex(token);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.insert(passwordResetTokens).values({
       userId: user.id,
-      token,
+      token: tokenHash,
       expiresAt,
     });
 
-    const resetUrl = `${request.nextUrl.origin}/reset-password?token=${token}`;
+    const resetUrl = `${getCanonicalAppUrl(request)}/reset-password?token=${token}`;
     const { subject, html } = passwordResetEmail(resetUrl);
     sendEmail(user.email, subject, html); // fire-and-forget
 
