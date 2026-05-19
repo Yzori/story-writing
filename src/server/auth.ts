@@ -96,11 +96,15 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         }
 
         await clearLoginAttempts(attemptKey);
+        // Deliberately omit `image` / `avatarUrl`. NextAuth would chunk it
+        // into the session-token cookie, and inline data: URIs (which the
+        // current upload path produces) blow past Node's 16KB header limit
+        // and 431 every subsequent request. Avatars are fetched separately
+        // via the user payload.
         return {
           id: user.id,
           email: user.email,
           name: user.displayName ?? user.name,
-          image: user.image ?? user.avatarUrl,
         };
       },
     }),
@@ -108,6 +112,13 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (token.invalid) return token;
+
+      // Sweep avatar-ish fields from any token issued before we stopped
+      // including avatars in the session payload. Existing browser sessions
+      // can carry bloated data: URI cookies until refresh; this purges them.
+      delete token.picture;
+      delete token.image;
+      delete token.avatarUrl;
 
       if (user) {
         token.id = user.id;
@@ -162,6 +173,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.id && !token.invalid) {
         session.user.id = token.id as string;
+        session.user.image = null;
         session.user.isAdmin = (token.isAdmin as boolean) ?? false;
         session.user.subscriptionTier = (token.subscriptionTier as string | undefined) ?? "free";
         session.user.subscriptionStatus = (token.subscriptionStatus as string | undefined) ?? "active";

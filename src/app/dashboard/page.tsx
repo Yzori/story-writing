@@ -944,10 +944,33 @@ interface ApiNotification {
   createdAt: string;
 }
 
+interface MyCampaign {
+  id: string;
+  title: string;
+  synopsis: string | null;
+  coverImageUrl: string | null;
+  writingMode: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  role: "gm" | "player" | "both";
+  playerCount: number;
+  chapterCount: number;
+  totalWords: number;
+  myCharacter: { id: string; name: string; status: string } | null;
+  activeSession: {
+    id: string;
+    title: string;
+    status: string;
+    activePlayerId: string | null;
+  } | null;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [now, setNow] = useState<Date | null>(null);
   const [stories, setStories] = useState<ApiStory[]>([]);
+  const [myCampaigns, setMyCampaigns] = useState<MyCampaign[]>([]);
   const [notifs, setNotifs] = useState<ApiNotification[]>([]);
   const phaseKey = now ? getLibraryPhase(now) : "night";
   const phase = phaseConfig[phaseKey];
@@ -967,6 +990,18 @@ export default function DashboardPage() {
       })
       .catch(() => {});
 
+    // /api/stories?mine=true only returns stories the user OWNS. Players who
+    // joined a campaign as a character don't appear there — they'd see an
+    // empty study otherwise. The /campaigns/mine endpoint covers both.
+    fetch("/api/campaigns/mine")
+      .then((response) => response.json())
+      .then((json) => {
+        if (!cancelled && Array.isArray(json.data)) {
+          setMyCampaigns(json.data);
+        }
+      })
+      .catch(() => {});
+
     fetch("/api/notifications?limit=10")
       .then((response) => response.json())
       .then((json) => {
@@ -981,16 +1016,51 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const activeStory = useMemo(() => {
-    if (stories.length === 0) return null;
-    return [...stories].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    )[0];
-  }, [stories]);
+  // Union of stories the user owns plus campaigns they joined as a player.
+  // Owned campaigns appear in both feeds — dedupe by id and prefer the
+  // owned-story row since it carries the richer payload (genres, etc.).
+  const allMyStories = useMemo<ApiStory[]>(() => {
+    const ownedIds = new Set(stories.map((s) => s.id));
+    const projectedCampaigns: ApiStory[] = myCampaigns
+      .filter((c) => !ownedIds.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        format: "novel",
+        synopsis: c.synopsis,
+        coverImageUrl: c.coverImageUrl,
+        genres: [],
+        contentRating: "everyone",
+        status: c.status,
+        writingMode: c.writingMode,
+        slug: null,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        authorName: null,
+        chapterCount: c.chapterCount,
+        totalWords: c.totalWords,
+        sparkCount: 0,
+        playerCount: c.playerCount,
+      }));
+    return [...stories, ...projectedCampaigns].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }, [stories, myCampaigns]);
+
+  const activeStory = useMemo(() => allMyStories[0] ?? null, [allMyStories]);
+
+  // For campaigns the user is playing in, prefer deep-linking straight to
+  // the live session so the resume button drops them into the table.
+  const activeSessionForActiveStory = useMemo(() => {
+    if (!activeStory || activeStory.writingMode !== "campaign") return null;
+    return myCampaigns.find((c) => c.id === activeStory.id)?.activeSession ?? null;
+  }, [activeStory, myCampaigns]);
 
   const activeHref = activeStory
     ? activeStory.writingMode === "campaign"
-      ? `/campaign/${activeStory.id}`
+      ? activeSessionForActiveStory
+        ? `/campaign/${activeStory.id}/play/${activeSessionForActiveStory.id}`
+        : `/campaign/${activeStory.id}`
       : activeStory.writingMode === "co-op"
         ? `/write/${activeStory.id}/co-op`
         : `/write/${activeStory.id}`
@@ -1011,14 +1081,14 @@ export default function DashboardPage() {
       "bg-teal/15 text-teal",
     ];
 
-    return stories.slice(0, 4).map((story, index) => ({
+    return allMyStories.slice(0, 4).map((story, index) => ({
       title: story.title,
       kind: story.writingMode === "campaign" ? "Campaign" : story.status === "draft" ? "Draft" : "Writing",
       progress: story.chapterCount > 0 ? `${story.chapterCount} chapters` : `${story.totalWords.toLocaleString()} words`,
       accent: accents[index % accents.length],
       href: story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`,
     }));
-  }, [stories]);
+  }, [allMyStories]);
 
   // ── Live data wired into the desk + side blocks ──────────────────────────
   const activeWordCount = activeStory?.totalWords ?? 0;
@@ -1026,12 +1096,19 @@ export default function DashboardPage() {
     () => notifs.filter((n) => n.type === "comment" && !n.read).length,
     [notifs]
   );
+  // Live campaigns come from /api/campaigns/mine — same shape concerns as
+  // before plus the active session payload the desk SVG widget needs.
+  // Surface campaigns with an active session first; finished campaigns
+  // drop to the bottom.
   const liveCampaigns = useMemo(
     () =>
-      stories
-        .filter((s) => s.writingMode === "campaign")
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
-    [stories]
+      [...myCampaigns].sort((a, b) => {
+        const aLive = a.activeSession ? 1 : 0;
+        const bLive = b.activeSession ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      }),
+    [myCampaigns],
   );
   const liveCampaign = liveCampaigns[0] ?? null;
   const nextPhaseInfo = now ? getNextPhase(now) : null;
@@ -1044,11 +1121,11 @@ export default function DashboardPage() {
     };
     const fallbacks: [string, string, string] = ["Salt", "Crown", "Notes"];
     return [
-      stories[0] ? shortSpine(stories[0].title, 6) : fallbacks[0],
-      stories[1] ? shortSpine(stories[1].title, 5) : fallbacks[1],
-      stories[2] ? shortSpine(stories[2].title, 5) : fallbacks[2],
+      allMyStories[0] ? shortSpine(allMyStories[0].title, 6) : fallbacks[0],
+      allMyStories[1] ? shortSpine(allMyStories[1].title, 5) : fallbacks[1],
+      allMyStories[2] ? shortSpine(allMyStories[2].title, 5) : fallbacks[2],
     ];
-  }, [stories]);
+  }, [allMyStories]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -1261,21 +1338,34 @@ export default function DashboardPage() {
                   ) : (
                     liveCampaigns.slice(0, 3).map((campaign) => {
                       const count = campaign.playerCount ?? 0;
+                      const href = campaign.activeSession
+                        ? `/campaign/${campaign.id}/play/${campaign.activeSession.id}`
+                        : `/campaign/${campaign.id}`;
+                      const roleLabel =
+                        campaign.role === "gm"
+                          ? "GMing"
+                          : campaign.role === "both"
+                            ? "GMing"
+                            : campaign.myCharacter
+                              ? `As ${campaign.myCharacter.name}`
+                              : "Campaign";
                       return (
                         <Link
                           key={campaign.id}
-                          href={`/campaign/${campaign.id}`}
+                          href={href}
                           className="flex items-center gap-4 rounded-2xl border border-border bg-elevated/65 p-4 transition-colors hover:border-sage/30"
                         >
                           <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-subtle/30 text-sage">
                             <Map size={18} />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[10px] uppercase tracking-[0.18em] text-text-ghost">Campaign</span>
+                            <span className="block text-[10px] uppercase tracking-[0.18em] text-text-ghost">{roleLabel}</span>
                             <span className="mt-0.5 block truncate font-display text-base text-paper">{campaign.title}</span>
                           </span>
                           <span className="text-[11px] text-text-secondary">
-                            {count > 0 ? `${count} at table` : "no players yet"}
+                            {campaign.activeSession
+                              ? count > 0 ? `${count} at table` : "session open"
+                              : "no live session"}
                           </span>
                         </Link>
                       );
