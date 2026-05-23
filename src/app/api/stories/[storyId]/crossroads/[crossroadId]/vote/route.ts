@@ -111,7 +111,7 @@ export async function POST(
       const [voter] = await tx.execute(
         sql`SELECT ink_drop_balance FROM users WHERE id = ${userId} FOR UPDATE`
       );
-      const balance = Number((voter as any)?.ink_drop_balance ?? 0);
+      const balance = Number((voter as { ink_drop_balance?: number | string } | undefined)?.ink_drop_balance ?? 0);
 
       if (balance < amount) {
         return { error: "INSUFFICIENT_BALANCE" as const, balance };

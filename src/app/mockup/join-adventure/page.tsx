@@ -117,7 +117,7 @@ export default function JoinAdventureMockup() {
             transition={{ delay: 0.15, duration: 0.6 }}
             className="font-reading italic text-[19px] text-text-secondary max-w-2xl leading-relaxed border-l border-amber/30 pl-5 mb-10"
           >
-            "{CAMPAIGN.hook}"
+            &quot;{CAMPAIGN.hook}&quot;
           </motion.blockquote>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
@@ -129,12 +129,12 @@ export default function JoinAdventureMockup() {
                 <div className="text-[10px] uppercase tracking-[0.18em] text-text-ghost mb-1">Storyteller</div>
                 <div className="text-paper text-[15px] font-medium leading-tight">{CAMPAIGN.gm.name}</div>
                 <div className="text-text-ghost text-[12px] mb-2">{CAMPAIGN.gm.handle}</div>
-                <p className="text-text-secondary text-[12.5px] leading-snug italic">"{CAMPAIGN.gm.line}"</p>
+                <p className="text-text-secondary text-[12.5px] leading-snug italic">&quot;{CAMPAIGN.gm.line}&quot;</p>
               </div>
             </div>
 
             <div className="bg-surface/60 border border-border-subtle rounded-2xl p-5 backdrop-blur-sm">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-ghost mb-3">The room you're walking into</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-ghost mb-3">The room you&apos;re walking into</div>
               <div className="flex flex-wrap gap-1.5">
                 {CAMPAIGN.tone.map((t) => (
                   <span key={t} className="text-[11.5px] px-2.5 py-1 rounded-full bg-amber/[0.07] border border-amber/15 text-amber/90">
@@ -252,7 +252,7 @@ export default function JoinAdventureMockup() {
               <div className="rounded-2xl border border-amber/15 bg-gradient-to-b from-amber/[0.04] to-transparent p-5 mb-4">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-amber/80 mb-2">The GM has set the scene</div>
                 <p className="font-reading italic text-text leading-relaxed text-[14.5px]">
-                  "{CAMPAIGN.prompt}"
+                  &quot;{CAMPAIGN.prompt}&quot;
                 </p>
               </div>
 

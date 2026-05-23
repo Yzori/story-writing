@@ -34,10 +34,11 @@ export async function GET(request: NextRequest) {
         WHERE creator_id = ${session.user.id}
       `);
 
+      const statsRow = stats as { subscriber_count?: number | string; monthly_income?: number | string } | undefined;
       return NextResponse.json({
         circle,
-        subscriberCount: Number((stats as any)?.subscriber_count ?? 0),
-        monthlyIncome: Number((stats as any)?.monthly_income ?? 0),
+        subscriberCount: Number(statsRow?.subscriber_count ?? 0),
+        monthlyIncome: Number(statsRow?.monthly_income ?? 0),
       });
     }
 

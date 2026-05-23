@@ -199,7 +199,10 @@ export default function SceneClip({
   useEffect(() => {
     if (!open) return;
     const token = ++renderTokenRef.current;
+    // Loading-state reset before kicking off async render is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGenerating(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImageDataUrl(null);
     renderClip(passage, storyTitle, authorName, coverUrl ?? null, aspect)
       .then((url) => {
@@ -345,7 +348,7 @@ export default function SceneClip({
                       className={`block max-h-[60vh] ${aspect === "portrait" ? "max-w-[260px]" : "max-w-[440px]"}`}
                     />
                   ) : (
-                    <p className="text-text-ghost text-sm py-12">Couldn't render preview.</p>
+                    <p className="text-text-ghost text-sm py-12">Couldn&apos;t render preview.</p>
                   )}
                 </div>
 
@@ -391,7 +394,7 @@ export default function SceneClip({
                 </div>
 
                 {copyState === "error" && (
-                  <p className="text-[11px] text-rose">Couldn't copy — try Download instead.</p>
+                  <p className="text-[11px] text-rose">Couldn&apos;t copy — try Download instead.</p>
                 )}
               </div>
             </div>

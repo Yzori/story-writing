@@ -1,5 +1,22 @@
 import { vi } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * Type of a Next.js route handler (App Router).
+ */
+export type RouteHandler<P extends Record<string, string> = Record<string, string>> = (
+  request: NextRequest,
+  ctx: { params: Promise<P> }
+) => Promise<NextResponse | Response>;
+
+/**
+ * Loosely-typed JSON body used in test assertions.
+ */
+export type JsonBody = {
+  data?: unknown;
+  error?: { code?: string; message?: string; details?: unknown };
+  [key: string]: unknown;
+};
 
 /**
  * Create a mock NextRequest for testing API routes.
@@ -57,12 +74,12 @@ export async function getResponseData(response: {
 /**
  * Mock authenticated session.
  */
-export function mockAuth(
+export async function mockAuth(
   userId: string = "user-1",
   extra: Record<string, unknown> = {}
 ) {
-  const { auth } = require("@/server/auth");
-  (auth as ReturnType<typeof vi.fn>).mockResolvedValue({
+  const { auth } = await import("@/server/auth");
+  (auth as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
     user: { id: userId, name: "Test User", email: "test@example.com", ...extra },
     expires: new Date(Date.now() + 86400000).toISOString(),
   });
@@ -71,9 +88,9 @@ export function mockAuth(
 /**
  * Mock unauthenticated session.
  */
-export function mockNoAuth() {
-  const { auth } = require("@/server/auth");
-  (auth as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+export async function mockNoAuth() {
+  const { auth } = await import("@/server/auth");
+  (auth as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 }
 
 /**

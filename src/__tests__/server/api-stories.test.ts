@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { createMockParams, createMockRequest, createMockStory, getResponseData } from "../helpers";
+import type { RouteHandler, JsonBody } from "../helpers";
 
 describe("GET /api/stories", () => {
-  let GET: (request: NextRequest) => Promise<any>;
+  let GET: RouteHandler;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -74,7 +75,7 @@ describe("GET /api/stories", () => {
     const { body, status } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.stories).toHaveLength(2);
+    expect((body as JsonBody).data.stories).toHaveLength(2);
   });
 
   it("returns stories with hasMore and nextCursor fields", async () => {
@@ -82,8 +83,8 @@ describe("GET /api/stories", () => {
     const res = await GET(req);
     const { body } = await getResponseData(res);
 
-    expect((body as any).data).toHaveProperty("hasMore");
-    expect((body as any).data).toHaveProperty("nextCursor");
+    expect((body as JsonBody).data).toHaveProperty("hasMore");
+    expect((body as JsonBody).data).toHaveProperty("nextCursor");
   });
 
   it("requires auth for mine=true", async () => {
@@ -93,7 +94,7 @@ describe("GET /api/stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(401);
-    expect((body as any).error.code).toBe("UNAUTHORIZED");
+    expect((body as JsonBody).error.code).toBe("UNAUTHORIZED");
   });
 
   it("allows mine=true when authenticated", async () => {
@@ -174,7 +175,7 @@ describe("GET /api/stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(500);
-    expect((body as any).error.code).toBe("INTERNAL_ERROR");
+    expect((body as JsonBody).error.code).toBe("INTERNAL_ERROR");
   });
 });
 
@@ -242,8 +243,8 @@ describe("GET public campaign stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.id).toBe("campaign-1");
-    expect((body as any).data.chapters).toEqual([]);
+    expect((body as JsonBody).data.id).toBe("campaign-1");
+    expect((body as JsonBody).data.chapters).toEqual([]);
   });
 
   it("loads a public campaign by id for non-owner campaign pages", async () => {
@@ -255,13 +256,13 @@ describe("GET public campaign stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.id).toBe("campaign-1");
-    expect((body as any).data.bibleEntries).toEqual([]);
+    expect((body as JsonBody).data.id).toBe("campaign-1");
+    expect((body as JsonBody).data.bibleEntries).toEqual([]);
   });
 });
 
 describe("POST /api/stories", () => {
-  let POST: (request: NextRequest) => Promise<any>;
+  let POST: RouteHandler;
   const mockStory = createMockStory();
 
   beforeEach(async () => {
@@ -307,7 +308,7 @@ describe("POST /api/stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(401);
-    expect((body as any).error.code).toBe("UNAUTHORIZED");
+    expect((body as JsonBody).error.code).toBe("UNAUTHORIZED");
   });
 
   it("creates a story with valid input", async () => {
@@ -319,8 +320,8 @@ describe("POST /api/stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(201);
-    expect((body as any).data).toBeDefined();
-    expect((body as any).data.id).toBe("story-1");
+    expect((body as JsonBody).data).toBeDefined();
+    expect((body as JsonBody).data.id).toBe("story-1");
   });
 
   it("rejects missing title", async () => {
@@ -332,7 +333,7 @@ describe("POST /api/stories", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(400);
-    expect((body as any).error.code).toBe("VALIDATION_ERROR");
+    expect((body as JsonBody).error.code).toBe("VALIDATION_ERROR");
   });
 
   it("rejects empty title", async () => {

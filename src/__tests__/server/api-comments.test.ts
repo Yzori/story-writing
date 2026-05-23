@@ -7,6 +7,7 @@ import {
   createMockChapter,
   getResponseData,
 } from "../helpers";
+import type { RouteHandler, JsonBody } from "../helpers";
 
 const storyId = "story-1";
 const chapterId = "ch-1";
@@ -54,8 +55,8 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data).toHaveLength(2);
-    expect((body as any).hasMore).toBe(false);
+    expect((body as JsonBody).data).toHaveLength(2);
+    expect((body as JsonBody).hasMore).toBe(false);
   });
 
   it("returns hasMore=true when more results exist", async () => {
@@ -100,8 +101,8 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     const res = await mod.GET(req, createMockParams(routeParams));
     const { body } = await getResponseData(res);
 
-    expect((body as any).hasMore).toBe(true);
-    expect((body as any).data).toHaveLength(20);
+    expect((body as JsonBody).hasMore).toBe(true);
+    expect((body as JsonBody).data).toHaveLength(20);
   });
 });
 
@@ -252,7 +253,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(404);
-    expect((body as any).error.message).toContain("not published");
+    expect((body as JsonBody).error.message).toContain("not published");
   });
 
   it("creates a comment successfully", async () => {
@@ -277,7 +278,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
           stories: { findFirst: vi.fn().mockResolvedValue(mockStory) },
           chapters: { findFirst: vi.fn().mockResolvedValue(mockChapter) },
         },
-        transaction: vi.fn().mockImplementation(async (cb: any) => {
+        transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
           const tx = {
             insert: vi.fn().mockReturnValue({
               values: vi.fn().mockReturnValue({
@@ -319,6 +320,6 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(201);
-    expect((body as any).data.id).toBe("comment-1");
+    expect((body as JsonBody).data.id).toBe("comment-1");
   });
 });

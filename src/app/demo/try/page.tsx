@@ -29,20 +29,25 @@ export default function TryEditorPage() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initialContentRef = useRef<string>("<p></p>");
+  const [initialContent, setInitialContent] = useState("<p></p>");
   const [hydrated, setHydrated] = useState(false);
 
-  // Load any existing draft from localStorage on mount.
+  // Load any existing draft from localStorage on mount. SSR-safe — must run as
+  // an effect to avoid hydration mismatches.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(DEMO_DRAFT_KEY);
       if (raw) {
         const draft = JSON.parse(raw) as DemoDraft;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTitle(draft.title || "Untitled");
-        initialContentRef.current = draft.content || "<p></p>";
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setInitialContent(draft.content || "<p></p>");
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSavedAt(draft.updatedAt || null);
       }
     } catch {}
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrated(true);
   }, []);
 
@@ -59,7 +64,7 @@ export default function TryEditorPage() {
         Underline,
         CharacterCount,
       ],
-      content: initialContentRef.current,
+      content: initialContent,
       editorProps: {
         attributes: {
           class:
@@ -196,7 +201,7 @@ export default function TryEditorPage() {
         {/* Footer reassurance */}
         <div className="mt-16 pt-8 border-t border-border-subtle text-center">
           <p className="text-[12px] text-text-ghost leading-relaxed max-w-md mx-auto">
-            Your draft saves to this browser automatically. When you sign up, we'll bring it with you — first chapter, exactly as you wrote it.
+            Your draft saves to this browser automatically. When you sign up, we&apos;ll bring it with you — first chapter, exactly as you wrote it.
           </p>
           <Link
             href="/register?source=demo"

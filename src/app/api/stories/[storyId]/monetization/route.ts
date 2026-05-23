@@ -147,7 +147,7 @@ export async function PUT(
     }
 
     // Update story settings
-    const storyUpdate: Record<string, any> = { updatedAt: new Date() };
+    const storyUpdate: Record<string, unknown> = { updatedAt: new Date() };
     if (monetizationModel) storyUpdate.monetizationModel = monetizationModel;
     if (freeChapterCount !== undefined) storyUpdate.freeChapterCount = freeChapterCount;
     if (defaultGatingTier) storyUpdate.defaultGatingTier = defaultGatingTier;
@@ -159,7 +159,7 @@ export async function PUT(
     if (Array.isArray(chapterOverrides)) {
       for (const override of chapterOverrides) {
         if (!override.chapterId) continue;
-        const chapterUpdate: Record<string, any> = {};
+        const chapterUpdate: Record<string, unknown> = {};
         if (override.gatingTier && ["free", "standard", "extended", "premium"].includes(override.gatingTier)) {
           chapterUpdate.gatingTier = override.gatingTier;
         }

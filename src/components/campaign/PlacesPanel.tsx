@@ -228,7 +228,7 @@ export default function PlacesPanel({
           </form>
           <p className="mt-1.5 text-[10.5px] italic text-text-ghost">
             Scene breaks auto-create entries; this is for places you want on
-            the list before they're visited.
+            the list before they&apos;re visited.
           </p>
         </footer>
       )}

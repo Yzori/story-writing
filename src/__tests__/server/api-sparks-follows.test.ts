@@ -6,6 +6,7 @@ import {
   createMockStory,
   getResponseData,
 } from "../helpers";
+import type { RouteHandler, JsonBody } from "../helpers";
 
 // ── Sparks ──────────────────────────────────────────────────
 
@@ -38,8 +39,8 @@ describe("GET /api/stories/[storyId]/sparks", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.count).toBe(5);
-    expect((body as any).data.hasSparked).toBe(false);
+    expect((body as JsonBody).data.count).toBe(5);
+    expect((body as JsonBody).data.hasSparked).toBe(false);
   });
 
   it("returns hasSparked=true for authenticated user who sparked", async () => {
@@ -83,8 +84,8 @@ describe("GET /api/stories/[storyId]/sparks", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.count).toBe(3);
-    expect((body as any).data.hasSparked).toBe(true);
+    expect((body as JsonBody).data.count).toBe(3);
+    expect((body as JsonBody).data.hasSparked).toBe(true);
   });
 });
 
@@ -120,7 +121,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
       let selectCallCount = 0;
       return {
         db: {
-          transaction: vi.fn().mockImplementation(async (cb: any) => {
+          transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
             const tx = {
               select: vi.fn().mockReturnValue({
                 from: vi.fn().mockReturnValue({
@@ -171,7 +172,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.sparked).toBe(true);
+    expect((body as JsonBody).data.sparked).toBe(true);
   });
 
   it("toggles spark off (deletes) via transaction", async () => {
@@ -179,7 +180,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
 
     vi.doMock("@/server/db", () => ({
       db: {
-        transaction: vi.fn().mockImplementation(async (cb: any) => {
+        transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
           const tx = {
             select: vi.fn().mockReturnValue({
               from: vi.fn().mockReturnValue({
@@ -219,7 +220,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.sparked).toBe(false);
+    expect((body as JsonBody).data.sparked).toBe(false);
   });
 });
 
@@ -257,8 +258,8 @@ describe("GET /api/stories/[storyId]/follows", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.count).toBe(12);
-    expect((body as any).data.hasFollowed).toBe(false);
+    expect((body as JsonBody).data.count).toBe(12);
+    expect((body as JsonBody).data.hasFollowed).toBe(false);
   });
 });
 
@@ -325,7 +326,7 @@ describe("POST /api/stories/[storyId]/follows", () => {
         query: {
           stories: { findFirst: vi.fn().mockResolvedValue(mockStory) },
         },
-        transaction: vi.fn().mockImplementation(async (cb: any) => {
+        transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
           const tx = {
             query: {
               follows: { findFirst: vi.fn().mockResolvedValue(null) },
@@ -361,7 +362,7 @@ describe("POST /api/stories/[storyId]/follows", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.followed).toBe(true);
-    expect((body as any).data.count).toBe(1);
+    expect((body as JsonBody).data.followed).toBe(true);
+    expect((body as JsonBody).data.count).toBe(1);
   });
 });

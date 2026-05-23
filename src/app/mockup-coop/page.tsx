@@ -121,7 +121,7 @@ export default function CoopEditorMockup() {
               <p>Kaelen paused at the precipice. The wind here did not howl; it whispered, carrying the fragmented memories of the Mages who had perished defending the gates.</p>
               
               <div className="relative inline-block group">
-                 <span className="bg-amber/20 border-b border-amber/50 text-paper">"Do you hear them?" he asked the empty air</span>
+                 <span className="bg-amber/20 border-b border-amber/50 text-paper">&quot;Do you hear them?&quot; he asked the empty air</span>
                  <span className="absolute -left-1 w-0.5 h-full bg-amber shadow-[0_0_8px_var(--color-amber)]" />
               </div>
               

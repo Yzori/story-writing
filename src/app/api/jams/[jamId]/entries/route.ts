@@ -110,9 +110,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .returning();
 
     return NextResponse.json({ data: entry }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle unique constraint violation (duplicate entry)
-    if (error?.code === "23505") {
+    if ((error as { code?: string })?.code === "23505") {
       return NextResponse.json(
         { error: { code: "DUPLICATE", message: "This story has already been submitted to this jam" } },
         { status: 409 }

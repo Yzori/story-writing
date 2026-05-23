@@ -68,7 +68,7 @@ export default function ShowcasePage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-[11px] uppercase tracking-[0.2em] text-amber/70 mb-3"
           >
-            Curator's Showcase
+            Curator&apos;s Showcase
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
@@ -212,7 +212,7 @@ function FormatSection({
                   {story.pickedBy ? `Picked by ${story.pickedBy}` : "Curator's note"}
                 </p>
                 <p className="text-[12px] text-text-secondary leading-relaxed italic font-reading">
-                  "{story.curatorNote}"
+                  &quot;{story.curatorNote}&quot;
                 </p>
               </div>
             )}

@@ -180,19 +180,17 @@ function Particles({
   parallaxX: ReturnType<typeof useMotionValue<number>>;
   parallaxY: ReturnType<typeof useMotionValue<number>>;
 }) {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 55 }, (_, i) => ({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 2.5 + 0.5,
-        dur: Math.random() * 30 + 15,
-        delay: Math.random() * 10,
-        opacity: Math.random() * 0.3 + 0.05,
-        drift: Math.random() * 40 + 15,
-      })),
-    []
+  const [particles] = useState(() =>
+    Array.from({ length: 55 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2.5 + 0.5,
+      dur: Math.random() * 30 + 15,
+      delay: Math.random() * 10,
+      opacity: Math.random() * 0.3 + 0.05,
+      drift: Math.random() * 40 + 15,
+    })),
   );
 
   return (
@@ -437,15 +435,16 @@ export default function MagicalCanvas() {
   const pyFar = useTransform(smoothMy, [0, 1], [8, -8]);
 
   useEffect(() => {
-    const scale = Math.min(window.innerWidth, 1600) / 100;
-    setMapScale(Math.max(scale, 10));
-
-    const onResize = () => {
+    const update = () => {
       const s = Math.min(window.innerWidth, 1600) / 100;
       setMapScale(Math.max(s, 10));
     };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const raf = requestAnimationFrame(update);
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   useEffect(() => {

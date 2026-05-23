@@ -167,7 +167,7 @@ function LiveEditorSim() {
             <div className="w-2.5 h-2.5 rounded-full bg-amber/40" />
             <div className="w-2.5 h-2.5 rounded-full bg-sage/40" />
           </div>
-          <span className="text-[11px] text-text-ghost font-mono ml-2">The Cartographer's Daughter &mdash; Co-op Editor</span>
+          <span className="text-[11px] text-text-ghost font-mono ml-2">The Cartographer&apos;s Daughter &mdash; Co-op Editor</span>
         </div>
         <div className="flex items-center gap-2">
           {/* Collaborator presence dots */}
@@ -648,7 +648,7 @@ export default function CoOpDemoPage() {
             transition={{ delay: 0.3 }}
             className="text-text-secondary text-lg max-w-xl mx-auto mb-8 leading-relaxed"
           >
-            Invite your team, build shared lore, weave each other's suggestions
+            Invite your team, build shared lore, weave each other&apos;s suggestions
             into the narrative, and publish with fair attribution.
           </motion.p>
 

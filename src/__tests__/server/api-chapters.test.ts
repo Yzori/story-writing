@@ -9,11 +9,12 @@ import {
   mockAuth,
   mockNoAuth,
 } from "../helpers";
+import type { RouteHandler, JsonBody } from "../helpers";
 
 // ── GET & POST /api/stories/[storyId]/chapters ─────────────────────────
 
 describe("GET /api/stories/[storyId]/chapters", () => {
-  let GET: (request: NextRequest, ctx: any) => Promise<any>;
+  let GET: RouteHandler;
 
   const mockStory = createMockStory({ id: "story-1", userId: "user-1" });
   const mockChapters = [
@@ -62,7 +63,7 @@ describe("GET /api/stories/[storyId]/chapters", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data).toHaveLength(2);
+    expect((body as JsonBody).data).toHaveLength(2);
   });
 
   it("includes chapter versions when loading editor content", async () => {
@@ -97,7 +98,7 @@ describe("GET /api/stories/[storyId]/chapters", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(404);
-    expect((body as any).error.code).toBe("NOT_FOUND");
+    expect((body as JsonBody).error.code).toBe("NOT_FOUND");
   });
 
   it("denies withContent for non-owners", async () => {
@@ -128,7 +129,7 @@ describe("GET /api/stories/[storyId]/chapters", () => {
 });
 
 describe("POST /api/stories/[storyId]/chapters", () => {
-  let POST: (request: NextRequest, ctx: any) => Promise<any>;
+  let POST: RouteHandler;
 
   const mockStory = createMockStory({ id: "story-1", userId: "user-1" });
   const mockChapter = createMockChapter();
@@ -178,7 +179,7 @@ describe("POST /api/stories/[storyId]/chapters", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(201);
-    expect((body as any).data.id).toBe("chapter-1");
+    expect((body as JsonBody).data.id).toBe("chapter-1");
   });
 
   it("requires authentication", async () => {
@@ -253,11 +254,12 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]", () => {
     vi.resetModules();
 
     const mockChapter = createMockChapter({ status: "published" });
+    const mockStory = createMockStory({ status: "published", isPublic: true });
     vi.doMock("@/server/db", () => ({
       db: {
         query: {
           chapters: { findFirst: vi.fn().mockResolvedValue(mockChapter) },
-          stories: { findFirst: vi.fn().mockResolvedValue(null) },
+          stories: { findFirst: vi.fn().mockResolvedValue(mockStory) },
         },
       },
     }));
@@ -277,7 +279,38 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.id).toBe("chapter-1");
+    expect((body as JsonBody).data.id).toBe("chapter-1");
+  });
+
+  it("does not return a published chapter when the story is private", async () => {
+    vi.resetModules();
+
+    const mockChapter = createMockChapter({ status: "published" });
+    const mockStory = createMockStory({ status: "draft", isPublic: false });
+    vi.doMock("@/server/db", () => ({
+      db: {
+        query: {
+          chapters: { findFirst: vi.fn().mockResolvedValue(mockChapter) },
+          stories: { findFirst: vi.fn().mockResolvedValue(mockStory) },
+        },
+      },
+    }));
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue(null),
+    }));
+    vi.doMock("@/server/api-utils", () => ({
+      applyRateLimit: vi.fn().mockReturnValue(null),
+    }));
+    vi.doMock("@/server/services/notifications", () => ({
+      createBulkNotifications: vi.fn(),
+    }));
+
+    const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/route");
+    const req = createMockRequest("/api/stories/story-1/chapters/ch-1");
+    const res = await mod.GET(req, createMockParams({ storyId: "story-1", chapterId: "ch-1" }));
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(404);
   });
 
   it("returns 404 for missing chapter", async () => {
@@ -311,7 +344,7 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]", () => {
 });
 
 describe("PATCH /api/stories/[storyId]/chapters/[chapterId]", () => {
-  let PATCH: (request: NextRequest, ctx: any) => Promise<any>;
+  let PATCH: RouteHandler;
 
   const mockStory = createMockStory({ id: "story-1", userId: "user-1" });
   const existingChapter = createMockChapter({ version: 1, wordCount: 10 });
@@ -373,7 +406,7 @@ describe("PATCH /api/stories/[storyId]/chapters/[chapterId]", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data).toBeDefined();
+    expect((body as JsonBody).data).toBeDefined();
   });
 
   it("requires authentication", async () => {
@@ -410,7 +443,7 @@ describe("PATCH /api/stories/[storyId]/chapters/[chapterId]", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(409);
-    expect((body as any).error.code).toBe("CONFLICT");
+    expect((body as JsonBody).error.code).toBe("CONFLICT");
   });
 
   it("returns 403 for non-owner", async () => {
@@ -489,7 +522,7 @@ describe("DELETE /api/stories/[storyId]/chapters/[chapterId]", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.deletedAt).toBeDefined();
+    expect((body as JsonBody).data.deletedAt).toBeDefined();
   });
 
   it("requires authentication for delete", async () => {

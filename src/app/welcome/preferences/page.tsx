@@ -133,7 +133,7 @@ export default function ReaderPreferencesPage() {
                 What do you read?
               </h1>
               <p className="text-text-secondary text-[14px] text-center max-w-md mx-auto mb-8 leading-relaxed">
-                Pick a few genres you love. We'll prime your For You feed. Up to 8.
+                Pick a few genres you love. We&apos;ll prime your For You feed. Up to 8.
               </p>
 
               <input
@@ -214,7 +214,7 @@ export default function ReaderPreferencesPage() {
                 How long do you usually read?
               </h1>
               <p className="text-text-secondary text-[14px] text-center max-w-md mx-auto mb-8 leading-relaxed">
-                We'll prioritize stories that fit your time. You can always change this.
+                We&apos;ll prioritize stories that fit your time. You can always change this.
               </p>
 
               <div className="space-y-2">

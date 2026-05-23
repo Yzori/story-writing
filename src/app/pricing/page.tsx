@@ -201,12 +201,24 @@ export default function PricingPage() {
   );
 }
 
+type PricingTier = {
+  name: string;
+  price: number;
+  originalPrice?: number | null;
+  description: string;
+  features: readonly string[];
+  cta: string;
+  ctaLink?: string;
+  highlight: boolean;
+  savings?: string | null;
+};
+
 function PricingCard({
   tier,
   isLoading,
   onSubscribe,
 }: {
-  tier: any;
+  tier: PricingTier;
   isLoading: boolean;
   onSubscribe?: () => void;
 }) {

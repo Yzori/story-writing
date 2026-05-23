@@ -54,15 +54,18 @@ const LIBRARY_ITEMS = [
 // --- ADVANCED COMPONENTS ---
 
 const HeroParticles = () => {
-  // Generate random stable particles
-  const particles = useMemo(() => Array.from({ length: 30 }).map((_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    duration: 10 + Math.random() * 20,
-    delay: Math.random() * -20,
-    size: 2 + Math.random() * 3
-  })), []);
+  // Generate random stable particles (impure → useState initializer keeps it out of render)
+  const [particles] = useState(() =>
+    Array.from({ length: 30 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      duration: 10 + Math.random() * 20,
+      delay: Math.random() * -20,
+      size: 2 + Math.random() * 3,
+      drift: Math.random() > 0.5 ? 10 : -10,
+    })),
+  );
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none mix-blend-screen z-10">
@@ -70,7 +73,7 @@ const HeroParticles = () => {
         <motion.div
           key={p.id}
           initial={{ y: `${p.y + 20}%`, x: `${p.x}%`, opacity: 0 }}
-          animate={{ y: [`${p.y}%`, `${p.y - 30}%`], x: [`${p.x}%`, `${p.x + (Math.random() > 0.5 ? 10 : -10)}%`], opacity: [0, 0.6, 0] }}
+          animate={{ y: [`${p.y}%`, `${p.y - 30}%`], x: [`${p.x}%`, `${p.x + p.drift}%`], opacity: [0, 0.6, 0] }}
           transition={{ duration: p.duration, repeat: Infinity, ease: "linear", delay: p.delay }}
           className="absolute rounded-full bg-violet-300 shadow-[0_0_10px_#a78bfa]"
           style={{ width: p.size, height: p.size }}

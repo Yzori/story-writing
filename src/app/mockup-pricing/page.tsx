@@ -632,7 +632,7 @@ function FinalCTA() {
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.15 }}
         >
-          Three tiers. No card required to begin. Switch up when you're ready, switch back when you're not.
+          Three tiers. No card required to begin. Switch up when you&apos;re ready, switch back when you&apos;re not.
         </motion.p>
         <motion.div
           className="mt-9 flex flex-col sm:flex-row gap-3 justify-center"

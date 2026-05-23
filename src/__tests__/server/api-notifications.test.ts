@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { createMockRequest, getResponseData } from "../helpers";
+import type { RouteHandler, JsonBody } from "../helpers";
 
 describe("GET /api/notifications", () => {
   it("requires authentication", async () => {
@@ -20,7 +21,7 @@ describe("GET /api/notifications", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(401);
-    expect((body as any).error.code).toBe("UNAUTHORIZED");
+    expect((body as JsonBody).error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns notifications with unread count", async () => {
@@ -74,9 +75,9 @@ describe("GET /api/notifications", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.notifications).toHaveLength(2);
-    expect((body as any).data.unreadCount).toBe(1);
-    expect((body as any).data.hasMore).toBe(false);
+    expect((body as JsonBody).data.notifications).toHaveLength(2);
+    expect((body as JsonBody).data.unreadCount).toBe(1);
+    expect((body as JsonBody).data.hasMore).toBe(false);
   });
 
   it("handles DB errors gracefully", async () => {
@@ -155,7 +156,7 @@ describe("PATCH /api/notifications", () => {
     const { status, body } = await getResponseData(res);
 
     expect(status).toBe(200);
-    expect((body as any).data.success).toBe(true);
+    expect((body as JsonBody).data.success).toBe(true);
     expect(updateWhereMock).toHaveBeenCalled();
   });
 });
