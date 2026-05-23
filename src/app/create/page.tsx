@@ -965,10 +965,10 @@ function CampaignCharterCreate({
   const previewTitle = title.trim() || "Untitled Adventure";
   const previewPremise =
     synopsis.trim() ||
-    "A salt-road city has begun receiving maps of rooms that do not exist yet. Each morning, one more door appears exactly where the ink predicted.";
+    "A quiet town has begun finding doors in places that were solid yesterday. Behind each one is a road no map admits to knowing.";
   const previewInvitation =
     adventureInvitation.trim() ||
-    "Bring a character with a debt, a false name, or a reason to distrust maps. The first session opens at the archive fire.";
+    "Bring a character with a debt, a loyal companion, or a reason to fear what waits below ordinary ground. The first session opens after dusk.";
   const rating = CONTENT_RATINGS.find((item) => item.value === contentRating) ?? CONTENT_RATINGS[0];
   const filledSeats = 0;
   const toneSummary = summarizeCharterTone(charterTone);
@@ -1036,7 +1036,7 @@ function CampaignCharterCreate({
                   aria-label="Adventure title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="The Ashen Cartographer"
+                  placeholder="The Door Under Bellweather Hill"
                   required
                   className="mt-5 w-full appearance-none border-0 !bg-transparent text-center font-display text-[40px] font-medium leading-[1.05] tracking-[-0.005em] text-text outline-none placeholder:text-text-ghost/60 focus:ring-0 sm:text-[56px]"
                 />
@@ -1058,7 +1058,7 @@ function CampaignCharterCreate({
                   aria-label="Adventure premise"
                   value={synopsis}
                   onChange={(e) => setSynopsis(e.target.value)}
-                  placeholder="A salt-road city has begun receiving maps of rooms that do not exist yet..."
+                  placeholder="A quiet town has begun finding doors in places that were solid yesterday..."
                   className="block w-full resize-none rounded-md border border-gold/[0.08] bg-surface/40 px-5 py-5 font-reading text-[20px] leading-[1.55] text-text outline-none transition-colors placeholder:text-text-ghost focus:border-gold/30"
                   rows={5}
                 />
@@ -1228,7 +1228,7 @@ function CampaignCharterCreate({
                     value={adventureInvitation}
                     onChange={(e) => setAdventureInvitation(e.target.value)}
                     maxLength={280}
-                    placeholder="Bring a character with a debt, a false name, or a reason to distrust maps. The first session opens at the archive fire."
+                    placeholder="Bring a character with a debt, a loyal companion, or a reason to fear what waits below ordinary ground. The first session opens after dusk."
                     rows={3}
                     className="block w-full resize-none bg-transparent font-reading text-[17px] italic leading-[1.6] text-text outline-none placeholder:text-text-ghost"
                   />
@@ -1605,8 +1605,8 @@ const MODES = [
     id: "solo" as WritingMode,
     title: "Solo Story",
     subtitle: "The Study",
-    description: "A quiet room. A desk by the window. Your story, your pace.",
-    features: ["Rich novel editor", "Story bible", "Export anywhere"],
+    description: "A quiet room. A desk by the window. The page waits for the impossible to show itself.",
+    features: ["Rich novel editor", "Private story bible", "Export anywhere"],
     image: "/solo_story_mode.png",
     color: "amber",
     glowColor: "bg-amber/30",
@@ -1617,7 +1617,7 @@ const MODES = [
     id: "co-op" as WritingMode,
     title: "Co-op Story",
     subtitle: "The Workshop",
-    description: "A long table. Maps and manuscripts. Stories charted side by side.",
+    description: "A long table. Marked-up maps. A world made sturdier because more than one hand knows its roads.",
     features: ["Invite collaborators", "Shared lore book", "Agreements & credit"],
     image: "/coop_story_mode.png",
     color: "teal",
@@ -1629,8 +1629,8 @@ const MODES = [
     id: "campaign" as WritingMode,
     title: "Adventure",
     subtitle: "The Tavern",
-    description: "A round table. Dice on wood. Heroes waiting for their tale.",
-    features: ["GM narration & turns", "Character sheets", "Session adventures"],
+    description: "A round table. Dice on wood. A door where no door should be, and names waiting on the other side.",
+    features: ["GM narration & turns", "Character sheets", "Living session lore"],
     badge: "New",
     image: "/adventure_mode.png",
     color: "violet",
@@ -1672,10 +1672,10 @@ function ModeSelection({
         className="text-center mb-12 relative z-10"
       >
         <p className="font-display text-[12px] uppercase tracking-[0.25em] text-text-ghost mb-4">
-          Choose your path
+          Choose a threshold
         </p>
         <h1 className="font-display text-4xl sm:text-5xl text-paper font-medium tracking-tight">
-          Open a New Chapter
+          Where does the story open?
         </h1>
       </motion.div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry, FloorRound, FloorRoundMode } from "@/types/campaign";
+import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry, FloorRound, FloorRoundMode, CharacterMark, CharacterMarkKind } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { campaignJsonRequest } from "@/lib/campaign-api";
 
@@ -496,6 +496,52 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     return json.data ?? null;
   }, [floorRoundsUrl]);
 
+  // ── Character marks (scars / vows / debts / memories) ────────
+  const createMark = useCallback(
+    async (
+      characterId: string,
+      input: { kind: CharacterMarkKind; text: string; sourceTurnId?: string },
+    ) => {
+      const json = await campaignJsonRequest<CharacterMark>(
+        `/api/stories/${storyId}/campaign/characters/${characterId}/marks`,
+        {
+          method: "POST",
+          body: { ...input, sessionId },
+          fallbackError: "Failed to mark the moment",
+        },
+      );
+      const mark = json.data;
+      if (mark) {
+        setCharacters((prev) =>
+          prev.map((c) =>
+            c.id === characterId
+              ? { ...c, marks: [...(c.marks ?? []), mark] }
+              : c,
+          ),
+        );
+      }
+      return mark ?? null;
+    },
+    [storyId, sessionId],
+  );
+
+  const removeMark = useCallback(
+    async (characterId: string, markId: string) => {
+      await campaignJsonRequest(
+        `/api/stories/${storyId}/campaign/characters/${characterId}/marks/${markId}`,
+        { method: "DELETE", fallbackError: "Failed to remove mark" },
+      );
+      setCharacters((prev) =>
+        prev.map((c) =>
+          c.id === characterId
+            ? { ...c, marks: (c.marks ?? []).filter((m) => m.id !== markId) }
+            : c,
+        ),
+      );
+    },
+    [storyId],
+  );
+
   const updateFloorRound = useCallback(
     async (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => {
       const json = await campaignJsonRequest<FloorRound | null>(
@@ -552,5 +598,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     clocks,
     setClocks,
     refreshClocks,
+    createMark,
+    removeMark,
   };
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { PlayerCharacter, SessionRosterEntry } from "@/types/campaign";
+import type { CharacterMark, CharacterMarkKind, PlayerCharacter, SessionRosterEntry } from "@/types/campaign";
 import { parseStats } from "@/types/campaign";
+import CharacterMarkEditor from "./CharacterMarkEditor";
 
 interface CharacterSheetSectionProps {
   characters: PlayerCharacter[];
@@ -10,6 +11,84 @@ interface CharacterSheetSectionProps {
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
   onInviteNewCharacter?: (userId: string) => void;
   roster?: SessionRosterEntry[];
+  currentUserId?: string | null;
+  isGM?: boolean;
+  onCreateMark?: (
+    characterId: string,
+    input: { kind: CharacterMarkKind; text: string },
+  ) => Promise<unknown>;
+  onRemoveMark?: (characterId: string, markId: string) => Promise<void>;
+}
+
+const MARK_GLYPHS: Record<CharacterMarkKind, { glyph: string; cls: string; label: string }> = {
+  scar: { glyph: "†", cls: "text-rose", label: "Scar" },
+  vow: { glyph: "✶", cls: "text-amber", label: "Vow" },
+  debt: { glyph: "∞", cls: "text-lavender", label: "Debt" },
+  memory: { glyph: "✦", cls: "text-sage", label: "Memory" },
+};
+
+function MarksBlock({
+  character,
+  canEdit,
+  onCreateMark,
+  onRemoveMark,
+}: {
+  character: PlayerCharacter;
+  canEdit: boolean;
+  onCreateMark?: CharacterSheetSectionProps["onCreateMark"];
+  onRemoveMark?: CharacterSheetSectionProps["onRemoveMark"];
+}) {
+  const [adding, setAdding] = useState(false);
+  const marks = character.marks ?? [];
+  if (marks.length === 0 && !canEdit) return null;
+
+  return (
+    <div className="mt-2 ml-4">
+      {marks.length > 0 && (
+        <ul className="space-y-1">
+          {marks.map((m: CharacterMark) => {
+            const g = MARK_GLYPHS[m.kind];
+            return (
+              <li key={m.id} className="group/mark flex items-start gap-1.5 text-[10px] leading-snug">
+                <span aria-hidden="true" className={`shrink-0 ${g.cls}`}>{g.glyph}</span>
+                <span className="font-serif italic text-text-secondary">{m.text}</span>
+                {canEdit && onRemoveMark && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveMark(character.id, m.id)}
+                    aria-label={`Remove ${g.label}: ${m.text}`}
+                    className="ml-auto shrink-0 opacity-0 group-hover/mark:opacity-100 transition-opacity text-text-ghost hover:text-rose"
+                  >
+                    ✕
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {canEdit && onCreateMark && (
+        adding ? (
+          <CharacterMarkEditor
+            preamble="A new mark"
+            onDismiss={() => setAdding(false)}
+            onSave={async ({ kind, text }) => {
+              await onCreateMark(character.id, { kind, text });
+              setAdding(false);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="mt-1.5 min-h-7 px-1 text-[9px] uppercase tracking-[0.14em] text-text-ghost transition-colors hover:text-amber"
+          >
+            + add a mark
+          </button>
+        )
+      )}
+    </div>
+  );
 }
 
 export default function CharacterSheetSection({
@@ -18,6 +97,10 @@ export default function CharacterSheetSection({
   onChangeCharacterStatus,
   onInviteNewCharacter,
   roster = [],
+  currentUserId = null,
+  isGM = false,
+  onCreateMark,
+  onRemoveMark,
 }: CharacterSheetSectionProps) {
   const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<{
@@ -137,6 +220,15 @@ export default function CharacterSheetSection({
                   </div>
                 )}
               </div>
+
+              {/* Character marks — scars, vows, debts, memories. The
+                  character literally accumulates from play. */}
+              <MarksBlock
+                character={c}
+                canEdit={!isInactive && (isGM || c.userId === currentUserId)}
+                onCreateMark={onCreateMark}
+                onRemoveMark={onRemoveMark}
+              />
 
               {/* GM character actions */}
               {!isInactive && (

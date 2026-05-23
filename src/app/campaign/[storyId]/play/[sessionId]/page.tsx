@@ -17,6 +17,7 @@ import {
   parseRollMetadata,
   parseRollRequestMetadata,
   parseSceneBreakMetadata,
+  parseStoryMomentMetadata,
 } from "@/lib/campaign-turns";
 import { campaignJsonRequest } from "@/lib/campaign-api";
 
@@ -59,6 +60,8 @@ export default function SessionPlayPage() {
     clocks,
     setClocks,
     refreshClocks,
+    createMark,
+    removeMark,
   } = useCampaignSession(storyId, sessionId);
 
   const [chatInput, setChatInput] = useState("");
@@ -68,11 +71,14 @@ export default function SessionPlayPage() {
   const [focusMode, setFocusMode] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [epilogueText, setEpilogueText] = useState("");
+  const [cliffhangerText, setCliffhangerText] = useState("");
   const [activeStoryMoment, setActiveStoryMoment] = useState<{
     mood: string;
     text: string;
     subtext?: string;
   } | null>(null);
+  const playedStoryMomentIdsRef = useRef(new Set<string>());
+  const storyMomentPlaybackReadyRef = useRef(false);
 
   // Detect session ending via poll (for players) — play cinematic
   // Detect session transitions via poll — play cinematics for non-GM players
@@ -120,6 +126,30 @@ export default function SessionPlayPage() {
   const storyTurns = useMemo(() => turns.filter((t) =>
     isStoryTurnType(t.type)
   ), [turns]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!storyMomentPlaybackReadyRef.current) {
+      for (const turn of storyTurns) {
+        if (turn.type === "story-moment") {
+          playedStoryMomentIdsRef.current.add(turn.id);
+        }
+      }
+      storyMomentPlaybackReadyRef.current = true;
+      return;
+    }
+
+    const latest = [...storyTurns].reverse().find((turn) => turn.type === "story-moment");
+    if (!latest || playedStoryMomentIdsRef.current.has(latest.id)) return;
+
+    const meta = parseStoryMomentMetadata(latest.metadata);
+    playedStoryMomentIdsRef.current.add(latest.id);
+    setActiveStoryMoment({
+      mood: meta?.mood ?? "ominous",
+      text: latest.content,
+      subtext: meta?.subtext,
+    });
+  }, [loading, storyTurns]);
 
   // ── Pending roll request for the current player ───────────
   const pendingRollRequest = ((): RollRequest | null => {
@@ -191,11 +221,11 @@ export default function SessionPlayPage() {
   // from the client (that endpoint is GM-only and was 403'ing for players,
   // leaving the spotlight stuck on whoever had been assigned the turn).
   const handleCommitDraft = useCallback(
-    async (content: string, type: string) => {
+    async (content: string, type: string, metadata?: string) => {
       try {
         const gmTypes = ["narration", "consequence"];
         const characterId = gmTypes.includes(type) ? undefined : myCharacter?.id;
-        await sendTurn(type, content, characterId);
+        await sendTurn(type, content, characterId, metadata);
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to commit");
         throw err;
@@ -343,13 +373,16 @@ export default function SessionPlayPage() {
       let closingMood = "calm";
       for (let i = storyTurns.length - 1; i >= 0; i--) {
         if (storyTurns[i].type === "scene-break" && storyTurns[i].metadata) {
-          closingMood = parseSceneBreakMetadata(storyTurns[i].metadata)?.mood ?? "calm";
+          const meta = parseSceneBreakMetadata(storyTurns[i].metadata);
+          if (meta?.cinematic) continue;
+          closingMood = meta?.mood ?? "calm";
           break;
         }
       }
 
       const epilogue = epilogueText.trim() || undefined;
-      await updateSession({ status: "completed", epilogue, closingMood });
+      const cliffhanger = cliffhangerText.trim() || undefined;
+      await updateSession({ status: "completed", epilogue, cliffhanger, closingMood });
 
       setShowEndModal(false);
 
@@ -357,14 +390,15 @@ export default function SessionPlayPage() {
       setActiveStoryMoment({
         mood: closingMood,
         text: epilogue || "The story pauses here...",
-        subtext: "Until next time.",
+        subtext: cliffhanger ? `Next: ${cliffhanger}` : "Until next time.",
       });
 
       setEpilogueText("");
+      setCliffhangerText("");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to end session");
     }
-  }, [updateSession, showToast, epilogueText, storyTurns]);
+  }, [updateSession, showToast, epilogueText, cliffhangerText, storyTurns]);
 
   // Turn timer expired — return control to GM
   const handleTurnExpired = useCallback(async () => {
@@ -474,7 +508,7 @@ export default function SessionPlayPage() {
         const targetChar = characters.find((c) => c.userId === targetUserId);
         const targetName = targetChar?.name ?? "the party";
         const fatalTag = fatal ? " [FATAL]" : "";
-        const content = `The GM calls for a ${attribute.toUpperCase()} check from ${targetName}${fatalTag} — ${reason}`;
+        const content = `The Director calls for a ${attribute} roll from ${targetName}${fatalTag} — ${reason}`;
         const metadata = JSON.stringify({ targetUserId, attribute, reason, onSuccess, onFailure, fatal: !!fatal });
         await sendTurn("roll-request", content, undefined, metadata);
       } catch (err) {
@@ -569,12 +603,26 @@ export default function SessionPlayPage() {
 
   // GM triggers a cinematic story moment overlay
   const handleStoryMoment = useCallback(
-    async (text: string, mood: string, subtext?: string) => {
-      setActiveStoryMoment({ mood, text, subtext });
-      // Also create a scene-break turn so the moment leaves a trace in the story
+    async (
+      text: string,
+      mood: string,
+      subtext?: string,
+      options?: { importance?: "normal" | "major"; leavesMark?: boolean },
+    ) => {
       try {
-        const metadata = JSON.stringify({ mood, title: text, cinematic: true });
-        await sendTurn("scene-break", text, undefined, metadata);
+        const newTurn = await sendTurn(
+          "story-moment",
+          text,
+          undefined,
+          JSON.stringify({
+            mood,
+            ...(subtext ? { subtext } : {}),
+            importance: options?.importance ?? "normal",
+            ...(options?.leavesMark ? { markEligible: true } : {}),
+          }),
+        );
+        playedStoryMomentIdsRef.current.add(newTurn.id);
+        setActiveStoryMoment({ mood, text, subtext });
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to create story moment");
       }
@@ -708,6 +756,7 @@ export default function SessionPlayPage() {
       const turn = storyTurns[i];
       if (turn.type === "scene-break" && turn.metadata) {
         const meta = parseSceneBreakMetadata(turn.metadata);
+        if (meta?.cinematic) continue;
         return {
           title: meta?.title || campaignSession?.title || "Current Scene",
           mood: meta?.mood ?? "live",
@@ -785,7 +834,16 @@ export default function SessionPlayPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="end-session-title"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setShowEndModal(false);
+              }
+            }}
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm outline-none"
             onClick={() => setShowEndModal(false)}
           >
             <motion.div
@@ -797,25 +855,40 @@ export default function SessionPlayPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2 mb-4">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
-                <span className="text-[11px] uppercase tracking-[0.2em] font-display text-amber">End Session</span>
+                <span id="end-session-title" className="text-[11px] uppercase tracking-[0.2em] font-display text-amber">End Session</span>
               </div>
 
               <p className="text-sm text-white/60 mb-5">
                 This will close the session for all players. You can optionally leave a closing thought — a teaser, a reflection, or a &ldquo;to be continued...&rdquo;
               </p>
 
+              <label className="mb-1 block font-display text-[9px] uppercase tracking-[0.18em] text-amber/60">Closing Thought</label>
               <textarea
                 value={epilogueText}
                 onChange={(e) => setEpilogueText(e.target.value)}
                 placeholder="The road stretches on, and the shadows grow longer..."
+                aria-label="Closing thought (optional)"
+                autoFocus
                 className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
                 rows={3}
                 maxLength={5000}
               />
-              <p className="text-[9px] text-white/20 mt-1 mb-5">Optional — shown to players as a closing moment</p>
+              <p className="text-[9px] text-white/20 mt-1 mb-4">Optional — the closing moment of this session</p>
+
+              <label className="mb-1 block font-display text-[9px] uppercase tracking-[0.18em] text-amber/60">Cliffhanger</label>
+              <textarea
+                value={cliffhangerText}
+                onChange={(e) => setCliffhangerText(e.target.value)}
+                placeholder="At dawn, the gates will open — and they are not ready…"
+                aria-label="Cliffhanger for next session (optional)"
+                className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
+                rows={2}
+                maxLength={280}
+              />
+              <p className="text-[9px] text-white/20 mt-1 mb-5">Optional — the hook that opens next session&apos;s &ldquo;Previously, on…&rdquo;</p>
 
               <div className="flex gap-3">
                 <button
@@ -1052,6 +1125,7 @@ export default function SessionPlayPage() {
         showDiceRoller={showDiceRoller || !!pendingRollRequest}
         onCloseDiceRoller={() => setShowDiceRoller(false)}
         onCommitDraft={handleCommitDraft}
+        onRequestRoll={handleRequestRoll}
         onOfferBargain={handleOfferBargain}
         onResolveBargain={handleResolveBargain}
         onCreateFloorRound={handleCreateFloorRound}
@@ -1059,6 +1133,7 @@ export default function SessionPlayPage() {
         onVoteFloorSubmission={handleVoteFloorSubmission}
         onUpdateAudienceSpark={handleUpdateAudienceSpark}
         onUpdateFloorRound={handleUpdateFloorRound}
+        onCreateMark={createMark}
         onPassTurn={handlePassTurn}
         onEndSession={handleEndSession}
         onTurnExpired={handleTurnExpired}
@@ -1167,6 +1242,9 @@ export default function SessionPlayPage() {
                   onInviteNewCharacter={handleInviteNewCharacter}
                   clocks={clocks}
                   onClocksChange={handleClocksChange}
+                  currentUserId={currentUserId}
+                  onCreateMark={createMark}
+                  onRemoveMark={removeMark}
                 />
               </motion.div>
             </>

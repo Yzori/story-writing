@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { panels, chapters, stories, collaborators } from "@/server/db/schema";
+import { panels, chapters, stories, collaborators, contentUnlocks } from "@/server/db/schema";
 import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
 import { createPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { TIER_PRICES } from "@/lib/constants";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -37,7 +38,35 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { storyId, chapterId } = await params;
     const session = await auth();
 
-    // Verify chapter exists
+    const story = await db.query.stories.findFirst({
+      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+    });
+
+    if (!story) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
+    const isOwner = story.userId === session?.user?.id;
+    let isCollaborator = false;
+    if (!isOwner && session?.user?.id && story.writingMode !== "solo") {
+      const collab = await db.query.collaborators.findFirst({
+        where: and(
+          eq(collaborators.storyId, storyId),
+          eq(collaborators.userId, session.user.id),
+          eq(collaborators.status, "accepted")
+        ),
+      });
+      isCollaborator = !!collab;
+    }
+
+    const canReadDrafts = isOwner || isCollaborator;
+    const hasPublicStoryAccess =
+      story.isPublic &&
+      (story.status === "published" || story.writingMode === "campaign");
+
     const chapter = await db.query.chapters.findFirst({
       where: and(
         eq(chapters.id, chapterId),
@@ -53,15 +82,48 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Draft chapters require ownership
-    if (chapter.status !== "published") {
-      const story = await db.query.stories.findFirst({
-        where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-      });
-      if (!story || story.userId !== session?.user?.id) {
+    if (chapter.status !== "published" && !canReadDrafts) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
+    if (chapter.status === "published" && !canReadDrafts && !hasPublicStoryAccess) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
+    const price = TIER_PRICES[chapter.gatingTier] ?? 0;
+    const isEarlyAccess =
+      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
+    const requiresUnlock = price > 0 || Boolean(isEarlyAccess);
+
+    if (chapter.status === "published" && !canReadDrafts && requiresUnlock) {
+      if (!session?.user?.id) {
         return NextResponse.json(
-          { error: { code: "NOT_FOUND", message: "Chapter not found" } },
-          { status: 404 }
+          { error: { code: "LOCKED", message: "This chapter requires an unlock" } },
+          { status: 402 }
+        );
+      }
+
+      const [unlock] = await db
+        .select({ id: contentUnlocks.id })
+        .from(contentUnlocks)
+        .where(
+          and(
+            eq(contentUnlocks.userId, session.user.id),
+            eq(contentUnlocks.chapterId, chapterId)
+          )
+        )
+        .limit(1);
+
+      if (!unlock) {
+        return NextResponse.json(
+          { error: { code: "LOCKED", message: "This chapter requires an unlock" } },
+          { status: 402 }
         );
       }
     }

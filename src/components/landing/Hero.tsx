@@ -1,26 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useMemo } from "react";
+
+function seededValue(index: number, salt: number) {
+  const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+const INK_PARTICLES = Array.from({ length: 35 }, (_, i) => ({
+  id: i,
+  x: seededValue(i, 1) * 100,
+  y: seededValue(i, 2) * 100,
+  size: seededValue(i, 3) * 3 + 1,
+  duration: seededValue(i, 4) * 25 + 15,
+  delay: seededValue(i, 5) * 8,
+  opacity: seededValue(i, 6) * 0.25 + 0.05,
+  driftY: -40 - seededValue(i, 7) * 30,
+  driftX: seededValue(i, 8) * 30 - 15,
+}));
 
 function InkParticles() {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 35 }, (_, i) => ({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 3 + 1,
-        duration: Math.random() * 25 + 15,
-        delay: Math.random() * 8,
-        opacity: Math.random() * 0.25 + 0.05,
-      })),
-    []
-  );
-
   return (
     <div className="absolute inset-0 overflow-hidden" aria-hidden>
-      {particles.map((p) => (
+      {INK_PARTICLES.map((p) => (
         <motion.div
           key={p.id}
           className="absolute rounded-full"
@@ -32,8 +34,8 @@ function InkParticles() {
             backgroundColor: p.size > 2.5 ? "#D4A574" : "#E8E0D4",
           }}
           animate={{
-            y: [0, -40 - Math.random() * 30, 0],
-            x: [0, Math.random() * 30 - 15, 0],
+            y: [0, p.driftY, 0],
+            x: [0, p.driftX, 0],
             opacity: [p.opacity, p.opacity * 2, p.opacity],
           }}
           transition={{
@@ -49,7 +51,7 @@ function InkParticles() {
 }
 
 export default function Hero() {
-  const headline = "Every great story begins with a single word";
+  const headline = "Quiloria";
   const words = headline.split(" ");
 
   return (
@@ -78,7 +80,7 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          A collaborative writing platform
+          A writing platform for stories with hidden doors
         </motion.p>
 
         {/* Headline */}
@@ -95,11 +97,7 @@ export default function Hero() {
                 ease: [0.22, 1, 0.36, 1],
               }}
             >
-              {word === "single" || word === "word" ? (
-                <span className="text-amber">{word}</span>
-              ) : (
-                word
-              )}
+              {word}
             </motion.span>
           ))}
           <motion.span
@@ -119,8 +117,9 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 1.8 }}
         >
-          Write together, branch narratives, let readers shape your plot. Quiloria
-          is where writers, artists, and readers craft stories that matter.
+          Start at the desk. Find the map under the page. Write solo, build with
+          collaborators, or invite readers into adventures that feel old, strange,
+          and alive.
         </motion.p>
 
         {/* CTAs */}
@@ -134,14 +133,14 @@ export default function Hero() {
             href="/create"
             className="group relative px-8 py-3.5 bg-amber text-ink font-semibold rounded-full transition-all duration-300 hover:bg-amber-light hover:shadow-lg hover:shadow-amber/20 hover:scale-[1.03] text-base overflow-hidden"
           >
-            <span className="relative z-10">Start Writing</span>
+            <span className="relative z-10">Open the Door</span>
             <div className="absolute inset-0 bg-gradient-to-r from-amber-light to-amber opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </a>
           <a
             href="/browse"
             className="px-8 py-3.5 border border-cream/15 text-cream/80 rounded-full hover:border-cream/30 hover:bg-cream/[0.04] transition-all duration-300 text-base"
           >
-            Explore Stories
+            Browse the Stacks
           </a>
         </motion.div>
       </div>

@@ -8,8 +8,8 @@ import Link from "next/link";
 const PATHS = [
   {
     id: "write",
-    title: "I want to write",
-    description: "Skip the setup — start writing your first chapter now",
+    title: "Write",
+    description: "Step into the study and put the first line on the page",
     href: "/create",
     instant: true,
     accent: "amber",
@@ -26,8 +26,8 @@ const PATHS = [
   },
   {
     id: "read",
-    title: "I want to read",
-    description: "Discover stories from writers around the world",
+    title: "Read",
+    description: "Find a shelf, a lamp, and a story that opens somewhere else",
     href: "/read",
     accent: "lavender",
     icon: (
@@ -43,8 +43,8 @@ const PATHS = [
   },
   {
     id: "collaborate",
-    title: "I want to collaborate",
-    description: "Find writers to build worlds together",
+    title: "Collaborate",
+    description: "Gather at the long table and build a world with other hands",
     href: "/roster",
     accent: "teal",
     icon: (
@@ -136,14 +136,14 @@ export default function WelcomeContent({ firstName }: { firstName: string }) {
           transition={{ delay: 0.15, duration: 0.5 }}
           className="font-display text-[11px] uppercase tracking-[0.25em] text-text-ghost mb-4"
         >
-          Your journey begins
+          The lamp is lit
         </motion.p>
         <h1 className="font-display text-4xl sm:text-5xl text-paper font-semibold tracking-tight mb-4">
           Welcome to Quiloria,{" "}
           <span className="text-amber italic">{firstName}</span>
         </h1>
         <p className="text-text-secondary text-[15px] max-w-md mx-auto leading-relaxed">
-          What brings you to our halls?
+          Which door brought you here?
         </p>
       </motion.div>
 

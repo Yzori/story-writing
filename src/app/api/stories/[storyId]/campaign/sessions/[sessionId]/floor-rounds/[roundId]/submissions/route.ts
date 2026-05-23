@@ -93,6 +93,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error("POST /api/.../floor-rounds/[roundId]/submissions error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to submit response" } }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: process.env.NODE_ENV === "development" && error instanceof Error
+            ? error.message
+            : "Failed to submit response",
+        },
+      },
+      { status: 500 },
+    );
   }
 }

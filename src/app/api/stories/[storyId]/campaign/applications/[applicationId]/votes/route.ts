@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignApplications, campaignVotes } from "@/server/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import {
+  campaignApplications,
+  campaignVotes,
+  collaborators,
+  playerCharacters,
+  stories,
+} from "@/server/db/schema";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createVoteSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
@@ -9,6 +15,39 @@ import { applyRateLimit } from "@/server/api-utils";
 type RouteParams = {
   params: Promise<{ storyId: string; applicationId: string }>;
 };
+
+// Audition votes are restricted to the existing "table": the GM (story owner),
+// accepted collaborators, and anyone who already has a player character on
+// this story. Any other authenticated user can see the application page but
+// cannot influence casting.
+async function isAuditionVoter(storyId: string, userId: string): Promise<boolean> {
+  const story = await db.query.stories.findFirst({
+    where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+    columns: { id: true, userId: true },
+  });
+  if (!story) return false;
+  if (story.userId === userId) return true;
+
+  const member = await db
+    .select({ src: sql<string>`'x'` })
+    .from(collaborators)
+    .where(
+      and(
+        eq(collaborators.storyId, storyId),
+        eq(collaborators.userId, userId),
+        eq(collaborators.status, "accepted"),
+      ),
+    )
+    .limit(1);
+  if (member.length > 0) return true;
+
+  const character = await db
+    .select({ id: playerCharacters.id })
+    .from(playerCharacters)
+    .where(and(eq(playerCharacters.storyId, storyId), eq(playerCharacters.userId, userId)))
+    .limit(1);
+  return character.length > 0;
+}
 
 /**
  * GET /api/stories/[storyId]/campaign/applications/[applicationId]/votes
@@ -24,7 +63,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { applicationId } = await params;
+    const { storyId, applicationId } = await params;
+
+    if (!(await isAuditionVoter(storyId, session.user.id))) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the table can see audition votes" } },
+        { status: 403 },
+      );
+    }
 
     // Get vote counts
     const [counts] = await db
@@ -79,7 +125,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const rl = applyRateLimit(request, session.user.id, "write");
     if (rl) return rl;
 
-    const { applicationId } = await params;
+    const { storyId, applicationId } = await params;
+
+    if (!(await isAuditionVoter(storyId, session.user.id))) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the table can vote on auditions" } },
+        { status: 403 },
+      );
+    }
 
     // Find the application
     const application = await db.query.campaignApplications.findFirst({

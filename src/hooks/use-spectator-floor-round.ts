@@ -9,15 +9,20 @@ export function useSpectatorFloorRound(storyId: string, sessionId: string, token
   const [floorRound, setFloorRound] = useState<FloorRound | null>(null);
 
   const floorRoundUrl = `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/floor-round`;
+  const sparksUrl = `${floorRoundUrl}/sparks`;
 
   const refreshFloorRound = useCallback(async () => {
     if (!token) return null;
-    const res = await fetch(`${floorRoundUrl}?token=${encodeURIComponent(token)}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    setFloorRound(json.data ?? null);
-    return json.data ?? null;
-  }, [floorRoundUrl, token]);
+    const [pulseRes, sparkRes] = await Promise.all([
+      fetch(`${floorRoundUrl}?token=${encodeURIComponent(token)}`),
+      fetch(sparksUrl),
+    ]);
+    const pulseJson = pulseRes.ok ? await pulseRes.json() : { data: null };
+    const sparkJson = sparkRes.ok ? await sparkRes.json() : { data: null };
+    const next = pulseJson.data ?? sparkJson.data ?? null;
+    setFloorRound(next);
+    return next;
+  }, [floorRoundUrl, sparksUrl, token]);
 
   useEffect(() => {
     if (!storyId || !sessionId || !token) return;
@@ -60,5 +65,24 @@ export function useSpectatorFloorRound(storyId: string, sessionId: string, token
     [floorRoundUrl, token],
   );
 
-  return { floorRound, refreshFloorRound, sendPulse };
+  const sendSpark = useCallback(
+    async (content: string, amount = 25) => {
+      if (!token) return null;
+      const res = await fetch(sparksUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, content, amount }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error?.message ?? "Failed to send Audience Spark");
+      }
+      const json = await res.json();
+      setFloorRound(json.data ?? null);
+      return json;
+    },
+    [sparksUrl, token],
+  );
+
+  return { floorRound, refreshFloorRound, sendPulse, sendSpark };
 }

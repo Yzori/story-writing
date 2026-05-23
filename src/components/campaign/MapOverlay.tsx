@@ -65,6 +65,7 @@ export default function MapOverlay({
     for (const turn of storyTurns) {
       if (turn.type !== "scene-break") continue;
       const meta = parseSceneBreakMetadata(turn.metadata);
+      if (meta?.cinematic) continue;
       if (!meta?.locationId) continue;
       const existing = visitMap.get(meta.locationId);
       visitMap.set(meta.locationId, {

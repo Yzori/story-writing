@@ -8,13 +8,13 @@ import { getPlayerColor } from "@/types/campaign";
 // ── Lobby Theme Data ────────────────────────────────────────────
 
 export const LOBBY_THEMES = [
-  { key: "campfire", label: "Campfire", description: "A crackling fire under open stars", image: "/lobby/campfire.png", particles: true },
-  { key: "tavern", label: "Tavern", description: "A warm inn filled with murmured stories", image: "/lobby/tavern.png", particles: false },
-  { key: "ruins", label: "Ruins", description: "Crumbling stone and forgotten echoes", image: "/lobby/ruins.png", particles: false },
+  { key: "campfire", label: "Campfire", description: "A small fire at the edge of the known road", image: "/lobby/campfire.png", particles: true },
+  { key: "tavern", label: "Tavern", description: "A warm inn where every whisper has a second meaning", image: "/lobby/tavern.png", particles: false },
+  { key: "ruins", label: "Ruins", description: "Old stone remembering names no one says aloud", image: "/lobby/ruins.png", particles: false },
   { key: "spaceship", label: "Spaceship", description: "The hum of engines in the void", image: "/lobby/spaceship.png", particles: false },
-  { key: "dungeon", label: "Dungeon", description: "Torchlit corridors deep underground", image: "/lobby/dungeon.png", particles: true },
+  { key: "dungeon", label: "Dungeon", description: "Torchlit corridors under ordinary ground", image: "/lobby/dungeon.png", particles: true },
   { key: "ship", label: "Ship Deck", description: "Salt spray and creaking timber", image: "/lobby/ship.png", particles: false },
-  { key: "last-launch", label: "Last Launch", description: "The final journey into the unknown", image: "/lobby/last-launch.png", particles: true },
+  { key: "last-launch", label: "Last Launch", description: "The last bright window before the unknown", image: "/lobby/last-launch.png", particles: true },
 ] as const;
 
 export type LobbyThemeKey = (typeof LOBBY_THEMES)[number]["key"];
@@ -411,7 +411,7 @@ export default function SessionLobby({
             className="mb-6"
           >
             <span className="text-[10px] uppercase tracking-[0.3em] text-amber/50 font-display">
-              Gathering...
+              At the threshold...
             </span>
           </motion.div>
 
@@ -525,12 +525,12 @@ export default function SessionLobby({
                   animation: "lobbyButtonGlow 2.5s ease-in-out infinite",
                 }}
               >
-                Begin the Story
+                Cross the Threshold
               </motion.button>
               <span className="text-[10px] text-text-ghost">
                 {sessionOpening
                   ? "Your opening narration will play as a cinematic moment."
-                  : "Your players are waiting."}
+                  : "Your players are waiting at the door."}
               </span>
             </motion.div>
           ) : (

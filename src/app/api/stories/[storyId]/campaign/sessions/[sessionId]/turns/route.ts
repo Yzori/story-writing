@@ -7,7 +7,7 @@ import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
-import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollRequestMetadata, parseSceneBreakMetadata } from "@/lib/campaign-turns";
+import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollRequestMetadata, parseSceneBreakMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
 import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
 import { getActiveSessionPlayerIds } from "@/server/services/campaign-rolls";
 import { APPROACHES, parseStats } from "@/types/campaign";
@@ -288,6 +288,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    if (parsed.data.type === "story-moment") {
+      const storyMomentMeta = parseStoryMomentMetadata(metadataToStore ?? "{}");
+      if (!storyMomentMeta) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Story moment metadata is invalid" } },
+          { status: 400 },
+        );
+      }
+
+      const content = parsed.data.content.trim();
+      if (!content) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Story moment text is required" } },
+          { status: 400 },
+        );
+      }
+
+      metadataToStore = JSON.stringify({
+        mood: storyMomentMeta.mood ?? "ominous",
+        ...(storyMomentMeta.subtext ? { subtext: storyMomentMeta.subtext } : {}),
+        importance: storyMomentMeta.importance ?? "normal",
+        ...(storyMomentMeta.startsScene ? { startsScene: true } : {}),
+      });
+    }
+
     // Auto-link scene-breaks to a place. If the GM supplies a locationId we
     // trust it (after verifying it belongs to this story); otherwise we
     // upsert a place keyed off the scene-break's title so the Places list
@@ -297,53 +322,57 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const sceneMeta = parseSceneBreakMetadata(metadataToStore) ?? {};
       let resolvedLocationId: string | null = sceneMeta.locationId ?? null;
 
-      if (resolvedLocationId) {
-        const existing = await db.query.places.findFirst({
-          where: and(
-            eq(places.id, resolvedLocationId),
-            eq(places.storyId, storyId),
-          ),
-        });
-        if (!existing) {
-          // Don't 400 — just drop the bad id and fall through to the
-          // title-based path so the scene still lands.
-          resolvedLocationId = null;
+      if (sceneMeta.cinematic) {
+        metadataToStore = JSON.stringify(sceneMeta);
+      } else {
+        if (resolvedLocationId) {
+          const existing = await db.query.places.findFirst({
+            where: and(
+              eq(places.id, resolvedLocationId),
+              eq(places.storyId, storyId),
+            ),
+          });
+          if (!existing) {
+            // Don't 400 — just drop the bad id and fall through to the
+            // title-based path so the scene still lands.
+            resolvedLocationId = null;
+          }
         }
-      }
 
-      if (!resolvedLocationId && sceneMeta.title?.trim()) {
-        const name = sceneMeta.title.trim();
-        const nameKey = name.toLowerCase();
-        const [inserted] = await db
-          .insert(places)
-          .values({
-            storyId,
-            name,
-            nameKey,
-            mood: sceneMeta.mood ?? null,
-            autoCreated: true,
-          })
-          .onConflictDoNothing({
-            target: [places.storyId, places.nameKey],
-          })
-          .returning({ id: places.id });
-        if (inserted) {
-          resolvedLocationId = inserted.id;
-        } else {
-          const [existing] = await db
-            .select({ id: places.id })
-            .from(places)
-            .where(and(eq(places.storyId, storyId), eq(places.nameKey, nameKey)))
-            .limit(1);
-          resolvedLocationId = existing?.id ?? null;
+        if (!resolvedLocationId && sceneMeta.title?.trim()) {
+          const name = sceneMeta.title.trim();
+          const nameKey = name.toLowerCase();
+          const [inserted] = await db
+            .insert(places)
+            .values({
+              storyId,
+              name,
+              nameKey,
+              mood: sceneMeta.mood ?? null,
+              autoCreated: true,
+            })
+            .onConflictDoNothing({
+              target: [places.storyId, places.nameKey],
+            })
+            .returning({ id: places.id });
+          if (inserted) {
+            resolvedLocationId = inserted.id;
+          } else {
+            const [existing] = await db
+              .select({ id: places.id })
+              .from(places)
+              .where(and(eq(places.storyId, storyId), eq(places.nameKey, nameKey)))
+              .limit(1);
+            resolvedLocationId = existing?.id ?? null;
+          }
         }
-      }
 
-      if (resolvedLocationId) {
-        metadataToStore = JSON.stringify({
-          ...sceneMeta,
-          locationId: resolvedLocationId,
-        });
+        if (resolvedLocationId) {
+          metadataToStore = JSON.stringify({
+            ...sceneMeta,
+            locationId: resolvedLocationId,
+          });
+        }
       }
     }
 
@@ -441,7 +470,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 2d6 with crypto, computes modifier from the character's actual stats,
     // and rebuilds content/metadata. This is the only way to prevent a
     // player from forging a favorable tier or dodging a fatal failure.
-    let contentToStore: string = parsed.data.content;
+    let contentToStore: string = parsed.data.type === "story-moment"
+      ? parsed.data.content.trim()
+      : parsed.data.content;
     let serverRollTier: "success" | "partial" | "failure" | null = null;
 
     if (parsed.data.type === "roll" && rollIntent) {
@@ -470,6 +501,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ? `Rolled 2d6${modifier >= 0 ? "+" : ""}${modifier}${attrLabel ? ` (${attrLabel.toUpperCase()})` : ""} = ${total} — ${tierLabel}`
         : `Rolled 2d6 = ${total} — ${tierLabel}`;
 
+      // markEligible: the resolved roll is worth marking if it cost the
+      // character something — partial or worse, OR a fatal-flagged roll
+      // (even on success, "I survived this" is worth marking).
+      const fatal = rollRequestMeta?.fatal === true && tier === "failure";
+      const markEligible = fatal || tier !== "success" || rollRequestMeta?.fatal === true;
+
       metadataToStore = JSON.stringify({
         dice: [r1, r2],
         total,
@@ -477,7 +514,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         attribute: matchedApproach ?? rawAttribute,
         tier,
         die: "2d6",
-        fatal: rollRequestMeta?.fatal === true && tier === "failure",
+        fatal,
+        markEligible,
         ...(rollRequestTurnId ? { rollRequestTurnId } : {}),
       });
     }

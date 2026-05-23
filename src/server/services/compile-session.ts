@@ -1,5 +1,5 @@
 import "server-only";
-import { isLogTurnType, parseIllustrationMetadata, parseSceneBreakMetadata } from "@/lib/campaign-turns";
+import { isLogTurnType, parseIllustrationMetadata, parseSceneBreakMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
 /**
  * Session-to-Chapter Compilation
  *
@@ -16,12 +16,21 @@ interface CompileTurn {
   type: string;
   content: string;
   metadata: string | null;
+  audienceAmplificationCount?: number;
+}
+
+export interface CompileMark {
+  characterName: string;
+  kind: "scar" | "vow" | "debt" | "memory";
+  text: string;
 }
 
 export interface CompileOptions {
   sessionTitle: string;
   sessionOpening: string | null;
   turns: CompileTurn[];
+  /** Marks created during THIS session (server-filtered by sessionId). */
+  marks?: CompileMark[];
 }
 
 // ── Dialogue verb cycle ──────────────────────────────────────
@@ -32,6 +41,7 @@ const DIALOGUE_VERBS = ["said", "replied", "called out", "murmured", "whispered"
 
 function shouldMerge(prev: CompileTurn, next: CompileTurn): boolean {
   if (prev.type === "scene-break" || next.type === "scene-break") return false;
+  if (prev.type === "story-moment" || next.type === "story-moment") return false;
   if (prev.type === "illustration" || next.type === "illustration") return false;
 
   const gmTypes = ["narration", "consequence"];
@@ -143,8 +153,31 @@ function renderTurn(
 
 // ── Main compilation function ────────────────────────────────
 
+// ── Marks coda — italic closing lines listing what carried forward ──
+
+const MARK_PHRASE: Record<CompileMark["kind"], (name: string, text: string) => string> = {
+  scar: (name, text) => `${name} carried it from then on — ${text}`,
+  vow: (name, text) => `${name} made a quiet vow — ${text}`,
+  debt: (name, text) => `${name} owed something then — ${text}`,
+  memory: (name, text) => `${name} kept that moment — ${text}`,
+};
+
+function renderMarksCoda(marks: CompileMark[]): string {
+  if (marks.length === 0) return "";
+  const lines = marks
+    .map((m) => {
+      const renderer = MARK_PHRASE[m.kind];
+      if (!renderer) return "";
+      return `<p style="text-align:center"><em>${esc(renderer(m.characterName, m.text))}</em></p>`;
+    })
+    .filter(Boolean);
+  if (lines.length === 0) return "";
+  // Separator + the lines, tucked at the end of the chapter as a quiet coda.
+  return `<hr style="border-color:rgba(243,180,97,0.18); margin-top:2em">\n${lines.join("\n")}`;
+}
+
 export function compileSessionToHTML(options: CompileOptions): string {
-  const { sessionOpening, turns } = options;
+  const { sessionOpening, turns, marks = [] } = options;
   const parts: string[] = [];
 
   // Opening narration as a blockquote
@@ -161,7 +194,17 @@ export function compileSessionToHTML(options: CompileOptions): string {
   for (const group of paragraphs) {
     // Scene-break turns render as an HR with optional title
     if (group[0].type === "scene-break") {
-      const title = parseSceneBreakMetadata(group[0].metadata)?.title ?? "";
+      const meta = parseSceneBreakMetadata(group[0].metadata);
+      const title = meta?.title ?? "";
+
+      if (meta?.cinematic) {
+        const text = group[0].content || title;
+        if (text) {
+          parts.push(`<p style="text-align:center"><em>${esc(text)}</em></p>`);
+        }
+        globalIdx += group.length;
+        continue;
+      }
 
       if (title) {
         parts.push(
@@ -170,6 +213,22 @@ export function compileSessionToHTML(options: CompileOptions): string {
       } else {
         parts.push("<hr>");
       }
+      globalIdx += group.length;
+      continue;
+    }
+
+    if (group[0].type === "story-moment") {
+      const meta = parseStoryMomentMetadata(group[0].metadata);
+      const subtext = meta?.subtext ?? "";
+      const majorStyle = meta?.importance === "major"
+        ? "font-size:1.15em; font-weight:600"
+        : "";
+      const chorusLine = group[0].audienceAmplificationCount
+        ? `<p style="text-align:center"><span style="font-size:0.78em"><em>Held by the Chorus · ${group[0].audienceAmplificationCount}</em></span></p>`
+        : "";
+      parts.push(
+        `<div class="story-moment" data-story-moment="true" data-mood="${esc(meta?.mood ?? "ominous")}"><p style="text-align:center; ${majorStyle}"><em>${esc(group[0].content)}</em></p>${subtext ? `<p style="text-align:center"><span style="font-size:0.88em"><em>${esc(subtext)}</em></span></p>` : ""}${chorusLine}</div>`
+      );
       globalIdx += group.length;
       continue;
     }
@@ -202,6 +261,9 @@ export function compileSessionToHTML(options: CompileOptions): string {
 
     globalIdx += group.length;
   }
+
+  const coda = renderMarksCoda(marks);
+  if (coda) parts.push(coda);
 
   return parts.join("\n");
 }

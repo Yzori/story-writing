@@ -464,6 +464,18 @@ export default function StoryMoment({ mood, text, subtext, onComplete }: StoryMo
     return () => clearTimeout(timer);
   }, [phase, advancePhase, onComplete]);
 
+  // Escape skips the moment (a11y + impatience)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onComplete();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onComplete]);
+
   // Determine which atmosphere element to render
   const renderAtmosphere = () => {
     switch (preset.atmosphere) {
@@ -488,8 +500,14 @@ export default function StoryMoment({ mood, text, subtext, onComplete }: StoryMo
       {phase !== "done" && (
         <motion.div
           key="story-moment-overlay"
+          role="status"
+          aria-live="polite"
+          aria-label={`Story moment: ${text}${subtext ? `. ${subtext}` : ""}. Press Escape to skip.`}
+          // Cinematics sit ABOVE modals (z-90) so a fatal-roll death cinematic
+          // visibly overlays the dice ritual that just resolved. Order:
+          // 50 chrome → 80 focus mode → 90 modals → 100 cinematics.
           className="fixed inset-0 flex items-center justify-center pointer-events-auto"
-          style={{ zIndex: 70 }}
+          style={{ zIndex: 100 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: phase === "exiting" ? 0 : 1 }}
           exit={{ opacity: 0 }}

@@ -3,13 +3,24 @@ import { CAMPAIGN_TURN_TYPES, CAMPAIGN_TURN_TYPES_ALLOW_EMPTY } from "@/lib/camp
 
 // ── Stories ──────────────────────────────────────────────────
 
+const coverImageUrlSchema = z.string().max(2_000_000).refine((value) => {
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value)) return true;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}, "Cover image must be an image data URL or HTTP(S) URL");
+
 export const createStorySchema = z.object({
   title: z.string().min(1, "Title is required").max(500),
   format: z.enum(["novel", "webtoon", "poetry", "illustrated", "screenplay"]).optional(),
   writingMode: z.enum(["solo", "co-op", "campaign"]).optional(),
   synopsis: z.string().max(5000).optional(),
   hook: z.string().max(280).optional(),
-  coverImageUrl: z.string().optional(),
+  coverImageUrl: coverImageUrlSchema.optional(),
   genres: z.array(z.string()).optional(),
   contentRating: z.string().optional(),
   contentNotes: z.array(z.string()).max(10).optional(),
@@ -43,7 +54,7 @@ export const updateStorySchema = z.object({
   format: z.enum(["novel", "webtoon", "poetry", "illustrated", "screenplay"]).optional(),
   synopsis: z.string().max(5000).optional(),
   hook: z.string().max(280).optional(),
-  coverImageUrl: z.string().url().nullable().optional(),
+  coverImageUrl: coverImageUrlSchema.nullable().optional(),
   genres: z.array(z.string()).optional(),
   contentRating: z.string().optional(),
   contentNotes: z.array(z.string()).max(10).optional(),
@@ -337,6 +348,9 @@ export const updateCampaignSessionSchema = z.object({
   summary: z.string().max(5000).optional(),
   opening: z.string().max(20000).optional(),
   epilogue: z.string().max(5000).optional(),
+  // Cliffhanger seeds the "Previously, on…" card next session. Kept tight
+  // (280 chars) so the GM writes a hook, not a paragraph.
+  cliffhanger: z.string().max(280).optional(),
   closingMood: z.string().max(50).optional(),
   status: z.enum(["draft", "active", "completed", "archived"]).optional(),
   activePlayerId: z.string().uuid().nullable().optional(),
@@ -345,8 +359,8 @@ export const updateCampaignSessionSchema = z.object({
 // ── Campaign Turns ─────────────────────────────────────────
 
 // scene-break is a structural marker the GM drops between scenes; it can
-// have empty content (the metadata carries the title/mood). Prose types
-// (action/dialogue/etc.) still must have non-empty content.
+// have empty content (the metadata carries the title/mood). Story moments
+// carry their main beat in content, so they follow the prose content rule.
 export const createCampaignTurnSchema = z
   .object({
     characterId: z.string().uuid().optional(),
@@ -400,6 +414,20 @@ export const createFloorAudienceSparkSchema = z.object({
 
 export const updateFloorAudienceSparkSchema = z.object({
   action: z.enum(["promote", "reject"]),
+});
+
+// ── Character Marks ─────────────────────────────────────────
+// One-line player-authored marks that stick to a character across sessions.
+// Text capped at 140 to keep the UI poetic — a single beat, not a paragraph.
+
+export const characterMarkKinds = ["scar", "vow", "debt", "memory"] as const;
+export type CharacterMarkKind = (typeof characterMarkKinds)[number];
+
+export const createCharacterMarkSchema = z.object({
+  kind: z.enum(characterMarkKinds),
+  text: z.string().trim().min(1, "A mark needs a line").max(140),
+  sourceTurnId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional(),
 });
 
 // ── Campaign Applications ───────────────────────────────────
@@ -510,6 +538,11 @@ export const spectatorReactionSchema = z.object({
     "inspired",
     "terrified",
   ]),
+});
+
+export const storyMomentAmplificationSchema = z.object({
+  token: z.string().min(1).max(100),
+  turnId: z.string().uuid(),
 });
 
 // ── Ink Drop Tips ──────────────────────────────────────────

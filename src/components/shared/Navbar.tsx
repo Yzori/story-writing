@@ -21,7 +21,6 @@ import {
   Settings,
   Sparkles,
   User,
-  Users,
   Wallet,
   X,
   type LucideIcon,
@@ -29,7 +28,9 @@ import {
 import ThemeToggle from "@/components/editor/ThemeToggle";
 
 // Surfaces where the global Navbar is fully suppressed (auth flows,
-// onboarding, full-screen demos, in-session play/watch).
+// onboarding, and full-screen demos). Adventure play/watch now render
+// below the platform nav by default, with an in-session focus toggle
+// for an immersive full-screen view.
 const HIDE_NAVBAR_PATTERNS: RegExp[] = [
   /^\/login(\/|$)/,
   /^\/register(\/|$)/,
@@ -37,7 +38,6 @@ const HIDE_NAVBAR_PATTERNS: RegExp[] = [
   /^\/reset-password(\/|$)/,
   /^\/welcome(\/|$)/,
   /^\/demo\//,
-  /^\/campaign\/[^/]+\/(play|watch)\//,
 ];
 
 // Surfaces that need the full mobile viewport — top bar still shows,

@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import type { SpectatorReaction } from "@/hooks/use-spectator-reactions";
 
 const EMOJI_MAP: Record<string, string> = {
@@ -19,10 +20,27 @@ interface FloatingReactionsProps {
 }
 
 export default function FloatingReactions({ reactions }: FloatingReactionsProps) {
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    const updateNow = () => setNow(Date.now());
+    const timeout = setTimeout(updateNow, 0);
+    const interval = setInterval(updateNow, 1_000);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const visibleReactions = now
+    ? reactions.filter((reaction) => now - reaction.receivedAt < 5_000)
+    : reactions.slice(-8);
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
       <AnimatePresence>
-        {reactions.map((r) => {
+        {visibleReactions.map((r) => {
           // Deterministic but varied horizontal position based on id
           const hash = r.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
           const xPercent = 10 + (hash % 80);

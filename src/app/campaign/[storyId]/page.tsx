@@ -2095,11 +2095,9 @@ export default function CampaignPage() {
                   const barWidth = activePoll.totalVoters > 0 ? (count / activePoll.totalVoters) * 100 : 0;
 
                   return (
-                    <button
+                    <div
                       key={idx}
-                      onClick={() => handlePollVote(activePoll.id, idx)}
-                      disabled={pollVoteLoading}
-                      className={`w-full text-left relative overflow-hidden rounded-xl p-3 transition-all cursor-pointer border ${
+                      className={`relative flex w-full items-stretch overflow-hidden rounded-xl border transition-all ${
                         isSelected
                           ? "border-amber/30 bg-amber/5"
                           : "border-border/50 bg-ink/30 hover:border-border"
@@ -2113,7 +2111,12 @@ export default function CampaignPage() {
                         style={{ width: `${barWidth}%` }}
                       />
 
-                      <div className="relative flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handlePollVote(activePoll.id, idx)}
+                        disabled={pollVoteLoading}
+                        className="relative flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 p-3 text-left disabled:cursor-not-allowed"
+                      >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {/* Checkbox */}
                           <div className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors ${
@@ -2135,21 +2138,21 @@ export default function CampaignPage() {
                           <span className={`text-xs tabular-nums ${isLeading ? "text-amber font-semibold" : "text-text-ghost"}`}>
                             {count}
                           </span>
-                          {isGM && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleClosePoll(activePoll.id, option);
-                              }}
-                              disabled={pollCloseLoading}
-                              className="px-2 py-0.5 bg-sage/10 hover:bg-sage/20 border border-sage/20 text-sage text-[9px] uppercase tracking-wider font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              {pollCloseLoading ? "..." : "Confirm"}
-                            </button>
-                          )}
                         </div>
-                      </div>
-                    </button>
+                      </button>
+                      {isGM && (
+                        <div className="relative flex shrink-0 items-center pr-3">
+                          <button
+                            type="button"
+                            onClick={() => handleClosePoll(activePoll.id, option)}
+                            disabled={pollCloseLoading}
+                            className="px-2 py-0.5 bg-sage/10 hover:bg-sage/20 border border-sage/20 text-sage text-[9px] uppercase tracking-wider font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {pollCloseLoading ? "..." : "Confirm"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

@@ -21,8 +21,9 @@ export const DEFAULT_SCENE_BREAK_CLASSES = { line: "via-text-ghost/30", text: "t
 
 // Should two consecutive turns merge into the same paragraph?
 export function shouldMerge(prev: Turn, next: Turn): boolean {
-  // Scene breaks and illustrations never merge
+  // Structural and cinematic beats never merge
   if (prev.type === "scene-break" || next.type === "scene-break") return false;
+  if (prev.type === "story-moment" || next.type === "story-moment") return false;
   if (prev.type === "illustration" || next.type === "illustration") return false;
 
   const gmTypes = ["narration", "consequence"];
@@ -58,7 +59,7 @@ export function groupIntoParagraphs(turns: Turn[]): Turn[][] {
 export const MOOD_TINT_COLORS: Record<string, string> = {
   tense: "rgba(244,63,94,0.04)",
   calm: "rgba(120,180,130,0.04)",
-  ominous: "rgba(139,92,246,0.06)",
+  ominous: "rgba(212,168,67,0.025)",
   triumphant: "rgba(200,150,60,0.05)",
   melancholy: "rgba(99,102,241,0.05)",
   chaotic: "rgba(251,146,60,0.04)",
@@ -68,7 +69,7 @@ export const MOOD_TINT_COLORS: Record<string, string> = {
 
 export const MOOD_VIGNETTE_COLORS: Record<string, string> = {
   tense: "rgba(180,30,50,0.12)",
-  ominous: "rgba(80,40,160,0.12)",
+  ominous: "rgba(38,28,48,0.10)",
   death: "rgba(120,10,10,0.18)",
   melancholy: "rgba(50,50,140,0.10)",
   chaotic: "rgba(180,80,20,0.10)",

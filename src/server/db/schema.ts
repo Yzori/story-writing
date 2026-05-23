@@ -1199,7 +1199,7 @@ export const playerCharacters = pgTable(
 
 export const playerCharactersRelations = relations(
   playerCharacters,
-  ({ one }) => ({
+  ({ one, many }) => ({
     story: one(stories, {
       fields: [playerCharacters.storyId],
       references: [stories.id],
@@ -1208,8 +1208,54 @@ export const playerCharactersRelations = relations(
       fields: [playerCharacters.userId],
       references: [users.id],
     }),
+    marks: many(characterMarks),
   })
 );
+
+// ── Character Marks ────────────────────────────────────────
+// Player-authored beats that stick to a character across sessions:
+// scars, vows, debts, memories. Server flags mark-worthy events;
+// the player decides whether to mark and what to write.
+
+export const characterMarks = pgTable("character_marks", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  characterId: uuid("character_id")
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: "cascade" }),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  // Session/turn may be deleted while marks remain — they're part of the
+  // character's accumulated history, not the session's transient record.
+  sessionId: uuid("session_id").references(() => campaignSessions.id, { onDelete: "set null" }),
+  sourceTurnId: uuid("source_turn_id").references(() => campaignTurns.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(), // 'scar' | 'vow' | 'debt' | 'memory'
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_character_marks_character_source_unique").on(table.characterId, table.sourceTurnId),
+  index("idx_character_marks_character_created").on(table.characterId, table.createdAt),
+  index("idx_character_marks_session").on(table.sessionId, table.createdAt),
+]);
+
+export const characterMarksRelations = relations(characterMarks, ({ one }) => ({
+  character: one(playerCharacters, {
+    fields: [characterMarks.characterId],
+    references: [playerCharacters.id],
+  }),
+  session: one(campaignSessions, {
+    fields: [characterMarks.sessionId],
+    references: [campaignSessions.id],
+  }),
+  sourceTurn: one(campaignTurns, {
+    fields: [characterMarks.sourceTurnId],
+    references: [campaignTurns.id],
+  }),
+}));
 
 // ── Campaign Sessions ──────────────────────────────────────
 
@@ -1224,6 +1270,9 @@ export const campaignSessions = pgTable("campaign_sessions", {
   summary: text("summary").default(""),
   opening: text("opening"),
   epilogue: text("epilogue"),
+  // Future-tense hook into the next session. Distinct from epilogue
+  // (closing thought). Drives the "Previously, on…" card next time.
+  cliffhanger: text("cliffhanger"),
   closingMood: text("closing_mood"),
   chapterId: uuid("chapter_id"),
   activePlayerId: uuid("active_player_id").references(() => users.id, { onDelete: "set null" }),
@@ -1481,6 +1530,7 @@ export const campaignFloorAudienceSparks = pgTable("campaign_floor_audience_spar
     .notNull()
     .defaultNow(),
 }, (table) => [
+  unique("campaign_floor_audience_sparks_round_token_unique").on(table.roundId, table.token),
   index("idx_campaign_floor_audience_sparks_round").on(table.roundId, table.status),
   index("idx_campaign_floor_audience_sparks_user").on(table.userId, table.createdAt),
 ]);
@@ -2007,6 +2057,50 @@ export const spectatorReactionsRelations = relations(spectatorReactions, ({ one 
   }),
   user: one(users, {
     fields: [spectatorReactions.userId],
+    references: [users.id],
+  }),
+}));
+
+// ── Story Moment Amplifications ─────────────────────────────
+// Audience-held story moments. These do not steer the plot; they mark what
+// the Chorus felt should be remembered.
+
+export const storyMomentAmplifications = pgTable(
+  "story_moment_amplifications",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    turnId: uuid("turn_id")
+      .notNull()
+      .references(() => campaignTurns.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("story_moment_amplifications_turn_token_unique").on(table.turnId, table.token),
+    index("idx_story_moment_amplifications_session").on(table.sessionId, table.createdAt),
+    index("idx_story_moment_amplifications_turn").on(table.turnId),
+  ],
+);
+
+export const storyMomentAmplificationsRelations = relations(storyMomentAmplifications, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [storyMomentAmplifications.sessionId],
+    references: [campaignSessions.id],
+  }),
+  turn: one(campaignTurns, {
+    fields: [storyMomentAmplifications.turnId],
+    references: [campaignTurns.id],
+  }),
+  user: one(users, {
+    fields: [storyMomentAmplifications.userId],
     references: [users.id],
   }),
 }));

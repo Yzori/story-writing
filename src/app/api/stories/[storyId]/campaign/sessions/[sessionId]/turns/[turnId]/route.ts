@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Prevent editing mechanical turns
-    const nonEditableTypes = ["roll", "roll-request", "scene-break", "illustration"];
+    const nonEditableTypes = ["roll", "roll-request", "scene-break", "illustration", "story-moment"];
     if (nonEditableTypes.includes(turn.type)) {
       return NextResponse.json(
         { error: { code: "BAD_REQUEST", message: "This turn type cannot be edited" } },

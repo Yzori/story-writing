@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CampaignTurnType, FloorRound, FloorRoundMode, PlayerCharacter } from "@/types/campaign";
+import type { FloorRound, PlayerCharacter } from "@/types/campaign";
+import type { CampaignTurnType } from "@/lib/campaign-turns";
 
 interface FloorRoundPanelProps {
   floorRound: FloorRound | null;
   isGM: boolean;
   myCharacter: PlayerCharacter | null;
   isActive: boolean;
-  onCreateRound: (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => Promise<void>;
   onSubmitResponse: (roundId: string, body: { characterId: string; type: string; content: string }) => Promise<void>;
   onVoteSubmission: (roundId: string, submissionId: string) => Promise<void>;
+  onUpdateAudienceSpark?: (roundId: string, sparkId: string, action: "promote" | "reject") => Promise<void>;
   onUpdateRound: (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => Promise<void>;
 }
 
@@ -26,14 +27,11 @@ export default function FloorRoundPanel({
   isGM,
   myCharacter,
   isActive,
-  onCreateRound,
   onSubmitResponse,
   onVoteSubmission,
+  onUpdateAudienceSpark,
   onUpdateRound,
 }: FloorRoundPanelProps) {
-  const [prompt, setPrompt] = useState("");
-  const [mode, setMode] = useState<FloorRoundMode>("gm_pick");
-  const [audiencePulseEnabled, setAudiencePulseEnabled] = useState(false);
   const [content, setContent] = useState("");
   const [turnType, setTurnType] = useState<CampaignTurnType>("action");
   const [busy, setBusy] = useState(false);
@@ -48,99 +46,41 @@ export default function FloorRoundPanel({
     [floorRound],
   );
   const canGMCanonize = floorRound?.mode === "gm_pick" || floorRound?.status === "closed";
+  const submissionCount = floorRound?.submissions.length ?? 0;
+  const hasVoteOptions = submissionCount > 0;
+  const pendingAudienceSparks = floorRound?.audienceSparks.filter((spark) => spark.status === "pending") ?? [];
 
-  if (!isActive) return null;
-
-  if (!floorRound) {
-    if (!isGM) return null;
-
-    return (
-      <div className="sticky bottom-4 z-30 w-full max-w-[650px] mt-8 mb-4">
-        <div className="bg-ink border border-lavender/20 rounded-2xl p-5 shadow-[0_10px_40px_rgba(0,0,0,0.45)]">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] font-display text-lavender">Crossroads</p>
-              <p className="text-xs text-text-tertiary mt-1">Collect player responses before choosing canon.</p>
-            </div>
-            <div className="flex rounded-full border border-border bg-subtle/20 p-0.5">
-              {(["gm_pick", "vote"] as const).map((value) => (
-                <button
-                  key={value}
-                  onClick={() => setMode(value)}
-                  className={`px-3 py-2 text-[10px] uppercase tracking-wider rounded-full transition-colors cursor-pointer ${
-                    mode === value ? "bg-lavender/20 text-lavender" : "text-text-tertiary hover:text-text-secondary"
-                  }`}
-                >
-                  {value === "gm_pick" ? "GM Pick" : "Table Vote"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder="What does the table attempt?"
-            className="w-full bg-black/30 border border-border rounded-xl px-3 py-2.5 text-sm text-paper outline-none placeholder:text-text-ghost focus:border-lavender/40 resize-none min-h-[80px]"
-          />
-          {mode === "vote" && (
-            <label className="mt-3 flex items-start gap-3 rounded-xl border border-lavender/15 bg-lavender/[0.04] p-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={audiencePulseEnabled}
-                onChange={(event) => setAudiencePulseEnabled(event.target.checked)}
-                className="mt-0.5 accent-current"
-              />
-              <span>
-                <span className="block text-[10px] uppercase tracking-widest text-lavender font-display">
-                  Audience Pulse
-                </span>
-                <span className="block text-xs text-text-tertiary mt-1">
-                  Spectators can signal a favorite. The table vote stays separate; GM resolves.
-                </span>
-              </span>
-            </label>
-          )}
-          <div className="flex justify-end mt-3">
-            <button
-              onClick={async () => {
-                if (!prompt.trim()) return;
-                setBusy(true);
-                try {
-                  await onCreateRound(prompt.trim(), mode, mode === "vote" && audiencePulseEnabled);
-                  setPrompt("");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              disabled={!prompt.trim() || busy}
-              className="bg-lavender/15 hover:bg-lavender/25 border border-lavender/25 text-lavender rounded-full px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Open Crossroads
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!isActive || !floorRound) return null;
 
   return (
-    <div className="sticky bottom-3 z-30 mt-6 mb-4 w-full max-w-[650px] sm:bottom-4 sm:mt-8">
-      <div className="rounded-2xl border border-lavender/20 bg-ink p-4 shadow-[0_10px_40px_rgba(0,0,0,0.45)] sm:p-5">
-        <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4 sm:gap-4">
+    <div className="sticky bottom-56 z-30 mt-8 mb-4 w-full max-w-[760px] sm:bottom-60 sm:mt-10">
+      <div className="relative overflow-hidden rounded-xl border border-lavender/25 bg-surface/95 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-5">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/60 to-transparent" />
+        <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-lavender/[0.06] blur-3xl" />
+
+        <div className="mb-4 flex items-start justify-between gap-3 sm:gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] font-display text-lavender">
               {floorRound.mode === "vote"
-                ? floorRound.audiencePulseEnabled ? "Table Vote + Audience Pulse" : "Table Vote"
-                : "GM Pick"}
+                ? floorRound.status === "open"
+                  ? "Collecting Vote Options"
+                  : floorRound.audiencePulseEnabled ? "Table Vote + Audience Pulse" : "Table Vote"
+                : "Director Pick"}
             </p>
-            <p className="mt-1 font-serif text-base leading-snug text-paper sm:text-lg">{floorRound.prompt}</p>
+            <p className="mt-1 font-reading text-[18px] leading-snug text-paper sm:text-[20px]">{floorRound.prompt}</p>
           </div>
-          <span className="shrink-0 rounded-full border border-border bg-subtle/30 px-2.5 py-1 text-[9px] uppercase tracking-wider text-text-secondary sm:px-3 sm:py-1.5 sm:text-[10px]">
+          <span className="shrink-0 rounded-full border border-lavender/25 bg-lavender/10 px-2.5 py-1 text-[9px] uppercase tracking-wider text-lavender sm:px-3 sm:py-1.5 sm:text-[10px]">
             {floorRound.status}
           </span>
         </div>
+
         {floorRound.mode === "vote" && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wider text-text-secondary sm:mb-4 sm:text-[10px]">
+          <div className="mb-4 grid gap-2 text-[9px] uppercase tracking-wider text-text-secondary sm:grid-cols-3 sm:text-[10px]">
+            {floorRound.status === "open" && (
+              <span className="rounded-full border border-lavender/25 bg-lavender/10 px-2.5 py-1 text-lavender sm:px-3 sm:py-1.5">
+                {submissionCount} option{submissionCount === 1 ? "" : "s"} collected
+              </span>
+            )}
             <span className="rounded-full border border-lavender/25 bg-lavender/10 px-2.5 py-1 text-lavender sm:px-3 sm:py-1.5">
               {floorRound.voteCount}/{floorRound.eligibleVoterCount} votes
             </span>
@@ -155,7 +95,7 @@ export default function FloorRoundPanel({
               </span>
             )}
             {floorRound.audiencePulseEnabled && (
-              <span className="hidden rounded-full border border-lavender/25 bg-lavender/10 px-3 py-1 text-lavender sm:inline-flex">
+              <span className="rounded-full border border-lavender/25 bg-lavender/10 px-3 py-1 text-lavender">
                 Audience {floorRound.audiencePulseCount}
               </span>
             )}
@@ -163,11 +103,11 @@ export default function FloorRoundPanel({
         )}
 
         {!isGM && floorRound.status === "open" && myCharacter?.status === "active" && (
-          <div className="border border-border-subtle rounded-xl p-3 bg-black/20 mb-4">
+          <div className="mb-4 rounded-lg border border-border-subtle bg-elevated/60 p-3">
             {mySubmission ? (
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-sage mb-2">Submitted</p>
-                <p className="text-sm text-paper/80 font-serif italic">{mySubmission.content}</p>
+                <p className="font-reading text-[15px] leading-relaxed text-paper/80">{mySubmission.content}</p>
               </div>
             ) : (
               <>
@@ -190,7 +130,7 @@ export default function FloorRoundPanel({
                   value={content}
                   onChange={(event) => setContent(event.target.value)}
                   placeholder="Write your proposed turn..."
-                  className="w-full bg-transparent text-[17px] leading-[1.8] text-paper/90 outline-none font-serif resize-none min-h-[90px] placeholder:text-text-ghost"
+                  className="min-h-[100px] w-full resize-none bg-transparent font-reading text-[17px] leading-[1.8] text-paper/90 outline-none placeholder:text-text-ghost"
                 />
                 <div className="flex justify-end pt-3 border-t border-border-subtle">
                   <button
@@ -219,49 +159,109 @@ export default function FloorRoundPanel({
           </div>
         )}
 
+        {revealed && sortedSubmissions.length === 0 && (
+          <div className="rounded-lg border border-border bg-elevated/60 px-4 py-5 text-center">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+              {floorRound.mode === "vote" ? "No vote options yet" : "Waiting for responses"}
+            </p>
+            <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-relaxed text-text-secondary">
+              {floorRound.mode === "vote"
+                ? "This is the collection step. Players need to submit possible outcomes before there is anything to vote on."
+                : "The table has not offered any possible canon yet. Keep the crossroads open, cancel it, or prompt the players to write a response."}
+            </p>
+          </div>
+        )}
+
         {revealed && sortedSubmissions.length > 0 && (
-          <div className="space-y-2">
-            {sortedSubmissions.map((submission) => (
-              <div
-                key={submission.id}
-                className={`rounded-xl border bg-black/20 p-3 ${
-                  floorRound.myVoteSubmissionId === submission.id ? "border-lavender/50" : "border-border-subtle"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wider text-text-tertiary">
-                      {submission.characterName ?? "Unknown"} · {submission.type}
-                    </p>
-                    <p className="mt-1 line-clamp-3 font-serif text-[13px] leading-relaxed text-paper/85 sm:line-clamp-none sm:text-sm">{submission.content}</p>
+          <div className="grid gap-2">
+            {sortedSubmissions.map((submission) => {
+              const isSelected = floorRound.myVoteSubmissionId === submission.id;
+              return (
+                <div
+                  key={submission.id}
+                  className={`rounded-lg border bg-elevated/70 p-3 transition-colors ${
+                    isSelected ? "border-lavender/50" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-text-tertiary">
+                        {submission.sourceLabel ?? submission.characterName ?? "Unknown"} · {submission.type}
+                      </p>
+                      <p className="mt-1 line-clamp-3 font-reading text-[14px] leading-relaxed text-paper sm:line-clamp-none">{submission.content}</p>
+                    </div>
+                    <div className="shrink-0 text-right text-[10px] sm:text-[11px]">
+                      <div className="font-bold text-lavender">{submission.voteCount} votes</div>
+                      {floorRound.audiencePulseEnabled && (
+                        <div className="mt-1 text-text-tertiary">{submission.audiencePulseCount} pulses</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="shrink-0 text-right text-[10px] sm:text-[11px]">
-                    <div className="text-lavender font-bold">{submission.voteCount} votes</div>
-                    {floorRound.audiencePulseEnabled && (
-                      <div className="mt-1 hidden text-text-tertiary sm:block">{submission.audiencePulseCount} pulses</div>
+                  <div className="mt-3 flex justify-end gap-2">
+                    {!isGM && floorRound.mode === "vote" && floorRound.status === "voting" && floorRound.isVoteEligible && (
+                      <button
+                        onClick={() => onVoteSubmission(floorRound.id, submission.id)}
+                        className="min-h-9 rounded-full border border-lavender/25 px-4 py-2 text-[10px] uppercase tracking-wider text-lavender hover:bg-lavender/10 cursor-pointer"
+                      >
+                        {isSelected ? "Voted" : "Vote"}
+                      </button>
+                    )}
+                    {isGM && canGMCanonize && (
+                      <button
+                        onClick={() => onUpdateRound(floorRound.id, { status: "resolved", selectedSubmissionId: submission.id })}
+                        className="min-h-9 rounded-full border border-amber/25 px-4 py-2 text-[10px] uppercase tracking-wider text-amber hover:bg-amber/10 cursor-pointer"
+                      >
+                        Add to Canon
+                      </button>
                     )}
                   </div>
                 </div>
-                <div className="mt-2 flex justify-end gap-2 sm:mt-3">
-                  {!isGM && floorRound.mode === "vote" && floorRound.status === "voting" && floorRound.isVoteEligible && (
-                    <button
-                      onClick={() => onVoteSubmission(floorRound.id, submission.id)}
-                      className="min-h-9 text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-4 py-2 hover:bg-lavender/10 cursor-pointer"
-                    >
-                      {floorRound.myVoteSubmissionId === submission.id ? "Voted" : "Vote"}
-                    </button>
-                  )}
-                  {isGM && canGMCanonize && (
-                    <button
-                      onClick={() => onUpdateRound(floorRound.id, { status: "resolved", selectedSubmissionId: submission.id })}
-                      className="min-h-9 text-[10px] uppercase tracking-wider border border-amber/25 text-amber rounded-full px-4 py-2 hover:bg-amber/10 cursor-pointer"
-                    >
-                      Canonize
-                    </button>
-                  )}
-                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isGM && pendingAudienceSparks.length > 0 && floorRound.status === "open" && (
+          <div className="mt-3 rounded-lg border border-amber/20 bg-amber/[0.04] p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-amber">Audience Sparks</p>
+                <p className="mt-1 text-xs text-text-tertiary">Paid ideas enter here. Promote one to make it a vote option.</p>
               </div>
-            ))}
+              <span className="rounded-full border border-amber/20 bg-amber/10 px-2.5 py-1 text-[10px] text-amber">
+                {pendingAudienceSparks.length}
+              </span>
+            </div>
+            <div className="grid gap-2">
+              {pendingAudienceSparks.map((spark) => (
+                <div key={spark.id} className="rounded-lg border border-border bg-elevated/70 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-text-tertiary">
+                        {spark.user.displayName ?? "Audience"} · {spark.amount} drops
+                      </p>
+                      <p className="mt-1 font-reading text-[14px] leading-relaxed text-paper">{spark.content}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onUpdateAudienceSpark?.(floorRound.id, spark.id, "promote")}
+                        className="min-h-9 rounded-full border border-amber/25 px-4 py-2 text-[10px] uppercase tracking-wider text-amber hover:bg-amber/10 cursor-pointer"
+                      >
+                        Promote
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateAudienceSpark?.(floorRound.id, spark.id, "reject")}
+                        className="min-h-9 rounded-full border border-border px-4 py-2 text-[10px] uppercase tracking-wider text-text-secondary hover:text-paper cursor-pointer"
+                      >
+                        Pass
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -270,9 +270,11 @@ export default function FloorRoundPanel({
             {floorRound.mode === "vote" && floorRound.status === "open" && (
               <button
                 onClick={() => onUpdateRound(floorRound.id, { status: "voting" })}
-                className="min-h-9 text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-4 py-2 hover:bg-lavender/10 cursor-pointer"
+                disabled={!hasVoteOptions}
+                className="min-h-9 text-[10px] uppercase tracking-wider border border-lavender/25 text-lavender rounded-full px-4 py-2 hover:bg-lavender/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title={hasVoteOptions ? "Reveal collected responses as vote options" : "Collect at least one response before voting"}
               >
-                Reveal Vote
+                Reveal Options
               </button>
             )}
             {floorRound.mode === "vote" && floorRound.status === "voting" && (

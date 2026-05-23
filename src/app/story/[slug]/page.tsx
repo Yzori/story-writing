@@ -14,7 +14,6 @@ import SupportPanel from "@/components/story/SupportPanel";
 import { compressImage } from "@/client/images";
 import { useToast } from "@/components/shared/Toast";
 import type { ApiStoryData, ApiUpdate, ApiCollaborator } from "@/types/api";
-import AuditionPage from "./audition/page";
 
 const FORMAT_LABELS: Record<string, string> = {
   novel: "Novel",
@@ -66,6 +65,12 @@ function relativeTime(dateStr: string): string {
 
 type Tab = "chapters" | "about" | "updates";
 
+interface ActiveCampaignSession {
+  id: string;
+  title: string;
+  spectatorCount: number;
+}
+
 const TABS: { key: Tab; label: string }[] = [
   { key: "chapters", label: "Chapters" },
   { key: "about", label: "About" },
@@ -106,6 +111,7 @@ export default function StoryPage() {
 
   // Campaign join flow state
   const [campaignStatus, setCampaignStatus] = useState<"none" | "applied" | "player" | "gm">("none");
+  const [activeCampaignSession, setActiveCampaignSession] = useState<ActiveCampaignSession | null>(null);
   const [readingProgressChapterId, setReadingProgressChapterId] = useState<string | null>(null);
   const [readingProgressPercent, setReadingProgressPercent] = useState<number>(0);
   const [moreByAuthor, setMoreByAuthor] = useState<Array<{
@@ -202,6 +208,20 @@ export default function StoryPage() {
         if (collabRes.ok) {
           const collabJson = await collabRes.json();
           setCollaborators(collabJson.data?.filter((c: ApiCollaborator) => c.status === "accepted") || []);
+        }
+
+        if (json.data.writingMode === "campaign") {
+          try {
+            const activeRes = await fetch(`/api/stories/${json.data.id}/campaign/active-session`);
+            if (activeRes.ok) {
+              const activeJson = await activeRes.json();
+              setActiveCampaignSession(activeJson.data ?? null);
+            }
+          } catch {
+            setActiveCampaignSession(null);
+          }
+        } else {
+          setActiveCampaignSession(null);
         }
 
         // Fetch reading progress if logged in
@@ -431,10 +451,6 @@ export default function StoryPage() {
   const totalWords = story.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
   const publishedChapters = story.chapters.filter((ch) => ch.status === "published");
   const isOwner = session?.user?.id === story.userId;
-
-  if (story.writingMode === "campaign") {
-    return <AuditionPage />;
-  }
 
   // Compute "last updated" from most recently created/updated chapter
   const lastUpdated = story.chapters.reduce((latest, ch) => {
@@ -708,9 +724,52 @@ export default function StoryPage() {
             )}
 
             {/* Campaign join actions */}
-            {story.writingMode === "campaign" && session?.user && (
+            {story.writingMode === "campaign" && (
               <>
-                {campaignStatus === "gm" && (
+                {activeCampaignSession && (
+                  <Link
+                    href={
+                      session?.user && (campaignStatus === "gm" || campaignStatus === "player")
+                        ? `/campaign/${story.id}/play/${activeCampaignSession.id}`
+                        : `/campaign/${story.id}/watch/${activeCampaignSession.id}`
+                    }
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-sage text-void font-semibold text-[13px] rounded-full hover:bg-sage-light transition-all duration-200 hover:shadow-lg hover:shadow-sage/15"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-void/50 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-void" />
+                    </span>
+                    {session?.user && (campaignStatus === "gm" || campaignStatus === "player")
+                      ? "Join live session"
+                      : "Watch live session"}
+                    {activeCampaignSession.spectatorCount > 0 && (
+                      <span className="text-[11px] opacity-70">
+                        {activeCampaignSession.spectatorCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
+                {!session?.user && !activeCampaignSession && (
+                  <Link
+                    href={`/login?from=/story/${slug}/audition`}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 hover:shadow-lg hover:shadow-amber/15"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M8 2L3 5v6l5 3 5-3V5L8 2z" />
+                      <path d="M8 8v6M3 5l5 3 5-3" />
+                    </svg>
+                    Sign in to audition
+                  </Link>
+                )}
+                {!session?.user && activeCampaignSession && (
+                  <Link
+                    href={`/login?from=/story/${slug}/audition`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-surface/80 border border-border text-text-secondary font-medium text-[13px] rounded-full hover:border-amber/25 hover:text-amber transition-all duration-200"
+                  >
+                    Sign in to audition
+                  </Link>
+                )}
+                {session?.user && campaignStatus === "gm" && (
                   <Link
                     href={`/campaign/${story.id}`}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet/15 border border-violet/25 text-violet font-semibold text-[13px] rounded-full hover:bg-violet/20 transition-all duration-200"
@@ -722,7 +781,7 @@ export default function StoryPage() {
                     Campaign Dashboard
                   </Link>
                 )}
-                {campaignStatus === "player" && (
+                {session?.user && campaignStatus === "player" && (
                   <Link
                     href={`/campaign/${story.id}`}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-sage/15 border border-sage/25 text-sage font-semibold text-[13px] rounded-full hover:bg-sage/20 transition-all duration-200"
@@ -733,7 +792,7 @@ export default function StoryPage() {
                     You&apos;re in this campaign
                   </Link>
                 )}
-                {campaignStatus === "applied" && (
+                {session?.user && campaignStatus === "applied" && (
                   <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-lavender/10 border border-lavender/20 text-lavender text-[13px] font-medium rounded-full">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                       <circle cx="8" cy="8" r="6" />
@@ -742,7 +801,7 @@ export default function StoryPage() {
                     Application Pending
                   </span>
                 )}
-                {campaignStatus === "none" && (
+                {session?.user && campaignStatus === "none" && (
                   <Link
                     href={`/story/${slug}/audition`}
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber text-void font-semibold text-[13px] rounded-full hover:bg-amber-light transition-all duration-200 hover:shadow-lg hover:shadow-amber/15 cursor-pointer"

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { playerCharacters, users } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { characterMarks, playerCharacters, users } from "@/server/db/schema";
+import { asc, eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createPlayerCharacterSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
@@ -63,7 +63,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .leftJoin(users, eq(playerCharacters.userId, users.id))
       .where(eq(playerCharacters.storyId, storyId));
 
-    return NextResponse.json({ data: result });
+    // Attach marks per character via a single story-scoped query. Mark counts
+    // per story stay small (a handful per character) so this is cheaper than
+    // a per-character roundtrip.
+    const allMarks = await db.query.characterMarks.findMany({
+      where: eq(characterMarks.storyId, storyId),
+      orderBy: [asc(characterMarks.createdAt)],
+    });
+    const marksByChar = new Map<string, typeof allMarks>();
+    for (const m of allMarks) {
+      const list = marksByChar.get(m.characterId);
+      if (list) list.push(m);
+      else marksByChar.set(m.characterId, [m]);
+    }
+    const enriched = result.map((c) => ({ ...c, marks: marksByChar.get(c.id) ?? [] }));
+
+    return NextResponse.json({ data: enriched });
   } catch (error) {
     console.error("GET /api/stories/[storyId]/campaign/characters error:", error);
     return NextResponse.json(

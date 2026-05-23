@@ -12,6 +12,7 @@ export const CAMPAIGN_TURN_TYPES = [
   "ooc",
   "illustration",
   "scene-break",
+  "story-moment",
 ] as const;
 
 export type CampaignTurnType = (typeof CAMPAIGN_TURN_TYPES)[number];
@@ -27,10 +28,11 @@ export const STORY_TURN_TYPES = [
   "reaction",
   "description",
   "scene-break",
+  "story-moment",
   "illustration",
 ] as const satisfies readonly CampaignTurnType[];
 export const PLAYER_STORY_TURN_TYPES = ["action", "dialogue", "reaction", "description"] as const satisfies readonly CampaignTurnType[];
-export const GM_ONLY_TURN_TYPES = ["narration", "consequence", "roll-request", "illustration", "scene-break"] as const satisfies readonly CampaignTurnType[];
+export const GM_ONLY_TURN_TYPES = ["narration", "consequence", "roll-request", "illustration", "scene-break", "story-moment"] as const satisfies readonly CampaignTurnType[];
 
 export function isCampaignTurnType(value: string): value is CampaignTurnType {
   return (CAMPAIGN_TURN_TYPES as readonly string[]).includes(value);
@@ -89,6 +91,10 @@ export const rollMetadataSchema = z.object({
   die: z.string().optional(),
   dice: z.tuple([z.number(), z.number()]).optional(),
   fatal: z.boolean().optional(),
+  // Server-set hint that this roll is worth marking (partial/failure or
+  // any fatal-flagged roll). The client uses it to surface a quiet
+  // "Mark this moment?" prompt to the character's owner.
+  markEligible: z.boolean().optional(),
   rollRequestTurnId: z.string().optional(),
 });
 
@@ -113,6 +119,21 @@ export const sceneBreakMetadataSchema = z.object({
   locationId: z.string().uuid().optional(),
 });
 
+export const storyMomentMetadataSchema = z.object({
+  mood: z.string().max(50).optional(),
+  subtext: tidyText(500).optional(),
+  importance: z.enum(["normal", "major"]).optional(),
+  startsScene: z.boolean().optional(),
+  // GM-set: invites players to mark their character ("this leaves a mark").
+  markEligible: z.boolean().optional(),
+});
+
+// Plain consequence metadata. Bargain consequences use bargainMetadataSchema;
+// other consequences may carry a markEligible flag the GM sets via composer.
+export const consequenceMetadataSchema = z.object({
+  markEligible: z.boolean().optional(),
+});
+
 export const illustrationMetadataSchema = z.object({
   imageUrl: z.string().optional(),
   caption: z.string().optional(),
@@ -128,11 +149,14 @@ export const bargainMetadataSchema = z.object({
   responseUserId: z.string().max(64).optional(),
   responseLabel: tidyText(120).optional(),
   resolvedAt: z.string().max(80).optional(),
+  // Server-set when the bargain is accepted — a debt was taken on.
+  markEligible: z.boolean().optional(),
 });
 
 export type RollRequestMetadata = z.infer<typeof rollRequestMetadataSchema>;
 export type RollMetadata = z.infer<typeof rollMetadataSchema>;
 export type SceneBreakMetadata = z.infer<typeof sceneBreakMetadataSchema>;
+export type StoryMomentMetadata = z.infer<typeof storyMomentMetadataSchema>;
 export type IllustrationMetadata = z.infer<typeof illustrationMetadataSchema>;
 export type BargainMetadata = z.infer<typeof bargainMetadataSchema>;
 
@@ -164,10 +188,22 @@ export function parseSceneBreakMetadata(metadata: string | null | undefined) {
   return parseMetadata(metadata, sceneBreakMetadataSchema);
 }
 
+export function parseStoryMomentMetadata(metadata: string | null | undefined) {
+  return parseMetadata(metadata, storyMomentMetadataSchema);
+}
+
+export function isLegacyCinematicSceneBreak(type: string, metadata: string | null | undefined): boolean {
+  return type === "scene-break" && parseSceneBreakMetadata(metadata)?.cinematic === true;
+}
+
 export function parseIllustrationMetadata(metadata: string | null | undefined) {
   return parseMetadata(metadata, illustrationMetadataSchema);
 }
 
 export function parseBargainMetadata(metadata: string | null | undefined) {
   return parseMetadata(metadata, bargainMetadataSchema);
+}
+
+export function parseConsequenceMetadata(metadata: string | null | undefined) {
+  return parseMetadata(metadata, consequenceMetadataSchema);
 }

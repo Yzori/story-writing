@@ -6,7 +6,7 @@ import {
   spectatorReactions,
   users,
 } from "@/server/db/schema";
-import { eq, and, gt, isNull, sql } from "drizzle-orm";
+import { eq, and, gt, isNull } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
 import { spectatorReactionSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
     if (rl) return rl;
 
-    const { storyId, sessionId } = await params;
+    const { sessionId } = await params;
     const url = new URL(request.url);
     const afterParam = url.searchParams.get("after");
 
@@ -100,6 +100,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const rows = await db
       .select({
+        id: spectatorReactions.id,
         type: spectatorReactions.type,
         createdAt: spectatorReactions.createdAt,
         displayName: users.displayName,

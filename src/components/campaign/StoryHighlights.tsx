@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { Turn } from "@/types/campaign";
-import { parseRollMetadata, parseSceneBreakMetadata } from "@/lib/campaign-turns";
+import { parseRollMetadata, parseSceneBreakMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
 
 // ── Session Highlights ───────────────────────────────────────
 
@@ -27,6 +27,8 @@ export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlig
       gmTurnCount++;
     } else if (t.type === "scene-break") {
       sceneCount++;
+    } else if (t.type === "story-moment") {
+      gmTurnCount++;
     } else {
       playerTurnCount++;
     }
@@ -57,6 +59,16 @@ export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlig
           color: "text-text-secondary",
         });
       }
+    }
+
+    if (t.type === "story-moment") {
+      const meta = parseStoryMomentMetadata(t.metadata);
+      highlights.push({
+        icon: meta?.mood === "death" ? "\uD83D\uDC80" : meta?.importance === "major" ? "\u2726" : "\u2728",
+        label: "Story Moment",
+        text: t.content,
+        color: meta?.mood === "death" ? "text-rose" : "text-amber",
+      });
     }
   }
 

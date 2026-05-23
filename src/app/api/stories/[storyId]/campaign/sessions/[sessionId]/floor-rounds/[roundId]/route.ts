@@ -155,9 +155,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .insert(campaignTurns)
           .values({
             sessionId,
-            userId: submission.userId,
+            userId: submission.userId ?? round.openedBy,
             characterId: submission.characterId,
-            type: submission.type,
+            type: submission.userId ? submission.type : "narration",
             content: submission.content,
             metadata: JSON.stringify({ floorRoundId: roundId, floorSubmissionId: submission.id }),
             sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,

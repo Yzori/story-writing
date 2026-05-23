@@ -18,7 +18,12 @@ interface ContextPanelProps {
   onPushEvent: (content: string) => void;
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
   onSceneBreak?: (title: string, mood: string, aspects?: string[]) => void;
-  onStoryMoment?: (text: string, mood: string, subtext?: string) => void;
+  onStoryMoment?: (
+    text: string,
+    mood: string,
+    subtext?: string,
+    options?: { importance?: "normal" | "major"; leavesMark?: boolean },
+  ) => void;
   onAddIllustration?: (imageUrl: string, caption?: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -29,6 +34,13 @@ interface ContextPanelProps {
   onClocksChange?: (clocks: ProgressClockData[]) => void;
   /** When true, panel renders without the `hidden xl:flex` constraint (use inside a mobile drawer). */
   forceVisible?: boolean;
+  /** Character marks (scars/vows/debts/memories) — passed through to CharacterSheetSection. */
+  currentUserId?: string | null;
+  onCreateMark?: (
+    characterId: string,
+    input: { kind: import("@/types/campaign").CharacterMarkKind; text: string },
+  ) => Promise<unknown>;
+  onRemoveMark?: (characterId: string, markId: string) => Promise<void>;
 }
 
 export default function ContextPanel({
@@ -49,6 +61,9 @@ export default function ContextPanel({
   clocks = [],
   onClocksChange,
   forceVisible = false,
+  currentUserId = null,
+  onCreateMark,
+  onRemoveMark,
 }: ContextPanelProps) {
   const visibilityClass = forceVisible ? "flex w-full" : "hidden lg:flex w-[280px] xl:w-[300px]";
   const [pushEventText, setPushEventText] = useState("");
@@ -66,6 +81,8 @@ export default function ContextPanel({
   const [storyMomentText, setStoryMomentText] = useState("");
   const [storyMomentSubtext, setStoryMomentSubtext] = useState("");
   const [storyMomentMood, setStoryMomentMood] = useState("ominous");
+  const [storyMomentMajor, setStoryMomentMajor] = useState(false);
+  const [storyMomentLeavesMark, setStoryMomentLeavesMark] = useState(false);
 
   // Illustration form state
   const [showIllustrationForm, setShowIllustrationForm] = useState(false);
@@ -155,6 +172,10 @@ export default function ContextPanel({
             onChangeCharacterStatus={onChangeCharacterStatus}
             onInviteNewCharacter={onInviteNewCharacter}
             roster={roster}
+            currentUserId={currentUserId}
+            isGM={isGM}
+            onCreateMark={onCreateMark}
+            onRemoveMark={onRemoveMark}
           />
 
           {/* GM Actions */}
@@ -318,15 +339,44 @@ export default function ContextPanel({
                     {/* Text */}
                     <div>
                       <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Text</label>
-                      <input
-                        type="text"
+                      <textarea
                         value={storyMomentText}
                         onChange={(e) => setStoryMomentText(e.target.value)}
                         placeholder="The temple crumbles around them..."
-                        className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
+                        className="w-full min-h-20 resize-none bg-black/30 border border-border rounded-lg px-3 py-2 text-xs leading-relaxed text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
                         autoFocus
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setStoryMomentMajor((value) => !value)}
+                      className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-all ${
+                        storyMomentMajor
+                          ? "border-amber/35 bg-amber/[0.06] text-amber"
+                          : "border-border bg-subtle/20 text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase tracking-wider font-bold">Major Moment</span>
+                      <span className={`relative h-[18px] w-8 rounded-full transition-colors ${storyMomentMajor ? "bg-amber" : "bg-subtle"}`}>
+                        <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-void transition-transform ${storyMomentMajor ? "translate-x-4" : "translate-x-0.5"}`} />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setStoryMomentLeavesMark((value) => !value)}
+                      className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-all ${
+                        storyMomentLeavesMark
+                          ? "border-rose/35 bg-rose/[0.06] text-rose"
+                          : "border-border bg-subtle/20 text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase tracking-wider font-bold">Leaves a Mark</span>
+                      <span className={`relative h-[18px] w-8 rounded-full transition-colors ${storyMomentLeavesMark ? "bg-rose" : "bg-subtle"}`}>
+                        <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-void transition-transform ${storyMomentLeavesMark ? "translate-x-4" : "translate-x-0.5"}`} />
+                      </span>
+                    </button>
 
                     {/* Subtext */}
                     <div>
@@ -378,10 +428,20 @@ export default function ContextPanel({
                       <button
                         onClick={() => {
                           if (storyMomentText.trim()) {
-                            onStoryMoment?.(storyMomentText.trim(), storyMomentMood, storyMomentSubtext.trim() || undefined);
+                            onStoryMoment?.(
+                              storyMomentText.trim(),
+                              storyMomentMood,
+                              storyMomentSubtext.trim() || undefined,
+                              {
+                                importance: storyMomentMajor ? "major" : "normal",
+                                leavesMark: storyMomentLeavesMark,
+                              },
+                            );
                             setStoryMomentText("");
                             setStoryMomentSubtext("");
                             setStoryMomentMood("ominous");
+                            setStoryMomentMajor(false);
+                            setStoryMomentLeavesMark(false);
                             setShowStoryMomentForm(false);
                           }
                         }}
@@ -565,9 +625,9 @@ export default function ContextPanel({
   const stats = myCharacter ? parseStats(myCharacter.stats) : null;
 
   // Check if the current player is spectating (dead/spectating, no active char)
-  const currentUserId = myCharacter?.userId;
-  const isSpectating = currentUserId && !myCharacter?.status?.match(/^active$/) && !characters.some(
-    (c) => c.userId === currentUserId && c.id !== myCharacter?.id && c.status === "active"
+  const myUserId = myCharacter?.userId;
+  const isSpectating = myUserId && !myCharacter?.status?.match(/^active$/) && !characters.some(
+    (c) => c.userId === myUserId && c.id !== myCharacter?.id && c.status === "active"
   );
 
   return (

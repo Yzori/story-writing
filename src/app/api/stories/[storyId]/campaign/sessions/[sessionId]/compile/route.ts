@@ -5,8 +5,9 @@ import {
   chapters,
   campaignSessions,
   campaignTurns,
+  characterMarks,
   playerCharacters,
-  users,
+  storyMomentAmplifications,
 } from "@/server/db/schema";
 import { eq, and, asc, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -130,11 +131,48 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Marks created during THIS session — included as an italic coda at
+    // the end of the compiled chapter ("Aria carried it from then on — …").
+    const sessionMarks = await db
+      .select({
+        kind: characterMarks.kind,
+        text: characterMarks.text,
+        characterName: playerCharacters.name,
+      })
+      .from(characterMarks)
+      .leftJoin(playerCharacters, eq(characterMarks.characterId, playerCharacters.id))
+      .where(and(eq(characterMarks.sessionId, sessionId), eq(characterMarks.storyId, storyId)))
+      .orderBy(asc(characterMarks.createdAt));
+
+    const amplificationRows = await db
+      .select({
+        turnId: storyMomentAmplifications.turnId,
+        count: sql<number>`count(*)`,
+      })
+      .from(storyMomentAmplifications)
+      .where(eq(storyMomentAmplifications.sessionId, sessionId))
+      .groupBy(storyMomentAmplifications.turnId);
+    const amplificationCounts = new Map(
+      amplificationRows.map((row) => [row.turnId, Number(row.count ?? 0)]),
+    );
+
     // Compile turns to HTML
     const compiledHTML = compileSessionToHTML({
       sessionTitle: campaignSession.title,
       sessionOpening: campaignSession.opening,
-      turns,
+      turns: turns.map((turn) => ({
+        ...turn,
+        audienceAmplificationCount: amplificationCounts.get(turn.id) ?? 0,
+      })),
+      marks: sessionMarks
+        .filter((m): m is { kind: string; text: string; characterName: string } =>
+          !!m.characterName && ["scar", "vow", "debt", "memory"].includes(m.kind),
+        )
+        .map((m) => ({
+          kind: m.kind as "scar" | "vow" | "debt" | "memory",
+          text: m.text,
+          characterName: m.characterName,
+        })),
     });
 
     // Determine next sort order for the new chapter

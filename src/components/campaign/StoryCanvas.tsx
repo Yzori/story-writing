@@ -12,9 +12,12 @@ import DiceRoller from "./DiceRoller";
 import SessionLobby from "./SessionLobby";
 import MapOverlay from "./MapOverlay";
 import SceneBreakRenderer from "./SceneBreakRenderer";
+import StoryMomentRenderer from "./StoryMomentRenderer";
 import SessionEndedBlock from "./SessionEndedBlock";
 import TurnRenderer from "./TurnRenderer";
-import { parseSceneBreakMetadata } from "@/lib/campaign-turns";
+import MarkPromptRail from "./MarkPromptRail";
+import PreviouslyOn from "./PreviouslyOn";
+import { isLegacyCinematicSceneBreak, parseSceneBreakMetadata } from "@/lib/campaign-turns";
 import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
 import { useTurnEditing } from "@/hooks/use-turn-editing";
 import {
@@ -37,7 +40,15 @@ interface StoryCanvasProps {
   sessionOpening: string | null;
   showDiceRoller: boolean;
   onCloseDiceRoller: () => void;
-  onCommitDraft: (content: string, type: string) => void | Promise<void>;
+  onCommitDraft: (content: string, type: string, metadata?: string) => void | Promise<void>;
+  onRequestRoll?: (
+    targetUserId: string,
+    attribute: string,
+    reason: string,
+    onSuccess: string,
+    onFailure: string,
+    fatal?: boolean,
+  ) => void | Promise<void>;
   onOfferBargain?: (body: {
     targetUserId: string;
     targetLabel: string;
@@ -88,6 +99,13 @@ interface StoryCanvasProps {
     roundId: string,
     body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
   ) => Promise<void>;
+  onCreateMark?: (
+    characterId: string,
+    input: { kind: import("@/types/campaign").CharacterMarkKind; text: string; sourceTurnId?: string },
+  ) => Promise<unknown>;
+  storyMomentAmplificationCounts?: Record<string, number>;
+  amplifiedStoryMomentIds?: Set<string>;
+  onAmplifyStoryMoment?: (turnId: string) => void;
   showSessionChrome?: boolean;
 }
 
@@ -116,6 +134,7 @@ function getCurrentSceneState(storyTurns: Turn[]): CurrentSceneState {
     if (turn?.type === "scene-break" && turn.metadata) {
       const meta = parseSceneBreakMetadata(turn.metadata);
       if (!meta) continue;
+      if (meta.cinematic) continue;
       return {
         currentMood: meta.mood ?? null,
         currentSceneAspects: meta.aspects ?? [],
@@ -165,6 +184,7 @@ export default function StoryCanvas({
   showDiceRoller,
   onCloseDiceRoller,
   onCommitDraft,
+  onRequestRoll,
   onOfferBargain,
   onResolveBargain,
   onPassTurn,
@@ -195,6 +215,10 @@ export default function StoryCanvas({
   onVoteFloorSubmission,
   onUpdateAudienceSpark,
   onUpdateFloorRound,
+  onCreateMark,
+  storyMomentAmplificationCounts = {},
+  amplifiedStoryMomentIds,
+  onAmplifyStoryMoment,
   showSessionChrome = true,
 }: StoryCanvasProps) {
   const TURNS_PER_BATCH = 50;
@@ -275,7 +299,7 @@ export default function StoryCanvas({
     floorRound,
   });
   const canWrite = interactionState.canWriteDirect;
-  const canShowComposer = canWrite || (isActive && !isCharGone);
+  const canShowComposer = !spectatorMode && (canWrite || (isActive && !isCharGone));
 
   // Find who's currently writing for the lock screen
   const activeChar = characters.find((c) => c.userId === activePlayerId);
@@ -283,12 +307,42 @@ export default function StoryCanvas({
     ? `${activeChar.user?.displayName ?? "Someone"} (${activeChar.name})`
     : "another player";
 
-  // Auto-scroll on new turns
+  // Auto-scroll on new turns — but only if the reader is already near the
+  // bottom. If they scrolled up to re-read earlier prose, leave them there.
+  const [showNewTurnHint, setShowNewTurnHint] = useState(false);
+  const STICK_THRESHOLD_PX = 120;
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    if (distanceFromBottom <= STICK_THRESHOLD_PX) {
+      el.scrollTop = el.scrollHeight;
+      timeoutId = setTimeout(() => setShowNewTurnHint(false), 0);
+    } else {
+      timeoutId = setTimeout(() => setShowNewTurnHint(true), 0);
     }
+    return () => clearTimeout(timeoutId);
   }, [storyTurns.length]);
+
+  // Clear the hint when the user manually scrolls back to the bottom.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceFromBottom <= STICK_THRESHOLD_PX) setShowNewTurnHint(false);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setShowNewTurnHint(false);
+  }, []);
 
   // Reset visible window when turns are cleared (e.g. new session)
   const prevTotalTurnsRef = useRef(storyTurns.length);
@@ -330,6 +384,11 @@ export default function StoryCanvas({
 
   // Group turns into paragraphs
   const paragraphs = useMemo(() => groupIntoParagraphs(visibleTurns), [visibleTurns]);
+
+  const markPromptTurns = useMemo(
+    () => [...storyTurns, ...logTurns].sort((a, b) => a.sortOrder - b.sortOrder),
+    [storyTurns, logTurns],
+  );
 
   // Stable player color map
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
@@ -491,6 +550,11 @@ export default function StoryCanvas({
           />
         )}
 
+        {/* "Previously, on…" — anchors the player in last week's beats. */}
+        {storyId && (
+          <PreviouslyOn storyId={storyId} sessionId={sessionId} />
+        )}
+
         {/* Story Content */}
         <div className="w-full max-w-[650px] mb-8">
           <div className="mb-8 sm:mb-12">
@@ -512,7 +576,13 @@ export default function StoryCanvas({
               </p>
             </div>
           ) : (
-            <div className="space-y-5 break-words font-serif text-[17px] leading-[1.85] sm:space-y-6 sm:text-[19px] sm:leading-[2.1]">
+            <div
+              className="space-y-5 break-words font-serif text-[17px] leading-[1.85] sm:space-y-6 sm:text-[19px] sm:leading-[2.1]"
+              aria-live="polite"
+              aria-relevant="additions text"
+              aria-atomic="false"
+              aria-label="Story stream"
+            >
               {/* Load earlier turns */}
               {hasEarlierTurns && (
                 <div className="flex justify-center !mb-8">
@@ -535,7 +605,30 @@ export default function StoryCanvas({
 
                 // Scene-break turns render as ornamental dividers
                 if (group[0].type === "scene-break") {
+                  if (isLegacyCinematicSceneBreak(group[0].type, group[0].metadata)) {
+                    return (
+                      <StoryMomentRenderer
+                        key={group[0].id}
+                        turn={group[0]}
+                        amplificationCount={storyMomentAmplificationCounts[group[0].id] ?? 0}
+                        amplifiedByMe={amplifiedStoryMomentIds?.has(group[0].id) ?? false}
+                        onAmplify={onAmplifyStoryMoment}
+                      />
+                    );
+                  }
                   return <SceneBreakRenderer key={group[0].id} turn={group[0]} />;
+                }
+
+                if (group[0].type === "story-moment") {
+                  return (
+                    <StoryMomentRenderer
+                      key={group[0].id}
+                      turn={group[0]}
+                      amplificationCount={storyMomentAmplificationCounts[group[0].id] ?? 0}
+                      amplifiedByMe={amplifiedStoryMomentIds?.has(group[0].id) ?? false}
+                      onAmplify={onAmplifyStoryMoment}
+                    />
+                  );
                 }
 
                 // Illustration turns render as visual breaks in the prose
@@ -547,7 +640,10 @@ export default function StoryCanvas({
 
                 return (
                   <div key={group[0].id}>
-                    <p className="relative group/para">
+                    {/* role="paragraph" — keeps the screen-reader semantic
+                        of a paragraph while allowing nested <button>s
+                        (bargain interactions + inline edit). */}
+                    <div role="paragraph" className="relative group/para">
                       {group.map((turn, ti) => (
                         <TurnRenderer
                           key={turn.id}
@@ -562,21 +658,22 @@ export default function StoryCanvas({
                         />
                       ))}
                       {pi === paragraphs.length - 1 && !groupHasEditable && (
-                        <span className="inline-block w-1.5 h-5 bg-amber/40 ml-1 animate-pulse align-middle" />
+                        <span aria-hidden="true" className="inline-block w-1.5 h-5 bg-amber/40 ml-1 animate-pulse align-middle" />
                       )}
                       {groupHasEditable && editingTurnId !== editableTurn.id && (
                         <button
                           onClick={() => handleEditClick(editableTurn)}
                           className="inline-flex items-center gap-1 ml-2 align-middle opacity-70 group-hover/para:opacity-100 transition-opacity cursor-pointer"
                           title="Edit (30s window)"
+                          aria-label="Edit this turn (30 second window)"
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50" aria-hidden="true">
                             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                           </svg>
                           <span className="text-[11px] text-amber/70 uppercase tracking-wider">edit</span>
                         </button>
                       )}
-                    </p>
+                    </div>
                     {/* Inline edit box */}
                     <AnimatePresence>
                       {editingTurnId && editableTurn && group.some((t) => t.id === editingTurnId) && (
@@ -638,6 +735,18 @@ export default function StoryCanvas({
           />
         )}
 
+        {/* Mark-the-moment prompts — quietly surfaces eligible roll +
+            accepted-bargain turns for the player to mark. Hidden in
+            spectator mode. */}
+        {!spectatorMode && onCreateMark && (
+          <MarkPromptRail
+            turns={markPromptTurns}
+            myCharacter={myCharacter ?? null}
+            currentUserId={currentUserId}
+            onCreateMark={onCreateMark}
+          />
+        )}
+
         {/* Draft Box */}
         {canShowComposer && (
           <AdventureDraftComposer
@@ -645,6 +754,7 @@ export default function StoryCanvas({
             isGM={isGM}
             myCharName={myCharName}
             onCommitDraft={onCommitDraft}
+            onRequestRoll={onRequestRoll}
             onOfferBargain={onOfferBargain}
             onCreateFloorRound={onCreateFloorRound}
             hasActiveCrossroads={!!floorRound}
@@ -653,7 +763,7 @@ export default function StoryCanvas({
         )}
 
         {/* Waiting state — replaces draft box when player is locked out */}
-        {!isGM && activePlayerId && !isMyTurn && isActive && !isCharGone && (() => {
+        {!spectatorMode && !isGM && activePlayerId && !isMyTurn && isActive && !isCharGone && (() => {
           const isGMTurn = !characters.some((c) => c.userId === activePlayerId && c.status === "active");
           return (
             <div className="w-full max-w-[650px] mt-auto">
@@ -768,16 +878,24 @@ export default function StoryCanvas({
         )}
       </div>
 
+      {/* "↓ New turn" affordance — appears when the reader is scrolled up
+          and new content arrives. Click to scroll back to the live edge. */}
+      {showNewTurnHint && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          aria-label="Scroll to newest turn"
+          className="absolute bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-full border border-amber/35 bg-black/80 px-4 py-2 text-[11px] font-display uppercase tracking-[0.18em] text-amber shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md transition-colors hover:bg-amber/15 sm:bottom-32"
+        >
+          ↓ New turn
+        </button>
+      )}
+
       {/* Dice Roller — appears when GM requests a roll from this player */}
       <DiceRoller
         visible={showDiceRoller}
         onClose={onCloseDiceRoller}
-        onRollSubmit={async (intent) => {
-          const result = await onRollSubmit(intent);
-          // Let the player read the outcome before the modal slides away.
-          setTimeout(onCloseDiceRoller, 2500);
-          return result;
-        }}
+        onRollSubmit={onRollSubmit}
         characters={characters}
         currentUserId={currentUserId}
         preSelectedAttribute={pendingRollRequest?.attribute ?? null}

@@ -9,6 +9,7 @@ import { useSpectatorSession } from "@/hooks/use-spectator-session";
 import { useSpectatorPresence } from "@/hooks/use-spectator-presence";
 import { useSpectatorFloorRound } from "@/hooks/use-spectator-floor-round";
 import { useSpectatorReactions } from "@/hooks/use-spectator-reactions";
+import { useSpectatorStoryMoments } from "@/hooks/use-spectator-story-moments";
 import { useSpectatorTips } from "@/hooks/use-spectator-tips";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
@@ -20,6 +21,7 @@ import TipButton from "@/components/campaign/spectator/TipButton";
 import TipModal from "@/components/campaign/spectator/TipModal";
 import TipEntry from "@/components/campaign/spectator/TipEntry";
 import AudiencePulsePanel from "@/components/campaign/spectator/AudiencePulsePanel";
+import ChorusPulsePanel from "@/components/campaign/spectator/ChorusPulsePanel";
 import type { PlayerCharacter } from "@/types/campaign";
 
 export default function WatchSessionPage() {
@@ -38,13 +40,18 @@ export default function WatchSessionPage() {
   } = useSpectatorSession(storyId, sessionId);
 
   const { spectatorCount: presenceCount, token } = useSpectatorPresence(storyId, sessionId);
-  const { floorRound, sendPulse } = useSpectatorFloorRound(storyId, sessionId, token);
+  const { floorRound, sendPulse, sendSpark } = useSpectatorFloorRound(storyId, sessionId, token);
 
   // Use whichever count is fresher (presence heartbeat updates less frequently)
   const spectatorCount = Math.max(pollSpectatorCount, presenceCount);
 
   // Reactions & tips
   const { reactions, sendReaction } = useSpectatorReactions(storyId, sessionId, token);
+  const {
+    counts: storyMomentAmplificationCounts,
+    amplifiedTurnIds,
+    amplify,
+  } = useSpectatorStoryMoments(storyId, sessionId, token);
   const { tips, balance, sendTip } = useSpectatorTips(storyId, sessionId);
 
   const [logCollapsed, setLogCollapsed] = useState(false);
@@ -250,12 +257,16 @@ export default function WatchSessionPage() {
             myCharacterStatus={null}
             onLastWords={() => {}}
             spectatorMode
+            storyMomentAmplificationCounts={storyMomentAmplificationCounts}
+            amplifiedStoryMomentIds={amplifiedTurnIds}
+            onAmplifyStoryMoment={amplify}
           />
 
           {/* Floating reactions overlay */}
           <FloatingReactions reactions={reactions} />
+          <ChorusPulsePanel reactions={reactions} />
 
-          <AudiencePulsePanel floorRound={floorRound} onPulse={sendPulse} />
+          <AudiencePulsePanel floorRound={floorRound} onPulse={sendPulse} onSpark={sendSpark} balance={balance} />
 
           {/* Tips feed — bottom-left of canvas */}
           {tips.length > 0 && !floorRound && (

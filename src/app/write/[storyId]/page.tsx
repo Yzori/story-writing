@@ -284,11 +284,11 @@ function apiBibleToLocal(entries: ApiBibleEntry[]): StoryBible {
       return {
         id: e.id,
         name: e.name,
-        aliases: extra.aliases || [],
+        aliases: stringArray(extra.aliases),
         description: e.description || "",
-        imageDataUrl: extra.imageDataUrl || null,
-        color: extra.color || "#D4A574",
-        tags: extra.tags || [],
+        imageDataUrl: nullableString(extra.imageDataUrl),
+        color: stringValue(extra.color, "#D4A574"),
+        tags: stringArray(extra.tags),
         createdAt: new Date(e.createdAt).getTime(),
         updatedAt: new Date(e.updatedAt).getTime(),
       };
@@ -302,8 +302,8 @@ function apiBibleToLocal(entries: ApiBibleEntry[]): StoryBible {
         id: e.id,
         name: e.name,
         description: e.description || "",
-        imageDataUrl: extra.imageDataUrl || null,
-        tags: extra.tags || [],
+        imageDataUrl: nullableString(extra.imageDataUrl),
+        tags: stringArray(extra.tags),
         createdAt: new Date(e.createdAt).getTime(),
         updatedAt: new Date(e.updatedAt).getTime(),
       };
@@ -318,7 +318,7 @@ function apiBibleToLocal(entries: ApiBibleEntry[]): StoryBible {
         title: e.name,
         content: e.description || "",
         category: (extra.category || "custom") as "lore" | "timeline" | "research" | "custom",
-        tags: extra.tags || [],
+        tags: stringArray(extra.tags),
         createdAt: new Date(e.createdAt).getTime(),
         updatedAt: new Date(e.updatedAt).getTime(),
       };
@@ -334,6 +334,20 @@ function parseDetails(details: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 interface ApiChapter {
@@ -496,6 +510,7 @@ export default function WriteStoryPage() {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const webtoonScriptTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const pendingWebtoonScriptSave = useRef<{ chapterId: string; outline: string } | null>(null);
 
   const {
     saveState,
@@ -682,12 +697,32 @@ export default function WriteStoryPage() {
     []
   );
 
+  const flushWebtoonScriptSave = useCallback(async () => {
+    if (webtoonScriptTimer.current) {
+      clearTimeout(webtoonScriptTimer.current);
+      webtoonScriptTimer.current = null;
+    }
+
+    const pending = pendingWebtoonScriptSave.current;
+    if (!pending) return true;
+
+    const json = await mutateJson(`/api/stories/${storyId}/chapters/${pending.chapterId}`, {
+      body: { outline: pending.outline },
+      errorMessage: "Couldn't save episode script",
+    });
+
+    if (!json) return false;
+    pendingWebtoonScriptSave.current = null;
+    return true;
+  }, [mutateJson, storyId]);
+
   const handleSelectChapter = useCallback(
     async (id: string) => {
       if (isSwitching.current) return; // Prevent concurrent switches
       isSwitching.current = true;
       try {
-        const flushed = await flushPendingSaves();
+        const flushed =
+          (await flushPendingSaves()) && (await flushWebtoonScriptSave());
         if (!canProceedAfterSaveFlush(flushed)) {
           toast(getSaveGuardMessage("chapter-switch"), "error");
           return;
@@ -697,7 +732,7 @@ export default function WriteStoryPage() {
         isSwitching.current = false;
       }
     },
-    [updateProject, flushPendingSaves, toast]
+    [updateProject, flushPendingSaves, flushWebtoonScriptSave, toast]
   );
 
   // ── Keyboard shortcuts + typing detection ────────────────
@@ -753,7 +788,9 @@ export default function WriteStoryPage() {
       // Ctrl+S — manual save
       if (isMod && e.key.toLowerCase() === "s" && !e.shiftKey) {
         e.preventDefault();
-        flushPendingSaves();
+        void flushPendingSaves().then((ok) => {
+          if (ok) void flushWebtoonScriptSave();
+        });
       }
       // Ctrl+/ — keyboard shortcuts panel
       if (isMod && e.key === "/") {
@@ -776,13 +813,22 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen, togglePanel, flushPendingSaves, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
+  }, [commandOpen, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
 
   useEffect(() => {
     return () => {
       if (webtoonScriptTimer.current) clearTimeout(webtoonScriptTimer.current);
+      const pending = pendingWebtoonScriptSave.current;
+      if (!pending) return;
+
+      fetch(`/api/stories/${storyId}/chapters/${pending.chapterId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outline: pending.outline }),
+        keepalive: true,
+      }).catch(() => {});
     };
-  }, []);
+  }, [storyId]);
 
   const activeChapter = useMemo(() =>
     project?.chapters.find((c) => c.id === project.activeChapterId),
@@ -957,7 +1003,8 @@ export default function WriteStoryPage() {
       // flush fails (network down, conflict, etc.) we must NOT publish —
       // doing so ships whatever the server already had, silently dropping
       // the user's recent edits.
-      const flushed = await flushPendingSaves();
+      const flushed =
+        (await flushPendingSaves()) && (await flushWebtoonScriptSave());
       if (!canProceedAfterSaveFlush(flushed)) {
         toast(getSaveGuardMessage("publish"), "error");
         setPublishDialog((p) => ({ ...p, open: false }));
@@ -999,7 +1046,7 @@ export default function WriteStoryPage() {
       toast("Network error. Try again.", "error");
       setPublishDialog((p) => ({ ...p, open: false }));
     }
-  }, [publishDialog.chapterId, storyId, storySlug, flushPendingSaves, toast, updateProject]);
+  }, [publishDialog.chapterId, storyId, storySlug, flushPendingSaves, flushWebtoonScriptSave, toast, updateProject]);
 
   const copyShareLink = useCallback(async () => {
     if (!publishDialog.shareUrl) return;
@@ -1026,7 +1073,8 @@ export default function WriteStoryPage() {
         toast("Cannot delete the only chapter", "error");
         return;
       }
-      const flushed = await flushPendingSaves();
+      const flushed =
+        (await flushPendingSaves()) && (await flushWebtoonScriptSave());
       if (!canProceedAfterSaveFlush(flushed)) {
         toast(getSaveGuardMessage("delete"), "error");
         return;
@@ -1079,7 +1127,7 @@ export default function WriteStoryPage() {
         if (snapshot) setProject(snapshot);
       }
     },
-    [storyId, project, flushPendingSaves, toast]
+    [storyId, project, flushPendingSaves, flushWebtoonScriptSave, toast]
   );
 
   const handleUpdateContent = useCallback(
@@ -1383,14 +1431,12 @@ export default function WriteStoryPage() {
       }));
 
       if (webtoonScriptTimer.current) clearTimeout(webtoonScriptTimer.current);
+      pendingWebtoonScriptSave.current = { chapterId, outline };
       webtoonScriptTimer.current = setTimeout(() => {
-        void mutateJson(`/api/stories/${storyId}/chapters/${chapterId}`, {
-          body: { outline },
-          errorMessage: "Couldn't save episode script",
-        });
+        void flushWebtoonScriptSave();
       }, 700);
     },
-    [mutateJson, storyId, updateProject]
+    [flushWebtoonScriptSave, updateProject]
   );
 
   // ── Search handler ────────────────────────────────────────

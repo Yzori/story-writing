@@ -16,9 +16,13 @@ export default async function middleware(req: NextRequest) {
     if (csrfResult) return csrfResult;
   }
 
+  const isPublicCampaignWatch = /^\/campaign\/[^/]+\/watch\/[^/]+\/?$/.test(pathname);
+
   // Check if the path requires authentication
-  const isProtected = protectedPaths.some((path) => pathname.startsWith(path))
-    || protectedPatterns.some((pattern) => pattern.test(pathname));
+  const isProtected = !isPublicCampaignWatch && (
+    protectedPaths.some((path) => pathname.startsWith(path))
+    || protectedPatterns.some((pattern) => pattern.test(pathname))
+  );
   const isAuthPage = authPages.some((path) => pathname.startsWith(path));
   const needsAuthState = isProtected || isAuthPage;
   const token = needsAuthState

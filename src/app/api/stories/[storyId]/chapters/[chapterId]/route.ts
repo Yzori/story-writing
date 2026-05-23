@@ -55,15 +55,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const price = TIER_PRICES[chapter.gatingTier] ?? 0;
-    const isEarlyAccess =
-      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
-    const requiresUnlock = price > 0 || Boolean(isEarlyAccess);
-
-    if (chapter.status === "published" && !requiresUnlock) {
-      return NextResponse.json({ data: chapter });
-    }
-
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
     });
@@ -88,6 +79,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       isCollab = !!collab;
     }
     const canBypassReaderGate = isOwner || isCollab;
+    const hasPublicStoryAccess =
+      story.isPublic &&
+      (story.status === "published" || story.writingMode === "campaign");
 
     // Draft chapters require ownership or collaborator access
     if (chapter.status !== "published") {
@@ -98,6 +92,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         );
       }
     }
+
+    if (chapter.status === "published" && !canBypassReaderGate && !hasPublicStoryAccess) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Chapter not found" } },
+        { status: 404 }
+      );
+    }
+
+    const price = TIER_PRICES[chapter.gatingTier] ?? 0;
+    const isEarlyAccess =
+      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
+    const requiresUnlock = price > 0 || Boolean(isEarlyAccess);
 
     if (chapter.status === "published" && !canBypassReaderGate) {
       if (requiresUnlock) {

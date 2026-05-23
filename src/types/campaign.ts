@@ -58,6 +58,20 @@ export interface PlayerCharacter {
     displayName: string | null;
     avatarUrl: string | null;
   };
+  marks?: CharacterMark[];
+}
+
+export type CharacterMarkKind = "scar" | "vow" | "debt" | "memory";
+
+export interface CharacterMark {
+  id: string;
+  characterId: string;
+  storyId: string;
+  sessionId: string | null;
+  sourceTurnId: string | null;
+  kind: CharacterMarkKind;
+  text: string;
+  createdAt: string;
 }
 
 export interface SessionRosterEntry {

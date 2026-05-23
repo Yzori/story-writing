@@ -23,8 +23,10 @@ type CommitAdventureDraftOptions = {
   myCharName: string | null;
   isListening: boolean;
   stopListening: () => void;
-  onCommitDraft: (content: string, type: string) => void | Promise<void>;
+  onCommitDraft: (content: string, type: string, metadata?: string) => void | Promise<void>;
   clearDraft: () => void;
+  /** Optional metadata JSON to attach to the turn (e.g. `{markEligible:true}`). */
+  metadata?: string;
 };
 
 function loadDraftContent(sessionId: string) {
@@ -54,6 +56,7 @@ export async function commitAdventureDraft({
   stopListening,
   onCommitDraft,
   clearDraft,
+  metadata,
 }: CommitAdventureDraftOptions) {
   if (!draftContent.trim()) return false;
 
@@ -68,7 +71,7 @@ export async function commitAdventureDraft({
     stopListening();
   }
 
-  await onCommitDraft(content, draftType);
+  await onCommitDraft(content, draftType, metadata);
   clearDraft();
   return true;
 }
