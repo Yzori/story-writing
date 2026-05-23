@@ -232,7 +232,10 @@ export default function StoryCanvas({
   const isActive = sessionStatus === "active";
   const [lastWordsContent, setLastWordsContent] = useState("");
   const [lastWordsSent, setLastWordsSent] = useState(false);
-  const isDraft = sessionStatus === "draft";
+  // Lobby is a one-time threshold ritual. Suppress it if the session already
+  // has turns — applies to sessions that started before the lobby existed,
+  // or any future case where status drifts back to "draft" with play history.
+  const isDraft = sessionStatus === "draft" && storyTurns.length === 0;
   const isCharDead = myCharacterStatus === "dead";
   const isCharRetired = myCharacterStatus === "retired";
   const isCharGone = isCharDead || isCharRetired;
