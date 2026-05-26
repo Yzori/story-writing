@@ -8,6 +8,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { compressImage } from "@/client/images";
 import { parseOverlays, createTextOverlay } from "@/types/editor";
 import type { TextOverlay } from "@/types/editor";
+import { getSeamClass, nextSeam, normalizeSeam, SEAM_LABELS, SEAM_ORDER } from "./webtoon-seam";
+import WebtoonReader from "@/components/reader/WebtoonReader";
 import OverlayRenderer from "./OverlayRenderer";
 
 // ---------------------------------------------------------------------------
@@ -26,6 +28,7 @@ interface Panel {
   imageFit: string;
   aspectRatio: string | null;
   overlays: string;
+  seam?: string;
 }
 
 interface PanelFrame {
@@ -34,7 +37,13 @@ interface PanelFrame {
   fit?: PanelImageFit;
 }
 
-type PanelSizing = "standard" | "tall" | "wide" | "custom";
+interface StoryAsset {
+  id: string;
+  name: string;
+  imageData: string;
+}
+
+type PanelSizing = "standard" | "tall" | "wide" | "custom" | "full";
 type PanelLayout = "single" | "side-by-side" | "stack" | "top-pair-bottom" | "left-stack-right" | "grid-4" | "mosaic-5" | "grid-6";
 type PanelBorderStyle = "none" | "black" | "light";
 type PanelImageFit = "cover" | "contain" | "top";
@@ -44,6 +53,7 @@ const SIZING_OPTIONS: { key: PanelSizing; label: string; ratio: string }[] = [
   { key: "standard", label: "Standard", ratio: "" },
   { key: "tall", label: "Tall", ratio: "9:16" },
   { key: "wide", label: "Wide", ratio: "16:9" },
+  { key: "full", label: "Full screen", ratio: "9:19.5" },
 ];
 
 const PANEL_LAYOUT_OPTIONS: { key: PanelLayout; label: string; minFrames: number }[] = [
@@ -77,6 +87,11 @@ interface WebtoonEditorProps {
   scriptContent?: string;
   onScriptUpdate?: (content: string) => void;
   onWordCountChange?: (count: number) => void;
+  /**
+   * Widen the panel board for the standalone webtoon route, which gives the
+   * comic its own full-bleed canvas instead of the 680px prose column.
+   */
+  wide?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +136,8 @@ function stripHtmlToLines(html: string): string[] {
 function getSizingStyle(sizing: string, aspectRatio: string | null): React.CSSProperties {
   if (sizing === "tall") return { aspectRatio: "9/16", objectFit: "cover" as const };
   if (sizing === "wide") return { aspectRatio: "16/9", objectFit: "cover" as const };
+  // "full" ≈ one phone viewport tall (reader-true at phone width); not device-vh.
+  if (sizing === "full") return { aspectRatio: "9/19.5", objectFit: "cover" as const };
   if (sizing === "custom" && aspectRatio) {
     const [w, h] = aspectRatio.split(":").map(Number);
     if (w && h) return { aspectRatio: `${w}/${h}`, objectFit: "cover" as const };
@@ -254,6 +271,7 @@ function PanelCard({
   onReplaceFrame,
   onClearFrame,
   onOverlaysChange,
+  onSeamChange,
   onDuplicate,
   onDelete,
 }: {
@@ -273,6 +291,7 @@ function PanelCard({
   onReplaceFrame: (panel: Panel, frameIndex: number, file: File) => void;
   onClearFrame: (panel: Panel, frameIndex: number) => void;
   onOverlaysChange: (id: string, overlays: TextOverlay[]) => void;
+  onSeamChange?: (id: string, seam: string) => void;
   onDuplicate: (panel: Panel) => void;
   onDelete: (id: string) => void;
 }) {
@@ -327,6 +346,20 @@ function PanelCard({
       transition={{ duration: 0.3, ease: "easeOut" }}
       className={`overflow-hidden group rounded-none border-0 ${borderClasses.card} ${className}`}
     >
+      {/* Seam control — pacing of the gap ABOVE this panel (never on the first). */}
+      {editable && onSeamChange && index > 0 && (
+        <div className="relative flex justify-center -mt-3 mb-1">
+          <button
+            type="button"
+            onClick={() => onSeamChange(panel.id, nextSeam(panel.seam))}
+            className="pointer-events-auto rounded-full border border-border bg-void/80 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-text-ghost opacity-0 backdrop-blur-sm transition-opacity hover:text-amber group-hover:opacity-100"
+            title="Pacing above this panel — click to cycle (flush → beat → pause → breath → blackout)"
+          >
+            ⤵ {SEAM_LABELS[normalizeSeam(panel.seam)]}
+          </button>
+        </div>
+      )}
+
       {/* Image area */}
       <div className="relative">
         {/* Panel number / reorder handle */}
@@ -854,6 +887,7 @@ function ReorderablePanelCard({
   onReplaceFrame,
   onClearFrame,
   onOverlaysChange,
+  onSeamChange,
   onDuplicate,
   onDelete,
 }: {
@@ -872,6 +906,7 @@ function ReorderablePanelCard({
   onReplaceFrame: (panel: Panel, frameIndex: number, file: File) => void;
   onClearFrame: (panel: Panel, frameIndex: number) => void;
   onOverlaysChange: (id: string, overlays: TextOverlay[]) => void;
+  onSeamChange?: (id: string, seam: string) => void;
   onDuplicate: (panel: Panel) => void;
   onDelete: (id: string) => void;
 }) {
@@ -902,6 +937,7 @@ function ReorderablePanelCard({
         onReplaceFrame={onReplaceFrame}
         onClearFrame={onClearFrame}
         onOverlaysChange={onOverlaysChange}
+        onSeamChange={onSeamChange}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
       />
@@ -976,6 +1012,264 @@ function ScriptPane({
 }
 
 // ---------------------------------------------------------------------------
+// Tools rails (standalone studio)
+// ---------------------------------------------------------------------------
+
+function railOption(active: boolean) {
+  return `rounded-md border px-2 py-1.5 text-[11px] transition-colors ${
+    active
+      ? "border-amber/40 bg-amber/[0.08] text-amber"
+      : "border-border text-text-secondary hover:border-border-active hover:text-paper"
+  }`;
+}
+
+function InspectorGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">{label}</p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+/** Left rail: a jumpable, thumbnailed outline of the episode's panels. */
+function PanelOutlineRail({
+  panels,
+  selectedId,
+  onSelect,
+  onAdd,
+  onDelete,
+  isUploading,
+}: {
+  panels: Panel[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onAdd: () => void;
+  onDelete: (id: string) => void;
+  isUploading: boolean;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 border-b border-border-subtle px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-text-ghost">
+        Panels
+      </div>
+      <div className="flex-1 space-y-2 overflow-y-auto p-3">
+        {panels.map((panel, i) => {
+          const frames = parseFrames(panel);
+          const thumb = frames.find((f) => f.imageData)?.imageData;
+          return (
+            <div
+              key={panel.id}
+              className={`group/row flex items-center gap-2 rounded-lg border p-1.5 transition-colors ${
+                panel.id === selectedId ? "border-amber/40 bg-amber/[0.06]" : "border-border hover:border-border-active"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onSelect(panel.id)}
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-amber/15 text-[10px] font-bold text-amber">
+                  {i + 1}
+                </span>
+                <span className="h-10 w-8 shrink-0 overflow-hidden rounded bg-elevated">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {thumb ? <img src={thumb} alt="" className="h-full w-full object-cover" /> : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-text-secondary">
+                  {panel.caption || `Panel ${i + 1}`}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(panel.id)}
+                title="Delete panel"
+                aria-label={`Delete panel ${i + 1}`}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-ghost opacity-0 transition-opacity hover:text-rose focus-visible:opacity-100 group-hover/row:opacity-100"
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2.5 3.5h9M5.5 3.5V2.5h3v1M3.5 3.5l.5 8a1 1 0 001 1h4a1 1 0 001-1l.5-8" />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={isUploading}
+          className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-2 text-[11px] text-text-ghost transition-colors hover:border-amber/30 hover:text-amber disabled:opacity-50"
+        >
+          + Panel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Right rail: inspector for the selected panel. */
+function PanelInspector({
+  panel,
+  index,
+  onLayout,
+  onSizing,
+  onBorder,
+  onFit,
+  onSeam,
+  onAddBubble,
+}: {
+  panel: Panel;
+  index: number;
+  onLayout: (id: string, layout: PanelLayout) => void;
+  onSizing: (id: string, sizing: PanelSizing) => void;
+  onBorder: (id: string, border: PanelBorderStyle) => void;
+  onFit: (id: string, fit: PanelImageFit) => void;
+  onSeam: (id: string, seam: string) => void;
+  onAddBubble: (id: string) => void;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 border-b border-border-subtle px-4 py-3 font-display text-sm text-paper">
+        Panel {index + 1}
+      </div>
+      <div className="flex-1 space-y-5 overflow-y-auto p-4">
+        <InspectorGroup label="Layout">
+          {PANEL_LAYOUT_OPTIONS.map((o) => (
+            <button key={o.key} type="button" onClick={() => onLayout(panel.id, o.key)} className={railOption(panel.layout === o.key)}>
+              {o.label}
+            </button>
+          ))}
+        </InspectorGroup>
+        <InspectorGroup label="Sizing">
+          {SIZING_OPTIONS.map((o) => (
+            <button key={o.key} type="button" onClick={() => onSizing(panel.id, o.key)} className={railOption(panel.sizing === o.key)}>
+              {o.label}
+            </button>
+          ))}
+        </InspectorGroup>
+        <InspectorGroup label="Frame fit">
+          {IMAGE_FIT_OPTIONS.map((o) => (
+            <button key={o.key} type="button" onClick={() => onFit(panel.id, o.key)} className={railOption(panel.imageFit === o.key)}>
+              {o.label}
+            </button>
+          ))}
+        </InspectorGroup>
+        <InspectorGroup label="Gutter">
+          {PANEL_BORDER_OPTIONS.map((o) => (
+            <button key={o.key} type="button" onClick={() => onBorder(panel.id, o.key)} className={railOption(panel.borderStyle === o.key)}>
+              {o.label}
+            </button>
+          ))}
+        </InspectorGroup>
+        {index > 0 && (
+          <InspectorGroup label="Seam above">
+            {SEAM_ORDER.map((s) => (
+              <button key={s} type="button" onClick={() => onSeam(panel.id, s)} className={railOption(normalizeSeam(panel.seam) === s)}>
+                {SEAM_LABELS[s]}
+              </button>
+            ))}
+          </InspectorGroup>
+        )}
+        <button
+          type="button"
+          onClick={() => onAddBubble(panel.id)}
+          className="w-full rounded-md border border-amber/25 bg-amber/[0.05] px-3 py-2 text-[12px] text-amber transition-colors hover:bg-amber/[0.1]"
+        >
+          + Speech bubble
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Reusable image library; click an asset to drop it into the selected panel. */
+function AssetTray({
+  assets,
+  canApply,
+  onUpload,
+  onApply,
+  onDelete,
+}: {
+  assets: StoryAsset[];
+  canApply: boolean;
+  onUpload: (file: File) => void;
+  onApply: (imageData: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col border-t border-border-subtle">
+      <div className="flex shrink-0 items-center justify-between px-4 py-3">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Assets</span>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="rounded-md border border-border px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+        >
+          + Upload
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onUpload(f);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <div className="max-h-48 overflow-y-auto px-3 pb-3">
+        {assets.length === 0 ? (
+          <p className="px-1 text-[11px] italic text-text-ghost">
+            Upload characters or backgrounds to reuse across episodes.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {!canApply && (
+              <p className="rounded-md border border-border bg-elevated/60 px-2 py-1.5 text-[10px] text-text-ghost">
+                Select a panel to place assets.
+              </p>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              {assets.map((asset) => (
+                <div key={asset.id} className="group relative aspect-square overflow-hidden rounded-md border border-border bg-elevated">
+                  <button
+                    type="button"
+                    onClick={() => canApply && onApply(asset.imageData)}
+                    disabled={!canApply}
+                    title={canApply ? `Add “${asset.name || "asset"}” to the selected panel` : "Select a panel first"}
+                    className="h-full w-full disabled:cursor-not-allowed"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={asset.imageData} alt={asset.name} className="h-full w-full object-cover" />
+                  </button>
+                  {!canApply && (
+                    <div className="pointer-events-none absolute inset-0 bg-void/45 backdrop-blur-[1px]" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onDelete(asset.id)}
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-void/80 text-text-ghost opacity-0 transition-opacity hover:text-rose group-hover:opacity-100"
+                    aria-label="Delete asset"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                      <line x1="2" y1="2" x2="8" y2="8" />
+                      <line x1="8" y1="2" x2="2" y2="8" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
@@ -987,6 +1281,7 @@ export default function WebtoonEditor({
   scriptContent,
   onScriptUpdate,
   onWordCountChange,
+  wide = false,
 }: WebtoonEditorProps) {
   const [panels, setPanels] = useState<Panel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -996,6 +1291,13 @@ export default function WebtoonEditor({
   const [previewMode, setPreviewMode] = useState(false);
   const [uploadMode, setUploadMode] = useState<UploadMode>("frames");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Tools rail (wide / standalone studio): selected panel drives the right
+  // inspector; the rails collapse to drawers below lg.
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
+  const [leftRailOpen, setLeftRailOpen] = useState(false);
+  const [rightRailOpen, setRightRailOpen] = useState(false);
+  // Reusable per-story image library (asset tray).
+  const [assets, setAssets] = useState<StoryAsset[]>([]);
 
   // Debounce timers for caption saves
   const captionTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -1080,6 +1382,7 @@ export default function WebtoonEditor({
         imageFit?: PanelImageFit;
         aspectRatio?: string | null;
         overlays?: string;
+        seam?: string;
       }>
     ) => {
       const res = await fetch(apiBase, {
@@ -1138,6 +1441,85 @@ export default function WebtoonEditor({
     },
     [patchPanel]
   );
+
+  const handleSeamChange = useCallback(
+    (id: string, seam: string) => {
+      setPanels((prev) => prev.map((p) =>
+        p.id === id ? { ...p, seam } : p
+      ));
+      patchPanel(id, { seam });
+    },
+    [patchPanel]
+  );
+
+  // Add a speech bubble to a panel from the inspector rail (overlays are JSON).
+  const handleAddBubbleToPanel = useCallback(
+    (id: string) => {
+      const panel = panelsRef.current.find((p) => p.id === id);
+      const next = [...parseOverlays(panel?.overlays || "[]"), createTextOverlay(50, 40)];
+      const serialized = JSON.stringify(next);
+      setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, overlays: serialized } : p)));
+      patchPanel(id, { overlays: serialized });
+    },
+    [patchPanel]
+  );
+
+  // ── Asset library (reusable images dropped into panel frames) ────────────
+  const assetsBase = `/api/stories/${storyId}/assets`;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(assetsBase)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => { if (!cancelled && Array.isArray(json?.data)) setAssets(json.data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [assetsBase]);
+
+  const handleUploadAsset = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    try {
+      const imageData = await compressImage(file, PANEL_MAX_DIM, PANEL_QUALITY);
+      const res = await fetch(assetsBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name.replace(/\.[^.]+$/, "").slice(0, 120), imageData }),
+      });
+      const json = await res.json();
+      if (res.ok && json.data) setAssets((prev) => [json.data, ...prev]);
+      else setUploadError(json?.error?.message || "Couldn't save that asset.");
+    } catch {
+      setUploadError("Couldn't process that image.");
+    }
+  }, [assetsBase]);
+
+  const handleDeleteAsset = useCallback(async (id: string) => {
+    const deletedAsset = assets.find((a) => a.id === id) ?? null;
+    setAssets((prev) => prev.filter((a) => a.id !== id));
+
+    try {
+      const res = await fetch(`${assetsBase}/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Asset delete failed");
+      setUploadError(null);
+    } catch {
+      if (deletedAsset) setAssets((prev) => [deletedAsset, ...prev]);
+      setUploadError("Asset couldn't be deleted. It has been restored locally.");
+    }
+  }, [assets, assetsBase]);
+
+  // Drop an asset into a panel as a new frame (bytes copied inline, like uploads).
+  const handleApplyAssetToPanel = useCallback((panelId: string, imageData: string) => {
+    const panel = panelsRef.current.find((p) => p.id === panelId);
+    if (!panel) return;
+    const frames = [...parseFrames(panel), { id: `${Date.now()}`, imageData }].slice(0, 6);
+    const layout = panel.layout && panel.layout !== "single"
+      ? (panel.layout as PanelLayout)
+      : getDefaultLayout(frames.length);
+    const framesJson = JSON.stringify(frames);
+    const primary = frames[0]?.imageData || imageData;
+    setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, imageData: primary, frames: framesJson, layout } : p)));
+    patchPanel(panelId, { imageData: primary, frames: framesJson, layout });
+  }, [patchPanel]);
 
   const handleImageFitChange = useCallback(
     (id: string, imageFit: PanelImageFit) => {
@@ -1362,6 +1744,7 @@ export default function WebtoonEditor({
             imageFit: (panel.imageFit || "cover") as PanelImageFit,
             aspectRatio: panel.aspectRatio,
             overlays: panel.overlays || "[]",
+            seam: panel.seam || "none",
           },
         ]);
       } catch (err) {
@@ -1525,6 +1908,10 @@ export default function WebtoonEditor({
     [panels]
   );
   const captionedCount = panels.filter((panel) => panel.caption.trim().length > 0).length;
+  // The rails (left outline / right inspector) only show in the standalone
+  // studio (`wide`) while editing — not in preview, script, or the narrow shell.
+  const showRails = wide && editable && !previewMode && viewMode === "visual";
+  const selectedPanel = panels.find((p) => p.id === selectedPanelId) ?? panels[0] ?? null;
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -1541,6 +1928,19 @@ export default function WebtoonEditor({
       {/* Toolbar */}
       <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border bg-surface/30 backdrop-blur-sm">
         <div className="flex items-center gap-4">
+          {showRails && (
+            <button
+              type="button"
+              onClick={() => setLeftRailOpen(true)}
+              className="lg:hidden rounded-md border border-border p-1.5 text-text-ghost transition-colors hover:text-paper"
+              aria-label="Open panel list"
+              title="Panels"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M2 4h12M2 8h12M2 12h8" />
+              </svg>
+            </button>
+          )}
           <div className="flex items-center gap-3 text-xs text-text-ghost">
             <span className="flex items-center gap-1.5">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1559,6 +1959,20 @@ export default function WebtoonEditor({
         </div>
 
         <div className="flex items-center gap-2">
+          {showRails && (
+            <button
+              type="button"
+              onClick={() => setRightRailOpen(true)}
+              className="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-ghost transition-colors hover:border-amber/25 hover:text-amber"
+              aria-label="Open panel inspector"
+              title="Panel inspector"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3h10v10H3z" />
+                <path d="M6 6h4M6 8.5h4M6 11h2" />
+              </svg>
+            </button>
+          )}
           {editable && viewMode === "visual" && (
             <button
               type="button"
@@ -1642,10 +2056,53 @@ export default function WebtoonEditor({
         </div>
       </div>
 
+      <div className="relative flex min-h-0 flex-1">
+        {/* Left rail — panel outline + asset tray (desktop) */}
+        {showRails && (
+          <aside className="hidden shrink-0 flex-col border-r border-border bg-surface/40 lg:flex lg:w-56">
+            <div className="min-h-0 flex-1">
+              <PanelOutlineRail
+                panels={panels}
+                selectedId={selectedPanel?.id ?? null}
+                onSelect={setSelectedPanelId}
+                onAdd={handleAddStoryboardPanel}
+                onDelete={handleDeletePanel}
+                isUploading={isUploading}
+              />
+            </div>
+            <AssetTray
+              assets={assets}
+              canApply={!!selectedPanel}
+              onUpload={handleUploadAsset}
+              onApply={(img) => selectedPanel && handleApplyAssetToPanel(selectedPanel.id, img)}
+              onDelete={handleDeleteAsset}
+            />
+          </aside>
+        )}
+
       {/* Main content area */}
-      {viewMode === "visual" ? (
+      {viewMode === "visual" && previewMode ? (
+        /* Reader-true preview: the actual WebtoonReader at phone width, so the
+           author sees the real thumb-scroll — seams, lettering, and all. */
+        <div className="flex-1 overflow-y-auto bg-void/40 py-8">
+          <div className="mx-auto w-[390px] max-w-full px-3">
+            <div className="flex h-[720px] flex-col overflow-hidden rounded-[2rem] border border-border bg-void shadow-2xl shadow-black/50">
+              <div className="flex shrink-0 items-center justify-center border-b border-border-subtle bg-black/40 py-2">
+                <span className="h-1 w-16 rounded-full bg-text-ghost/30" />
+              </div>
+              <WebtoonReader
+                storyId={storyId}
+                chapterId={chapterId}
+                chapterTitle=""
+                panels={panels}
+              />
+            </div>
+            <p className="mt-3 text-center text-[11px] text-text-ghost">Reader preview · phone width</p>
+          </div>
+        </div>
+      ) : viewMode === "visual" ? (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-[680px] mx-auto px-3 sm:px-4 md:px-6 py-6 md:py-8">
+          <div className={`${wide ? "max-w-[920px]" : "max-w-[680px]"} mx-auto px-3 sm:px-4 md:px-6 py-6 md:py-8`}>
             {/* Panel list */}
             {panelCount > 0 && editable && !previewMode ? (
               <Reorder.Group
@@ -1672,9 +2129,12 @@ export default function WebtoonEditor({
                       onReplaceFrame={handleReplaceFrame}
                       onClearFrame={handleClearFrame}
                       onOverlaysChange={handleOverlaysChange}
+                      onSeamChange={handleSeamChange}
                       onDuplicate={handleDuplicatePanel}
                       onDelete={handleDeletePanel}
-                      className="w-full"
+                      className={`w-full ${getSeamClass(panel.seam, i === 0)} ${
+                        showRails && panel.id === selectedPanel?.id ? "outline outline-1 outline-offset-4 outline-amber/35" : ""
+                      }`}
                     />
                   ))}
                 </AnimatePresence>
@@ -1689,6 +2149,9 @@ export default function WebtoonEditor({
                       index={i}
                       editable={editable && !previewMode}
                       isSaving={false}
+                      className={`w-full ${getSeamClass(panel.seam, i === 0)} ${
+                        showRails && panel.id === selectedPanel?.id ? "outline outline-1 outline-offset-4 outline-amber/35" : ""
+                      }`}
                       onCaptionChange={handleCaptionChange}
                       onSizingChange={handleSizingChange}
                       onLayoutChange={handleLayoutChange}
@@ -1701,7 +2164,6 @@ export default function WebtoonEditor({
                       onOverlaysChange={handleOverlaysChange}
                       onDuplicate={handleDuplicatePanel}
                       onDelete={handleDeletePanel}
-                      className="w-full"
                     />
                   ))}
                 </AnimatePresence>
@@ -1840,6 +2302,98 @@ export default function WebtoonEditor({
           </div>
         </div>
       )}
+
+        {/* Right rail — inspector for the selected panel (desktop) */}
+        {showRails && (
+          <aside className="hidden shrink-0 border-l border-border bg-surface/40 lg:block lg:w-64">
+            {selectedPanel ? (
+              <PanelInspector
+                panel={selectedPanel}
+                index={panels.findIndex((p) => p.id === selectedPanel.id)}
+                onLayout={handleLayoutChange}
+                onSizing={handleSizingChange}
+                onBorder={handleBorderStyleChange}
+                onFit={handleImageFitChange}
+                onSeam={handleSeamChange}
+                onAddBubble={handleAddBubbleToPanel}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-4 text-center text-[12px] text-text-ghost">
+                Add a panel to start.
+              </div>
+            )}
+          </aside>
+        )}
+      </div>
+
+      {/* Mobile rail drawers (below lg) */}
+      <AnimatePresence>
+        {showRails && leftRailOpen && (
+          <div className="lg:hidden">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+              onClick={() => setLeftRailOpen(false)}
+            />
+            <motion.div
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 38 }}
+              className="fixed inset-y-0 left-0 z-[61] flex w-[260px] max-w-[88vw] flex-col border-r border-border bg-surface/95 backdrop-blur-2xl"
+            >
+              <div className="min-h-0 flex-1">
+                <PanelOutlineRail
+                  panels={panels}
+                  selectedId={selectedPanel?.id ?? null}
+                  onSelect={(id) => { setSelectedPanelId(id); setLeftRailOpen(false); }}
+                  onAdd={handleAddStoryboardPanel}
+                  onDelete={handleDeletePanel}
+                  isUploading={isUploading}
+                />
+              </div>
+              <AssetTray
+                assets={assets}
+                canApply={!!selectedPanel}
+                onUpload={handleUploadAsset}
+                onApply={(img) => selectedPanel && handleApplyAssetToPanel(selectedPanel.id, img)}
+                onDelete={handleDeleteAsset}
+              />
+            </motion.div>
+          </div>
+        )}
+        {showRails && rightRailOpen && (
+          <div className="lg:hidden">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+              onClick={() => setRightRailOpen(false)}
+            />
+            <motion.div
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 38 }}
+              className="fixed inset-y-0 right-0 z-[61] w-[280px] max-w-[88vw] border-l border-border bg-surface/95 backdrop-blur-2xl"
+            >
+              {selectedPanel ? (
+                <PanelInspector
+                  panel={selectedPanel}
+                  index={panels.findIndex((p) => p.id === selectedPanel.id)}
+                  onLayout={handleLayoutChange}
+                  onSizing={handleSizingChange}
+                  onBorder={handleBorderStyleChange}
+                  onFit={handleImageFitChange}
+                  onSeam={handleSeamChange}
+                  onAddBubble={handleAddBubbleToPanel}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center p-4 text-center text-[12px] text-text-ghost">
+                  Add a panel to start.
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

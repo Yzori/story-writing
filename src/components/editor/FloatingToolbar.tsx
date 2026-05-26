@@ -5,12 +5,42 @@ import { Editor } from "@tiptap/react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ParagraphAlignmentKey } from "./extensions/ParagraphAlignment";
 
+/**
+ * Inline-formatting features a {@link FloatingToolbar} can expose. Editors pass
+ * a subset so poetry/screenplay/prose share one toolbar instead of each rolling
+ * their own. `emdash` is opt-in (only requested by poetry); everything else is
+ * on by default for the prose/illustrated editors.
+ */
+export type ToolbarFeature =
+  | "bold"
+  | "italic"
+  | "strike"
+  | "highlight"
+  | "headings"
+  | "alignment"
+  | "blockquote"
+  | "sceneBreak"
+  | "emdash";
+
+const DEFAULT_FEATURES: ToolbarFeature[] = [
+  "bold",
+  "italic",
+  "strike",
+  "highlight",
+  "headings",
+  "alignment",
+  "blockquote",
+  "sceneBreak",
+];
+
 interface FloatingToolbarProps {
   editor: Editor;
   onComment?: () => void;
+  /** Which formatting controls to render. Defaults to the full prose set. */
+  features?: ToolbarFeature[];
 }
 
-function ToolbarButton({
+export function ToolbarButton({
   active,
   onClick,
   children,
@@ -107,10 +137,11 @@ const ALIGNMENT_OPTIONS: Array<{
   },
 ];
 
-function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
+function FloatingToolbar({ editor, onComment, features = DEFAULT_FEATURES }: FloatingToolbarProps) {
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0, flipBelow: false });
   const activeParagraphAlignment = getActiveParagraphAlignment(editor);
+  const has = (f: ToolbarFeature) => features.includes(f);
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +208,118 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
     };
   }, [editor, updatePosition]);
 
+  // Group the controls so a divider only appears between non-empty segments —
+  // poetry (bold/italic/strike/emdash) and prose (full set) both render cleanly.
+  const segments: React.ReactNode[][] = [];
+
+  const inline: React.ReactNode[] = [];
+  if (has("bold")) {
+    inline.push(
+      <ToolbarButton key="bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)" ariaLabel="Bold (Ctrl+B)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M4 3h5.5a2.5 2.5 0 0 1 0 5H4V3z" />
+          <path d="M4 8h6.5a2.5 2.5 0 0 1 0 5H4V8z" />
+        </svg>
+      </ToolbarButton>,
+    );
+  }
+  if (has("italic")) {
+    inline.push(
+      <ToolbarButton key="italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)" ariaLabel="Italic (Ctrl+I)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <line x1="10" y1="3" x2="6" y2="13" />
+          <line x1="7" y1="3" x2="12" y2="3" />
+          <line x1="4" y1="13" x2="9" y2="13" />
+        </svg>
+      </ToolbarButton>,
+    );
+  }
+  if (has("strike")) {
+    inline.push(
+      <ToolbarButton key="strike" active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough" ariaLabel="Strikethrough">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M5 3.5C5 3.5 6 3 8 3c2.5 0 3.5 1.5 3.5 2.5 0 1-0.5 1.5-1 2" />
+          <path d="M11 12.5c0 0-1 0.5-3 0.5-2.5 0-3.5-1.5-3.5-2.5 0-1 0.5-1.5 1-2" />
+          <line x1="3" y1="8" x2="13" y2="8" />
+        </svg>
+      </ToolbarButton>,
+    );
+  }
+  if (has("highlight")) {
+    inline.push(
+      <ToolbarButton key="highlight" active={editor.isActive("highlight")} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Highlight" ariaLabel="Highlight">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 2l5 5-6.5 6.5L2 8z" />
+          <path d="M2 13.5h4" />
+        </svg>
+      </ToolbarButton>,
+    );
+  }
+  if (inline.length) segments.push(inline);
+
+  if (has("headings")) {
+    segments.push([
+      <ToolbarButton key="h1" active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1 (Ctrl+Alt+1)" ariaLabel="Heading 1 (Ctrl+Alt+1)">
+        <span className="text-xs font-bold leading-none">H1</span>
+      </ToolbarButton>,
+      <ToolbarButton key="h2" active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2 (Ctrl+Alt+2)" ariaLabel="Heading 2 (Ctrl+Alt+2)">
+        <span className="text-xs font-bold leading-none">H2</span>
+      </ToolbarButton>,
+    ]);
+  }
+
+  if (has("alignment")) {
+    segments.push(
+      ALIGNMENT_OPTIONS.map((option) => (
+        <ToolbarButton key={option.key} active={activeParagraphAlignment === option.key} onClick={() => editor.chain().focus().setParagraphAlignment(option.key).run()} title={option.title} ariaLabel={option.title}>
+          {option.icon}
+        </ToolbarButton>
+      )),
+    );
+  }
+
+  const block: React.ReactNode[] = [];
+  if (has("blockquote")) {
+    block.push(
+      <ToolbarButton key="blockquote" active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Quote" ariaLabel="Quote">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M3 5h3L4.5 11H3" />
+          <path d="M9 5h3L10.5 11H9" />
+        </svg>
+      </ToolbarButton>,
+    );
+  }
+  if (has("sceneBreak")) {
+    block.push(
+      <ToolbarButton key="sceneBreak" onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Scene Break — insert a divider between scenes" ariaLabel="Scene Break — insert a divider between scenes">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
+          <circle cx="12" cy="12" r="1" fill="currentColor" />
+        </svg>
+      </ToolbarButton>,
+    );
+  }
+  if (has("emdash")) {
+    block.push(
+      <ToolbarButton key="emdash" onClick={() => editor.chain().focus().insertContent("—").run()} title="Em dash" ariaLabel="Em dash">
+        <span className="text-sm font-semibold leading-none">—</span>
+      </ToolbarButton>,
+    );
+  }
+  if (block.length) segments.push(block);
+
+  if (onComment) {
+    segments.push([
+      <ToolbarButton key="comment" onClick={onComment} title="Add Comment" ariaLabel="Add Comment">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-3 2.5V11H3a1 1 0 0 1-1-1V4z" />
+          <line x1="5.5" y1="5.5" x2="10.5" y2="5.5" />
+          <line x1="5.5" y1="8" x2="8.5" y2="8" />
+        </svg>
+      </ToolbarButton>,
+    ]);
+  }
+
   return (
     <AnimatePresence>
       {show && (
@@ -190,140 +333,12 @@ function FloatingToolbar({ editor, onComment }: FloatingToolbarProps) {
           onMouseDown={(e) => e.preventDefault()}
         >
           <div ref={toolbarRef} role="toolbar" aria-orientation="horizontal" aria-label="Text formatting" className="flex items-center gap-0.5 px-2 py-1.5 rounded-full bg-elevated/95 backdrop-blur-xl border border-border-active shadow-2xl shadow-black/50 relative overflow-x-auto scrollbar-hide">
-            {/* Bold */}
-            <ToolbarButton
-              active={editor.isActive("bold")}
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              title="Bold (Ctrl+B)"
-              ariaLabel="Bold (Ctrl+B)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M4 3h5.5a2.5 2.5 0 0 1 0 5H4V3z" />
-                <path d="M4 8h6.5a2.5 2.5 0 0 1 0 5H4V8z" />
-              </svg>
-            </ToolbarButton>
-
-            {/* Italic */}
-            <ToolbarButton
-              active={editor.isActive("italic")}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              title="Italic (Ctrl+I)"
-              ariaLabel="Italic (Ctrl+I)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="10" y1="3" x2="6" y2="13" />
-                <line x1="7" y1="3" x2="12" y2="3" />
-                <line x1="4" y1="13" x2="9" y2="13" />
-              </svg>
-            </ToolbarButton>
-
-            {/* Strikethrough */}
-            <ToolbarButton
-              active={editor.isActive("strike")}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-              title="Strikethrough"
-              ariaLabel="Strikethrough"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M5 3.5C5 3.5 6 3 8 3c2.5 0 3.5 1.5 3.5 2.5 0 1-0.5 1.5-1 2" />
-                <path d="M11 12.5c0 0-1 0.5-3 0.5-2.5 0-3.5-1.5-3.5-2.5 0-1 0.5-1.5 1-2" />
-                <line x1="3" y1="8" x2="13" y2="8" />
-              </svg>
-            </ToolbarButton>
-
-            {/* Highlight */}
-            <ToolbarButton
-              active={editor.isActive("highlight")}
-              onClick={() => editor.chain().focus().toggleHighlight().run()}
-              title="Highlight"
-              ariaLabel="Highlight"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 2l5 5-6.5 6.5L2 8z" />
-                <path d="M2 13.5h4" />
-              </svg>
-            </ToolbarButton>
-
-            <Divider />
-
-            {/* Heading 1 */}
-            <ToolbarButton
-              active={editor.isActive("heading", { level: 1 })}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              title="Heading 1 (Ctrl+Alt+1)"
-              ariaLabel="Heading 1 (Ctrl+Alt+1)"
-            >
-              <span className="text-xs font-bold leading-none">H1</span>
-            </ToolbarButton>
-
-            {/* Heading 2 */}
-            <ToolbarButton
-              active={editor.isActive("heading", { level: 2 })}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              title="Heading 2 (Ctrl+Alt+2)"
-              ariaLabel="Heading 2 (Ctrl+Alt+2)"
-            >
-              <span className="text-xs font-bold leading-none">H2</span>
-            </ToolbarButton>
-
-            <Divider />
-
-            {ALIGNMENT_OPTIONS.map((option) => (
-              <ToolbarButton
-                key={option.key}
-                active={activeParagraphAlignment === option.key}
-                onClick={() => editor.chain().focus().setParagraphAlignment(option.key).run()}
-                title={option.title}
-                ariaLabel={option.title}
-              >
-                {option.icon}
-              </ToolbarButton>
+            {segments.map((seg, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <Divider />}
+                {seg}
+              </React.Fragment>
             ))}
-
-            <Divider />
-
-            {/* Blockquote */}
-            <ToolbarButton
-              active={editor.isActive("blockquote")}
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              title="Quote"
-              ariaLabel="Quote"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M3 5h3L4.5 11H3" />
-                <path d="M9 5h3L10.5 11H9" />
-              </svg>
-            </ToolbarButton>
-
-            {/* Scene Break */}
-            <ToolbarButton
-              onClick={() => editor.chain().focus().setHorizontalRule().run()}
-              title="Scene Break — insert a divider between scenes"
-              ariaLabel="Scene Break — insert a divider between scenes"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
-                <circle cx="12" cy="12" r="1" fill="currentColor" />
-              </svg>
-            </ToolbarButton>
-
-            {onComment && (
-              <>
-                <Divider />
-                {/* Comment */}
-                <ToolbarButton
-                  onClick={onComment}
-                  title="Add Comment"
-                  ariaLabel="Add Comment"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-3 2.5V11H3a1 1 0 0 1-1-1V4z" />
-                    <line x1="5.5" y1="5.5" x2="10.5" y2="5.5" />
-                    <line x1="5.5" y1="8" x2="8.5" y2="8" />
-                  </svg>
-                </ToolbarButton>
-              </>
-            )}
 
             {/* Bubble tail */}
             {!position.flipBelow && (

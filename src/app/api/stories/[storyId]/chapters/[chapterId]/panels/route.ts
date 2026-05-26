@@ -267,6 +267,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           imageFit: p.imageFit || "cover",
           aspectRatio: p.aspectRatio || null,
           overlays: p.overlays || "[]",
+          seam: p.seam || "none",
         }))
       ).returning();
     });

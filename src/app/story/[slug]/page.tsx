@@ -868,6 +868,19 @@ export default function StoryPage() {
                 </svg>
                 Open Calls
               </Link>
+              {isOwner && (
+                <Link
+                  href={`/story/${slug}/workshop?tab=team`}
+                  className="flex items-center gap-2 text-[12px] font-medium text-amber hover:text-amber/80 transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="6" cy="6" r="2.5" />
+                    <path d="M2 13c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+                    <path d="M12 5v4M14 7h-4" />
+                  </svg>
+                  Invite a collaborator
+                </Link>
+              )}
             </div>
           )}
         </motion.div>

@@ -1,19 +1,29 @@
 "use client";
 
 import { useState, useId, useRef, useEffect } from "react";
+import { GLOSSARY, type GlossaryId } from "./glossary";
 
-interface GlossaryTermProps {
-  term: string;
-  explain: string;
+type GlossaryTermProps = {
   className?: string;
-}
+} & (
+  | { id: GlossaryId; term?: string; explain?: string }
+  | { id?: undefined; term: string; explain: string }
+);
 
 /**
  * Inline coined-term with a hover/focus/tap tooltip explaining it in plain language.
  * Use sparingly — once per surface per term — to teach the brand vocabulary without
  * forcing every reader to decode it.
+ *
+ * Pass an `id` to pull the label + explanation from the central glossary, or supply
+ * `term` + `explain` directly for one-off cases. Note: renders a <button>, so never
+ * nest it inside an <a>/Link or another button.
  */
-export default function GlossaryTerm({ term, explain, className = "" }: GlossaryTermProps) {
+export default function GlossaryTerm(props: GlossaryTermProps) {
+  const { className = "" } = props;
+  const entry = props.id ? GLOSSARY[props.id] : null;
+  const term = props.term ?? entry?.term ?? "";
+  const explain = props.explain ?? entry?.explain ?? "";
   const [open, setOpen] = useState(false);
   const id = useId();
   const ref = useRef<HTMLSpanElement>(null);

@@ -190,10 +190,9 @@ export default function ReaderPreferencesPage() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  disabled={selectedGenres.length === 0}
-                  className="px-6 py-2.5 rounded-full bg-amber text-void font-semibold text-sm hover:bg-amber-light transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-amber/15"
+                  className="px-6 py-2.5 rounded-full bg-amber text-void font-semibold text-sm hover:bg-amber-light transition-all shadow-lg shadow-amber/15"
                 >
-                  Next ({selectedGenres.length}/8)
+                  {selectedGenres.length === 0 ? "Skip genres →" : `Next (${selectedGenres.length}/8)`}
                 </button>
               </div>
             </motion.div>

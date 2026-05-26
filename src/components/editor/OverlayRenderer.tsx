@@ -202,6 +202,8 @@ function OverlayToolbar({
     { key: "thought", label: "Thought" },
     { key: "narration", label: "Narrate" },
     { key: "shout", label: "Shout" },
+    { key: "caption", label: "Caption" },
+    { key: "sfx", label: "SFX" },
   ];
 
   const tails: { key: TailDirection; label: string }[] = [

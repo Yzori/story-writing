@@ -195,17 +195,24 @@ function RegisterForm() {
         }
       }
 
-      // Intent-aware routing: writer-intent users skip reader preferences and
-      // land in the create flow; reader-intent and unspecified fall through
-      // to preference capture.
+      // Intent-aware routing. We capture *intent before preferences*: a writer
+      // should never be asked three reading-taste questions before we even
+      // learn they came to write.
+      //   • write  → straight into the create flow
+      //   • read   → reading-preference capture, then the library
+      //   • (none) → the Write/Read/Collaborate door picks the branch
       if (intent === "write") {
         router.push("/create");
         router.refresh();
         return;
       }
+      if (intent === "read") {
+        router.push("/welcome/preferences?next=/read");
+        router.refresh();
+        return;
+      }
 
-      // Default new-user path: preference capture → /welcome → reader/writer/collab.
-      router.push("/welcome/preferences?next=/welcome");
+      router.push("/welcome");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

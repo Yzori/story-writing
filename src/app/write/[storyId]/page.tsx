@@ -427,6 +427,9 @@ export default function WriteStoryPage() {
   const [rightPanel, setRightPanel] = useState<RightPanel>("none");
   const [editorMode, setEditorMode] = useState<EditorMode>("write");
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
+  // Below `lg` the mode rail + chapter nav are hidden; this opens them as a
+  // left drawer so chapter/mode switching is reachable on phones and tablets.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [rightContextCollapsed, setRightContextCollapsed] = useState(false);
 
   // Comments
@@ -539,6 +542,13 @@ export default function WriteStoryPage() {
         }
         const storyJson = await storyRes.json();
         const story = storyJson.data;
+
+        // Webtoon is a vertical-panel comic, not a prose document — it has its
+        // own full-bleed studio. Send it there instead of the prose cockpit.
+        if (story.format === "webtoon") {
+          router.replace(`/write/${storyId}/webtoon`);
+          return;
+        }
 
         // Verify current user is the story owner or an accepted collaborator
         const sessionRes = await fetch("/api/auth/session");
@@ -674,7 +684,7 @@ export default function WriteStoryPage() {
       }
     }
     loadStory();
-  }, [storyId]);
+  }, [storyId, router]);
 
   // ── Editor settings persistence ───────────────────────────
   // Goals are editor-local. Typography is now story-backed, but we keep a
@@ -2001,6 +2011,69 @@ export default function WriteStoryPage() {
         />
       </aside>
 
+      {/* ── 3. Mobile nav drawer (below lg) ─────────────────── */}
+      <AnimatePresence>
+        {mobileNavOpen && (
+          <div className="lg:hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+              onClick={() => setMobileNavOpen(false)}
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 38 }}
+              className="fixed inset-y-0 left-0 z-[61] flex w-[272px] max-w-[88vw] flex-col border-r border-border bg-surface/95 backdrop-blur-2xl shadow-[20px_0_50px_rgba(0,0,0,0.5)]"
+            >
+              {/* Mode switcher (the desktop rail, laid out horizontally) */}
+              <div className="flex items-center gap-1.5 border-b border-border px-3 py-2.5">
+                {editorModes.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => handleChangeEditorMode(mode.id)}
+                    className={`flex h-9 flex-1 items-center justify-center rounded-lg border transition-all ${
+                      editorMode === mode.id
+                        ? "border-amber/25 bg-amber/[0.08] text-amber"
+                        : "border-transparent text-text-ghost hover:bg-paper/[0.05] hover:text-paper"
+                    }`}
+                    title={mode.label}
+                    aria-label={mode.label}
+                    aria-pressed={editorMode === mode.id}
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={mode.icon} />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              <div className="min-h-0 flex-1">
+                <ChapterNav
+                  chapters={project.chapters}
+                  activeChapterId={project.activeChapterId}
+                  storyTitle={project.title}
+                  collapsed={false}
+                  format={storyFormat}
+                  onSelectChapter={(id) => { handleSelectChapter(id); setMobileNavOpen(false); }}
+                  onAddChapter={() => { handleAddChapter(); setMobileNavOpen(false); }}
+                  onReorderChapters={handleReorderChapters}
+                  onRenameChapter={handleRenameChapter}
+                  onDeleteChapter={handleDeleteChapter}
+                  onToggleCollapse={() => setMobileNavOpen(false)}
+                  onUpdateStoryTitle={handleUpdateStoryTitle}
+                  onOpenToolkit={handleToggleToolkit}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
       <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-hidden transition-[opacity,padding] duration-500 ${leftInsetClass} ${rightInsetClass} ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
 
@@ -2051,6 +2124,17 @@ export default function WriteStoryPage() {
                   <div className="max-w-[680px] mx-auto px-4 sm:px-8 pb-3">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
+                      {/* Mobile chapter/mode drawer toggle (rail + nav are lg-only) */}
+                      <button
+                        type="button"
+                        onClick={() => setMobileNavOpen(true)}
+                        className="lg:hidden -ml-1 mr-0.5 p-1 rounded-md text-text-ghost hover:text-paper transition-colors"
+                        aria-label="Open chapters and modes"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <path d="M2 4h12M2 8h12M2 12h8" />
+                        </svg>
+                      </button>
                       <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
                       {writingMode === "co-op" && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal/10 border border-teal/20 text-teal uppercase tracking-widest">Co-op</span>

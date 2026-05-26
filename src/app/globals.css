@@ -1974,6 +1974,31 @@ body::after {
 .bubble-shout[data-tail="top-left"]::after { left: 15%; }
 .bubble-shout[data-tail="top-right"]::after { right: 15%; }
 
+/* Caption: a boxed narration card (parchment), no tail — for time/place cards. */
+.bubble-caption {
+  background: #fdf6e3;
+  color: #1a1a1a;
+  border: 2px solid #222;
+  border-radius: 2px;
+  font-family: var(--font-reading, "Literata", serif);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* SFX: outlined impact lettering, no background — for BOOM / CRASH. */
+.bubble-sfx {
+  background: transparent;
+  color: #ffd83d;
+  font-family: "Impact", "Arial Black", sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  -webkit-text-stroke: 2px #1a1a1a;
+  paint-order: stroke fill;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  border: none;
+  transform: translate(-50%, -50%) rotate(-4deg);
+}
+
 /* ── Adventure Mode light pass ─────────────────────────────── */
 /* The campaign table is atmospheric in dark mode. In light mode the same
    smoke, black glass, and inset shadows turn muddy, so this route gets a

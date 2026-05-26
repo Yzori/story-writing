@@ -339,7 +339,7 @@ export function estimateReadingTime(words: number): string {
 
 // ── Webtoon Text Overlays ───────────────────────────────────
 
-export type BubbleStyle = "speech" | "thought" | "narration" | "shout";
+export type BubbleStyle = "speech" | "thought" | "narration" | "shout" | "caption" | "sfx";
 export type TailDirection = "bottom-left" | "bottom-right" | "top-left" | "top-right" | "none";
 export type OverlayFontSize = "small" | "medium" | "large";
 

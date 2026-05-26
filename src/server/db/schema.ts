@@ -268,6 +268,7 @@ export const panels = pgTable("panels", {
   imageFit: text("image_fit").notNull().default("cover"), // cover | contain | top
   aspectRatio: text("aspect_ratio"),
   overlays: text("overlays").default("[]"), // JSON: text overlay positions
+  seam: text("seam").notNull().default("none"), // vertical pacing above panel: none | beat | pause | breath | blackout
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -282,6 +283,31 @@ export const panelsRelations = relations(panels, ({ one }) => ({
   chapter: one(chapters, {
     fields: [panels.chapterId],
     references: [chapters.id],
+  }),
+}));
+
+// Reusable image library per story (webtoon asset tray): characters,
+// backgrounds, props an author drops into panel frames across episodes.
+export const storyAssets = pgTable("story_assets", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default(""),
+  imageData: text("image_data").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  index("idx_story_assets_story_id").on(table.storyId),
+]);
+
+export const storyAssetsRelations = relations(storyAssets, ({ one }) => ({
+  story: one(stories, {
+    fields: [storyAssets.storyId],
+    references: [stories.id],
   }),
 }));
 

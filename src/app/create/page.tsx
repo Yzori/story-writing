@@ -111,9 +111,18 @@ const ACCENT: Record<AccentKey, {
 
 type WritingMode = "solo" | "co-op" | "campaign" | null;
 
+// Allow deep-linking straight into a mode's setup form, e.g. /create?mode=co-op
+// (the Collaborate door on /welcome relies on this). Read lazily from the URL so
+// it's SSR-safe and skips the mode picker without a flash on client navigation.
+function initialModeFromUrl(): WritingMode {
+  if (typeof window === "undefined") return null;
+  const mode = new URLSearchParams(window.location.search).get("mode");
+  return mode === "solo" || mode === "co-op" || mode === "campaign" ? mode : null;
+}
+
 export default function CreatePage() {
   const router = useRouter();
-  const [writingMode, setWritingMode] = useState<WritingMode>(null);
+  const [writingMode, setWritingMode] = useState<WritingMode>(initialModeFromUrl);
 
   // Story details state
   const [title, setTitle] = useState("");
@@ -213,6 +222,9 @@ export default function CreatePage() {
         // Co-op stories need team setup first — redirect to story page
         const slug = json.data.slug || json.data.id;
         router.push(`/story/${slug}/workshop?setup=true`);
+      } else if (format === "webtoon") {
+        // Webtoon has its own full-bleed studio rather than the prose cockpit.
+        router.push(`/write/${json.data.id}/webtoon`);
       } else {
         router.push(`/write/${json.data.id}`);
       }

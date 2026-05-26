@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { parseOverlays } from "@/types/editor";
 import OverlayRenderer from "@/components/editor/OverlayRenderer";
+import { getSeamClass } from "@/components/editor/webtoon-seam";
 
 interface Panel {
   id: string;
@@ -17,6 +18,7 @@ interface Panel {
   imageFit?: string;
   aspectRatio: string | null;
   overlays: string;
+  seam?: string;
 }
 
 interface PanelFrame {
@@ -37,6 +39,8 @@ interface WebtoonReaderProps {
   chapterId: string;
   chapterTitle: string;
   content?: string; // legacy: JSON string of panels (fallback)
+  /** When provided (editor preview), render these panels directly and skip fetch. */
+  panels?: Panel[];
   hasNextChapter?: boolean;
   hasPrevChapter?: boolean;
   onNextChapter?: () => void;
@@ -75,10 +79,9 @@ function parseFrames(panel: Pick<Panel, "frames" | "imageData">): PanelFrame[] {
     const parsed = JSON.parse(panel.frames || "[]");
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed
-        .filter((frame) => typeof frame?.imageData === "string" && frame.imageData.length > 0)
         .map((frame, index) => ({
           id: typeof frame.id === "string" ? frame.id : `frame-${index + 1}`,
-          imageData: frame.imageData,
+          imageData: typeof frame?.imageData === "string" ? frame.imageData : "",
         }));
     }
   } catch {
@@ -129,6 +132,8 @@ function getImageFitClass(imageFit: string | undefined, shouldFillSlot: boolean)
 function getSizingStyle(sizing: string, aspectRatio: string | null): React.CSSProperties {
   if (sizing === "tall") return { aspectRatio: "9/16", objectFit: "cover" as const };
   if (sizing === "wide") return { aspectRatio: "16/9", objectFit: "cover" as const };
+  // "full" ≈ one phone viewport tall (matches the editor; reader-true at phone width).
+  if (sizing === "full") return { aspectRatio: "9/19.5", objectFit: "cover" as const };
   if (sizing === "custom" && aspectRatio) {
     const [w, h] = aspectRatio.split(":").map(Number);
     if (w && h) return { aspectRatio: `${w}/${h}`, objectFit: "cover" as const };
@@ -147,13 +152,19 @@ export default function WebtoonReader({
   onPrevChapter,
   nextChapterTitle,
   reactionsElement,
+  panels: panelsProp,
 }: WebtoonReaderProps) {
-  const [panels, setPanels] = useState<Panel[]>([]);
+  // When the editor passes `panels` (preview), render them live — derive rather
+  // than sync into state, so there's no fetch and no setState-in-effect.
+  const isPreview = panelsProp !== undefined;
+  const [fetchedPanels, setFetchedPanels] = useState<Panel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadedPanels, setLoadedPanels] = useState<Set<string>>(new Set());
 
-  // Fetch panels from API, fall back to legacy content parsing
+  // Fetch panels from API, fall back to legacy content parsing. Skipped entirely
+  // in preview mode (the editor owns the panels).
   useEffect(() => {
+    if (isPreview) return;
     let cancelled = false;
 
     async function loadPanels() {
@@ -163,7 +174,7 @@ export default function WebtoonReader({
         if (res.ok) {
           const json = await res.json();
           if (!cancelled && json.data && json.data.length > 0) {
-            setPanels(json.data);
+            setFetchedPanels(json.data);
             setIsLoading(false);
             return;
           }
@@ -174,21 +185,22 @@ export default function WebtoonReader({
 
       // Fallback: parse from content prop (legacy inline JSON)
       if (!cancelled && content) {
-        setPanels(parseLegacyPanels(content));
+        setFetchedPanels(parseLegacyPanels(content));
       }
       if (!cancelled) setIsLoading(false);
     }
 
     loadPanels();
     return () => { cancelled = true; };
-  }, [storyId, chapterId, content]);
+  }, [storyId, chapterId, content, isPreview]);
 
+  const panels = isPreview ? (panelsProp as Panel[]) : fetchedPanels;
   const sortedPanels = useMemo(
     () => [...panels].sort((a, b) => a.sortOrder - b.sortOrder),
     [panels]
   );
 
-  if (isLoading) {
+  if (!isPreview && isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-text-ghost border-t-amber rounded-full animate-spin" />
@@ -220,13 +232,14 @@ export default function WebtoonReader({
             const overlays = parseOverlays(panel.overlays);
             const frames = parseFrames(panel);
             const borderClasses = getBorderStyleClasses(panel.borderStyle);
+            const hasImageFrame = frames.some((frame) => frame.imageData);
 
             return (
               <motion.div
                 key={panel.id}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: loadedPanels.has(panel.id) ? 1 : 0.3 }}
-                className={`w-full relative ${borderClasses.panel}`}
+                animate={{ opacity: loadedPanels.has(panel.id) || !hasImageFrame ? 1 : 0.3 }}
+                className={`w-full relative ${borderClasses.panel} ${getSeamClass(panel.seam, i === 0)}`}
               >
                 <div
                   className={`grid ${getLayoutClass(panel.layout, frames.length)} ${borderClasses.grid}`}
@@ -237,18 +250,29 @@ export default function WebtoonReader({
                       key={`${frame.id}-${frameIndex}`}
                       className={`relative overflow-hidden ${borderClasses.cell} ${frames.length > 1 ? "min-h-32" : ""} ${getFrameCellClass(panel.layout, frameIndex, frames.length)}`}
                     >
-                      <img
-                        src={frame.imageData}
-                        alt={panel.caption || `Panel ${i + 1}, frame ${frameIndex + 1}`}
-                        className={`w-full block ${getImageFitClass(panel.imageFit, hasCustomSizing || frames.length > 1)}`}
-                        loading={i < 3 ? "eager" : "lazy"}
-                        onLoad={() =>
-                          setLoadedPanels((prev) => new Set(prev).add(panel.id))
-                        }
-                        onError={() =>
-                          setLoadedPanels((prev) => new Set(prev).add(panel.id))
-                        }
-                      />
+                      {frame.imageData ? (
+                        <img
+                          src={frame.imageData}
+                          alt={panel.caption || `Panel ${i + 1}, frame ${frameIndex + 1}`}
+                          className={`w-full block ${getImageFitClass(panel.imageFit, hasCustomSizing || frames.length > 1)}`}
+                          loading={i < 3 ? "eager" : "lazy"}
+                          onLoad={() =>
+                            setLoadedPanels((prev) => new Set(prev).add(panel.id))
+                          }
+                          onError={() =>
+                            setLoadedPanels((prev) => new Set(prev).add(panel.id))
+                          }
+                        />
+                      ) : (
+                        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2 bg-elevated text-text-ghost">
+                          <svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="4" y="4" width="20" height="20" rx="3" />
+                            <circle cx="10" cy="10" r="2" />
+                            <path d="M4 20l5.5-5.5 4 4 3-3L24 23" />
+                          </svg>
+                          <span className="text-xs">Empty frame</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

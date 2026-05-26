@@ -21,6 +21,9 @@ import {
   Sunset,
 } from "lucide-react";
 import type { ApiStory } from "@/types/api";
+import FirstRunPanel from "@/components/dashboard/FirstRunPanel";
+
+const FIRST_RUN_DISMISSED_KEY = "quiloria-firstrun-dismissed";
 
 
 type LibraryPhase = "morning" | "day" | "dusk" | "night";
@@ -450,7 +453,9 @@ function DeskObjectPanel({
   const stickyDisplay = readerNotesCount > 99 ? "99+" : String(readerNotesCount);
   // Real time on the pocket watch — compute endpoint coords from angles in the dial's local
   // coords (center at 0,0). Avoids the SVG transform-origin gotcha entirely.
-  const clockDate = now ?? new Date();
+  // Fallback must be deterministic so SSR and first client render agree; `now` is set
+  // after mount by the dashboard's clock effect.
+  const clockDate = now ?? new Date(2026, 0, 1, 10, 10, 30);
   const hours12 = clockDate.getHours() % 12;
   const minutes = clockDate.getMinutes();
   const seconds = clockDate.getSeconds();
@@ -972,6 +977,18 @@ export default function DashboardPage() {
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [myCampaigns, setMyCampaigns] = useState<MyCampaign[]>([]);
   const [notifs, setNotifs] = useState<ApiNotification[]>([]);
+  // Gate the first-run panel: only render once we know the study is genuinely
+  // empty, and let the user dismiss it back to the regular desk. Read the
+  // dismissal lazily (SSR-safe) so we never flash it for a returning visitor.
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [firstRunDismissed, setFirstRunDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return localStorage.getItem(FIRST_RUN_DISMISSED_KEY) === "1";
+    } catch {
+      return true;
+    }
+  });
   const phaseKey = now ? getLibraryPhase(now) : "night";
   const phase = phaseConfig[phaseKey];
   const guidance = phaseGuidance[phaseKey];
@@ -981,7 +998,7 @@ export default function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/stories?mine=true")
+    const storiesFetch = fetch("/api/stories?mine=true")
       .then((response) => response.json())
       .then((json) => {
         if (!cancelled && json.data?.stories) {
@@ -993,7 +1010,7 @@ export default function DashboardPage() {
     // /api/stories?mine=true only returns stories the user OWNS. Players who
     // joined a campaign as a character don't appear there — they'd see an
     // empty study otherwise. The /campaigns/mine endpoint covers both.
-    fetch("/api/campaigns/mine")
+    const campaignsFetch = fetch("/api/campaigns/mine")
       .then((response) => response.json())
       .then((json) => {
         if (!cancelled && Array.isArray(json.data)) {
@@ -1001,6 +1018,12 @@ export default function DashboardPage() {
         }
       })
       .catch(() => {});
+
+    // Only decide whether the study is empty once both ownership feeds settle,
+    // so an established user never flashes the first-run panel on load.
+    Promise.allSettled([storiesFetch, campaignsFetch]).then(() => {
+      if (!cancelled) setDataLoaded(true);
+    });
 
     fetch("/api/notifications?limit=10")
       .then((response) => response.json())
@@ -1063,7 +1086,9 @@ export default function DashboardPage() {
         : `/campaign/${activeStory.id}`
       : activeStory.writingMode === "co-op"
         ? `/write/${activeStory.id}/co-op`
-        : `/write/${activeStory.id}`
+        : activeStory.format === "webtoon"
+          ? `/write/${activeStory.id}/webtoon`
+          : `/write/${activeStory.id}`
     : "/create";
 
   const activeTitle = activeStory?.title ?? "An empty page";
@@ -1086,7 +1111,12 @@ export default function DashboardPage() {
       kind: story.writingMode === "campaign" ? "Campaign" : story.status === "draft" ? "Draft" : "Writing",
       progress: story.chapterCount > 0 ? `${story.chapterCount} chapters` : `${story.totalWords.toLocaleString()} words`,
       accent: accents[index % accents.length],
-      href: story.writingMode === "campaign" ? `/campaign/${story.id}` : `/write/${story.id}`,
+      href:
+        story.writingMode === "campaign"
+          ? `/campaign/${story.id}`
+          : story.format === "webtoon"
+            ? `/write/${story.id}/webtoon`
+            : `/write/${story.id}`,
     }));
   }, [allMyStories]);
 
@@ -1142,6 +1172,16 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // A brand-new study (no owned stories, no joined campaigns) gets the guided
+  // first-run launchpad instead of the manuscript-resume hero — until dismissed.
+  const showFirstRun = dataLoaded && allMyStories.length === 0 && !firstRunDismissed;
+  const dismissFirstRun = () => {
+    setFirstRunDismissed(true);
+    try {
+      localStorage.setItem(FIRST_RUN_DISMISSED_KEY, "1");
+    } catch {}
+  };
+
   return (
     <main className="min-h-screen overflow-hidden bg-void text-paper">
       <AmbientLibraryBackdrop phase={phase} />
@@ -1189,6 +1229,9 @@ export default function DashboardPage() {
 
         <section className="grid flex-1 gap-6 py-6 lg:grid-cols-[1fr_360px]">
           <div className="min-w-0 space-y-6">
+            {showFirstRun ? (
+              <FirstRunPanel firstName={firstName} onDismiss={dismissFirstRun} />
+            ) : (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1286,6 +1329,7 @@ export default function DashboardPage() {
                 />
               </div>
             </motion.div>
+            )}
 
             <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <section className="rounded-[1.5rem] border border-border bg-surface/82 p-5 shadow-[var(--t-shadow-card)] backdrop-blur-xl">

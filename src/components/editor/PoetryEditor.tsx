@@ -8,9 +8,9 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useCallback, useState, useRef } from "react";
 import { TextSelection } from "@tiptap/pm/state";
-import { motion, AnimatePresence } from "framer-motion";
 import type { Editor } from "@tiptap/react";
 import type { ResolvedPos } from "@tiptap/pm/model";
+import FloatingToolbar from "./FloatingToolbar";
 
 // ── Custom Nodes ──────────────────────────────────────────────────────────────
 
@@ -202,153 +202,9 @@ function findAncestorDepth(
 }
 
 // ── Floating Toolbar ──────────────────────────────────────────────────────────
+// Poetry shares the prose FloatingToolbar (configured to bold/italic/strike/
+// em-dash) — see the render site below — so the four editors read as one family.
 
-function PoetryFloatingToolbar({ editor }: { editor: Editor }) {
-  const [show, setShow] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const hideTimeout = useRef<ReturnType<typeof setTimeout>>(null);
-
-  const updatePosition = useCallback(() => {
-    const { empty } = editor.state.selection;
-
-    if (empty) {
-      setShow(false);
-      return;
-    }
-
-    const domSelection = window.getSelection();
-    if (!domSelection || domSelection.rangeCount === 0) {
-      setShow(false);
-      return;
-    }
-
-    const range = domSelection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-
-    if (rect.width === 0 && rect.height === 0) {
-      setShow(false);
-      return;
-    }
-
-    setPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 8,
-    });
-    setShow(true);
-  }, [editor]);
-
-  useEffect(() => {
-    editor.on("selectionUpdate", updatePosition);
-
-    const handleBlur = () => {
-      hideTimeout.current = setTimeout(() => setShow(false), 200);
-    };
-    const handleFocus = () => {
-      if (hideTimeout.current) clearTimeout(hideTimeout.current);
-    };
-
-    editor.on("blur", handleBlur);
-    editor.on("focus", handleFocus);
-
-    return () => {
-      editor.off("selectionUpdate", updatePosition);
-      editor.off("blur", handleBlur);
-      editor.off("focus", handleFocus);
-      if (hideTimeout.current) clearTimeout(hideTimeout.current);
-    };
-  }, [editor, updatePosition]);
-
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          initial={{ opacity: 0, y: 4, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 4, scale: 0.95 }}
-          transition={{ duration: 0.12 }}
-          className="fixed z-50"
-          style={{
-            left: `${position.x}px`,
-            top: `${position.y}px`,
-            transform: "translateX(-50%) translateY(-100%)",
-          }}
-        >
-          <div className="flex items-center gap-0.5 bg-elevated/95 backdrop-blur-xl border border-border rounded-lg shadow-2xl px-1 py-1">
-            <ToolbarButton
-              active={editor.isActive("bold")}
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              title="Bold (Ctrl+B)"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-              </svg>
-            </ToolbarButton>
-            <ToolbarButton
-              active={editor.isActive("italic")}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              title="Italic (Ctrl+I)"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="4" x2="10" y2="4" />
-                <line x1="14" y1="20" x2="5" y2="20" />
-                <line x1="15" y1="4" x2="9" y2="20" />
-              </svg>
-            </ToolbarButton>
-            <ToolbarButton
-              active={editor.isActive("strike")}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-              title="Strikethrough"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 4H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H8" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-              </svg>
-            </ToolbarButton>
-            <div className="w-px h-4 bg-border mx-0.5" />
-            <ToolbarButton
-              active={false}
-              onClick={() => editor.chain().focus().insertContent("\u2014").run()}
-              title="Em Dash"
-            >
-              <span className="text-xs font-medium leading-none">&mdash;</span>
-            </ToolbarButton>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-function ToolbarButton({
-  active,
-  onClick,
-  children,
-  title,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <button
-      onMouseDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
-      }}
-      className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors duration-150 ${
-        active
-          ? "bg-amber/20 text-amber"
-          : "text-text-secondary hover:text-paper hover:bg-white/5"
-      }`}
-      title={title}
-    >
-      {children}
-    </button>
-  );
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -485,7 +341,7 @@ export default function PoetryEditor({
           lineNumbers ? "poetry-line-numbers" : ""
         }`}
       >
-        <PoetryFloatingToolbar editor={editor} />
+        <FloatingToolbar editor={editor} features={["bold", "italic", "strike", "emdash"]} />
 
         {/* Line numbers toggle */}
         {editable && (

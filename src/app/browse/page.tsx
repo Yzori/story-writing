@@ -338,7 +338,10 @@ function BrowsePage() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get("q") || "");
-  const [quickFilter, setQuickFilter] = useState("For You");
+  const initialFilter = searchParams.get("filter");
+  const [quickFilter, setQuickFilter] = useState(
+    initialFilter && QUICK_FILTERS.includes(initialFilter) ? initialFilter : "For You",
+  );
   const [genre, setGenre] = useState("All");
   const [format, setFormat] = useState("All");
   const [maxRating, setMaxRating] = useState("all");

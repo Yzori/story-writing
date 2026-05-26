@@ -28,7 +28,9 @@ const PATHS = [
     id: "read",
     title: "Read",
     description: "Find a shelf, a lamp, and a story that opens somewhere else",
-    href: "/read",
+    // Reading-preference capture lives behind the Read door, so the three
+    // taste questions are only asked of people who actually chose to read.
+    href: "/welcome/preferences?next=/read",
     accent: "lavender",
     icon: (
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-lavender">
@@ -45,7 +47,10 @@ const PATHS = [
     id: "collaborate",
     title: "Collaborate",
     description: "Gather at the long table and build a world with other hands",
-    href: "/roster",
+    // The Collaborate door should let people actually start collaborating, so
+    // route into co-op story setup (where they invite others) rather than a
+    // browse list. Looking to join someone else's table instead? Browse covers that.
+    href: "/create?mode=co-op",
     accent: "teal",
     icon: (
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-teal">
