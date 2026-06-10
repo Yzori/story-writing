@@ -44,3 +44,6 @@ next-env.d.ts
 .agents/
 .codex/
 .claude/worktrees/
+
+# large media — host on CDN, not in git (exceeds GitHub 100MB limit)
+/public/hero-video.mp4
