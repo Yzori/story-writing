@@ -59,7 +59,7 @@ export function groupIntoParagraphs(turns: Turn[]): Turn[][] {
 export const MOOD_TINT_COLORS: Record<string, string> = {
   tense: "rgba(244,63,94,0.04)",
   calm: "rgba(120,180,130,0.04)",
-  ominous: "rgba(212,168,67,0.025)",
+  ominous: "rgba(224,169,62,0.025)",
   triumphant: "rgba(200,150,60,0.05)",
   melancholy: "rgba(99,102,241,0.05)",
   chaotic: "rgba(251,146,60,0.04)",

@@ -116,7 +116,7 @@ export default function ShowcasePage() {
         {/* Adventure / Campaign — outside the format list */}
         {!loading &&
           (() => {
-            const adventures = picks.filter((p) => p.format && (p as { writingMode?: string }).format === "campaign");
+            const adventures = picks.filter((p) => (p as { writingMode?: string }).writingMode === "campaign");
             if (adventures.length === 0) return null;
             return (
               <FormatSection

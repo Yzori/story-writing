@@ -34,6 +34,10 @@ interface CommandPaletteProps {
   onExportDocx?: () => void;
   onOpenShortcuts?: () => void;
   onOpenEditorDesk?: () => void;
+  onOpenComments?: () => void;
+  onOpenHistory?: () => void;
+  onOpenGoals?: () => void;
+  onOpenBeats?: () => void;
 }
 
 export default function CommandPalette({
@@ -57,6 +61,10 @@ export default function CommandPalette({
   onExportDocx,
   onOpenShortcuts,
   onOpenEditorDesk,
+  onOpenComments,
+  onOpenHistory,
+  onOpenGoals,
+  onOpenBeats,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -255,10 +263,54 @@ export default function CommandPalette({
       ? [
           {
             id: "bible",
-            label: "Story Bible",
-            description: "Characters, places, and lore",
+            label: "Characters & World",
+            description: "Characters, places, and lore — your story bible",
             category: "Tools",
             action: onOpenBible,
+          },
+        ]
+      : []),
+    ...(onOpenComments
+      ? [
+          {
+            id: "comments",
+            label: "Comments",
+            description: "Review notes and threads",
+            category: "Tools",
+            action: onOpenComments,
+          },
+        ]
+      : []),
+    ...(onOpenHistory
+      ? [
+          {
+            id: "history",
+            label: "Version History",
+            description: "Snapshots and recovery",
+            category: "Tools",
+            action: onOpenHistory,
+          },
+        ]
+      : []),
+    ...(onOpenGoals
+      ? [
+          {
+            id: "goals",
+            label: "Writing Goals",
+            description: "Daily target and streaks",
+            category: "Tools",
+            action: onOpenGoals,
+          },
+        ]
+      : []),
+    ...(onOpenBeats
+      ? [
+          {
+            id: "beats",
+            label: "Chapter Beats",
+            description: "Scene notes for the current chapter",
+            category: "Tools",
+            action: onOpenBeats,
           },
         ]
       : []),
@@ -321,7 +373,7 @@ export default function CommandPalette({
       ? [
           {
             id: "outline",
-            label: "Story Map",
+            label: "Book Map",
             description: "Plan the whole book by chapter",
             category: "View",
             action: onOpenOutline,
@@ -384,7 +436,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, supportsIllustrations, supportsParagraphAlignment, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, supportsIllustrations, supportsParagraphAlignment, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query

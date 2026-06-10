@@ -1033,8 +1033,8 @@ function DungeonMap() {
       </defs>
       <rect x="15" y="40" width="170" height="40" fill="url(#stones)" stroke="rgba(184, 145, 122, 0.55)" strokeWidth="1.4" />
       <rect x="185" y="20" width="80" height="75" fill="url(#stones)" stroke="rgba(184, 145, 122, 0.55)" strokeWidth="1.4" />
-      <line x1="184.5" y1="40" x2="184.5" y2="50" stroke="rgba(15,14,19,1)" strokeWidth="2.6" />
-      <line x1="184.5" y1="70" x2="184.5" y2="80" stroke="rgba(15,14,19,1)" strokeWidth="2.6" />
+      <line x1="184.5" y1="40" x2="184.5" y2="50" stroke="rgba(17,14,9,1)" strokeWidth="2.6" />
+      <line x1="184.5" y1="70" x2="184.5" y2="80" stroke="rgba(17,14,9,1)" strokeWidth="2.6" />
       <rect x="207" y="42" width="40" height="32" fill="rgba(58, 56, 80, 0.55)" stroke="rgba(184, 145, 122, 0.45)" strokeWidth="0.8" />
       <line x1="213" y1="50" x2="218" y2="54" stroke="rgba(184, 105, 122, 0.45)" strokeWidth="0.5" />
       <line x1="222" y1="48" x2="226" y2="52" stroke="rgba(184, 105, 122, 0.45)" strokeWidth="0.5" />
@@ -1045,33 +1045,33 @@ function DungeonMap() {
         <ellipse cx="225" cy="76" rx="3" ry="3.5" fill="rgba(91, 36, 50, 0.9)" stroke="rgba(184, 105, 122, 0.55)" strokeWidth="0.4" />
         <path d="M225 72 L223 76 L227 76 Z" fill="rgba(91, 36, 50, 0.95)" />
         <g opacity="0.55" fontFamily="serif" fontStyle="italic">
-          <text x="216" y="74" fontSize="4" fill="#B8697A">~</text>
-          <text x="234" y="73" fontSize="4" fill="#B8697A">·</text>
-          <text x="231" y="78" fontSize="3" fill="#B8697A">~</text>
+          <text x="216" y="74" fontSize="4" fill="#CE7186">~</text>
+          <text x="234" y="73" fontSize="4" fill="#CE7186">·</text>
+          <text x="231" y="78" fontSize="3" fill="#CE7186">~</text>
         </g>
       </g>
-      <line x1="225" y1="20" x2="225" y2="30" stroke="rgba(212, 168, 67, 0.5)" strokeWidth="0.5" />
-      <path d="M222 30 L228 30 L226.5 36 L223.5 36 Z" fill="rgba(212, 168, 67, 0.7)" />
-      <circle cx="225" cy="33" r="22" fill="rgba(212, 168, 67, 0.07)" />
-      <circle cx="225" cy="33" r="12" fill="rgba(212, 168, 67, 0.12)" />
-      <circle cx="160" cy="60" r="20" fill="rgba(212, 168, 67, 0.09)" />
-      <path d="M168 60 L182 60" stroke="rgba(212, 168, 67, 0.55)" strokeWidth="0.9" strokeDasharray="2.5 2.5" />
-      <path d="M179 57.5 L182 60 L179 62.5" fill="none" stroke="rgba(212, 168, 67, 0.65)" strokeWidth="0.9" />
+      <line x1="225" y1="20" x2="225" y2="30" stroke="rgba(224, 169, 62, 0.5)" strokeWidth="0.5" />
+      <path d="M222 30 L228 30 L226.5 36 L223.5 36 Z" fill="rgba(224, 169, 62, 0.7)" />
+      <circle cx="225" cy="33" r="22" fill="rgba(224, 169, 62, 0.07)" />
+      <circle cx="225" cy="33" r="12" fill="rgba(224, 169, 62, 0.12)" />
+      <circle cx="160" cy="60" r="20" fill="rgba(224, 169, 62, 0.09)" />
+      <path d="M168 60 L182 60" stroke="rgba(224, 169, 62, 0.55)" strokeWidth="0.9" strokeDasharray="2.5 2.5" />
+      <path d="M179 57.5 L182 60 L179 62.5" fill="none" stroke="rgba(224, 169, 62, 0.65)" strokeWidth="0.9" />
       <g>
-        <circle cx="160" cy="60" r="6.5" fill="#D4A843" stroke="#0F0E13" strokeWidth="1.5" />
-        <text x="160" y="63" fontSize="7.5" fill="#0F0E13" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">L</text>
+        <circle cx="160" cy="60" r="6.5" fill="#E0A93E" stroke="#110E09" strokeWidth="1.5" />
+        <text x="160" y="63" fontSize="7.5" fill="#110E09" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">L</text>
       </g>
       <g>
-        <circle cx="135" cy="58" r="6.5" fill="#9B8EC4" stroke="#0F0E13" strokeWidth="1.5" />
-        <text x="135" y="61" fontSize="7.5" fill="#0F0E13" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">K</text>
+        <circle cx="135" cy="58" r="6.5" fill="#AC9CDE" stroke="#110E09" strokeWidth="1.5" />
+        <text x="135" y="61" fontSize="7.5" fill="#110E09" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">K</text>
       </g>
       <g>
-        <circle cx="115" cy="62" r="6.5" fill="#6BA5A5" stroke="#0F0E13" strokeWidth="1.5" />
-        <text x="115" y="65" fontSize="7.5" fill="#0F0E13" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">S</text>
+        <circle cx="115" cy="62" r="6.5" fill="#72B5B2" stroke="#110E09" strokeWidth="1.5" />
+        <text x="115" y="65" fontSize="7.5" fill="#110E09" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">S</text>
       </g>
       <g>
-        <circle cx="95" cy="58" r="6.5" fill="#B8697A" stroke="#0F0E13" strokeWidth="1.5" />
-        <text x="95" y="61" fontSize="7.5" fill="#0F0E13" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">T</text>
+        <circle cx="95" cy="58" r="6.5" fill="#CE7186" stroke="#110E09" strokeWidth="1.5" />
+        <text x="95" y="61" fontSize="7.5" fill="#110E09" textAnchor="middle" fontWeight="700" fontFamily="system-ui, sans-serif">T</text>
       </g>
     </svg>
   );

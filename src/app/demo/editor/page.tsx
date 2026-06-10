@@ -465,7 +465,7 @@ export default function EditorDemoPage() {
                 <Annotation
                   number={5}
                   side="left"
-                  label="Split-pane reference view: pin your Story Bible, notes, or another chapter alongside the editor. Write with your world-building visible. No more switching between panels."
+                  label="Split-pane reference view: pin your Characters & World entries, notes, or another chapter alongside the editor. Write with your world-building visible. No more switching between panels."
                 >
                   <motion.div
                     initial={{ width: 0, opacity: 0 }}
@@ -527,7 +527,7 @@ export default function EditorDemoPage() {
                             Quick Reference
                           </p>
                           <p className="text-[11px] text-[#f5f0e8]/30 leading-relaxed">
-                            Pin any Story Bible entry, chapter, or note here
+                            Pin any Characters & World entry, chapter, or note here
                             so it stays visible while you write. Drag to
                             reorder. Click a tab to switch context.
                           </p>

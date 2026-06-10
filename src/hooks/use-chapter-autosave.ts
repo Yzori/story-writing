@@ -191,6 +191,9 @@ export function useChapterAutosave({
   const savedFadeTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const flushPromise = useRef<Promise<boolean> | null>(null);
   const isRetrying = useRef(false);
+  // Lets runFlush's internal re-flush timer go through the serialized
+  // flushPendingSaves path (flushPendingSaves is defined after runFlush).
+  const flushPendingSavesRef = useRef<() => Promise<boolean>>(() => Promise.resolve(true));
 
   useEffect(() => {
     const pending = pendingSaves.current;
@@ -283,6 +286,10 @@ export function useChapterAutosave({
         failedSaves.current.clear();
         for (const result of results) {
           if (!result.ok && result.status !== 409) {
+            const current = pendingSaves.current.get(result.chapterId);
+            // Skip when newer content is already queued — the next flush
+            // covers it, and the draft holds the newer keystrokes.
+            if (current && current.content !== result.content) continue;
             failedSaves.current.set(result.chapterId, {
               content: result.content,
               version: result.version,
@@ -299,15 +306,17 @@ export function useChapterAutosave({
         return false;
       }
 
-      if (results.every((result) => result.ok)) {
-        syncChapterVersions(updateProject, results);
-        reconcileSuccessfulResults(pendingSaves.current, storyId, results);
-        failedSaves.current.clear();
+      // Reconcile successful saves even when other chapters failed, so saved
+      // chapters drop stale baseVersions instead of false-conflicting later.
+      syncChapterVersions(updateProject, results);
+      reconcileSuccessfulResults(pendingSaves.current, storyId, results);
+      failedSaves.current.clear();
 
+      if (results.every((result) => result.ok)) {
         if (pendingSaves.current.size > 0) {
           if (saveTimer.current) clearTimeout(saveTimer.current);
           saveTimer.current = setTimeout(() => {
-            void runFlush();
+            void flushPendingSavesRef.current();
           }, 1000);
           setSaveState("saving");
         } else {
@@ -316,6 +325,22 @@ export function useChapterAutosave({
         }
         return true;
       }
+
+      // Mixed results: only the genuinely failed chapters go to failedSaves.
+      for (const { chapterId, content, version, ok } of results) {
+        if (ok) continue;
+        const current = pendingSaves.current.get(chapterId);
+        if (!current || current.content === content) {
+          failedSaves.current.set(chapterId, { content, version });
+          writeLocalChapterDraft(storyId, chapterId, {
+            content,
+            version,
+            reason: "failed-save",
+          });
+        }
+      }
+      setSaveState("error");
+      return false;
     } catch {
       // Fall through to failure handling.
     }
@@ -350,6 +375,10 @@ export function useChapterAutosave({
     return next;
   }, [runFlush]);
 
+  useEffect(() => {
+    flushPendingSavesRef.current = flushPendingSaves;
+  }, [flushPendingSaves]);
+
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -382,90 +411,23 @@ export function useChapterAutosave({
     isRetrying.current = true;
 
     try {
-      const entries = Array.from(failedSaves.current.entries());
-      if (entries.length === 0) return;
-
-      setSaveState("saving");
-      const results: ChapterSaveResult[] = await Promise.all(
-        entries.map(async ([chapterId, { content, version }]) => {
-          const response = await fetch(`/api/stories/${storyId}/chapters/${chapterId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content, baseVersion: version }),
-          });
-
-          let json: ChapterSaveResult["json"] = null;
-          try {
-            json = await response.clone().json();
-          } catch {
-            // Ignore malformed response bodies; status still drives behavior.
-          }
-
-          return {
-            chapterId,
-            content,
-            version,
-            status: response.status,
-            ok: response.ok,
-            json,
-          };
-        }),
-      );
-
-      if (results.some((result) => result.status === 401)) {
-        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
-        return;
-      }
-
-      if (results.some((result) => result.status === 409)) {
-        syncChapterVersions(updateProject, results);
-        reconcileSuccessfulResults(pendingSaves.current, storyId, results);
-        failedSaves.current.clear();
-
-        for (const { chapterId, content, version, status } of results) {
-          if (status !== 409) continue;
-          writeLocalChapterDraft(storyId, chapterId, {
-            content,
-            version,
-            reason: "conflict",
-          });
-          preserveConflictDraft(storyId, chapterId, content);
+      // Merge failed snapshots back into the pending queue — preferring any
+      // newer content the user has typed since the failure — and go through
+      // flushPendingSaves so the retry serializes with in-flight flushes
+      // instead of racing them with a second PATCH for the same chapter.
+      for (const [chapterId, entry] of failedSaves.current.entries()) {
+        if (!pendingSaves.current.has(chapterId)) {
+          pendingSaves.current.set(chapterId, entry);
         }
-
-        for (const { chapterId, content, version, ok, status } of results) {
-          if (ok || status === 409) continue;
-          failedSaves.current.set(chapterId, { content, version });
-          writeLocalChapterDraft(storyId, chapterId, {
-            content,
-            version,
-            reason: "failed-save",
-          });
-        }
-        setSaveState("conflict");
-        toast("Server version changed. Your draft is saved locally.", "error");
-        return;
       }
+      failedSaves.current.clear();
+      if (pendingSaves.current.size === 0) return;
 
-      if (results.every((result) => result.ok)) {
-        syncChapterVersions(updateProject, results);
-        reconcileSuccessfulChapterSaves(pendingSaves.current, results);
-        for (const result of results) {
-          clearLocalChapterDraft(storyId, result.chapterId);
-          clearConflictChapterDraft(storyId, result.chapterId);
-        }
-        failedSaves.current.clear();
-        setSaveState("saved");
-        if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-        savedFadeTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-      } else {
-        setSaveState("error");
-      }
-    } catch {
-      setSaveState("error");
+      await flushPendingSaves();
     } finally {
       isRetrying.current = false;
     }
-  }, [storyId, toast, updateProject]);
+  }, [flushPendingSaves]);
 
   return {
     saveState,

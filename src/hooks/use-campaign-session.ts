@@ -6,6 +6,36 @@ import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEn
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { campaignJsonRequest } from "@/lib/campaign-api";
 
+// How far behind the newest known sortOrder each poll reaches. Re-fetching a
+// short tail of already-seen turns lets in-place mutations (turn edits,
+// roll-request close/cancel, bargain resolution) made by other clients reach
+// us — a strict greater-than cursor would never deliver them.
+const TURN_POLL_OVERLAP = 20;
+
+// Merge freshly fetched turns into the existing list: append unseen turns,
+// replace rows whose content/metadata changed server-side, keep everything
+// ordered by sortOrder, and return `prev` untouched when nothing changed so
+// polls don't cause re-renders.
+function mergeTurns(prev: Turn[], incoming: Turn[]): Turn[] {
+  const byId = new Map(prev.map((t) => [t.id, t] as const));
+  let changed = false;
+  for (const turn of incoming) {
+    const existing = byId.get(turn.id);
+    if (!existing) {
+      byId.set(turn.id, turn);
+      changed = true;
+    } else if (
+      existing.content !== turn.content ||
+      existing.metadata !== turn.metadata
+    ) {
+      byId.set(turn.id, turn);
+      changed = true;
+    }
+  }
+  if (!changed) return prev;
+  return [...byId.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 export function useCampaignSession(storyId: string, sessionId: string) {
   const { data: authSession } = useSession();
 
@@ -151,20 +181,19 @@ export function useCampaignSession(storyId: string, sessionId: string) {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
+        // Poll with a trailing overlap so in-place mutations to recent turns
+        // (edits, roll-request status flips, bargain answers) from other
+        // clients are picked up, not just strictly-newer rows.
+        const afterSort = Math.max(-1, maxSortRef.current - TURN_POLL_OVERLAP);
         const res = await fetch(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns?afterSort=${maxSortRef.current}`,
+          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns?afterSort=${afterSort}`,
           { signal: controller.signal }
         );
         if (!res.ok) return;
         const json = await res.json();
         const newTurns: Turn[] = json.data ?? [];
         if (newTurns.length > 0) {
-          setTurns((prev) => {
-            const existingIds = new Set(prev.map((t) => t.id));
-            const unique = newTurns.filter((t) => !existingIds.has(t.id));
-            if (unique.length === 0) return prev;
-            return [...prev, ...unique];
-          });
+          setTurns((prev) => mergeTurns(prev, newTurns));
           maxSortRef.current = Math.max(
             maxSortRef.current,
             ...newTurns.map((t) => t.sortOrder)
@@ -250,11 +279,11 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       );
       const newTurn = json.data as Turn;
 
-      setTurns((prev) => {
-        const exists = prev.some((t) => t.id === newTurn.id);
-        return exists ? prev : [...prev, newTurn];
-      });
-      maxSortRef.current = Math.max(maxSortRef.current, newTurn.sortOrder);
+      setTurns((prev) => mergeTurns(prev, [newTurn]));
+      // Deliberately do NOT advance maxSortRef here: another participant's
+      // turn may have landed with a lower sortOrder than ours since the last
+      // poll, and bumping the cursor past it would drop it forever. The next
+      // poll re-delivers our own turn and mergeTurns dedupes it.
 
       // The server may have auto-handed control back to the GM after a
       // player's story turn. Apply that change locally so the editor lock
@@ -556,8 +585,9 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       const responseWithTurn = json as typeof json & { turn?: Turn };
       if (responseWithTurn.turn) {
         const newTurn = responseWithTurn.turn;
-        setTurns((prev) => prev.some((turn) => turn.id === newTurn.id) ? prev : [...prev, newTurn]);
-        maxSortRef.current = Math.max(maxSortRef.current, newTurn.sortOrder);
+        // Same as sendTurn: merge sorted, and leave maxSortRef to the poll so
+        // concurrent lower-sortOrder turns aren't skipped.
+        setTurns((prev) => mergeTurns(prev, [newTurn]));
       }
       return json.data ?? null;
     },

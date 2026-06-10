@@ -42,7 +42,7 @@ const hints: Hint[] = [
     id: "status",
     title: "Track your progress",
     message:
-      "Your words are auto-saved here. Open Tools when you need comments, goals, story bible, history, or settings.",
+      "Your words are auto-saved here. Everything else — characters & world, comments, history, goals — is one ⌘K away, or on the right edge.",
     position: { bottom: "72px", left: "50%" },
     arrowDirection: "down",
   },
@@ -101,9 +101,15 @@ function Arrow({ direction }: { direction: Hint["arrowDirection"] }) {
 
 interface OnboardingHintsProps {
   onComplete?: () => void;
+  /**
+   * Hold the tour until the writer has momentum. The blank page is the
+   * most important moment in the app — nothing talks over it. The parent
+   * flips this once there are real words on the page and typing pauses.
+   */
+  enabled?: boolean;
 }
 
-export default function OnboardingHints({ onComplete }: OnboardingHintsProps) {
+export default function OnboardingHints({ onComplete, enabled = true }: OnboardingHintsProps) {
   const [currentStep, setCurrentStep] = useState<number | null>(null);
   const [isMac, setIsMac] = useState(false);
 
@@ -169,7 +175,7 @@ export default function OnboardingHints({ onComplete }: OnboardingHintsProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentStep, dismiss]);
 
-  if (currentStep === null) return null;
+  if (!enabled || currentStep === null) return null;
 
   const hint = hints[currentStep];
   const shortcut = isMac ? "\u2318K" : "Ctrl+K";

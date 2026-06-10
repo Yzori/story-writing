@@ -145,12 +145,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Major story-moments first; otherwise keep the late-session beats.
-    highlights.sort((a, b) => {
-      if (a.importance === "major" && b.importance !== "major") return -1;
-      if (b.importance === "major" && a.importance !== "major") return 1;
-      return 0;
-    });
-    const cappedHighlights = highlights.slice(0, MAX_HIGHLIGHTS);
+    // Fill the remaining slots from the END of the chronological list so the
+    // recap leads with the climactic closing beats, not the session's opening.
+    const majorHighlights = highlights
+      .filter((h) => h.importance === "major")
+      .slice(0, MAX_HIGHLIGHTS);
+    const remainingSlots = MAX_HIGHLIGHTS - majorHighlights.length;
+    const lateBeats =
+      remainingSlots > 0
+        ? highlights.filter((h) => h.importance !== "major").slice(-remainingSlots)
+        : [];
+    const cappedHighlights = [...majorHighlights, ...lateBeats];
 
     const marks = await db
       .select({

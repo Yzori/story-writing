@@ -118,6 +118,9 @@ export const IllustratedBlock = Node.create({
         renderHTML: (attrs: Record<string, unknown>) => ({ "data-floatside": attrs.floatSide }),
       },
       uploading: { default: false, rendered: false },
+      // Transient identity for in-flight drop/paste uploads so concurrent
+      // uploads resolve against their own placeholder. Never serialized.
+      uploadId: { default: null, rendered: false },
     };
   },
 

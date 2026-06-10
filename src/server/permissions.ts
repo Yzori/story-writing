@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "./db";
 import { users } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { SUBSCRIPTION_PLANS, type SubscriptionTier } from "./stripe";
 
 /**
@@ -31,8 +31,9 @@ export function isPremium(tier: SubscriptionTier): boolean {
  */
 export async function canUseAI(userId: string): Promise<{
   allowed: boolean;
-  remaining?: number;
-  limit?: number;
+  // null = unlimited (premium); consumers check `limit === null`
+  remaining?: number | null;
+  limit?: number | null;
   resetAt?: Date;
 }> {
   const user = await db.query.users.findFirst({
@@ -103,7 +104,7 @@ export async function incrementAIUsage(userId: string): Promise<void> {
   await db
     .update(users)
     .set({
-      aiRequestsThisMonth: db.raw(`ai_requests_this_month + 1`),
+      aiRequestsThisMonth: sql`${users.aiRequestsThisMonth} + 1`,
     })
     .where(eq(users.id, userId));
 }

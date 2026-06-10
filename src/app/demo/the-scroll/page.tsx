@@ -355,7 +355,7 @@ export default function TheScroll() {
                 onClick={() => setActiveTab("lore")} 
                 className={`flex-1 py-3 text-[10px] uppercase tracking-[0.14em] transition-all relative ${activeTab === "lore" ? "text-amber" : "text-text-ghost/40 hover:text-paper"}`}
               >
-                Story Bible
+                Characters & World
                 {activeTab === "lore" && <motion.div layoutId="chatTab" className="absolute bottom-0 inset-x-0 h-[2px] bg-amber shadow-[0_0_8px_rgba(198,154,71,0.5)]" />}
               </button>
               <button onClick={() => setChatOpen(false)} className="px-4 text-text-ghost/30 hover:text-text-ghost/60 transition-colors">

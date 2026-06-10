@@ -71,14 +71,15 @@ text-amber         — accent text
 - `font-reading` — Literata (variable serif) — editor body text, reader view
 - `font-mono` — IBM Plex Mono — metadata, word counts, code blocks
 
-### Three Themes
+### Two Themes — one library, two times of day
 
-The app has three themes controlled by CSS classes on `<html>`:
-- `theme-dark` (Lamplight) — default, deep warm darks
-- `theme-light` (Morning Journal) — cream paper, umber ink
-- `theme-sepia` (Old Library) — aged parchment
+The app has two themes controlled by CSS classes on `<html>`:
+- `theme-dark` (Lamplight) — default. The library at night: firelit umber brown-blacks (hue 30–38), cream text, candle-gold signature
+- `theme-light` (Daybreak) — the same room at morning: sunlit ivory paper, espresso ink, burnished bronze signature
 
 All colors auto-adapt via CSS variables. NEVER hardcode colors that would break in other themes.
+Hard rule: **no blue in surfaces** — cool hues exist only as accent inks (teal, amethyst).
+Full token tables, contrast matrix, and usage rules: `docs/COLOR_SYSTEM.md`.
 
 ## Component Patterns
 

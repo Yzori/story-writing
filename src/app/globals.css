@@ -23,6 +23,10 @@
   --color-amber-glow: var(--t-gold-glow);
   --color-amber-light: var(--t-gold-light);
   --color-amber-dark: var(--t-gold-dark);
+  --color-gold-fill: var(--t-gold-fill);
+  --color-amber-fill: var(--t-gold-fill);
+  --color-on-gold: var(--t-on-gold);
+  --color-on-amber: var(--t-on-gold);
   --color-ruby: var(--t-ruby);
   --color-rose: var(--t-ruby);
   --color-emerald: var(--t-emerald);
@@ -58,144 +62,167 @@
   --font-dm-sans: var(--font-dm-sans);
 }
 
-/* ─── Lamplight — The Magical Library ─────────────────────── */
-/*   Warm-neutral darks with violet undertone. Gold candlelight */
-/*   pops against the restrained base. Elevation via lightness  */
-/*   steps and border-light, not shadows.                       */
+/* ─── Lamplight — the library at night ────────────────────── */
+/*   Firelit umber darks (hue 30–38, no blue). The room is lit  */
+/*   by the lamp, not the moon: every surface is a warm brown-  */
+/*   black, text is cream, and candle-gold reads as light from  */
+/*   a flame rather than an accent painted on. Elevation via    */
+/*   lightness steps + candlelit border-light, not shadows.     */
+/*   Full rationale + contrast matrix: docs/COLOR_SYSTEM.md     */
 
-html, html.theme-dark {
-  --t-void: #0F0E13;
-  --t-ink: #171621;
-  --t-surface: #1E1D2A;
-  --t-elevated: #272636;
-  --t-subtle: #302F40;
+/* .theme-dark/.theme-light also work as nested scopes (brand previews etc.) */
+html, html.theme-dark, .theme-dark {
+  --t-void: #110E09;
+  --t-ink: #181410;
+  --t-surface: #211B13;
+  --t-elevated: #2B241A;
+  --t-subtle: #362E22;
 
-  --t-paper: #EDE8D8;
-  --t-text: #B8B2A0;
-  --t-text-secondary: #918B7E;
-  --t-text-tertiary: #6E6962;
-  /* Was #524E48 (~2.1:1 on --t-void) — failed WCAG 3:1 even as decorative
-     text. This token carries product copy (eyebrows, "no account needed",
-     scroll hints), so it has to clear at least 3:1 for AA-large. Brightened
-     to ~4.5:1 against the dark backdrop. */
-  --t-text-ghost: #85806F;
+  --t-paper: #F3EBDB;
+  --t-text: #CEC3AC;
+  --t-text-secondary: #A1957C;
+  --t-text-tertiary: #837861;
+  /* Ghost carries real product copy (eyebrows, hints) — must clear
+     4.5:1 on void and 3.5:1 on elevated. Currently 5.3 / 4.2. */
+  --t-text-ghost: #918569;
 
-  /* Candlelight gold — brighter, pops against neutral bg */
-  --t-gold: #D4A843;
-  --t-gold-soft: #D4A84325;
-  --t-gold-glow: #D4A84312;
-  --t-gold-light: #E8BE5E;
-  --t-gold-dark: #A88030;
+  /* Candle gold — the flame itself; 9:1 on void, safe as text anywhere */
+  --t-gold: #E0A93E;
+  --t-gold-soft: #E0A93E26;
+  --t-gold-glow: #E0A93E14;
+  --t-gold-light: #EFC465;
+  --t-gold-dark: #B28432;
+  /* Solid gold fills (buttons, badges) + the label color on them.
+     At night fill == gold; in Daybreak they diverge (see below). */
+  --t-gold-fill: #E0A93E;
+  --t-gold-fill-hover: #EFC465;
+  --t-on-gold: #110E09;
 
-  /* Accents — lifted for dark-bg readability */
-  --t-ruby: #B8697A;
-  --t-emerald: #7BA28A;
-  --t-amethyst: #9B8EC4;
-  --t-copper: #B8917A;
-  --t-teal: #6BA5A5;
+  /* Accents — inks warmed by lamplight; all ≥4.5:1 on void */
+  --t-ruby: #CE7186;
+  --t-emerald: #85B796;
+  --t-amethyst: #AC9CDE;
+  --t-copper: #CD9468;
+  --t-teal: #72B5B2;
 
-  --t-charcoal: #13121A;
-  --t-espresso: #1C1B28;
-  --t-walnut: #3A3850;
-  --t-linen: #EDE8D8;
-  --t-cream: #F5F0E0;
-  --t-parchment: #C8C0AC;
+  --t-charcoal: #15110C;
+  --t-espresso: #1D1812;
+  --t-walnut: #4A3E2C;
+  --t-linen: #F3EBDB;
+  --t-cream: #FAF5E7;
+  --t-parchment: #CFC4A9;
 
-  /* Borders — white-light system (Linear/Raycast style) */
-  --t-border: rgba(255, 255, 255, 0.06);
-  --t-border-subtle: rgba(255, 255, 255, 0.04);
-  --t-border-active: rgba(255, 255, 255, 0.12);
+  /* Borders — candlelight catching an edge, not white wireframes */
+  --t-border: rgba(255, 222, 170, 0.08);
+  --t-border-subtle: rgba(255, 222, 170, 0.05);
+  --t-border-active: rgba(255, 222, 170, 0.16);
   --t-backdrop-opacity: 0.20;
 
   /* Theme-aware shadow system */
   --t-shadow-card: none;
-  --t-shadow-card-hover: 0 0 24px rgba(212, 168, 67, 0.08);
-  --t-shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.08);
-  --t-shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 24px 48px rgba(0, 0, 0, 0.4);
+  --t-shadow-card-hover: 0 0 24px rgba(224, 169, 62, 0.10);
+  --t-shadow-elevated: 0 0 0 1px rgba(255, 224, 176, 0.09);
+  --t-shadow-modal: 0 0 0 1px rgba(255, 224, 176, 0.10), 0 24px 48px rgba(0, 0, 0, 0.5);
 
-  --t-vignette: rgba(8, 7, 12, 0.35);
-  --t-card-bg: rgba(39, 38, 54, 0.3);
-  --t-card-bg-fallback: linear-gradient(135deg, #1E1D2A, #171621);
-  --t-veil: #0F0E13;
-  --t-veil-50: rgba(15, 14, 19, 0.5);
-  --t-veil-40: rgba(15, 14, 19, 0.4);
-  --t-veil-90: rgba(15, 14, 19, 0.9);
+  --t-vignette: rgba(9, 6, 2, 0.38);
+  --t-card-bg: rgba(43, 36, 26, 0.3);
+  --t-card-bg-fallback: linear-gradient(135deg, #211B13, #181410);
+  --t-veil: #110E09;
+  --t-veil-50: rgba(17, 14, 9, 0.5);
+  --t-veil-40: rgba(17, 14, 9, 0.4);
+  --t-veil-90: rgba(17, 14, 9, 0.9);
 
   color-scheme: dark;
 }
 
-/* ─── Morning Manuscript (light) ────────────────────────────── */
-/*   Daylight on paper: warm editorial surfaces, umber ink,      */
-/*   archival cards, and brass accents. This keeps the platform  */
-/*   literary without the eye strain or smoky dark-mode residue. */
+/* ─── Daybreak (light) — the same library, morning ──────────── */
+/*   Sun through the reading-room windows: brighter ivory paper  */
+/*   (less grey-beige murk), deeper espresso ink for real        */
+/*   contrast, and a burnt-amber signature that passes AA as     */
+/*   as text — the old mustard gold (2.9:1) never did. Same      */
+/*   room as Lamplight, lamp off, curtains open.                 */
+/*   Full rationale + contrast matrix: docs/COLOR_SYSTEM.md      */
 
-html.theme-light {
+html.theme-light, .theme-light {
   /* ── Surface layers (back → front) ── */
-  --t-void: #F3EDE2;        /* page bg — warm manuscript paper */
-  --t-ink: #EDE4D6;         /* app zones — slightly deeper vellum */
-  --t-surface: #FBF7EF;     /* panels — clean ivory */
-  --t-elevated: #FFFDF8;    /* cards, inputs, modals — lifted paper */
-  --t-subtle: #E6D9C8;      /* pills, hover states, dividers */
+  --t-void: #F6F0E3;        /* page bg — sunlit ivory */
+  --t-ink: #EFE7D5;         /* app zones — vellum, a step deeper */
+  --t-surface: #FCF9F1;     /* panels — clean warm white */
+  --t-elevated: #FFFEFA;    /* cards, inputs, modals — lifted paper */
+  --t-subtle: #E7DCC6;      /* pills, hover states, dividers */
 
-  /* ── Text hierarchy (strongest → ghost) — warm ink neutrals ── */
-  --t-paper: #201813;       /* primary — deep umber ink */
-  --t-text: #4A3D33;        /* body — readable warm brown */
-  --t-text-secondary: #75675A;
-  --t-text-tertiary: #9A8C7C;
-  --t-text-ghost: #B8AA98;
+  /* ── Text hierarchy (strongest → ghost) — espresso inks ── */
+  --t-paper: #231A10;       /* primary — espresso ink */
+  --t-text: #483828;        /* body — rich warm brown, ~9.9:1 */
+  --t-text-secondary: #6E5E4B;
+  --t-text-tertiary: #7C6B50;
+  /* Ghost was #B8AA98 (1.95:1 — illegible). Same fix dark mode
+     already got: it carries copy, so it clears 3:1 minimum. */
+  --t-text-ghost: #8E7D5E;
 
-  /* ── Honeyed signature — editorial, warm, less muddy on paper ── */
-  --t-gold: #B98216;
-  --t-gold-soft: #B9821626;
-  --t-gold-glow: #D59B2418;
-  --t-gold-light: #D69A2B;
-  --t-gold-dark: #84580F;
+  /* ── Gold splits by role in daylight ──
+     As TEXT it must be dark enough to read on ivory → burnt-amber ink.
+     As a FILL, a dark amber slab reads muddy, not cozy → solid fills stay
+     honey gold (the same warmth as Lamplight's flame) with espresso labels
+     (8.9:1). bg-amber/bg-gold resolve to the honey fill via the overrides
+     further down; text-amber stays burnt amber. New code can use bg-gold-fill +
+     text-on-gold explicitly. */
+  /* Text-gold is burnt AMBER (h29, high sat), not bronze (h36-40) — the
+     yellow-leaning dark golds read as muddy brown on ivory. 4.9:1. */
+  --t-gold: #A0540B;
+  --t-gold-soft: #A0540B22;
+  --t-gold-glow: #BE6F1514;
+  --t-gold-light: #BE6F15;
+  --t-gold-dark: #7A3E06;
+  --t-gold-fill: #E8B23F;
+  --t-gold-fill-hover: #DFA52C;
+  --t-on-gold: #231A10;
 
-  /* ── Accents — natural ink colors on paper ── */
-  --t-ruby: #A84D5F;
-  --t-emerald: #4F7D62;
-  --t-amethyst: #6F5AA8;
-  --t-copper: #A45C32;
-  --t-teal: #467D82;
+  /* ── Accents — ink colors on paper; all ≥4.5:1 on page bg ── */
+  --t-ruby: #A2455A;
+  --t-emerald: #426C52;
+  --t-amethyst: #6B549F;
+  --t-copper: #98512A;
+  --t-teal: #3D7176;
 
   /* ── Legacy slots — warm equivalents for older components ── */
-  --t-charcoal: #EDE4D6;
-  --t-espresso: #DFD1BD;
-  --t-walnut: #CBB89F;
-  --t-linen: #201813;
-  --t-cream: #33261D;
-  --t-parchment: #6B5B4D;
+  --t-charcoal: #EFE7D5;
+  --t-espresso: #E2D5BE;
+  --t-walnut: #C9B493;
+  --t-linen: #231A10;
+  --t-cream: #362718;
+  --t-parchment: #6F5F49;
 
   /* ── Borders — printed edges, not grey wireframes ── */
-  --t-border: rgba(74, 54, 30, 0.13);
-  --t-border-subtle: rgba(74, 54, 30, 0.08);
-  --t-border-active: rgba(74, 54, 30, 0.24);
+  --t-border: rgba(76, 54, 28, 0.15);
+  --t-border-subtle: rgba(76, 54, 28, 0.09);
+  --t-border-active: rgba(76, 54, 28, 0.28);
   --t-backdrop-opacity: 0.40;
 
   /* ── Shadows — soft paper lift ── */
   --t-shadow-card:
-    0 1px 2px rgba(74, 54, 30, 0.05),
-    0 8px 24px rgba(74, 54, 30, 0.06);
+    0 1px 2px rgba(76, 54, 28, 0.05),
+    0 8px 24px rgba(76, 54, 28, 0.06);
   --t-shadow-card-hover:
-    0 2px 4px rgba(74, 54, 30, 0.06),
-    0 16px 38px rgba(74, 54, 30, 0.08),
-    0 3px 14px rgba(185, 130, 22, 0.08);
+    0 2px 4px rgba(76, 54, 28, 0.06),
+    0 16px 38px rgba(76, 54, 28, 0.08),
+    0 3px 14px rgba(160, 84, 11, 0.08);
   --t-shadow-elevated:
-    0 1px 3px rgba(74, 54, 30, 0.06),
-    0 10px 28px rgba(74, 54, 30, 0.08);
+    0 1px 3px rgba(76, 54, 28, 0.06),
+    0 10px 28px rgba(76, 54, 28, 0.08);
   --t-shadow-modal:
-    0 2px 6px rgba(74, 54, 30, 0.08),
-    0 20px 52px rgba(74, 54, 30, 0.14),
-    0 0 0 1px rgba(74, 54, 30, 0.07);
+    0 2px 6px rgba(76, 54, 28, 0.08),
+    0 20px 52px rgba(76, 54, 28, 0.14),
+    0 0 0 1px rgba(76, 54, 28, 0.07);
 
   /* ── Overlays & effects ── */
   --t-vignette: transparent;
-  --t-card-bg: rgba(255, 253, 248, 0.78);
-  --t-card-bg-fallback: linear-gradient(135deg, #FFFDF8, #FBF7EF);
-  --t-veil: #201813;
-  --t-veil-50: rgba(32, 24, 19, 0.42);
-  --t-veil-40: rgba(32, 24, 19, 0.32);
-  --t-veil-90: rgba(32, 24, 19, 0.82);
+  --t-card-bg: rgba(255, 254, 250, 0.78);
+  --t-card-bg-fallback: linear-gradient(135deg, #FFFEFA, #FCF9F1);
+  --t-veil: #231A10;
+  --t-veil-50: rgba(35, 26, 16, 0.42);
+  --t-veil-40: rgba(35, 26, 16, 0.32);
+  --t-veil-90: rgba(35, 26, 16, 0.82);
 
   color-scheme: light;
 }
@@ -203,9 +230,10 @@ html.theme-light {
 /* ── Light-mode: warm paper atmosphere ── */
 
 html.theme-light body {
+  /* Morning sun pooling at the top of the page */
   background:
-    radial-gradient(circle at 50% 0%, rgba(166, 111, 24, 0.08), transparent 36rem),
-    linear-gradient(180deg, #F8F2E8 0%, #F3EDE2 100%);
+    radial-gradient(circle at 50% 0%, rgba(160, 84, 11, 0.07), transparent 36rem),
+    linear-gradient(180deg, #FAF5EA 0%, #F6F0E3 100%);
 }
 
 html.theme-light body::before {
@@ -224,11 +252,11 @@ html.theme-light body::after {
    full-screen backdrops and image treatments can keep their own intent. */
 
 html.theme-light [class*="bg-black/"]:not([class*="fixed"]):not([class*="inset-0"]) {
-  background-color: rgba(255, 253, 248, 0.72) !important;
+  background-color: rgba(255, 254, 250, 0.72) !important;
 }
 
 html.theme-light [class*="hover:bg-black/"]:hover {
-  background-color: rgba(237, 228, 214, 0.82) !important;
+  background-color: rgba(239, 231, 213, 0.82) !important;
 }
 
 html.theme-light [class*="shadow-"][class*="inset_0_0"] {
@@ -240,6 +268,40 @@ html.theme-light textarea,
 html.theme-light select {
   background-color: var(--t-elevated);
   color: var(--t-paper);
+}
+
+/* ── Daybreak: solid gold fills are honey, never dark amber ── */
+/* text-amber must stay a readable dark-amber ink, but a button filled
+   with it is a muddy slab. ~280 call sites use bg-amber/bg-gold for
+   solid CTAs (usually paired with text-void or text-black), so the fill is
+   re-pointed here instead of editing every component. Labels that resolve
+   light in this theme (text-void = ivory, text-ink = vellum) flip to
+   espresso so they keep reading on the honey fill. */
+
+html.theme-light .bg-gold,
+html.theme-light .bg-amber {
+  background-color: var(--t-gold-fill);
+}
+
+html.theme-light .hover\:bg-gold:hover,
+html.theme-light .hover\:bg-amber:hover {
+  background-color: var(--t-gold-fill);
+}
+
+html.theme-light .bg-gold-light,
+html.theme-light .bg-amber-light,
+html.theme-light .hover\:bg-gold-light:hover,
+html.theme-light .hover\:bg-amber-light:hover {
+  background-color: var(--t-gold-fill-hover);
+}
+
+html.theme-light :is(.bg-gold, .bg-amber).text-void,
+html.theme-light :is(.bg-gold, .bg-amber) .text-void,
+html.theme-light :is(.bg-gold, .bg-amber).text-ink,
+html.theme-light :is(.bg-gold, .bg-amber) .text-ink,
+html.theme-light :is(.bg-gold, .bg-amber).text-black,
+html.theme-light :is(.bg-gold, .bg-amber) .text-black {
+  color: var(--t-on-gold);
 }
 
 /* ── Theme-aware card image filters ── */
@@ -322,18 +384,18 @@ html.theme-light .create-details-paper-wash {
 html.theme-light .create-details-book {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 16px 42px rgba(74, 54, 30, 0.18),
-    0 2px 8px rgba(74, 54, 30, 0.08);
+    0 16px 42px rgba(76, 54, 28, 0.18),
+    0 2px 8px rgba(76, 54, 28, 0.08);
 }
 
 html.theme-light .create-details-form-panel {
   background:
-    linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(250, 244, 232, 0.86)),
+    linear-gradient(180deg, rgba(255, 254, 250, 0.92), rgba(249, 244, 233, 0.86)),
     var(--t-surface);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.78) inset,
-    0 18px 48px rgba(74, 54, 30, 0.1),
-    0 2px 8px rgba(74, 54, 30, 0.05);
+    0 18px 48px rgba(76, 54, 28, 0.1),
+    0 2px 8px rgba(76, 54, 28, 0.05);
 }
 
 html.theme-light .create-details-dossier {
@@ -394,18 +456,18 @@ html.theme-light .create-mode-ambient-teal {
 }
 
 html.theme-light .create-mode-card {
-  background: rgba(255, 253, 248, 0.88);
+  background: rgba(255, 254, 250, 0.88);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.78) inset,
-    0 16px 42px rgba(74, 54, 30, 0.12),
-    0 2px 8px rgba(74, 54, 30, 0.06);
+    0 16px 42px rgba(76, 54, 28, 0.12),
+    0 2px 8px rgba(76, 54, 28, 0.06);
 }
 
 html.theme-light .create-mode-card:hover {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.82) inset,
-    0 20px 54px rgba(74, 54, 30, 0.16),
-    0 4px 14px rgba(74, 54, 30, 0.08);
+    0 20px 54px rgba(76, 54, 28, 0.16),
+    0 4px 14px rgba(76, 54, 28, 0.08);
 }
 
 html.theme-light .create-mode-card-fade-bottom {
@@ -430,7 +492,7 @@ html.theme-light .create-mode-card-fade-top {
 
 html.theme-light .create-mode-card-subtitle {
   color: color-mix(in srgb, var(--t-gold-dark) 72%, var(--t-paper)) !important;
-  text-shadow: 0 1px 0 rgba(255, 253, 248, 0.72);
+  text-shadow: 0 1px 0 rgba(255, 254, 250, 0.72);
 }
 
 html.theme-light .create-mode-card-title {
@@ -508,7 +570,7 @@ html.theme-light .reader-foryou-article {
     linear-gradient(180deg, color-mix(in srgb, var(--t-surface) 76%, transparent), color-mix(in srgb, var(--t-surface) 38%, transparent));
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 16px 44px rgba(74, 54, 30, 0.08);
+    0 16px 44px rgba(76, 54, 28, 0.08);
   padding: clamp(1.5rem, 3vw, 2.5rem);
 }
 
@@ -579,10 +641,10 @@ body::after {
   background: var(--t-text-tertiary);
 }
 
-/* Selection */
+/* Selection — honey highlight with espresso text in both themes */
 ::selection {
-  background-color: var(--t-gold);
-  color: var(--t-void);
+  background-color: var(--t-gold-fill);
+  color: var(--t-on-gold);
 }
 
 /* ─── Ornamental Utilities ─────────────────────────────────── */
@@ -2023,7 +2085,7 @@ html.theme-light .adventure-mode .bg-surface {
 }
 
 html.theme-light .adventure-mode .bg-elevated {
-  background-color: #fffdf8 !important;
+  background-color: #FFFEFA !important;
 }
 
 html.theme-light .adventure-mode .adventure-cinematic-glow,
@@ -2046,7 +2108,7 @@ html.theme-light .adventure-mode .text-text-secondary {
 }
 
 html.theme-light .adventure-mode [class*="bg-black/"]:not([class*="fixed"]) {
-  background-color: rgba(255, 250, 242, 0.70) !important;
+  background-color: rgba(252, 249, 241, 0.70) !important;
 }
 
 html.theme-light .adventure-mode [class*="shadow-"][class*="inset_0_0"],
@@ -2063,19 +2125,19 @@ html.theme-light .adventure-mode [class*="shadow-[0_20px_60px"],
 html.theme-light .adventure-mode [class*="shadow-[0_16px_50px"],
 html.theme-light .adventure-mode [class*="shadow-[0_10px_40px"] {
   box-shadow:
-    0 1px 2px rgba(74, 54, 30, 0.06),
-    0 18px 46px rgba(74, 54, 30, 0.12) !important;
+    0 1px 2px rgba(76, 54, 28, 0.06),
+    0 18px 46px rgba(76, 54, 28, 0.12) !important;
 }
 
 html.theme-light .adventure-mode .border-border,
 html.theme-light .adventure-mode .border-border-subtle {
-  border-color: rgba(74, 54, 30, 0.12) !important;
+  border-color: rgba(76, 54, 28, 0.12) !important;
 }
 
 html.theme-light .adventure-mode input,
 html.theme-light .adventure-mode textarea,
 html.theme-light .adventure-mode select {
-  background-color: #fffdf8 !important;
+  background-color: #FFFEFA !important;
   color: var(--adventure-ink) !important;
 }
 

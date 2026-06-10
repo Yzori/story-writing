@@ -45,7 +45,7 @@ function shouldMerge(prev: CompileTurn, next: CompileTurn): boolean {
   if (prev.type === "illustration" || next.type === "illustration") return false;
 
   const gmTypes = ["narration", "consequence"];
-  const playerProseTypes = ["action", "dialogue", "reaction", "description"];
+  const playerProseTypes = ["action", "dialogue", "reaction"];
 
   // GM narration + consequence merge
   if (gmTypes.includes(prev.type) && gmTypes.includes(next.type)) return true;
@@ -67,6 +67,22 @@ function shouldMerge(prev: CompileTurn, next: CompileTurn): boolean {
     return true;
 
   return false;
+}
+
+// ── Opening-turn detection ───────────────────────────────────
+
+// Session activation inserts the opening narration as a turn with
+// metadata {"opening": true} (sessions/[sessionId]/route.ts) while the
+// session row keeps its `opening` column. When we render sessionOpening
+// as the blockquote, that turn must be skipped or the opening appears twice.
+function isOpeningTurn(turn: CompileTurn): boolean {
+  if (turn.type !== "narration" || !turn.metadata) return false;
+  try {
+    const parsed = JSON.parse(turn.metadata) as { opening?: unknown } | null;
+    return parsed?.opening === true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Group turns into paragraphs ──────────────────────────────
@@ -185,8 +201,15 @@ export function compileSessionToHTML(options: CompileOptions): string {
     parts.push(`<blockquote><em>${esc(sessionOpening)}</em></blockquote>`);
   }
 
-  // Filter out non-story turns
-  const storyTurns = turns.filter((turn) => !isLogTurnType(turn.type));
+  // Filter out non-story turns, plus the activation-inserted opening turn
+  // when the opening is already rendered from the session row above —
+  // otherwise the opening narration appears twice, back to back. If the
+  // session's opening column was cleared after activation, keep the turn
+  // so the text still compiles once.
+  const storyTurns = turns.filter(
+    (turn) =>
+      !isLogTurnType(turn.type) && !(sessionOpening && isOpeningTurn(turn))
+  );
 
   const paragraphs = groupIntoParagraphs(storyTurns);
 

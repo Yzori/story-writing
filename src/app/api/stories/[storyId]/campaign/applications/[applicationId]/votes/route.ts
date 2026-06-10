@@ -72,6 +72,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // The application must belong to the story in the URL — otherwise a
+    // member of one campaign could read another campaign's audition tallies.
+    const application = await db.query.campaignApplications.findFirst({
+      where: and(
+        eq(campaignApplications.id, applicationId),
+        eq(campaignApplications.storyId, storyId)
+      ),
+    });
+
+    if (!application) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Application not found" } },
+        { status: 404 }
+      );
+    }
+
     // Get vote counts
     const [counts] = await db
       .select({
@@ -134,9 +150,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Find the application
+    // Find the application — scoped to the story in the URL so a member of
+    // one campaign cannot inject votes into another campaign's audition.
     const application = await db.query.campaignApplications.findFirst({
-      where: eq(campaignApplications.id, applicationId),
+      where: and(
+        eq(campaignApplications.id, applicationId),
+        eq(campaignApplications.storyId, storyId)
+      ),
     });
 
     if (!application) {

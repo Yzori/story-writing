@@ -26,7 +26,7 @@ export default function OutlineView({
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-lg font-display font-semibold text-paper mb-1">
-            Story map
+            Book map
           </h2>
           <p className="text-[12px] text-text-ghost">
             Plan the whole book across {chapters.length} chapters · {formatNumber(totalWords)} words · {publishedCount} published

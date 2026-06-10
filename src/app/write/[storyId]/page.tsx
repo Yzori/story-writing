@@ -38,7 +38,6 @@ import ChapterSettingsPanel from "@/components/editor/ChapterSettingsPanel";
 import HistoryPanel from "@/components/editor/HistoryPanel";
 import OutlineView from "@/components/editor/OutlineView";
 import TypographyPanel from "@/components/editor/TypographyPanel";
-import ToolkitPanel from "@/components/editor/ToolkitPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
@@ -118,6 +117,71 @@ function EditorModeRail({
         </button>
       ))}
     </nav>
+  );
+}
+
+// The ten flat panels, regrouped into three rooms. AI keeps its own sheet;
+// monetization lives in Publish mode only.
+const PANEL_ROOMS: Array<{
+  label: string;
+  tabs: Array<{ panel: RightPanel; label: string; teamOnly?: boolean }>;
+}> = [
+  {
+    label: "Story",
+    tabs: [
+      { panel: "bible", label: "Characters & World" },
+      { panel: "metadata", label: "Details" },
+      { panel: "frontmatter", label: "Front matter" },
+    ],
+  },
+  {
+    label: "Feedback",
+    tabs: [
+      { panel: "comments", label: "Comments" },
+      { panel: "chat", label: "Chat", teamOnly: true },
+    ],
+  },
+  {
+    label: "Craft",
+    tabs: [
+      { panel: "history", label: "History" },
+      { panel: "chapter", label: "Chapter" },
+      { panel: "typography", label: "Typography" },
+    ],
+  },
+];
+
+function PanelRoomTabs({
+  current,
+  hasTeam,
+  onSwitch,
+}: {
+  current: RightPanel;
+  hasTeam: boolean;
+  onSwitch: (panel: RightPanel) => void;
+}) {
+  const room = PANEL_ROOMS.find((r) => r.tabs.some((t) => t.panel === current));
+  if (!room) return null;
+  const tabs = room.tabs.filter((t) => !t.teamOnly || hasTeam);
+  if (tabs.length < 2) return null;
+  return (
+    <div className="hidden items-center gap-1 border-b border-l border-border bg-surface/95 px-3 py-2 backdrop-blur-2xl sm:flex">
+      <span className="mr-1.5 text-[9px] uppercase tracking-[0.16em] text-text-ghost">{room.label}</span>
+      {tabs.map((t) => (
+        <button
+          key={t.panel}
+          type="button"
+          onClick={() => onSwitch(t.panel)}
+          className={`rounded-md px-2 py-1 text-[11px] transition-colors ${
+            current === t.panel
+              ? "bg-amber/[0.08] text-amber border border-amber/20"
+              : "border border-transparent text-text-ghost hover:text-text-secondary"
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -430,7 +494,8 @@ export default function WriteStoryPage() {
   // Below `lg` the mode rail + chapter nav are hidden; this opens them as a
   // left drawer so chapter/mode switching is reachable on phones and tablets.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [rightContextCollapsed, setRightContextCollapsed] = useState(false);
+  // Collapsed by default — the canvas is the star; beats/context are summoned.
+  const [rightContextCollapsed, setRightContextCollapsed] = useState(true);
 
   // Comments
   const [commentThreads, setCommentThreads] = useState<CommentThread[]>([]);
@@ -449,8 +514,6 @@ export default function WriteStoryPage() {
   const [showGoals, setShowGoals] = useState(false);
   // Outline view
   const [showOutline, setShowOutline] = useState(false);
-  // Toolkit
-  const [showToolkit, setShowToolkit] = useState(false);
   // Publish state
   const [isPublic, setIsPublic] = useState(false);
   const [writingMode, setWritingMode] = useState("solo");
@@ -786,6 +849,11 @@ export default function WriteStoryPage() {
       if (isMod && e.shiftKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
         setShowGoals((v) => !v);
+      }
+      // Focus mode: Cmd/Ctrl+. — the writer's most important toggle
+      if (isMod && e.key === ".") {
+        e.preventDefault();
+        setFocusMode((f) => !f);
       }
       if (isMod && e.shiftKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
@@ -1711,11 +1779,6 @@ export default function WriteStoryPage() {
   );
 
   // ── Stable callbacks for JSX ──────────────────────────────
-  const handleToggleOutline = useCallback(() => {
-    setEditorMode("write");
-    setRightPanel("none");
-  }, []);
-  const handleToggleSearch = useCallback(() => setShowSearch((v) => !v), []);
   const handleToggleGoals = useCallback(() => setShowGoals((v) => !v), []);
   const handleOpenGrimoire = useCallback(() => setCommandOpen(true), []);
   const handleCloseGrimoire = useCallback(() => setCommandOpen(false), []);
@@ -1726,8 +1789,9 @@ export default function WriteStoryPage() {
   const handleChangeEditorMode = useCallback((mode: EditorMode) => {
     setEditorMode(mode);
     setRightPanel("none");
-    setRightContextCollapsed(false);
-    setShowToolkit(false);
+    // Write mode opens with a clean canvas; the other modes ARE their
+    // context column, so switching to them is an explicit ask for it.
+    setRightContextCollapsed(mode === "write");
     setShowGoals(false);
     if (mode !== "plan") {
       setShowOutline(false);
@@ -1783,8 +1847,6 @@ export default function WriteStoryPage() {
   }, []);
   const noopCallback = useCallback(() => {}, []);
   const handleCloseSearch = useCallback(() => setShowSearch(false), []);
-  const handleCloseToolkit = useCallback(() => setShowToolkit(false), []);
-  const handleToggleToolkit = useCallback(() => setShowToolkit((v) => !v), []);
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
   const handleWebtoonWordCount = useCallback((wordCount: number) => {
@@ -1994,7 +2056,7 @@ export default function WriteStoryPage() {
           onDeleteChapter={handleDeleteChapter}
           onToggleCollapse={handleToggleLeftSidebar}
           onUpdateStoryTitle={handleUpdateStoryTitle}
-          onOpenToolkit={handleToggleToolkit}
+          onOpenToolkit={handleOpenGrimoire}
           coachSlot={
             <FirstChapterCoach
               variant="inline"
@@ -2066,7 +2128,7 @@ export default function WriteStoryPage() {
                   onDeleteChapter={handleDeleteChapter}
                   onToggleCollapse={() => setMobileNavOpen(false)}
                   onUpdateStoryTitle={handleUpdateStoryTitle}
-                  onOpenToolkit={handleToggleToolkit}
+                  onOpenToolkit={handleOpenGrimoire}
                 />
               </div>
             </motion.div>
@@ -2220,24 +2282,21 @@ export default function WriteStoryPage() {
                             <div className="w-px h-4 bg-border" />
                           </div>
                         )}
-                        {/* Reading time */}
-                        <span className="text-[11px] text-text-ghost hidden sm:block">
-                          ~{Math.max(1, Math.ceil((activeChapter.wordCount || 0) / 238))} min read
-                        </span>
-                        {/* Focus mode toggle */}
+                        {/* Focus mode toggle — reading-time metrics live in Review/Publish, not the drafting room */}
                         <button
                           onClick={() => setFocusMode((f) => !f)}
-                          className={`p-1.5 rounded-md transition-all text-[11px] hidden sm:flex items-center gap-1 ${
+                          className={`px-2 py-1.5 rounded-md transition-all text-[11px] hidden sm:flex items-center gap-1.5 ${
                             focusMode
                               ? "bg-amber/10 text-amber border border-amber/20"
                               : "text-text-ghost hover:text-text-secondary border border-transparent"
                           }`}
-                          title="Focus mode"
+                          title="Focus mode (⌘.)"
                         >
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
                             <circle cx="7" cy="7" r="3" />
                             <path d="M7 1v2M7 11v2M1 7h2M11 7h2" />
                           </svg>
+                          <span className="hidden lg:inline">Focus</span>
                         </button>
                         {/* Reference pane toggle */}
                         <button
@@ -2254,15 +2313,25 @@ export default function WriteStoryPage() {
                             <line x1="9" y1="1" x2="9" y2="13" />
                           </svg>
                         </button>
-                        {/* Quick publish */}
+                        {/* Quick publish — earns its place once there's something to publish */}
                         {activeChapter.status !== "published" ? (
                           <button
                             onClick={() => {
-                              if (activeChapter) {
+                              if (activeChapter && (activeChapter.wordCount ?? 0) >= 100) {
                                 openPublishDialog(activeChapter.id, activeChapter.title);
                               }
                             }}
-                            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] border border-sage/30 text-sage hover:bg-sage/10 transition-all"
+                            disabled={(activeChapter.wordCount ?? 0) < 100}
+                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] border transition-all ${
+                              (activeChapter.wordCount ?? 0) < 100
+                                ? "border-border text-text-ghost/60 cursor-default opacity-50"
+                                : "border-sage/30 text-sage hover:bg-sage/10"
+                            }`}
+                            title={
+                              (activeChapter.wordCount ?? 0) < 100
+                                ? "Write at least 100 words to publish this chapter"
+                                : "Publish this chapter"
+                            }
                           >
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                               <path d="M2 6l3 3 5-5" />
@@ -2302,6 +2371,7 @@ export default function WriteStoryPage() {
                       format={storyFormat}
                       chapterKey={activeChapter.id}
                       wordCount={activeChapter.wordCount ?? 0}
+                      showBelowWords={1}
                       onPick={(text) => {
                         if (!editorInstance) return;
                         // Insert as italicized prose so the writer can clearly see
@@ -2424,7 +2494,7 @@ export default function WriteStoryPage() {
                                 ))
                               ) : (
                                 <p className="text-[12px] text-text-ghost text-center py-8">
-                                  No characters yet. Add them in the Story Bible.
+                                  No characters yet. Add them in Characters & World.
                                 </p>
                               )
                             ) : (
@@ -2439,7 +2509,7 @@ export default function WriteStoryPage() {
                                 ))
                               ) : (
                                 <p className="text-[12px] text-text-ghost text-center py-8">
-                                  No notes yet. Add them in the Story Bible.
+                                  No notes yet. Add them in Characters & World.
                                 </p>
                               )
                             )}
@@ -2459,20 +2529,12 @@ export default function WriteStoryPage() {
       <AnimatePresence>
         {showUI && (
           <StatusBar
-            showOutline={editorMode === "write" && rightPanel === "none"}
             chapterWordCount={activeChapter?.wordCount ?? 0}
             totalWords={totalWords}
             goals={project.goals}
             saveState={saveState}
-            onToggleOutline={handleToggleOutline}
             onOpenGrimoire={handleOpenGrimoire}
-            onToggleComments={handleToggleComments}
-            onToggleSearch={handleToggleSearch}
-            onToggleGoals={handleToggleGoals}
-            onToggleBible={handleToggleBible}
-            onToggleSettings={handleToggleSettings}
-            onToggleHistory={() => setRightPanel((p) => (p === "history" ? "none" : "history"))}
-            snapshotCount={activeChapter?.snapshots.length ?? 0}
+            insetClass={`${leftInsetClass} ${rightInsetClass}`}
           />
         )}
       </AnimatePresence>
@@ -2829,22 +2891,58 @@ export default function WriteStoryPage() {
         rightPanel === "none" ? rightContextCollapsed ? "w-0 xl:w-12" : "w-0 xl:w-[360px]" : "w-full sm:w-[360px]"
       }`}>
         {rightPanel === "none" && rightContextCollapsed && !commandOpen && (
+          /* The quiet right edge: rooms live where they open. */
           <aside className="hidden h-full w-12 flex-col items-center border-l border-border bg-surface/80 py-3 backdrop-blur-2xl xl:flex">
             <button
               type="button"
               onClick={handleToggleRightContext}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
-              title="Expand context panel"
-              aria-label="Expand context panel"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
+              title={editorMode === "write" ? "Chapter beats" : "Expand context panel"}
+              aria-label={editorMode === "write" ? "Open chapter beats" : "Expand context panel"}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 3l4 4-4 4" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
               </svg>
             </button>
-            <div className="mt-4 h-px w-6 bg-border" />
-            <span className="mt-4 [writing-mode:vertical-rl] text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-              Context
-            </span>
+            <div className="my-3 h-px w-6 bg-border" />
+            {/* Story room */}
+            <button
+              type="button"
+              onClick={() => setRightPanel("bible")}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
+              title="Story — characters & world, details, front matter"
+              aria-label="Open story room"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 6.04A9 9 0 0 0 6 3.75c-1.05 0-2.06.18-3 .51v14.25a9 9 0 0 1 3-.51c2.3 0 4.4.87 6 2.29m0-14.25a9 9 0 0 1 6-2.29c1.05 0 2.06.18 3 .51v14.25a9 9 0 0 0-3-.51 9 9 0 0 0-6 2.29m0-14.25v14.25" />
+              </svg>
+            </button>
+            {/* Feedback room */}
+            <button
+              type="button"
+              onClick={() => setRightPanel("comments")}
+              className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
+              title="Feedback — comments and chat"
+              aria-label="Open feedback room"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            {/* Craft room */}
+            <button
+              type="button"
+              onClick={() => setRightPanel("history")}
+              className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
+              title="Craft — chapter settings, history, typography"
+              aria-label="Open craft room"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 3" />
+              </svg>
+            </button>
           </aside>
         )}
 
@@ -2893,13 +2991,13 @@ export default function WriteStoryPage() {
                   {editorMode === "plan" && (
                     <>
                       <ContextAction
-                        label="Story Map"
+                        label="Book Map"
                         description="Plan the whole book by chapter."
                         onClick={handleToggleOutlineView}
                         tone="accent"
                       />
                       <ContextAction
-                        label="Story Bible"
+                        label="Characters & World"
                         description="Characters, places, lore, and continuity notes."
                         onClick={handleToggleBible}
                       />
@@ -2995,6 +3093,13 @@ export default function WriteStoryPage() {
                         description="Post roles and recruit collaborators."
                         onClick={handleOpenOpenCalls}
                       />
+                      {/* Delete moved here when the Toolkit (its only home) was removed */}
+                      <ContextAction
+                        label="Delete Story"
+                        description="Remove this story and all its chapters. Cannot be undone."
+                        onClick={handleDeleteStory}
+                        tone="danger"
+                      />
                     </>
                   )}
                 </div>
@@ -3002,6 +3107,15 @@ export default function WriteStoryPage() {
             )}
           </aside>
         )}
+        <div className={`flex h-full flex-col ${rightPanel === "none" ? "w-0" : "w-full"}`}>
+          {rightPanel !== "none" && (
+            <PanelRoomTabs
+              current={rightPanel}
+              hasTeam={writingMode !== "solo" && collaborators.length > 0}
+              onSwitch={setRightPanel}
+            />
+          )}
+          <div className="relative flex min-h-0 w-full flex-1">
         <AnimatePresence>
           {rightPanel === "comments" && (
             <CommentsSidebar
@@ -3094,6 +3208,8 @@ export default function WriteStoryPage() {
             />
           )}
         </AnimatePresence>
+          </div>
+        </div>
       </div>
 
       {/* ── 7. Comment Popover ──────────────────────────────── */}
@@ -3104,44 +3220,6 @@ export default function WriteStoryPage() {
             selectedText={commentPopover.selectedText}
             onSubmit={handleSubmitComment}
             onCancel={handleCancelComment}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── 8. Toolkit Panel ────────────────────────────────── */}
-      <AnimatePresence>
-        {showToolkit && (
-          <ToolkitPanel
-            onClose={handleCloseToolkit}
-            isPublic={isPublic}
-            onTogglePublish={handleTogglePublish}
-            onDeleteStory={handleDeleteStory}
-            onOpenMetadata={handleOpenMetadata}
-            onOpenBible={handleToggleBible}
-            onOpenFrontMatter={handleOpenFrontMatter}
-            onOpenChapterSettings={handleToggleSettings}
-            onOpenTypography={handleOpenTypography}
-            onOpenOutline={handleToggleOutlineView}
-            onOpenMonetization={handleOpenMonetization}
-            onOpenWorkshop={handleOpenWorkshop}
-            onOpenOpenCalls={handleOpenOpenCalls}
-            onExportPdf={handleExportPdf}
-            onExportEpub={handleExportEpub}
-            onExportDocx={handleExportDocx}
-            hasCover={!!project.metadata.coverImageDataUrl}
-            genreCount={project.metadata.genres.length}
-            bibleEntryCount={
-              project.bible.characters.length +
-              project.bible.places.length +
-              project.bible.notes.length
-            }
-            chapterStatus={activeChapter?.status ?? "draft"}
-            snapshotCount={activeChapter?.snapshots.length ?? 0}
-            dropCaps={project.typography.dropCaps}
-            sceneBreakStyle={project.typography.sceneBreakStyle}
-            hasEpigraph={!!project.frontMatter.epigraph}
-            hasForeword={!!project.frontMatter.foreword}
-            showToc={project.frontMatter.showToc}
           />
         )}
       </AnimatePresence>
@@ -3168,6 +3246,15 @@ export default function WriteStoryPage() {
         onExportEpub={handleExportEpub}
         onExportDocx={handleExportDocx}
         onOpenShortcuts={() => { setCommandOpen(false); setShowShortcuts(true); }}
+        onOpenComments={handleToggleComments}
+        onOpenHistory={() => { setCommandOpen(false); setRightPanel("history"); }}
+        onOpenGoals={handleToggleGoals}
+        onOpenBeats={() => {
+          setCommandOpen(false);
+          setEditorMode("write");
+          setRightPanel("none");
+          setRightContextCollapsed(false);
+        }}
       />
 
       {/* Keyboard Shortcuts Panel */}
@@ -3184,7 +3271,8 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
-      <OnboardingHints />
+      {/* The tour waits for momentum: real words on the page, typing paused. */}
+      <OnboardingHints enabled={totalWords >= 150 && !isTyping} />
 
       {/* Upgrade Modal for Premium Features */}
       <UpgradeModal

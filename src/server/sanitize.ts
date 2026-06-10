@@ -14,7 +14,7 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = [
   "href", "target", "rel", "class", "style",
-  "data-mention", "data-comment-id", "data-illustration",
+  "data-mention", "data-thread-id", "data-illustration",
   "data-type", "data-layout", "data-src", "data-alt",
   "data-caption", "data-prompt", "data-floatside", "data-color",
   "data-scene-break", "data-scene-break-style", "data-scene-break-label",

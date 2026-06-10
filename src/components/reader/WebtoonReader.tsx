@@ -24,6 +24,8 @@ interface Panel {
 interface PanelFrame {
   id: string;
   imageData: string;
+  /** Per-frame image fit override ("cover" | "contain" | "top"). */
+  fit?: string;
 }
 
 // Legacy format from before panels table
@@ -41,6 +43,12 @@ interface WebtoonReaderProps {
   content?: string; // legacy: JSON string of panels (fallback)
   /** When provided (editor preview), render these panels directly and skip fetch. */
   panels?: Panel[];
+  /**
+   * Render gray "Empty frame" placeholders for frames without image data.
+   * Only the editor preview should turn this on — public readers must never
+   * see storyboard scaffolding, so empty frames are filtered out by default.
+   */
+  showEmptyFrames?: boolean;
   hasNextChapter?: boolean;
   hasPrevChapter?: boolean;
   onNextChapter?: () => void;
@@ -82,6 +90,7 @@ function parseFrames(panel: Pick<Panel, "frames" | "imageData">): PanelFrame[] {
         .map((frame, index) => ({
           id: typeof frame.id === "string" ? frame.id : `frame-${index + 1}`,
           imageData: typeof frame?.imageData === "string" ? frame.imageData : "",
+          fit: frame?.fit === "cover" || frame?.fit === "contain" || frame?.fit === "top" ? frame.fit : undefined,
         }));
     }
   } catch {
@@ -89,6 +98,17 @@ function parseFrames(panel: Pick<Panel, "frames" | "imageData">): PanelFrame[] {
   }
 
   return panel.imageData ? [{ id: "frame-1", imageData: panel.imageData }] : [];
+}
+
+function getLayoutSlotCount(layout: string | undefined, frameCount: number) {
+  if (layout === "grid-6") return 6;
+  if (layout === "mosaic-5") return 5;
+  if (layout === "grid-4") return 4;
+  if (layout === "top-pair-bottom" || layout === "left-stack-right") return 3;
+  if (layout === "side-by-side" || layout === "stack") return 2;
+  if (layout === "single") return 1;
+  // Legacy panels without a layout: every stored frame is a slot.
+  return frameCount;
 }
 
 function getLayoutClass(layout: string | undefined, frameCount: number) {
@@ -153,6 +173,7 @@ export default function WebtoonReader({
   nextChapterTitle,
   reactionsElement,
   panels: panelsProp,
+  showEmptyFrames = false,
 }: WebtoonReaderProps) {
   // When the editor passes `panels` (preview), render them live — derive rather
   // than sync into state, so there's no fetch and no setState-in-effect.
@@ -230,9 +251,22 @@ export default function WebtoonReader({
             const hasCustomSizing = panel.sizing !== "standard";
             const sizingStyle = getSizingStyle(panel.sizing, panel.aspectRatio);
             const overlays = parseOverlays(panel.overlays);
-            const frames = parseFrames(panel);
+            const allFrames = parseFrames(panel);
+            // Frames beyond the layout's slot count are storage-only extras
+            // (kept so switching layouts never destroys art) — the editor
+            // canvas never shows them, so readers must not either.
+            const slotFrames = allFrames.slice(0, getLayoutSlotCount(panel.layout, allFrames.length));
+            const slotCount = slotFrames.length;
+            // Public readers never see "Empty frame" placeholders — only the
+            // editor preview (showEmptyFrames) renders unfinished slots. Keep
+            // each frame's original slot index so the layout's index-based
+            // span classes stay correct after filtering.
+            const indexedFrames = slotFrames.map((frame, slotIndex) => ({ frame, slotIndex }));
+            const frames = showEmptyFrames
+              ? indexedFrames
+              : indexedFrames.filter(({ frame }) => frame.imageData);
             const borderClasses = getBorderStyleClasses(panel.borderStyle);
-            const hasImageFrame = frames.some((frame) => frame.imageData);
+            const hasImageFrame = frames.some(({ frame }) => frame.imageData);
 
             return (
               <motion.div
@@ -242,19 +276,19 @@ export default function WebtoonReader({
                 className={`w-full relative ${borderClasses.panel} ${getSeamClass(panel.seam, i === 0)}`}
               >
                 <div
-                  className={`grid ${getLayoutClass(panel.layout, frames.length)} ${borderClasses.grid}`}
+                  className={`grid ${getLayoutClass(panel.layout, slotCount)} ${borderClasses.grid}`}
                   style={hasCustomSizing ? sizingStyle : undefined}
                 >
-                  {frames.map((frame, frameIndex) => (
+                  {frames.map(({ frame, slotIndex }) => (
                     <div
-                      key={`${frame.id}-${frameIndex}`}
-                      className={`relative overflow-hidden ${borderClasses.cell} ${frames.length > 1 ? "min-h-32" : ""} ${getFrameCellClass(panel.layout, frameIndex, frames.length)}`}
+                      key={`${frame.id}-${slotIndex}`}
+                      className={`relative overflow-hidden ${borderClasses.cell} ${slotCount > 1 ? "min-h-32" : ""} ${getFrameCellClass(panel.layout, slotIndex, slotCount)}`}
                     >
                       {frame.imageData ? (
                         <img
                           src={frame.imageData}
-                          alt={panel.caption || `Panel ${i + 1}, frame ${frameIndex + 1}`}
-                          className={`w-full block ${getImageFitClass(panel.imageFit, hasCustomSizing || frames.length > 1)}`}
+                          alt={panel.caption || `Panel ${i + 1}, frame ${slotIndex + 1}`}
+                          className={`w-full block ${getImageFitClass(frame.fit || panel.imageFit, hasCustomSizing || slotCount > 1)}`}
                           loading={i < 3 ? "eager" : "lazy"}
                           onLoad={() =>
                             setLoadedPanels((prev) => new Set(prev).add(panel.id))

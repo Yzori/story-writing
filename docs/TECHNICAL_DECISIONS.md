@@ -1,144 +1,147 @@
 # Quiloria — Technical Decisions & Research
 
-> Research-backed decisions for building the prose editor and platform foundation. Every choice here is informed by competitive analysis, framework evaluation, and typography/UX research conducted March 2026.
+> Research-backed decisions for building the editor and platform. The framework and UX research were conducted March 2026; the "as-built" notes reflect what actually shipped as of June 2026. Where reality diverged from the original plan, both are recorded honestly.
 
 ---
 
 ## Table of Contents
 
-1. [Editor Framework](#editor-framework)
-2. [Document Architecture](#document-architecture)
-3. [Collaboration & Sync](#collaboration--sync)
-4. [Offline-First Strategy](#offline-first-strategy)
-5. [Typography & Reading Experience](#typography--reading-experience)
-6. [Writing Experience Design](#writing-experience-design)
-7. [CSS & Layout Strategy](#css--layout-strategy)
-8. [Competitive Insights](#competitive-insights)
-9. [Tech Stack Summary](#tech-stack-summary)
+1. [Stack at a Glance (As Built)](#stack-at-a-glance-as-built)
+2. [Editor Framework](#editor-framework)
+3. [Document Architecture](#document-architecture)
+4. [Collaboration & Revisions](#collaboration--revisions)
+5. [Data Layer](#data-layer)
+6. [Auth](#auth)
+7. [Payments & AI](#payments--ai)
+8. [Offline & PWA](#offline--pwa)
+9. [Typography & Reading Experience](#typography--reading-experience)
+10. [Writing Experience Design](#writing-experience-design)
+11. [CSS & Layout Strategy](#css--layout-strategy)
+12. [Competitive Insights](#competitive-insights)
+
+---
+
+## Stack at a Glance (As Built)
+
+```
+FRAMEWORK     Next.js 16 (App Router) · React 19 · TypeScript 5
+EDITOR        Tiptap v3 (ProseMirror) + custom extensions (illustrated blocks, etc.)
+STYLING       Tailwind CSS 4 (@theme inline, CSS custom properties) · Framer Motion 12
+DATA          PostgreSQL via Drizzle ORM (postgres.js driver)
+AUTH          NextAuth v5 (beta) — Credentials + GitHub, @auth/drizzle-adapter, JWT sessions
+PAYMENTS      Stripe (subscriptions, Ink Drops checkout, webhooks) + Ink Drops ledger
+AI            Anthropic Claude (@anthropic-ai/sdk) — Editor's Desk + Story Intelligence
+EMAIL         Resend (per-type templates, digest modes)
+SECURITY      isomorphic-dompurify (sanitization), in-memory sliding-window rate limiting
+IMPORT/EXPORT mammoth (DOCX import), jszip, PDF/DOCX export
+PWA           manifest + offline app shell
+SCALE         ~70 DB tables · ~135 API routes · ~90 pages
+```
+
+Schema lives at `src/server/db/schema.ts` (+ `auth-schema.ts`); migrations in `drizzle/` (0001–0044+).
 
 ---
 
 ## Editor Framework
 
-### Decision: Tiptap v3 (ProseMirror-based)
+### Decision: Tiptap v3 (ProseMirror-based) — shipped
 
 **Why Tiptap over alternatives:**
 
 | Framework | Verdict | Key Issue |
 |---|---|---|
-| **Tiptap v3** | **Selected** | Best ecosystem, collaboration, extensibility balance |
+| **Tiptap v3** | **Selected** | Best ecosystem, extensibility, and a clean React integration |
 | Plate (Slate) | Strong runner-up | Slate has performance concerns at 50k+ words; smaller ecosystem |
-| Lexical (Meta) | Watch list | Best raw performance, but pre-1.0, weak collaboration, thin plugin ecosystem |
-| Novel | Rejected | Abandoned — last commit Jan 2025, 14+ months stale |
-| BlockNote | Rejected | Wrong paradigm — block-per-paragraph model fights prose flow |
+| Lexical (Meta) | Watch list | Best raw performance, but weaker plugin ecosystem |
+| Novel | Rejected | Abandoned — stale |
+| BlockNote | Rejected | Block-per-paragraph model fights prose flow |
 | Raw ProseMirror | Fallback | Only if Tiptap can't handle our customization needs |
 
 **Tiptap strengths for our use case:**
-- 35.5k GitHub stars, actively maintained (last commit Mar 6, 2026)
-- 100+ extensions, tree-shakable — we only ship what we use
-- First-class Yjs/CRDT collaboration via Hocuspocus (battle-tested)
-- Custom node types for our story-specific blocks (scene breaks, epigraphs, author notes, illustration blocks, mood controls) are well-supported
-- 2026 roadmap includes DOCX import/export, PDF export, AI toolkit — aligns with our needs
-- The largest community for troubleshooting and learning
+- Tree-shakable extensions — we ship only what we use (`starter-kit`, `character-count`, `highlight`, `typography`, `underline`, `placeholder`, `focus`, `dropcursor`, plus custom nodes)
+- Custom node types for story-specific blocks (scene breaks, epigraphs, author notes, illustrated blocks) are well-supported
+- The largest community for troubleshooting
 
-**Known risk: long-document performance.**
-ProseMirror renders the full DOM. At 50k+ words in a single instance, performance degrades. Mitigation: chapter-per-editor-instance architecture (see Document Architecture below). This is the standard pattern used by Scrivener, Ulysses, and every serious long-form writing tool.
+**Known risk: long-document performance.** ProseMirror renders the full DOM; at 50k+ words in a single instance, performance degrades. **Mitigation (shipped): chapter-per-editor-instance** — each chapter is its own document and editor mount. This is the standard pattern used by Scrivener, Ulysses, and every serious long-form tool.
 
-**Fallback plan:** If we hit Tiptap's ceiling on custom rendering or performance, Lexical's double-buffering architecture provides a fundamentally different performance profile. But we'd lose ecosystem maturity — this is a last-resort migration, not a planned path.
+**Fallback plan:** If we hit Tiptap's ceiling, Lexical's double-buffering architecture is a different performance profile — a last-resort migration, not a planned path.
 
 ---
 
 ## Document Architecture
 
-### Decision: Yjs Subdocuments — One Per Chapter
+### Decision: chapter-per-document, server-persisted HTML
 
-A novel is not a single document. It's a collection of chapters, each a self-contained editing unit. This mirrors how writers actually think and how every serious writing tool works internally.
+A novel is not a single document — it's a collection of chapters, each a self-contained editing unit. This mirrors how writers think and how serious writing tools work internally.
 
-```
-Story Project (Yjs parent document)
-├── Metadata (title, synopsis, genre, ratings — Y.Map)
-├── Chapter Order (Y.Array of chapter IDs)
-├── Chapter 1 (Yjs subdocument)
-│   ├── Content (ProseMirror document via Tiptap)
-│   ├── Chapter metadata (title, mood, tone, status)
-│   └── Illustration placements (Y.Array)
-├── Chapter 2 (Yjs subdocument)
-│   └── ...
-├── Chapter N (Yjs subdocument)
-│   └── ...
-└── Story Notes (Yjs subdocument)
-    ├── Characters (Y.Array)
-    ├── Locations (Y.Array)
-    └── Freeform notes (ProseMirror document)
-```
+**As built:**
+- Each **chapter** is a row in the `chapters` table; its content is sanitized editor HTML, persisted to PostgreSQL.
+- Each chapter loads independently — opening Chapter 15 doesn't load chapters 1–14.
+- Comic/webtoon content uses a separate `panels` model (panel-as-unit), and uploaded media is moving to first-class `story_assets` rows referenced from editor HTML rather than inlined data URLs (see [EDITOR_RELIABILITY_NEXT_STEPS.md](./EDITOR_RELIABILITY_NEXT_STEPS.md)).
+- Chapter ordering and parts/acts are structural metadata, not separate documents.
 
-**Why subdocuments:**
-- Each chapter loads independently — opening Chapter 15 doesn't load chapters 1-14 into memory
-- Performance stays constant regardless of novel length (each chapter is typically 2-5k words, well within Tiptap's comfort zone)
-- Maps naturally to Hocuspocus rooms — each chapter can sync independently
-- Enables future collaboration where different collaborators work on different chapters simultaneously
-- Yjs subdocument support is mature: documented in Yjs core, supported by Hocuspocus, and Liveblocks added support in Dec 2025
-
-**Chapter management:**
-- Chapter ordering lives in the parent document (Y.Array of IDs)
-- Drag-and-drop reordering updates the array — all clients see the change via CRDT sync
-- Adding/removing chapters creates/destroys subdocuments
-- Parts/Acts are structural groups in the order array, not separate documents
+> **Note — divergence from original plan.** The March 2026 design called for **Yjs subdocuments per chapter** with CRDT state as the source of truth. That was not built. The shipped product persists sanitized HTML per chapter with explicit save/autosave, and handles "collaboration" asynchronously (see below). Yjs/CRDT remains the path **if and when real-time co-editing is prioritized** — the chapter-per-document boundary keeps that migration tractable.
 
 ---
 
-## Collaboration & Sync
+## Collaboration & Revisions
 
-### Phase 0 (Now): Local-Only with Yjs Foundation
+### As built: async suggestions + server snapshots (not real-time CRDT)
 
-Even before we add networking, we use Yjs locally:
-- Yjs document model gives us revision history (snapshots) for free
-- `y-indexeddb` persists to the browser — auto-save with zero backend
-- When we add collaboration later, we don't rewrite the data model — we just add a network provider
+Real-time collaborative editing was explicitly deferred in the MVP and has not shipped. What ships instead:
 
-### Phase 1: Hocuspocus (Self-Hosted)
+- **Revision history** via the `chapter_snapshots` table — autosave plus manual "save current version" snapshots, stored server-side. The autosave/snapshot logic lives in `use-chapter-autosave.ts`; remaining persistence hardening is tracked in [EDITOR_RELIABILITY_NEXT_STEPS.md](./EDITOR_RELIABILITY_NEXT_STEPS.md).
+- **Collaboration is asynchronous** — collaborators submit **Suggestions** (`suggestions` table) that the owner Weaves/Revises/Passes, contribute to a shared **Lore Book** (`lore_entries`), and discuss in **Workshop messages** and **editor comment threads** (`editor_comment_threads` / `_replies`). Access is gated by a signed **Creative Agreement** (`agreements`, `agreement_confirmations`).
+- **Editor presence** (`editor_presence`) gives lightweight "who's here" awareness without full CRDT sync.
+- **Adventure Mode** is the one place with near-real-time multi-user writing, but it is **turn-based by design** (GM-directed turns, server-arbitrated order) — not concurrent free-edit — so it needs no CRDT.
 
-When collaboration ships:
-- **Hocuspocus** as the WebSocket sync server — open source, production-ready, built by the Tiptap team
-- Hooks for auth (`onAuthenticate`), persistence (`onStoreDocument` → PostgreSQL), and business logic
-- Each chapter is a Hocuspocus room — collaborators sync per-chapter
-- `y-indexeddb` on the client provides offline support — edits sync when reconnected, CRDT guarantees conflict-free merge
+### Future: real-time co-editing
 
-### Later: Evaluate Managed Options
-
-- **Liveblocks** — managed Yjs backend, removes ops overhead, but document-based pricing could get expensive for a platform where each user has dozens of chapters
-- **Cloudflare Durable Objects (PartyKit)** — edge-deployed, low latency, pay-per-use, but less proven for document collaboration specifically
-- Decision deferred until we understand our scale and ops capacity
-
-### Revision History
-
-Built on Yjs snapshots:
-- `Y.snapshot(doc)` captures a lightweight state vector (not a full copy)
-- Store snapshots + metadata (name, timestamp, author) in PostgreSQL
-- Render any historical version by applying the snapshot to the document
-- Diff two versions using `y-prosemirror`'s built-in version diff (inline additions/deletions)
-- Auto-snapshot on: session end, chapter status change (draft → published), manual "save version"
-- Periodically compact the Yjs update log on the server to prevent unbounded growth
+If prioritized, the path is Yjs + a WebSocket sync server (Hocuspocus or a managed option like Liveblocks / Cloudflare Durable Objects), with each chapter as a room. Deferred until demand and ops capacity justify it.
 
 ---
 
-## Offline-First Strategy
+## Data Layer
 
-### Decision: PWA with y-indexeddb + Service Worker
+### Decision: PostgreSQL + Drizzle ORM (postgres.js) — shipped
 
-Writers write everywhere — trains, cafes, flights, bed. Offline is not a nice-to-have.
+> **Divergence from original plan.** The March 2026 doc named **Prisma**. The product shipped on **Drizzle ORM** with the `postgres.js` driver instead — lighter runtime, SQL-first query builder, first-class TypeScript inference, and clean migration files in `drizzle/`.
 
-**Architecture:**
-1. **Service Worker** caches the app shell (HTML, JS, CSS, fonts) — the editor loads instantly, even offline
-2. **y-indexeddb** persists the Yjs document to IndexedDB — all chapters available offline
-3. **When online:** WebSocket connection (Hocuspocus) syncs diffs in real-time
-4. **When offline:** Writer works normally. All changes persist locally.
-5. **Coming back online:** Yjs automatically merges offline changes — the CRDT handles conflict resolution without custom logic
-6. IndexedDB quota is typically 50-80% of disk per origin — more than enough for novel-length text + image references
+- ~70 tables spanning content (`stories`, `chapters`, `panels`, `story_assets`, `bible_entries`), social (`sparks`, `follows`, `comments`, `reactions`, `notifications`, `annotations`), collaboration (`collaborators`, `agreements`, `suggestions`, `open_calls`, `lore_entries`, `workshop_messages`), adventure (`campaign_sessions`, `campaign_turns`, `player_characters`, `progress_clocks`, floor/spectator tables), and the creator economy (`creator_circles`, `circle_subscriptions`, `content_unlocks`, `offerings`, `commissions`, `story_donations`, `crossroads`, `ink_drop_transactions`, `story_boosts`).
+- Zod (`src/lib/validations.ts`) validates all API inputs.
+- Media: image references in editor HTML; first-class `story_assets` for uploaded media (migrating away from inline data URLs).
 
-**This is simpler than what Linear or Figma do.** CRDTs handle the hard part (conflict resolution). We don't need custom merge logic, operation logs, or last-write-wins strategies.
+---
 
-**PWA implementation:** `next-pwa` or `@serwist/next` for the service worker layer on top of Next.js.
+## Auth
+
+### Decision: NextAuth v5 (beta) — shipped
+
+- Providers: **Credentials** (email/password) + **GitHub** OAuth.
+- `@auth/drizzle-adapter` over the Drizzle schema; **JWT** sessions.
+- Custom hardening: `password_reset_tokens`, `auth_rate_limits`, `login_attempts` tables; middleware route protection (`src/middleware.ts`); per-story role checks (`src/server/permissions.ts`).
+
+---
+
+## Payments & AI
+
+### Payments — Stripe + Ink Drops
+
+- **Stripe** powers platform subscriptions (Pro/Premium), creator subscriptions (The Circle), and Ink Drops top-ups, with a webhook handler (`/api/webhooks/stripe`) and a billing portal.
+- **Ink Drops** is the internal currency for tips, unlocks, donations, commissions, and Crossroads — a server-side ledger (`ink_drop_transactions`, `transferDrops` in `server/services/ink-drops.ts`) with a single canonical `DROPS_TO_USD` constant.
+- A **cron** endpoint (`/api/cron`) handles Circle renewals, commission auto-complete, and AI daily-usage resets.
+
+### AI — Anthropic Claude as private editorial support
+
+- `@anthropic-ai/sdk` via `src/server/services/ai.ts`; interactive tier uses **Claude Haiku** (`claude-3-5-haiku`).
+- **Editor's Desk** (selected-text polish/review) and **Story Intelligence** (cached summaries, continuity, plot-hole reports in `story_intelligence_artifacts`) — tier-gated and rate-limited. See [AI_ASSISTANT.md](./AI_ASSISTANT.md).
+- Principle: AI assists, never authors. Requires `ANTHROPIC_API_KEY`.
+
+---
+
+## Offline & PWA
+
+Writers write everywhere. The app ships a **PWA manifest** and an offline app shell (service worker) so the editor loads instantly. The original plan paired this with `y-indexeddb` for offline document persistence under a CRDT model; since the shipped data model is server-persisted HTML rather than Yjs, offline durability is currently best-effort at the app-shell level. Full offline-edit-and-sync remains tied to the future real-time co-editing work.
 
 ---
 
@@ -146,226 +149,95 @@ Writers write everywhere — trains, cafes, flights, bed. Offline is not a nice-
 
 ### Reading View Typography
 
-**Font selection:**
-- **Primary serif (reading):** Merriweather or Lora — designed specifically for screen reading, tall x-heights, balanced proportions. Consider Marjorie (variable font designed for narrative content) as a distinctive option
-- **Display/headings:** Playfair Display (already in the project) — beautiful for chapter titles and story titles
-- Offer reader choice: at minimum serif, sans-serif, and a dyslexia-friendly option (OpenDyslexic or Lexend)
+- **Reading serif:** Literata (shipped) — a screen-optimized literary serif. Reader can switch fonts (including Playfair Display / DM Sans) and a dyslexia-friendly option.
+- **Display:** Fraunces. **Body/UI:** Plus Jakarta Sans. **Mono:** IBM Plex Mono (used for screenplay format).
 
 **Optimal reading parameters:**
 | Property | Value | Rationale |
 |---|---|---|
-| Line length | 60-70 characters | Research sweet spot; 66 chars ideal |
-| Line height | 1.5x font size | WCAG recommended, comfortable for extended reading |
-| Paragraph spacing | 1.5-2x font size | Prevents "wall of text" without breaking flow |
-| Base font size | 18px | Slightly larger than typical web — this is a reading app, not a website |
+| Line length | 60–70 characters | Research sweet spot; ~66 ideal |
+| Line height | 1.5× font size | WCAG-recommended, comfortable for long reading |
+| Paragraph spacing | 1.5–2× font size | Prevents "wall of text" without breaking flow |
+| Base font size | 18px | This is a reading app, not a website |
 
-**OpenType features (always on for prose):**
-```css
-font-feature-settings:
-  "kern" 1,   /* Kerning */
-  "liga" 1,   /* Standard ligatures (fi, fl, ff) */
-  "clig" 1,   /* Contextual ligatures */
-  "onum" 1,   /* Old-style numerals — blend with lowercase text */
-  "pnum" 1;   /* Proportional numerals for body text */
-```
+**OpenType (always on for reading):** `kern`, `liga`, `clig`, `onum`, `pnum`.
 
-**Hyphenation and justification:**
-```css
-text-wrap: pretty;        /* Paragraph-level line-breaking optimization — now baseline */
-hyphens: auto;            /* Combined with text-wrap: pretty, approaches print quality */
-text-wrap: balance;       /* For headings only — equalizes line lengths */
-```
+**Line breaking:** `text-wrap: pretty` + `hyphens: auto` for body; `text-wrap: balance` for headings. Respect `prefers-reduced-motion`.
 
-**Dark mode adjustments:**
-- Never pure white on pure black — use off-white (#E8E0D8) on dark (#0A0A0A)
-- Reduce font weight in dark mode (variable font `wght: 380` vs `400` in light)
-- Use the GRAD axis on variable fonts to adjust stroke thickness without changing letter spacing or reflowing text
-- Slightly increase letter-spacing in dark mode
+**Dark mode (Lamplight):** never pure white on pure black — warm off-white on firelit umber; slightly lighter weight and increased letter-spacing in the dark theme.
 
 ### Reading View Modes
 
-**Offer both pagination and scroll, default to pagination for prose:**
-- Research shows pagination builds better spatial memory for narrative — readers remember where things happened in the "book"
-- Scrolling is faster and handles responsive reflow better — offer as an alternative
-- Default to scrolling for poetry and short-form
-- Page-turn animations are largely gimmick — use a simple crossfade or instant transition, always respect `prefers-reduced-motion`
+Offer **pagination, scroll, and webtoon-vertical**, all shipped. Pagination builds spatial memory for narrative; scroll handles reflow; webtoon-vertical is the comic standard. Reading progress uses a chapter-based indicator.
 
-**Reading progress:**
-- CSS scroll-driven animations for progress bar — zero JavaScript, GPU-accelerated, runs off main thread
-- Chapter-based progress indicator ("Chapter 5 of 23 · 42% through this chapter")
+### Reader Customization (shipped from day one)
 
-### Reader Customization (Ship from Day One)
-
-This is not just accessibility — research shows a 35% reading speed difference between best and worst fonts for a given individual, with no comprehension penalty. Customization is a performance feature for everyone.
-
-- Font choice (serif, sans-serif, dyslexia-friendly, monospace)
-- Font size (14px to 28px range)
-- Line height (1.3x to 2.0x)
-- Letter and word spacing
-- Theme (light, dark, sepia, high-contrast)
-- Line length / column width
-- All preferences persist locally and across sessions
+Font choice, size, line height, reading mode, and comfort rating — persisted to the user record (`comfortRating`, `readingMode`, `readingFont`) and dual-written to localStorage. Customization is a performance feature: research shows a ~35% reading-speed difference between best and worst fonts per individual, with no comprehension penalty.
 
 ---
 
 ## Writing Experience Design
 
-### Lessons from the Competition
+### Lessons from the competition
 
-The gap no tool has filled: **simple by default, powerful on demand.** iA Writer nails simplicity but lacks structure. Scrivener nails structure but is overwhelming. We need both, through progressive disclosure.
+The gap no tool fills: **simple by default, powerful on demand.** iA Writer nails simplicity but lacks structure; Scrivener nails structure but overwhelms. We aim for both through progressive disclosure.
 
-**Key innovations to incorporate:**
-
-| Source | Innovation | How We Use It |
+| Source | Innovation | How we use it |
 |---|---|---|
-| **iA Writer** | Duospace font — 150% width for m/w/M/W, monospace rhythm with better flow | Default writing font. Commission or adopt a duospace variable font |
-| **iA Writer** | Focus mode (dims everything except current sentence/paragraph) | Ship this. It genuinely increases output by 2-3x per research |
-| **Scrivener** | Binder (tree sidebar for chapters/scenes) | Our chapter navigator. Drag-and-drop reorder, collapsible parts/acts |
-| **Ulysses** | Progressive disclosure — features appear only when needed | Core UX principle. Toolbar appears on selection, not permanently |
-| **Dabble** | Plot Grid — see plot threads across chapters visually | Future feature (Phase 2+), but architect for it now |
-| **Shaxpir** | Sentiment arc visualization — emotional shape of the story | Future feature, genuinely novel, no one else does this well |
-| **Novelcrafter** | The Codex — hover over a character name, see their profile inline | Our Lore Book integration. Cross-reference characters/places inline |
-| **Obsidian** | Local-first, your-files-forever philosophy | Export to Markdown/EPUB/PDF always available. No lock-in |
+| iA Writer | Focus mode (dims all but the current line) | Shipped — distraction-free writing |
+| Scrivener | Binder (chapter/scene tree) | Chapter navigator, drag-to-reorder, outline view |
+| Ulysses | Progressive disclosure | Toolbar on selection, not permanent; three-room cockpit |
+| Novelcrafter | The Codex (inline character profiles) | Story Bible / Lore Book integration |
+| Obsidian | Local-first, your-files-forever | Export to DOCX/PDF always available; DOCX import |
 
-### Writing Editor Design Principles
+### Editor design principles (shipped)
 
-1. **The editor should NOT match the reading view.** Writing and reading are different cognitive modes. The editor uses a duospace font, generous spacing, and a slightly different palette that signals "work in progress." A "Preview" toggle shows the reading view.
-
-2. **Toolbar appears on selection, not permanently.** When you're writing, you see nothing but text. Select text, and the formatting toolbar floats near your selection. This is the Ulysses/Medium model — proven to reduce distraction.
-
-3. **Command palette for everything.** `Cmd+K` opens a command palette: insert scene break, set chapter mood, navigate to chapter, toggle focus mode, view word count. Keyboard-first for power users, discoverable for new users.
-
-4. **Focus mode is real, not decorative.** Dims/hides all text except the current paragraph (configurable: sentence, paragraph, or scene). Full-screen. No UI chrome. Just you and the words. Research backs this: dedicated distraction-free tools increase output 2-3x.
-
-5. **The chapter navigator is always accessible.** A collapsible sidebar showing the chapter/scene tree. Drag to reorder. Click to navigate. Shows word count per chapter. Inspired by Scrivener's Binder but cleaner.
-
-6. **Stats without pressure.** Word count, reading time estimate, and session stats (words written today) are available but never in your face. No gamification, no streaks, no guilt. Available on demand, not broadcast.
+1. **The editor is not the reading view** — distinct mode, distinct feel; a preview shows the reading view.
+2. **Canvas sovereignty** — minimal chrome; toolbar floats on selection.
+3. **Command palette for everything** — Cmd+K to insert, navigate, set mood, toggle focus, run Editor's Desk.
+4. **Focus mode is real** — full-screen, current paragraph only.
+5. **Chapter navigator always accessible** — collapsible tree with per-chapter word counts.
+6. **Stats without pressure** — word count and reading-time available on demand; no guilt-driven gamification (reading streaks are a separate reader-side feature).
+7. **Calm cockpit** — three rooms (Write / Structure / Context) instead of ten always-on panels; first run is silenced; publish is gated behind readiness.
 
 ---
 
 ## CSS & Layout Strategy
 
-### Modern CSS Features We'll Use
+### Modern CSS we use
 
-| Feature | Use Case | Browser Support |
-|---|---|---|
-| **Container Queries** | Responsive editor/reading panels that adapt to their container, not viewport | 95%+ global |
-| **View Transitions API** | Smooth chapter-to-chapter navigation | Baseline (Interop 2025) |
-| **Scroll-Driven Animations** | Reading progress bar, parallax, reveal effects — zero JS | Chrome 115+, Safari 26+, Firefox polyfill |
-| **`text-wrap: pretty`** | Paragraph-level line-breaking optimization for prose | Baseline |
-| **`text-wrap: balance`** | Heading line equalization | Baseline |
-| **`text-box-trim`** | Pixel-perfect vertical rhythm for literary layouts | Chrome (shipping) |
-| **`oklch` / `oklab`** | Perceptually uniform colors for our palette and gradients | Baseline |
-| **CSS Anchor Positioning** | Tooltip/popover positioning for marginalia and toolbar | Shipping |
-| **Variable Fonts** | Weight/grade adjustment for dark mode, responsive sizing | Baseline |
+| Feature | Use case |
+|---|---|
+| Container queries | Editor/reading panels that adapt to their container |
+| View Transitions API | Chapter-to-chapter navigation |
+| Scroll-driven animations | Reading progress, reveals — zero JS |
+| `text-wrap: pretty` / `balance` | Prose line-breaking; heading equalization |
+| `oklch` / `oklab` | Perceptually uniform colors for the Lamplight/Daybreak palettes |
+| Variable fonts | Weight/grade adjustment per theme |
 
-### Annotation Data Model
+Tailwind CSS 4 drives the system via `@theme inline` and CSS custom properties (see [COLOR_SYSTEM.md](./COLOR_SYSTEM.md)).
 
-**Critical decision: content-first, not URL-first.**
+### Annotation data model
 
-Marginalia (reader highlights and reactions) must be anchored to content identifiers, not page URLs or DOM positions. This is because:
-- The same content renders at different URLs (story page, reading view, preview)
-- Content may reflow across different viewport sizes
-- Content may change (revisions) — annotations need to survive edits
-
-Use a model similar to the W3C Web Annotation standard: store the annotation target as a text quote selector + position offset, with the quoted text as a fallback for fuzzy matching if the content changes.
+**Content-first, not URL-first.** Marginalia/annotations (`annotations` table) anchor to content identifiers + a text-quote selector with the quoted text as a fuzzy-match fallback — because the same content renders at multiple URLs, reflows across viewports, and changes across revisions. Modeled on the W3C Web Annotation standard.
 
 ---
 
 ## Competitive Insights
 
-### The Gap in the Market
+### The gap in the market
 
-No existing tool successfully combines all of these:
+No existing tool combines: beautiful distraction-free writing (iA Writer level) · structural organization (Scrivener level) · a reading audience and serialization (Wattpad level) · format-native comic/poetry/script editors · equal-credit creative collaboration · fiction-native monetization · and a live play mode. The tools that come closest nail two or three of these and fail the rest. **That is the opportunity.**
 
-1. Beautiful, distraction-free prose writing (iA Writer level)
-2. Powerful structural organization (Scrivener level)
-3. Real-time collaboration (Google Docs level)
-4. Professional export (Atticus/Vellum level)
-5. Web-based and cross-platform
-6. Performance at novel scale (100k+ words)
-7. Progressive disclosure UX (simple by default, powerful on demand)
-8. Data portability (no lock-in)
-9. Smart story intelligence (cross-references, arc visualization)
+### Key writer pain points (forums, Reddit, reviews)
 
-The tools that come closest each nail 2-3 of these but fail at the rest. **That is our opportunity.**
-
-### Key Writer Pain Points (from forums, Reddit, reviews)
-
-1. **"The Scrivener Problem"** — powerful tools are too complex; simple tools lack power. No one has nailed the middle ground.
-2. **Performance at scale** — Google Docs, Notion, and many web tools choke past 50k words.
-3. **Export hell** — formatting breaks across formats; EPUB/print output requires separate tools.
-4. **Fragmented workflow** — writers use 3-5 tools (planning, drafting, formatting, collaboration, publishing).
-5. **No "messy to structured" pipeline** — writers want to start freeform and gradually impose structure.
-6. **Collaboration is an afterthought** — only Google Docs does it well, and it's terrible for fiction.
-7. **Distraction-free vs. feature-rich treated as opposites** — they should be progressive states of the same tool.
+1. The "Scrivener problem" — powerful tools overwhelm; simple tools lack power.
+2. Performance at scale — web tools choke past 50k words.
+3. Export hell — formatting breaks across formats.
+4. Fragmented workflow — 3–5 tools for planning, drafting, formatting, collaboration, publishing.
+5. Collaboration is an afterthought — only Google Docs does it well, and it's wrong for fiction.
+6. No path from a messy draft to a structured one.
 
 ---
 
-## Tech Stack Summary
-
-```
-EDITOR LAYER
-├── Tiptap v3 (ProseMirror) — core editor framework
-├── Custom extensions — scene breaks, epigraphs, illustration blocks, mood controls
-├── Yjs — CRDT for document model, revision history, future collaboration
-├── y-indexeddb — offline persistence
-└── Hocuspocus — sync backend (when collaboration ships)
-
-FRAMEWORK
-├── Next.js 16 (App Router) — already set up
-├── React 19 — already set up
-├── TypeScript — already set up
-└── PWA (next-pwa or @serwist/next) — offline app shell
-
-STYLING
-├── Tailwind CSS 4 — already set up
-├── Framer Motion — already installed, for UI animations
-├── CSS scroll-driven animations — reading progress, no JS
-├── View Transitions API — chapter navigation
-├── Variable fonts — responsive typography, dark mode GRAD adjustment
-└── Container queries — responsive panels
-
-TYPOGRAPHY
-├── Reading: Merriweather / Lora / Marjorie (variable, serif)
-├── Writing: Duospace variable font (iA Writer-inspired)
-├── Display: Playfair Display (already in project)
-├── Code/mono: JetBrains Mono or similar (for screenplay format)
-└── Accessibility: OpenDyslexic / Lexend (reader option)
-
-DATA (Phase 1)
-├── PostgreSQL via Prisma — users, projects, metadata, revisions
-├── Cloudflare R2 or Uploadthing — media/image storage
-└── NextAuth.js — authentication
-
-FUTURE (deferred but architected for)
-├── Liveblocks or PartyKit — managed collaboration alternative
-├── Automerge — monitor for structured data use cases
-├── Loro — monitor for built-in version control capabilities
-└── Lexical — fallback if Tiptap performance ceiling is hit
-```
-
----
-
-## Sources
-
-This document synthesizes research from 80+ sources including:
-- Liveblocks framework comparison (2025)
-- Tiptap official documentation and 2026 roadmap
-- Yjs documentation, GitHub discussions, and performance benchmarks
-- Hocuspocus documentation and architecture
-- iA Writer design philosophy essays
-- Kindlepreneur tool reviews (2025-2026)
-- W3C CSS specifications (Paged Media Level 4, text-wrap, text-box-trim)
-- WebKit blog (text-wrap: pretty implementation)
-- ACM TOCHI research on font impact on reading speed
-- CHI 2025 research on pagination vs scrolling
-- Ink & Switch (Peritext CRDT, local-first software)
-- MDN Web Docs (CSS features, OpenType, variable fonts)
-- Smashing Magazine (scroll-driven animations, editorial layouts)
-
-Full source URLs are preserved in the research notes.
-
----
-
-*Decision date: March 2026. Revisit quarterly or when a framework releases a major version.*
+*Decision baseline: March 2026. As-built reconciliation: June 2026. Revisit when a core framework releases a major version or when real-time co-editing is prioritized.*

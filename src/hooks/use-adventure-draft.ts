@@ -62,7 +62,11 @@ export async function commitAdventureDraft({
 
   let content = draftContent.trim();
   if (!isGM && myCharName) {
-    const namePattern = new RegExp(`^${myCharName}\\s*`, "i");
+    // Escape regex metacharacters (names are arbitrary user input) and
+    // require at least one whitespace after the name so "Ash" doesn't
+    // strip the prefix of "Ashes fell from the sky".
+    const escapedName = myCharName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const namePattern = new RegExp(`^${escapedName}\\s+`, "i");
     content = content.replace(namePattern, "");
     if (!content) return false;
   }

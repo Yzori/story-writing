@@ -159,7 +159,7 @@ export default function ContextPanel({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
+        <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.22)_transparent]">
           {/* Tension Clocks */}
           {(clocks.length > 0 || onClocksChange) && (
             <StakesTracker clocks={clocks} onClocksChange={onClocksChange} />
@@ -680,7 +680,7 @@ export default function ContextPanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
+      <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.22)_transparent]">
         {!myCharacter ? (
           <div className="text-center py-12">
             <p className="text-text-tertiary text-xs font-serif italic">Join the campaign to see your character sheet here.</p>

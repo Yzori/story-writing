@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Node, mergeAttributes, Extension } from "@tiptap/core";
+import { Node, mergeAttributes, Extension, type Editor as CoreEditor } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { useEffect, useCallback, useState, useRef } from "react";
@@ -11,6 +11,22 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 // ── Custom Tiptap Nodes for Screenplay Elements ────────────────────────
+
+/**
+ * Enter inside a screenplay element: only flow into the next element type
+ * when the cursor is at the very end of the block — a mid-block split moves
+ * the remaining text into the new block, and retyping it would silently
+ * reformat the user's content (e.g. turn the rest of a speech into action).
+ */
+function splitToNextElement(editor: CoreEditor, nextType: string): boolean {
+  const { $head } = editor.state.selection;
+  const atEnd = $head.parentOffset === $head.parent.content.size;
+  const chain = editor.chain().splitBlock();
+  if (atEnd) {
+    chain.setNode(nextType);
+  }
+  return chain.run();
+}
 
 const SceneHeading = Node.create({
   name: "sceneHeading",
@@ -37,11 +53,7 @@ const SceneHeading = Node.create({
     return {
       Enter: ({ editor }) => {
         if (!editor.isActive("sceneHeading")) return false;
-        return editor
-          .chain()
-          .splitBlock()
-          .setNode("action")
-          .run();
+        return splitToNextElement(editor, "action");
       },
     };
   },
@@ -86,11 +98,7 @@ const CharacterName = Node.create({
     return {
       Enter: ({ editor }) => {
         if (!editor.isActive("characterName")) return false;
-        return editor
-          .chain()
-          .splitBlock()
-          .setNode("dialogue")
-          .run();
+        return splitToNextElement(editor, "dialogue");
       },
     };
   },
@@ -118,11 +126,7 @@ const Dialogue = Node.create({
       Enter: ({ editor }) => {
         if (!editor.isActive("dialogue")) return false;
         // After dialogue, go back to action
-        return editor
-          .chain()
-          .splitBlock()
-          .setNode("action")
-          .run();
+        return splitToNextElement(editor, "action");
       },
     };
   },
@@ -149,11 +153,7 @@ const Parenthetical = Node.create({
     return {
       Enter: ({ editor }) => {
         if (!editor.isActive("parenthetical")) return false;
-        return editor
-          .chain()
-          .splitBlock()
-          .setNode("dialogue")
-          .run();
+        return splitToNextElement(editor, "dialogue");
       },
     };
   },
@@ -180,11 +180,7 @@ const Transition = Node.create({
     return {
       Enter: ({ editor }) => {
         if (!editor.isActive("transition")) return false;
-        return editor
-          .chain()
-          .splitBlock()
-          .setNode("sceneHeading")
-          .run();
+        return splitToNextElement(editor, "sceneHeading");
       },
     };
   },
@@ -291,7 +287,7 @@ const AutoDetectExtension = Extension.create({
           let hintWidget: HTMLElement | null = null;
 
           return {
-            update(view) {
+            update(view, prevState) {
               const { state } = view;
               const { $head } = state.selection;
               const currentNode = $head.parent;
@@ -303,9 +299,19 @@ const AutoDetectExtension = Extension.create({
                 hintWidget = null;
               }
 
+              // Only auto-convert in response to typing: the block's text must
+              // have just changed. Type-only changes (toolbar "Action" button,
+              // Tab cycling) keep the same text, and converting on those would
+              // instantly fight the user's explicit element choice.
+              const textJustChanged =
+                !!prevState &&
+                prevState.doc !== state.doc &&
+                prevState.selection.$head.parent.textContent !== text;
+
               // Auto-convert: INT. or EXT. → sceneHeading
               // Deferred via requestAnimationFrame to avoid dispatching inside update()
               if (
+                textJustChanged &&
                 currentNode.type.name === "action" &&
                 /^(INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)/.test(text.toUpperCase())
               ) {
@@ -453,7 +459,9 @@ export default function ScreenplayEditor({
         if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
-          editor.commands.setContent(newContent || "");
+          // emitUpdate: false — external sync, not a user edit; Tiptap v3
+          // defaults to true, which would trigger a phantom autosave.
+          editor.commands.setContent(newContent || "", { emitUpdate: false });
         }
       });
     },
@@ -548,7 +556,8 @@ export default function ScreenplayEditor({
           position: relative;
         }
 
-        .screenplay-editor-content .tiptap {
+        /* The editor root carries both classes ("screenplay-editor-content tiptap") */
+        .screenplay-editor-content.tiptap {
           outline: none;
           min-height: 600px;
         }
@@ -675,7 +684,9 @@ export default function ScreenplayEditor({
         }
 
         /* ── Placeholder ─────────────────────────────────── */
-        .screenplay-editor-content .tiptap.is-editor-empty::before {
+        /* Tiptap puts is-editor-empty (+ data-placeholder) on the empty block
+           node inside the editor root, not on the root itself */
+        .screenplay-editor-content div.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
           color: #b8b8a8;
@@ -688,7 +699,7 @@ export default function ScreenplayEditor({
         }
 
         /* ── Selection ───────────────────────────────────── */
-        .screenplay-editor-content .tiptap ::selection {
+        .screenplay-editor-content ::selection {
           background: rgba(180, 83, 9, 0.15);
         }
       `}</style>

@@ -230,7 +230,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
                 eq(campaignSessions.storyId, storyId),
                 ne(sessionRoster.sessionId, sessionId),
                 inArray(sessionRoster.characterId, characterIds),
-                eq(sessionRoster.status, "present")
+                // Any prior non-absent attendance counts — first-ever entries
+                // are stored as "introduced" and never upgraded, so filtering
+                // on "present" alone would flag returning characters as new
+                // forever.
+                inArray(sessionRoster.status, ["present", "introduced"])
               )
             )
         : [];

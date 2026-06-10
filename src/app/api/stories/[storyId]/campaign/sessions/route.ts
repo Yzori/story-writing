@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { campaignSessions, campaignTurns, playerCharacters, sessionRoster } from "@/server/db/schema";
-import { eq, and, ne, asc, sql, count } from "drizzle-orm";
+import { eq, and, ne, asc, sql, count, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignSessionSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/server/services/collaboration";
@@ -164,7 +164,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           and(
             eq(campaignSessions.storyId, storyId),
             ne(sessionRoster.sessionId, created.id),
-            eq(sessionRoster.status, "present")
+            // Any prior non-absent attendance counts — first-ever entries are
+            // stored as "introduced" and never upgraded, so filtering on
+            // "present" alone would flag returning characters as new forever.
+            inArray(sessionRoster.status, ["present", "introduced"])
           )
         );
 

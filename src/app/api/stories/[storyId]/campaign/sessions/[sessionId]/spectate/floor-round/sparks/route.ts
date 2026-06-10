@@ -11,6 +11,15 @@ import { getOpenAudienceSparkFloorRound } from "@/server/services/floor-rounds";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
+// Thrown inside the transaction so the spark insert is rolled back when the
+// Ink Drop transfer fails — a committed-but-unpaid spark would otherwise sit
+// in the GM's queue and permanently block the (round, token) slot.
+class InsufficientBalanceError extends Error {
+  constructor(public balance: number) {
+    super("INSUFFICIENT_BALANCE");
+  }
+}
+
 function deriveSparkKey(request: NextRequest, rawToken: string): string {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -93,45 +102,53 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const sparkKey = deriveSparkKey(request, parsed.data.token);
-    const result = await db.transaction(async (tx) => {
-      // Insert first with conflict guard — if a row already exists for
-      // (round, token) we must NOT debit a second time.
-      const inserted = await tx
-        .insert(campaignFloorAudienceSparks)
-        .values({
-          roundId: round.id,
-          token: sparkKey,
-          userId: session.user.id,
-          content: parsed.data.content.trim(),
+    let result: { duplicate: true } | { success: true; newBalance: number };
+    try {
+      result = await db.transaction(async (tx) => {
+        // Insert first with conflict guard — if a row already exists for
+        // (round, token) we must NOT debit a second time.
+        const inserted = await tx
+          .insert(campaignFloorAudienceSparks)
+          .values({
+            roundId: round.id,
+            token: sparkKey,
+            userId: session.user.id,
+            content: parsed.data.content.trim(),
+            amount: parsed.data.amount,
+          })
+          .onConflictDoNothing({
+            target: [campaignFloorAudienceSparks.roundId, campaignFloorAudienceSparks.token],
+          })
+          .returning({ id: campaignFloorAudienceSparks.id });
+
+        if (inserted.length === 0) {
+          return { duplicate: true as const };
+        }
+
+        const transfer = await transferDrops(tx, {
+          fromUserId: session.user.id,
+          toUserId: verified.story.userId,
           amount: parsed.data.amount,
-        })
-        .onConflictDoNothing({
-          target: [campaignFloorAudienceSparks.roundId, campaignFloorAudienceSparks.token],
-        })
-        .returning({ id: campaignFloorAudienceSparks.id });
+          type: "audience_spark",
+          sessionId,
+          message: `Audience Spark: ${parsed.data.content.trim().slice(0, 180)}`,
+        });
+        if ("error" in transfer) {
+          // Throw to roll back the spark insert — the spectator keeps a
+          // clean slate and can retry once they top up.
+          throw new InsufficientBalanceError(transfer.balance);
+        }
 
-      if (inserted.length === 0) {
-        return { duplicate: true as const };
-      }
-
-      const transfer = await transferDrops(tx, {
-        fromUserId: session.user.id,
-        toUserId: verified.story.userId,
-        amount: parsed.data.amount,
-        type: "audience_spark",
-        sessionId,
-        message: `Audience Spark: ${parsed.data.content.trim().slice(0, 180)}`,
+        return transfer;
       });
-      if ("error" in transfer) return transfer;
-
-      return transfer;
-    });
-
-    if ("error" in result) {
-      return NextResponse.json(
-        { error: { code: "INSUFFICIENT_BALANCE", message: "Not enough Ink Drops", balance: result.balance } },
-        { status: 400 },
-      );
+    } catch (error) {
+      if (error instanceof InsufficientBalanceError) {
+        return NextResponse.json(
+          { error: { code: "INSUFFICIENT_BALANCE", message: "Not enough Ink Drops", balance: error.balance } },
+          { status: 400 },
+        );
+      }
+      throw error;
     }
 
     if ("duplicate" in result) {

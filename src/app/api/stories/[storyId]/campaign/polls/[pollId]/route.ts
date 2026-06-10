@@ -5,14 +5,46 @@ import {
   sessionPollVotes,
   stories,
   playerCharacters,
+  collaborators,
 } from "@/server/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { voteSessionPollSchema, closeSessionPollSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string; pollId: string }> };
+
+// Scheduling polls are restricted to the campaign's "table": the GM (story
+// owner), accepted collaborators, and anyone with a player character on this
+// story — mirrors isAuditionVoter on the audition-votes route.
+async function isCampaignMember(
+  storyId: string,
+  storyOwnerId: string,
+  userId: string
+): Promise<boolean> {
+  if (storyOwnerId === userId) return true;
+
+  const member = await db
+    .select({ src: sql<string>`'x'` })
+    .from(collaborators)
+    .where(
+      and(
+        eq(collaborators.storyId, storyId),
+        eq(collaborators.userId, userId),
+        eq(collaborators.status, "accepted")
+      )
+    )
+    .limit(1);
+  if (member.length > 0) return true;
+
+  const character = await db
+    .select({ id: playerCharacters.id })
+    .from(playerCharacters)
+    .where(and(eq(playerCharacters.storyId, storyId), eq(playerCharacters.userId, userId)))
+    .limit(1);
+  return character.length > 0;
+}
 
 /**
  * PATCH /api/stories/[storyId]/campaign/polls/[pollId]
@@ -58,6 +90,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Poll not found" } },
         { status: 404 }
+      );
+    }
+
+    if (!(await isCampaignMember(storyId, story.userId, session.user.id))) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the table can vote in scheduling polls" } },
+        { status: 403 }
       );
     }
 
@@ -140,7 +179,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       for (const vote of votes) {
         const selected: number[] = JSON.parse(vote.selectedOptions);
         voterSet.add(vote.userId);
-        for (const idx of selected) {
+        // Dedupe defensively — stored votes predating schema dedupe may
+        // contain duplicate indices.
+        for (const idx of new Set(selected)) {
           if (idx >= 0 && idx < options.length) {
             voteCounts[idx]++;
           }
@@ -208,22 +249,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Upsert vote — delete existing then insert
-      await db
-        .delete(sessionPollVotes)
-        .where(
-          and(
-            eq(sessionPollVotes.pollId, pollId),
-            eq(sessionPollVotes.userId, session.user.id)
-          )
-        );
-
+      // Atomic upsert — avoids race condition between concurrent votes
+      // hitting the (pollId, userId) unique constraint.
       if (parsed.data.selectedOptions.length > 0) {
-        await db.insert(sessionPollVotes).values({
-          pollId,
-          userId: session.user.id,
-          selectedOptions: JSON.stringify(parsed.data.selectedOptions),
-        });
+        const selectedOptionsJson = JSON.stringify(parsed.data.selectedOptions);
+        await db
+          .insert(sessionPollVotes)
+          .values({
+            pollId,
+            userId: session.user.id,
+            selectedOptions: selectedOptionsJson,
+          })
+          .onConflictDoUpdate({
+            target: [sessionPollVotes.pollId, sessionPollVotes.userId],
+            set: { selectedOptions: selectedOptionsJson },
+          });
+      } else {
+        // Clearing a vote — a plain delete is fine here.
+        await db
+          .delete(sessionPollVotes)
+          .where(
+            and(
+              eq(sessionPollVotes.pollId, pollId),
+              eq(sessionPollVotes.userId, session.user.id)
+            )
+          );
       }
 
       // Recompute vote counts for response
@@ -236,7 +286,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       for (const vote of votes) {
         const selected: number[] = JSON.parse(vote.selectedOptions);
         voterSet.add(vote.userId);
-        for (const idx of selected) {
+        // Dedupe defensively — stored votes predating schema dedupe may
+        // contain duplicate indices.
+        for (const idx of new Set(selected)) {
           if (idx >= 0 && idx < options.length) {
             voteCounts[idx]++;
           }

@@ -460,6 +460,13 @@ export default function DiceRollerRitual({
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirror `visible` for timer callbacks: when a new roll request arrives
+  // while the result is on screen, `visible` stays true through the close,
+  // so the visibility-driven reset effect below never fires.
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => setMounted(true), 0);
@@ -495,10 +502,28 @@ export default function DiceRollerRitual({
     if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
   };
 
+  const resetRitual = useCallback(() => {
+    setDie1(null);
+    setDie2(null);
+    setServerResult(null);
+    setPhase("idle");
+    // Re-prime from the (possibly new) pending request — the
+    // preSelectedAttribute effect above won't re-fire on its own.
+    const mapped = preSelectedAttribute
+      ? APPROACHES.find((a) => a.toLowerCase() === preSelectedAttribute.toLowerCase()) ?? null
+      : null;
+    setSelectedApproach(mapped);
+    setAspectInvoked(false);
+  }, [preSelectedAttribute]);
+
   const handleClose = () => {
     cleanupTimers();
     setHoldingResult(false);
     setRollContext(null);
+    // A pending roll request keeps the dialog forced open, so the
+    // visibility-driven reset never fires — reset here so the next
+    // request starts from "idle" instead of a stuck result screen.
+    if (visible) resetRitual();
     onClose();
   };
 
@@ -544,12 +569,17 @@ export default function DiceRollerRitual({
     autoCloseTimerRef.current = setTimeout(() => {
       setHoldingResult(false);
       setRollContext(null);
+      // If another roll request arrived during the result view, `visible`
+      // is still true and the dialog stays open — reset the ritual so the
+      // player can cast for the new request instead of being stuck on the
+      // previous result (the !effectiveVisible reset never runs then).
+      if (visibleRef.current) resetRitual();
       onClose();
     }, RESULT_VIEW_MS);
     return () => {
       if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
     };
-  }, [phase, onClose]);
+  }, [phase, onClose, resetRitual]);
 
   useEffect(() => {
     if (!effectiveVisible) {

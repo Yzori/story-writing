@@ -301,7 +301,7 @@ function FloatingToolbar({ editor, onComment, features = DEFAULT_FEATURES }: Flo
   }
   if (has("emdash")) {
     block.push(
-      <ToolbarButton key="emdash" onClick={() => editor.chain().focus().insertContent("—").run()} title="Em dash" ariaLabel="Em dash">
+      <ToolbarButton key="emdash" onClick={() => editor.chain().focus().insertContentAt(editor.state.selection.to, "—").run()} title="Em dash" ariaLabel="Em dash">
         <span className="text-sm font-semibold leading-none">—</span>
       </ToolbarButton>,
     );

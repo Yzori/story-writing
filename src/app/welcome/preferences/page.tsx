@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -39,7 +39,16 @@ const COMFORT_OPTIONS: { key: Comfort; label: string; hint: string }[] = [
   { key: "explicit", label: "Show everything", hint: "Including 18+ content" },
 ];
 
+// useSearchParams must sit under a Suspense boundary or prerender fails
 export default function ReaderPreferencesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-void" />}>
+      <ReaderPreferencesContent />
+    </Suspense>
+  );
+}
+
+function ReaderPreferencesContent() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params?.get("next") || "/read";

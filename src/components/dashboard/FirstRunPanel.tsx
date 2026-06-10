@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { PenLine, BookOpen, Dices, Check, X, Sparkles, ArrowRight } from "lucide-react";
 import GlossaryTerm from "@/components/shared/GlossaryTerm";
 
@@ -81,7 +81,9 @@ export default function FirstRunPanel({
   firstName?: string;
   onDismiss: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [preferencesError, setPreferencesError] = useState(false);
   // Local "opened a story to read" flag — read lazily so it's SSR-safe and
   // doesn't trip the no-setState-in-effect rule.
   const [openedAStory] = useState<boolean>(() => {
@@ -102,7 +104,12 @@ export default function FirstRunPanel({
       .then((json) => {
         if (!cancelled) setOnboarded(!!json?.data?.onboardedAt);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) {
+          setPreferencesError(true);
+          setOnboarded(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -123,8 +130,9 @@ export default function FirstRunPanel({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={reduceMotion ? { duration: 0 } : undefined}
       className="relative overflow-hidden rounded-[2rem] border border-border bg-surface/88 p-6 shadow-[var(--t-shadow-modal)] backdrop-blur-xl lg:p-8"
     >
       <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-amber/[0.08] to-transparent" />
@@ -140,9 +148,9 @@ export default function FirstRunPanel({
 
       <div className="relative">
         <p className="text-[11px] uppercase tracking-[0.28em] text-amber">Getting started</p>
-        <h1 className="mt-3 max-w-2xl font-display text-3xl leading-tight text-paper md:text-5xl">
+        <h2 className="mt-3 max-w-2xl font-display text-3xl leading-tight text-paper md:text-5xl">
           Welcome{firstName ? `, ${firstName}` : ""}. Here&apos;s where to begin.
-        </h1>
+        </h2>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-text-secondary">
           Three ways into Quiloria. Pick one — you can always wander to the others later.
         </p>
@@ -215,6 +223,11 @@ export default function FirstRunPanel({
               </li>
             ))}
           </ul>
+          {preferencesError && (
+            <p className="mt-3 text-[11px] text-text-ghost">
+              Couldn&apos;t check reading taste yet.
+            </p>
+          )}
         </div>
 
         {/* New-word legend — defines the vocabulary the cards above just used.

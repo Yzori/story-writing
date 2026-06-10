@@ -65,7 +65,7 @@ export default function MarkPromptRail({
         moments.push({
           turn,
           characterId: myCharacter.id,
-          defaultKind: fatal ? "scar" : meta.tier === "partial" ? "scar" : "scar",
+          defaultKind: fatal ? "scar" : meta.tier === "partial" ? "debt" : "scar",
           preamble: fatal
             ? "This one almost cost you."
             : meta.tier === "partial"

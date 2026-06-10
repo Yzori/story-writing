@@ -3,7 +3,6 @@ import { db } from "@/server/db";
 import {
   stories,
   chapters,
-  sparks,
   follows,
   storyBoosts,
   staffPicks,
@@ -23,6 +22,7 @@ import {
 import { and, eq, gt, isNull, sql, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { reconcileBoosts } from "@/server/services/boosts";
+import { computeTrending } from "@/server/services/trending";
 
 /**
  * GET /api/home
@@ -99,54 +99,8 @@ export async function GET() {
 
     // ── 2. Trending (shared by hero fill + trending row) ────
     // Weighted score over last 7 days: sparks ×3, follows ×5, donations (drops) ×0.5.
-    const trendingRows = await db
-      .select({
-        ...storyBase,
-        sparkScore: sql<number>`(
-          select coalesce(count(*), 0)::int from ${sparks}
-          where ${sparks.storyId} = ${stories.id}
-            and ${sparks.createdAt} > ${sevenDaysAgoIso}::timestamptz
-        )`,
-        followScore: sql<number>`(
-          select coalesce(count(*), 0)::int from ${follows}
-          where ${follows.storyId} = ${stories.id}
-            and ${follows.createdAt} > ${sevenDaysAgoIso}::timestamptz
-        )`,
-        donationScore: sql<number>`(
-          select coalesce(sum(${storyDonations.amount}), 0)::int from ${storyDonations}
-          where ${storyDonations.storyId} = ${stories.id}
-            and ${storyDonations.createdAt} > ${sevenDaysAgoIso}::timestamptz
-        )`,
-      })
-      .from(stories)
-      .leftJoin(users, eq(stories.userId, users.id))
-      .where(
-        and(
-          eq(stories.isPublic, true),
-          eq(stories.status, "published"),
-          isNull(stories.deletedAt),
-        ),
-      )
-      .limit(100);
-
-    const trendingScored = trendingRows
-      .map((r) => {
-        const sparkScore = Number(r.sparkScore);
-        const followScore = Number(r.followScore);
-        const donationScore = Number(r.donationScore);
-        const score =
-          sparkScore * 3 + followScore * 5 + donationScore * 0.5;
-        return {
-          ...r,
-          score,
-          weeklyInteractions: {
-            sparks: sparkScore,
-            follows: followScore,
-            donationDrops: donationScore,
-          },
-        };
-      })
-      .sort((a, b) => b.score - a.score);
+    // Computed by the shared scorer in src/server/services/trending.ts.
+    const trendingScored = await computeTrending();
 
     // Top trending excluding already-paid hero picks
     const fillersNeeded = 5 - heroBoosts.length;

@@ -490,7 +490,12 @@ export const createSessionPollSchema = z.object({
 });
 
 export const voteSessionPollSchema = z.object({
-  selectedOptions: z.array(z.number().int().min(0)),
+  // Cap at the poll option max (5) and dedupe — duplicate indices would let
+  // a single voter inflate an option's tally arbitrarily.
+  selectedOptions: z
+    .array(z.number().int().min(0))
+    .max(5)
+    .transform((selected) => [...new Set(selected)]),
 });
 
 export const closeSessionPollSchema = z.object({

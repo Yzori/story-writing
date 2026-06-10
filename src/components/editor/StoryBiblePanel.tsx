@@ -384,7 +384,7 @@ export default function StoryBiblePanel({
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border">
           <div>
-            <h3 className="text-sm font-medium text-paper">Story Bible</h3>
+            <h3 className="text-sm font-medium text-paper">Characters & World <span className="ml-1 text-[10px] font-normal text-text-ghost">your story bible</span></h3>
             <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
               Reference characters, places, and continuity while you write.
             </p>
@@ -392,7 +392,7 @@ export default function StoryBiblePanel({
           <button
             onClick={onClose}
             className="p-1 rounded-md text-text-ghost hover:text-text-secondary transition-colors"
-            aria-label="Close Story Bible"
+            aria-label="Close Characters & World"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <line x1="4" y1="4" x2="10" y2="10" />

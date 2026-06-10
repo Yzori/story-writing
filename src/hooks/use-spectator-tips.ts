@@ -16,6 +16,7 @@ export function useSpectatorTips(storyId: string, sessionId: string) {
   const [tips, setTips] = useState<SpectatorTip[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
   const lastTimestampRef = useRef<string>(new Date().toISOString());
+  const seenTipIdsRef = useRef<Set<string>>(new Set());
 
   // Fetch initial balance
   useEffect(() => {
@@ -47,7 +48,17 @@ export function useSpectatorTips(storyId: string, sessionId: string) {
         const { data } = await res.json();
         if (data && data.length > 0) {
           lastTimestampRef.current = data[data.length - 1].createdAt;
-          setTips((prev) => [...prev, ...data]);
+          // Overlapping polls share the same `after` cursor — filter out
+          // tips we've already appended (mirrors useSpectatorReactions).
+          const newTips = (data as SpectatorTip[]).filter(
+            (tip) => !seenTipIdsRef.current.has(tip.id)
+          );
+          for (const tip of newTips) {
+            seenTipIdsRef.current.add(tip.id);
+          }
+          if (newTips.length > 0) {
+            setTips((prev) => [...prev, ...newTips]);
+          }
         }
       } catch {
         // Silently ignore poll failures

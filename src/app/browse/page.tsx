@@ -1,331 +1,358 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { GENRES } from "@/config/genres";
 import { formatReadTime } from "@/lib/format";
 import type { ApiStory } from "@/types/api";
 
-type BoostedStory = ApiStory & { boostExpiresAt?: string };
+// ── Browse — "Tonight's Page" ───────────────────────────────
+// A reading ritual: the library sets one story aside, shown large with its
+// hook/synopsis as type. "Deal another" flips the deck. A slim popover toolbar
+// scopes the deck and the stacks below; searching flips to a results grid.
 
-const QUICK_FILTERS = ["For You", "Rising", "Complete", "Short Reads", "Adventures", "New"];
-
-const SORT_OPTIONS = [
-  { value: "recommended", label: "Recommended" },
-  { value: "most-sparked", label: "Most Sparked" },
-  { value: "latest", label: "Newest" },
+const LIBRARIAN_NOTES = [
+  "Because you stayed up too late with the last one.",
+  "A quiet one, for a loud week.",
+  "You've been circling stories like this — here's the real thing.",
+  "Set aside the moment it arrived. It felt like yours.",
+  "Short enough for tonight, long enough to stay with you.",
+  "Picked off the shelf while no one was looking.",
 ];
 
-const FORMAT_OPTIONS = [
-  { value: "All", label: "All" },
-  { value: "novel", label: "Novel" },
-  { value: "serial", label: "Serial" },
-  { value: "poetry", label: "Poetry" },
-  { value: "screenplay", label: "Script" },
-  { value: "webtoon", label: "Webtoon" },
-  { value: "illustrated", label: "Illustrated" },
-  { value: "campaign", label: "Adventure" },
+// Single source of truth for format + rating options; all lookups derive from these.
+const FORMATS: { label: string; value: string }[] = [
+  { label: "Novel", value: "novel" },
+  { label: "Serial", value: "serial" },
+  { label: "Poetry", value: "poetry" },
+  { label: "Script", value: "screenplay" },
+  { label: "Webtoon", value: "webtoon" },
+  { label: "Illustrated", value: "illustrated" },
+  { label: "Adventure", value: "campaign" },
+];
+const RATINGS: { label: string; value: string; level: number }[] = [
+  { label: "All", value: "all", level: 3 },
+  { label: "All Ages", value: "everyone", level: 0 },
+  { label: "Teen+", value: "teen", level: 1 },
+  { label: "Mature", value: "mature", level: 2 },
+  { label: "Explicit", value: "explicit", level: 3 },
+];
+const SORTS: { label: string; value: string }[] = [
+  { label: "Recommended", value: "recommended" },
+  { label: "Most sparked", value: "most-sparked" },
+  { label: "Newest", value: "latest" },
 ];
 
-const RATING_LEVELS: Record<string, number> = {
-  everyone: 0,
-  teen: 1,
-  mature: 2,
-  explicit: 3,
+const FORMAT_FILTERS = ["All", ...FORMATS.map((f) => f.label)];
+const STATUS_FILTERS = ["All", "Ongoing", "Complete", "Hiatus"];
+const LENGTHS = ["Any", "Short", "Medium", "Long"];
+const RATING_FILTERS = RATINGS.map((r) => r.label);
+const SORT_FILTERS = SORTS.map((s) => s.label);
+
+const ratingByLabel = (label: string) => RATINGS.find((r) => r.label === label);
+const ratingByValue = (value: string) => RATINGS.find((r) => r.value === value);
+const sortByLabel = (label: string) => SORTS.find((s) => s.label === label);
+const sortByValue = (value: string) => SORTS.find((s) => s.value === value);
+
+type FKey = "genre" | "format" | "status" | "length" | "rating" | "sort";
+type Filters = Record<FKey, string>;
+// genre/format/status/length are stored as labels; rating + sort as canonical values.
+const DEFAULT_FILTERS: Filters = { genre: "All", format: "All", status: "All", length: "Any", rating: "all", sort: "recommended" };
+// sort changes which 60-story slice we fetch — it never narrows the pool.
+const NARROWING_KEYS: FKey[] = ["genre", "format", "status", "length", "rating"];
+
+// Old browse quick-filter deep links (?filter=) mapped onto the new filter state.
+const QUICK_FILTER_MAP: Record<string, Partial<Filters>> = {
+  "For You": {},
+  Rising: { sort: "most-sparked" },
+  Complete: { status: "Complete" },
+  "Short Reads": { length: "Short" },
+  Adventures: { format: "Adventure" },
+  New: { sort: "latest" },
 };
 
-const RATING_LABELS: Record<string, string> = {
-  everyone: "All Ages",
-  teen: "Teen+",
-  mature: "Mature",
-  explicit: "Explicit",
-};
+type Group = { key: FKey; label: string; value: string; base: string; options: string[]; searchable?: boolean; columns?: number };
+type BoostedStory = ApiStory & { boosted?: boolean };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  "in-progress": "Ongoing",
-  "on-hiatus": "On Hiatus",
-  complete: "Complete",
-  published: "Published",
-};
+// ── helpers ─────────────────────────────────────────────────
 
+function storyHref(s: ApiStory) { return `/story/${s.slug || s.id}`; }
+function storyFormatLabel(s: ApiStory) {
+  if (s.writingMode === "campaign") return "Adventure";
+  return FORMATS.find((f) => f.value === s.format)?.label ?? "Novel";
+}
+function storyExcerpt(s: ApiStory) {
+  return s.hook?.trim() || s.synopsis?.trim() || "No synopsis yet — but every shelf holds a surprise. Open it and see.";
+}
+
+function matchesFormat(s: ApiStory, label: string) {
+  if (label === "All") return true;
+  if (label === "Adventure") return s.writingMode === "campaign";
+  return s.format === FORMATS.find((f) => f.label === label)?.value && s.writingMode !== "campaign";
+}
+function matchesStatus(s: ApiStory, label: string) {
+  if (label === "All") return true;
+  if (label === "Ongoing") return s.status === "in-progress" || s.status === "published";
+  if (label === "Complete") return s.status === "complete";
+  if (label === "Hiatus") return s.status === "on-hiatus";
+  return true;
+}
+function matchesLength(s: ApiStory, length: string) {
+  if (length === "Any") return true;
+  const w = s.totalWords || 0;
+  if (length === "Short") return w > 0 && w < 10_000;
+  if (length === "Medium") return w >= 10_000 && w < 40_000;
+  if (length === "Long") return w >= 40_000;
+  return true;
+}
+function passesRating(s: ApiStory, maxValue: string) {
+  if (maxValue === "all") return true;
+  const max = ratingByValue(maxValue)?.level ?? 3;
+  const lvl = ratingByValue(s.contentRating)?.level ?? 0;
+  return lvl <= max;
+}
+
+// ── small UI atoms ──────────────────────────────────────────
+
+function Spark({ n }: { n: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-amber">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
+      </svg>
+      {n}
+    </span>
+  );
+}
+function Caret({ open }: { open?: boolean }) {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" className={`transition-transform ${open ? "rotate-180" : ""}`}>
+      <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 function SearchIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="7" cy="7" r="4.5" />
-      <path d="M10.5 10.5L14 14" />
+      <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" strokeLinecap="round" />
     </svg>
   );
 }
 
-function SlidersIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M2 4h12M2 8h12M2 12h12" />
-      <circle cx="6" cy="4" r="1.3" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="8" r="1.3" fill="currentColor" stroke="none" />
-      <circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function SparkIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
-    </svg>
-  );
-}
-
-function BookIcon() {
-  return (
-    <svg width="40" height="40" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1">
-      <path d="M5 4c3-1 6-1 11 1v22c-5-2-8-2-11-1V4z" />
-      <path d="M16 5c5-2 8-2 11-1v22c-3-1-6-1-11 1V5z" />
-    </svg>
-  );
-}
-
-function storyHref(story: ApiStory) {
-  return `/story/${story.slug || story.id}`;
-}
-
-function storyFormat(story: ApiStory) {
-  if (story.writingMode === "campaign") return "Adventure";
-  if (!story.format) return "Novel";
-  return FORMAT_OPTIONS.find((option) => option.value === story.format)?.label || story.format;
-}
-
-function storyStatus(story: ApiStory) {
-  return STATUS_LABELS[story.status] || story.status || "Ongoing";
-}
-
-function storyHook(story: ApiStory) {
-  return story.hook?.trim() || story.synopsis?.trim() || "A new story waiting on the shelves.";
-}
-
-function matchesFormat(story: ApiStory, format: string) {
-  if (format === "All") return true;
-  if (format === "campaign") return story.writingMode === "campaign";
-  return story.format === format && story.writingMode !== "campaign";
-}
-
-function matchesQuickFilter(story: ApiStory, filter: string) {
-  if (filter === "For You") return true;
-  if (filter === "Rising") return story.sparkCount >= 25;
-  if (filter === "Complete") return story.status === "complete";
-  if (filter === "Short Reads") return (story.totalWords || 0) > 0 && story.totalWords < 10_000;
-  if (filter === "Adventures") return story.writingMode === "campaign";
-  if (filter === "New") {
-    const createdAt = new Date(story.createdAt).getTime();
-    return Number.isFinite(createdAt) && Date.now() - createdAt < 1000 * 60 * 60 * 24 * 21;
-  }
-  return true;
-}
-
-function passesRating(story: ApiStory, maxRating: string) {
-  if (maxRating === "all") return true;
-  const maxLevel = RATING_LEVELS[maxRating];
-  const storyLevel = RATING_LEVELS[story.contentRating] ?? 0;
-  return storyLevel <= maxLevel;
-}
-
-function ShelfHeader({ label, action }: { label: string; action?: string }) {
-  return (
-    <div className="flex items-end justify-between gap-4">
-      <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2">Curated Shelf</p>
-        <h2 className="font-display text-[22px] text-paper leading-tight">{label}</h2>
-      </div>
-      {action && (
-        <Link href="/pricing" className="text-[12px] text-amber hover:text-paper transition-colors">
-          {action}
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function CoverArt({
-  story,
-  sizes,
-  className,
-  fallbackClassName = "",
-}: {
-  story: ApiStory;
-  sizes: string;
-  className: string;
-  fallbackClassName?: string;
-}) {
+function CoverArt({ story, sizes }: { story: ApiStory; sizes: string }) {
   const [failed, setFailed] = useState(false);
-
   if (!story.coverImageUrl || failed) {
     return (
-      <div className={`absolute inset-0 bg-gradient-to-br from-elevated via-surface to-void ${fallbackClassName}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(198,154,71,0.18),transparent_45%)]" />
-        <div className="absolute inset-x-0 bottom-0 p-3">
-          <div className="h-px w-8 bg-amber/35 mb-2" />
-          <p className="font-display text-[13px] leading-tight text-paper/80 line-clamp-3">{story.title}</p>
+      <div className="absolute inset-0 bg-gradient-to-br from-elevated via-surface to-void">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(224,169,62,0.20),transparent_55%)]" />
+        <div className="absolute inset-x-0 bottom-0 p-4">
+          <div className="mb-2 h-px w-8 bg-amber/40" />
+          <p className="font-display text-[14px] leading-tight text-paper/85 line-clamp-4">{story.title}</p>
         </div>
       </div>
     );
   }
-
   return (
-    <Image
-      src={story.coverImageUrl}
-      alt=""
-      fill
-      sizes={sizes}
-      className={className}
-      onError={() => setFailed(true)}
-      unoptimized
-    />
+    <Image src={story.coverImageUrl} alt="" fill sizes={sizes} className="object-cover" onError={() => setFailed(true)} unoptimized />
   );
 }
 
-function StoryListCard({ story, sponsored = false, compact = false }: { story: ApiStory; sponsored?: boolean; compact?: boolean }) {
+// ── reusable option list (genre supports search) ────────────
+
+function OptionList({ value, options, onPick, searchable = false, columns = 1 }: { value: string; options: string[]; onPick: (v: string) => void; searchable?: boolean; columns?: number }) {
+  const [q, setQ] = useState("");
+  const shown = searchable && q ? options.filter((o) => o.toLowerCase().includes(q.toLowerCase())) : options;
   return (
-    <Link href={storyHref(story)} className="block">
-      <article className="group bg-surface/70 border border-border rounded-lg overflow-hidden hover:border-amber/25 hover:bg-elevated/70 transition-all">
-        <div className="flex gap-4 p-3">
-          <div className={`${compact ? "w-16" : "w-20"} aspect-[2/3] rounded-md overflow-hidden bg-elevated flex-shrink-0 relative`}>
-            <CoverArt
-              story={story}
-              sizes={compact ? "64px" : "80px"}
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          </div>
-
-          <div className="min-w-0 flex-1 py-0.5">
-            <div className="flex flex-wrap items-center gap-2 mb-1.5">
-              {sponsored && (
-                <span className="px-2 py-0.5 rounded-full bg-amber/10 text-amber border border-amber/20 text-[10px] font-medium uppercase tracking-[0.1em]">
-                  Sponsored
-                </span>
-              )}
-              <span className="text-[10px] uppercase tracking-[0.1em] text-text-ghost">{storyFormat(story)}</span>
-              {story.contentRating && (
-                <span className="text-[10px] uppercase tracking-[0.1em] text-text-ghost">
-                  {RATING_LABELS[story.contentRating] || story.contentRating}
-                </span>
-              )}
-            </div>
-
-            <h3 className="font-display text-[17px] text-paper leading-snug group-hover:text-amber transition-colors">
-              {story.title}
-            </h3>
-            <p className="text-[12px] text-text-secondary mt-0.5">by {story.authorName || "Anonymous"}</p>
-
-            {!compact && (
-              <p className="text-[13px] text-text-secondary leading-relaxed mt-2 line-clamp-2">
-                {storyHook(story)}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 text-[11px] text-text-tertiary">
-              <span className="text-text-secondary">{story.genres[0] || "Story"}</span>
-              <span className="text-text-ghost">·</span>
-              <span>{storyStatus(story)}</span>
-              {story.totalWords > 0 && (
-                <>
-                  <span className="text-text-ghost">·</span>
-                  <span>{formatReadTime(story.totalWords)}</span>
-                </>
-              )}
-              {story.chapterCount > 0 && (
-                <>
-                  <span className="text-text-ghost">·</span>
-                  <span>{story.chapterCount} ch</span>
-                </>
-              )}
-              <span className="text-text-ghost">·</span>
-              <span className="inline-flex items-center gap-1 text-amber/80"><SparkIcon />{story.sparkCount || 0}</span>
-            </div>
-
-            {sponsored && (
-              <p className="mt-2 text-[11px] text-text-ghost">Promoted placement</p>
-            )}
-          </div>
-        </div>
-      </article>
-    </Link>
-  );
-}
-
-function SponsoredHero({ story }: { story: ApiStory }) {
-  return (
-    <Link href={storyHref(story)} className="block group">
-      <article className="relative min-h-[310px] overflow-hidden rounded-lg border border-amber/20 bg-surface">
-        <CoverArt
-          story={story}
-          sizes="(min-width: 1280px) 760px, 100vw"
-          className="object-cover opacity-70 transition-transform duration-700 group-hover:scale-105"
-          fallbackClassName="opacity-70"
+    <div>
+      {searchable && (
+        <input
+          autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a genre…"
+          className="mb-2 w-full rounded-lg border border-border bg-elevated px-3 py-2 text-[12px] text-text outline-none placeholder:text-text-ghost focus:border-amber/40"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-void/25" />
-        <div className="absolute inset-0 bg-gradient-to-t from-void via-transparent to-transparent" />
-
-        <div className="relative z-10 flex min-h-[310px] max-w-2xl flex-col justify-end p-6 sm:p-8">
-          <div className="mb-5 flex flex-wrap items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full bg-amber text-void text-[10px] font-semibold uppercase tracking-[0.12em]">
-              Sponsored
-            </span>
-            <span className="px-2.5 py-1 rounded-full bg-void/70 border border-border text-text-secondary text-[10px] uppercase tracking-[0.12em]">
-              Top Placement
-            </span>
-          </div>
-          <h2 className="font-display text-[34px] sm:text-[42px] leading-[1.02] text-paper max-w-xl">
-            {story.title}
-          </h2>
-          <p className="mt-3 text-[14px] leading-relaxed text-text-secondary max-w-xl">
-            {storyHook(story)}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3 text-[12px] text-text-secondary">
-            <span>by {story.authorName || "Anonymous"}</span>
-            <span className="text-text-ghost">·</span>
-            <span>{story.genres[0] || storyFormat(story)}</span>
-            {story.totalWords > 0 && (
-              <>
-                <span className="text-text-ghost">·</span>
-                <span>{formatReadTime(story.totalWords)}</span>
-              </>
-            )}
-            <span className="inline-flex items-center gap-1 text-amber"><SparkIcon />{story.sparkCount || 0}</span>
-          </div>
-        </div>
-      </article>
-    </Link>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="bg-surface/70 border border-border rounded-lg overflow-hidden animate-pulse">
-      <div className="flex gap-4 p-3">
-        <div className="w-20 aspect-[2/3] rounded-md bg-elevated" />
-        <div className="flex-1 py-1 space-y-3">
-          <div className="h-3 w-24 rounded bg-elevated" />
-          <div className="h-5 w-2/3 rounded bg-elevated" />
-          <div className="h-3 w-1/3 rounded bg-elevated" />
-          <div className="h-3 w-full rounded bg-elevated" />
-          <div className="h-3 w-3/4 rounded bg-elevated" />
-        </div>
+      )}
+      <div className={`max-h-60 overflow-y-auto no-scrollbar ${columns === 2 ? "grid grid-cols-2 gap-1" : "space-y-0.5"}`}>
+        {shown.map((o) => {
+          const active = o === value;
+          return (
+            <button key={o} onClick={() => onPick(o)}
+              className={`flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-[12px] transition-colors ${active ? "bg-amber/[0.1] text-amber" : "text-text-secondary hover:bg-elevated hover:text-paper"}`}>
+              <span className="truncate">{o}</span>
+              {active && <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
+// ── popover toolbar ─────────────────────────────────────────
+
+type Bag = {
+  filters: Filters;
+  genres: string[];
+  set: (key: FKey, v: string) => void;
+  reset: () => void;
+  activeCount: number;
+  poolLength: number;
+};
+
+function ToolbarFilters({ f }: { f: Bag }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const groups: Group[] = [
+    { key: "genre", label: "Genre", value: f.filters.genre, base: "All", options: ["All", ...f.genres], searchable: true, columns: 2 },
+    { key: "format", label: "Format", value: f.filters.format, base: "All", options: FORMAT_FILTERS, columns: 1 },
+    { key: "length", label: "Length", value: f.filters.length, base: "Any", options: LENGTHS, columns: 1 },
+    { key: "status", label: "Status", value: f.filters.status, base: "All", options: STATUS_FILTERS, columns: 1 },
+    { key: "rating", label: "Comfort", value: ratingByValue(f.filters.rating)?.label ?? "All", base: "All", options: RATING_FILTERS, columns: 1 },
+    { key: "sort", label: "Sort", value: sortByValue(f.filters.sort)?.label ?? "Recommended", base: "Recommended", options: SORT_FILTERS, columns: 1 },
+  ];
+  return (
+    <div className="relative flex flex-wrap items-center gap-2">
+      {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(null)} />}
+      {groups.map((g) => {
+        const active = g.value !== g.base;
+        return (
+          <div key={g.key} className="relative z-20">
+            <button
+              onClick={() => setOpen(open === g.key ? null : g.key)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] transition-colors ${active ? "border-amber/40 bg-amber/[0.08] text-amber" : "border-border bg-surface text-text-secondary hover:text-paper"}`}
+            >
+              <span className="text-text-ghost">{g.label}</span>
+              <span className={active ? "text-amber" : "text-paper"}>{active ? g.value : g.base}</span>
+              <Caret open={open === g.key} />
+            </button>
+            <AnimatePresence>
+              {open === g.key && (
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                  className={`absolute left-0 top-[calc(100%+6px)] z-30 rounded-xl border border-border bg-surface p-2 shadow-2xl ${g.columns === 2 ? "w-72" : "w-48"}`}>
+                  <OptionList value={g.value} options={g.options} searchable={g.searchable} columns={g.columns} onPick={(v) => { f.set(g.key, v); setOpen(null); }} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+      {f.activeCount > 0 && <button onClick={f.reset} className="ml-1 text-[12px] text-text-ghost transition-colors hover:text-amber">Reset</button>}
+      <span className="ml-auto text-[12px] text-text-secondary"><span className="text-paper">{f.poolLength}</span> {f.poolLength === 1 ? "story" : "stories"}</span>
+    </div>
+  );
+}
+
+// ── dealt card ──────────────────────────────────────────────
+
+function BoostedChip({ overlay = false }: { overlay?: boolean }) {
+  return (
+    <span className={`rounded-full border border-amber/35 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-amber ${overlay ? "bg-void/70 backdrop-blur-sm" : "bg-amber/[0.08]"}`}>
+      Boosted
+    </span>
+  );
+}
+
+function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir: number }) {
+  return (
+    <motion.div
+      key={story.id}
+      initial={{ opacity: 0, x: dir * 70, rotate: dir * 3 }}
+      animate={{ opacity: 1, x: 0, rotate: 0 }}
+      exit={{ opacity: 0, x: dir * -110, rotate: dir * -4, scale: 0.95 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+      className="grid w-full gap-8 md:grid-cols-[280px_1fr] md:gap-11"
+    >
+      <div className="justify-self-center">
+        <Link href={storyHref(story)} className="block">
+          <div className="relative w-[244px]">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-r-md rounded-l-sm border border-amber/20 shadow-[0_30px_60px_-18px_rgba(0,0,0,0.9)]">
+              <CoverArt story={story} sizes="244px" />
+              <div className="absolute inset-y-0 left-0 z-10 w-4 bg-gradient-to-r from-black/55 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-void/40 to-transparent" />
+            </div>
+            <div className="pointer-events-none absolute -inset-4 -z-10 rounded-full bg-amber/10 blur-3xl" />
+          </div>
+        </Link>
+      </div>
+
+      <div className="flex flex-col justify-center">
+        {story.boosted ? (
+          <div className="flex items-center gap-2.5">
+            <BoostedChip />
+            <p className="font-display text-[13px] italic text-amber/80">Placed in the window by its creator.</p>
+          </div>
+        ) : (
+          <p className="font-display text-[13px] italic text-amber/80">{note}</p>
+        )}
+        <Link href={storyHref(story)}>
+          <h2 className="mt-2 font-display text-[32px] leading-[1.03] text-paper transition-colors hover:text-amber-light sm:text-[42px]">{story.title}</h2>
+        </Link>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-secondary">
+          <span className="text-paper/80">{story.authorName || "Anonymous"}</span><span className="text-text-ghost">·</span>
+          <span>{story.genres[0] || storyFormatLabel(story)}</span><span className="text-text-ghost">·</span>
+          <span>{storyFormatLabel(story)}</span>
+          {story.totalWords > 0 && (<><span className="text-text-ghost">·</span><span>{formatReadTime(story.totalWords)}</span></>)}
+          <span className="text-text-ghost">·</span><Spark n={story.sparkCount || 0} />
+        </div>
+
+        <div className="relative mt-6 max-w-lg border-l-2 border-amber/30 pl-5">
+          <span className="absolute -left-3 -top-3 font-display text-[40px] leading-none text-amber/25">“</span>
+          <p className="novel-reader text-[16px] leading-[1.85] text-text line-clamp-6">{storyExcerpt(story)}</p>
+        </div>
+
+        <div className="mt-8">
+          <Link href={storyHref(story)} className="rounded-full bg-paper px-6 py-3 text-[13px] font-medium text-void transition-transform hover:translate-x-0.5">
+            Begin reading
+          </Link>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── stacks tile ─────────────────────────────────────────────
+
+function StackTile({ story, onPick }: { story: BoostedStory; onPick?: () => void }) {
+  const inner = (
+    <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-border transition-all group-hover:border-amber/30 group-hover:shadow-[0_0_28px_-8px_rgba(224,169,62,0.4)]">
+      <CoverArt story={story} sizes="(min-width:1024px) 200px, 45vw" />
+      <div className="absolute inset-0 bg-gradient-to-t from-void/90 to-transparent" />
+      {story.boosted && (
+        <span className="absolute left-2 top-2"><BoostedChip overlay /></span>
+      )}
+      {story.sparkCount > 0 && (
+        <span className="absolute right-2 top-2 rounded-full border border-white/10 bg-void/55 px-2 py-0.5 backdrop-blur-sm"><Spark n={story.sparkCount} /></span>
+      )}
+      <div className="absolute inset-x-0 bottom-0 p-2.5">
+        <p className="font-display text-[13px] leading-tight text-paper line-clamp-2">{story.title}</p>
+        <p className="mt-0.5 truncate text-[10px] text-paper/55">{story.authorName || "Anonymous"}</p>
+      </div>
+    </div>
+  );
+  if (onPick) {
+    return <button onClick={onPick} className="group block w-full text-left">{inner}</button>;
+  }
+  return <Link href={storyHref(story)} className="group block">{inner}</Link>;
+}
+
+function StackSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="aspect-[2/3] rounded-lg bg-elevated" />
+      <div className="mt-2 h-3 w-3/4 rounded bg-elevated" />
+    </div>
+  );
+}
+
+// ── page ────────────────────────────────────────────────────
+
 export default function BrowsePageWrapper() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
-          <p className="text-text-ghost text-[12px] uppercase tracking-[0.15em]">Opening browse...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber/30 border-t-amber" />
+          <p className="text-[12px] uppercase tracking-[0.15em] text-text-ghost">Opening the library…</p>
         </div>
       </div>
     }>
@@ -338,28 +365,29 @@ function BrowsePage() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get("q") || "");
-  const initialFilter = searchParams.get("filter");
-  const [quickFilter, setQuickFilter] = useState(
-    initialFilter && QUICK_FILTERS.includes(initialFilter) ? initialFilter : "For You",
-  );
-  const [genre, setGenre] = useState("All");
-  const [format, setFormat] = useState("All");
-  const [maxRating, setMaxRating] = useState("all");
-  const [sort, setSort] = useState("recommended");
-  const [showFilters, setShowFilters] = useState(false);
+
+  // ?filter= deep links carry the old quick-filter values (e.g. /browse?filter=Adventures
+  // from dashboards/emails); unknown values fall through to the defaults.
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...DEFAULT_FILTERS,
+    ...(QUICK_FILTER_MAP[searchParams.get("filter") ?? ""] ?? {}),
+  }));
+
+  const [index, setIndex] = useState(0);
+  const [dir, setDir] = useState(1);
+
   const [stories, setStories] = useState<ApiStory[]>([]);
-  const [boostedStories, setBoostedStories] = useState<BoostedStory[]>([]);
+  const [boosted, setBoosted] = useState<BoostedStory[]>([]);
   const [loading, setLoading] = useState(true);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // comfort rating persists (real safety filter, shared key across the app)
   useEffect(() => {
     const saved = localStorage.getItem("quiloria-comfort-rating");
-    if (saved) setMaxRating(saved);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved) setFilters((f) => ({ ...f, rating: saved }));
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("quiloria-comfort-rating", maxRating);
-  }, [maxRating]);
+  useEffect(() => { localStorage.setItem("quiloria-comfort-rating", filters.rating); }, [filters.rating]);
 
   useEffect(() => {
     debounceTimer.current = setTimeout(() => setDebouncedQuery(query), 300);
@@ -367,354 +395,263 @@ function BrowsePage() {
   }, [query]);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function fetchStories() {
       setLoading(true);
       try {
         const params = new URLSearchParams({ public: "true", limit: "60" });
         if (debouncedQuery.trim()) params.set("search", debouncedQuery.trim());
-        if (sort === "most-sparked") params.set("sort", "most-sparked");
-        if (sort === "latest") params.set("sort", "latest");
-        const res = await fetch(`/api/stories?${params}`);
+        if (filters.sort === "most-sparked" || filters.sort === "latest") params.set("sort", filters.sort);
+        const res = await fetch(`/api/stories?${params}`, { signal: controller.signal });
         const json = await res.json();
-        if (res.ok) {
-          setStories(json.data?.stories || []);
-        }
-      } catch {
+        if (res.ok) setStories(json.data?.stories || []);
+        setLoading(false);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setStories([]);
-      } finally {
         setLoading(false);
       }
     }
     fetchStories();
-  }, [debouncedQuery, sort]);
+    return () => controller.abort();
+  }, [debouncedQuery, filters.sort]);
 
+  // Paid placements (/creator/boost) — up to two, always labeled, filter-safe.
   useEffect(() => {
+    const controller = new AbortController();
     async function fetchBoosts() {
       try {
-        const res = await fetch("/api/boosts");
+        const res = await fetch("/api/boosts", { signal: controller.signal });
         if (!res.ok) return;
         const json = await res.json();
-        setBoostedStories(
-          (json.data || []).map((boost: Record<string, unknown>) => ({
-            id: String(boost.storyId || boost.id || ""),
-            title: String(boost.title || "Untitled"),
-            slug: typeof boost.slug === "string" ? boost.slug : null,
-            synopsis: typeof boost.synopsis === "string" ? boost.synopsis : null,
-            hook: typeof boost.hook === "string" ? boost.hook : null,
-            coverImageUrl: typeof boost.coverImageUrl === "string" ? boost.coverImageUrl : null,
-            genres: Array.isArray(boost.genres) ? boost.genres as string[] : [],
-            format: typeof boost.format === "string" ? boost.format : "novel",
-            writingMode: typeof boost.writingMode === "string" ? boost.writingMode : undefined,
-            contentRating: typeof boost.contentRating === "string" ? boost.contentRating : "everyone",
-            status: typeof boost.status === "string" ? boost.status : "in-progress",
-            createdAt: typeof boost.createdAt === "string" ? boost.createdAt : new Date().toISOString(),
-            updatedAt: typeof boost.updatedAt === "string" ? boost.updatedAt : new Date().toISOString(),
-            authorName: typeof boost.authorName === "string" ? boost.authorName : null,
-            chapterCount: typeof boost.chapterCount === "number" ? boost.chapterCount : 0,
-            totalWords: typeof boost.totalWords === "number" ? boost.totalWords : 0,
-            sparkCount: typeof boost.sparkCount === "number" ? boost.sparkCount : 0,
-            boostExpiresAt: typeof boost.boostExpiresAt === "string" ? boost.boostExpiresAt : undefined,
+        setBoosted(
+          ((json.data || []) as Record<string, unknown>[]).map((b) => ({
+            id: String(b.storyId || b.id || ""),
+            title: String(b.title || "Untitled"),
+            slug: typeof b.slug === "string" ? b.slug : null,
+            synopsis: typeof b.synopsis === "string" ? b.synopsis : null,
+            hook: typeof b.hook === "string" ? b.hook : null,
+            coverImageUrl: typeof b.coverImageUrl === "string" ? b.coverImageUrl : null,
+            genres: Array.isArray(b.genres) ? (b.genres as string[]) : [],
+            format: typeof b.format === "string" ? b.format : "novel",
+            writingMode: typeof b.writingMode === "string" ? b.writingMode : undefined,
+            contentRating: typeof b.contentRating === "string" ? b.contentRating : "everyone",
+            status: typeof b.status === "string" ? b.status : "in-progress",
+            createdAt: typeof b.createdAt === "string" ? b.createdAt : new Date().toISOString(),
+            updatedAt: typeof b.updatedAt === "string" ? b.updatedAt : new Date().toISOString(),
+            authorName: typeof b.authorName === "string" ? b.authorName : null,
+            chapterCount: typeof b.chapterCount === "number" ? b.chapterCount : 0,
+            totalWords: typeof b.totalWords === "number" ? b.totalWords : 0,
+            sparkCount: typeof b.sparkCount === "number" ? b.sparkCount : 0,
+            boosted: true,
           }))
         );
       } catch {
-        setBoostedStories([]);
+        // boosts are optional placements — fail quietly
       }
     }
     fetchBoosts();
+    return () => controller.abort();
   }, []);
 
-  const genreCounts = useMemo(() => {
+  const presentGenres = useMemo(() => {
     const counts: Record<string, number> = {};
-    stories.forEach((story) => {
-      story.genres.forEach((storyGenre) => {
-        counts[storyGenre] = (counts[storyGenre] || 0) + 1;
-      });
-    });
-    return counts;
+    stories.forEach((s) => s.genres.forEach((g) => { counts[g] = (counts[g] || 0) + 1; }));
+    return GENRES.filter((g) => (counts[g] || 0) > 0);
   }, [stories]);
 
-  const visibleGenres = useMemo(() => {
-    const populated = GENRES.filter((item) => (genreCounts[item] || 0) > 0);
-    return ["All", ...populated.slice(0, 9)];
-  }, [genreCounts]);
+  const searching = debouncedQuery.trim().length > 0;
 
-  const filteredStories = useMemo(() => {
-    const base = stories.filter((story) => {
-      if (genre !== "All" && !story.genres.includes(genre)) return false;
-      if (!matchesFormat(story, format)) return false;
-      if (!matchesQuickFilter(story, quickFilter)) return false;
-      if (!passesRating(story, maxRating)) return false;
-      return true;
-    });
+  const passesFilters = useCallback((s: ApiStory) => {
+    if (filters.genre !== "All" && !s.genres.includes(filters.genre)) return false;
+    if (!matchesFormat(s, filters.format)) return false;
+    if (!matchesStatus(s, filters.status)) return false;
+    if (!matchesLength(s, filters.length)) return false;
+    if (!passesRating(s, filters.rating)) return false;
+    return true;
+  }, [filters.genre, filters.format, filters.status, filters.length, filters.rating]);
 
-    if (sort === "most-sparked") return [...base].sort((a, b) => b.sparkCount - a.sparkCount);
-    if (sort === "latest") return [...base].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return base;
-  }, [format, genre, maxRating, quickFilter, sort, stories]);
+  // Boosted placements respect the same filters as organic results.
+  const sponsored = useMemo(() => boosted.filter(passesFilters).slice(0, 2), [boosted, passesFilters]);
 
-  const sponsoredStories = useMemo(() => {
-    return boostedStories
-      .filter((story) => {
-        if (genre !== "All" && !story.genres.includes(genre)) return false;
-        if (!matchesFormat(story, format)) return false;
-        if (!matchesQuickFilter(story, quickFilter)) return false;
-        if (!passesRating(story, maxRating)) return false;
-        return true;
-      })
-      .slice(0, 2);
-  }, [boostedStories, format, genre, maxRating, quickFilter]);
+  const pool: BoostedStory[] = useMemo(() => {
+    const sponsoredIds = new Set(sponsored.map((s) => s.id));
+    const organic = stories.filter((s) => !sponsoredIds.has(s.id) && passesFilters(s));
+    // Boosted leads the deck + stacks (clearly labeled); search results stay organic.
+    return searching ? organic : [...sponsored, ...organic];
+  }, [stories, sponsored, passesFilters, searching]);
 
-  const sponsoredIds = new Set(sponsoredStories.map((story) => story.id));
-  const organicStories = filteredStories.filter((story) => !sponsoredIds.has(story.id));
-  const hasActiveDiscovery = !debouncedQuery && genre === "All" && format === "All" && quickFilter === "For You";
-  const risingStories = organicStories.filter((story) => story.sparkCount > 0).sort((a, b) => b.sparkCount - a.sparkCount).slice(0, 4);
-  const shownResultStories = hasActiveDiscovery ? organicStories.slice(0, 12) : organicStories;
+  const set = useCallback((key: FKey, v: string) => {
+    setFilters((f) => ({
+      ...f,
+      [key]: key === "rating" ? ratingByLabel(v)?.value ?? "all" : key === "sort" ? sortByLabel(v)?.value ?? "recommended" : v,
+    }));
+    setIndex(0); setDir(1);
+  }, []);
 
-  function resetFilters() {
-    setGenre("All");
-    setFormat("All");
-    setQuickFilter("For You");
-    setMaxRating("all");
-  }
+  const reset = useCallback(() => {
+    setFilters((f) => ({ ...DEFAULT_FILTERS, sort: f.sort }));
+    setIndex(0); setDir(1);
+  }, []);
+
+  const next = useCallback(() => { setDir(1); setIndex((i) => (pool.length ? (i + 1) % pool.length : 0)); }, [pool.length]);
+  const prev = useCallback(() => { setDir(-1); setIndex((i) => (pool.length ? (i - 1 + pool.length) % pool.length : 0)); }, [pool.length]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (searching) return;
+      // Never hijack keys aimed at interactive elements (buttons lose Space otherwise).
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.('button, a, input, textarea, select, [contenteditable], [role="button"]')) return;
+      if (e.key === " ") {
+        // Only claim Space when nothing is focused; otherwise leave scroll/activation alone.
+        if (document.activeElement !== document.body) return;
+        e.preventDefault();
+        next();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        next();
+      } else if (e.key === "ArrowLeft") {
+        prev();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev, searching]);
+
+  const activeCount = NARROWING_KEYS.filter((k) => filters[k] !== DEFAULT_FILTERS[k]).length;
+
+  const f: Bag = { filters, genres: presentGenres, set, reset, activeCount, poolLength: pool.length };
+
+  const safeIndex = pool.length ? index % pool.length : 0;
+  const story = pool[safeIndex];
+  const note = LIBRARIAN_NOTES[safeIndex % LIBRARIAN_NOTES.length];
 
   return (
-    <main className="min-h-screen bg-void text-text pb-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <header className="mb-6 pt-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-2">Reader Marketplace</p>
-              <h1 className="font-display text-[34px] sm:text-[44px] leading-tight text-paper">Browse Stories</h1>
-              <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-text-secondary">
-                Find your next read from featured launches, curated shelves, and the full public catalogue.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-surface/70 p-5 w-full lg:w-[360px]">
-              <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2">Featured Reads</p>
-              <h2 className="font-display text-[22px] leading-tight text-paper">Promoted stories, clearly labeled</h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
-                Sponsored launches can appear above organic shelves, but reader filters and comfort ratings still apply.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full border border-amber/20 bg-amber/[0.06] px-3 py-1.5 text-[11px] text-amber">
-                  Sponsored label
-                </span>
-                <span className="rounded-full border border-border bg-elevated px-3 py-1.5 text-[11px] text-text-secondary">
-                  Filter-safe placement
-                </span>
-              </div>
-            </div>
+    <main className="min-h-screen bg-void text-text">
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-[55vh] bg-[radial-gradient(ellipse_at_50%_-10%,rgba(224,169,62,0.10),transparent_65%)]" />
+
+      {/* ── search + toolbar (sticky) ── */}
+      <div className="sticky top-14 z-30 border-b border-border bg-void/90 backdrop-blur-md">
+        <div className="mx-auto max-w-6xl space-y-3 px-4 py-3 sm:px-6">
+          <div className="relative">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-ghost"><SearchIcon /></div>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search titles, authors, worlds…"
+              className="w-full rounded-full border border-border bg-surface py-2.5 pl-10 pr-4 text-[13px] text-text outline-none transition-colors placeholder:text-text-ghost focus:border-amber/35"
+            />
           </div>
-        </header>
+          <ToolbarFilters f={f} />
+        </div>
+      </div>
 
-        <section className="sticky top-14 z-30 -mx-4 mb-7 border-y border-border bg-void/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="relative flex-1">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-ghost"><SearchIcon /></div>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search stories, authors, worlds..."
-                className="w-full rounded-lg border border-border bg-surface px-9 py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
-              />
+      <div className="relative mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+        {searching ? (
+          // ── search results grid ──
+          <section className="pt-8">
+            <div className="mb-6">
+              <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-text-ghost">Results for “{debouncedQuery}”</p>
+              <h1 className="font-display text-[24px] text-paper">
+                {loading ? "Searching the stacks…" : `${pool.length} ${pool.length === 1 ? "story" : "stories"}`}
+              </h1>
             </div>
-
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {QUICK_FILTERS.map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setQuickFilter(filter)}
-                  className={`whitespace-nowrap rounded-lg border px-3 py-2 text-[12px] transition-all ${
-                    quickFilter === filter
-                      ? "border-amber/30 bg-amber/[0.06] text-amber"
-                      : "border-border bg-surface text-text-secondary hover:text-paper"
-                  }`}
-                >
-                  {filter}
+            {loading ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                {Array.from({ length: 10 }).map((_, i) => <StackSkeleton key={i} />)}
+              </div>
+            ) : pool.length > 0 ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                {pool.map((s) => <StackTile key={s.id} story={s} />)}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface/50 px-6 py-24 text-center">
+                <h3 className="mb-2 font-display text-[19px] text-paper">Nothing on that shelf</h3>
+                <p className="max-w-sm text-[13px] leading-relaxed text-text-secondary">No stories match your search and filters. Try a broader term or loosen a filter.</p>
+                <button onClick={() => { setQuery(""); reset(); }} className="mt-6 rounded-full border border-amber/30 bg-amber/[0.06] px-5 py-2.5 text-[13px] text-amber transition-colors hover:text-paper">
+                  Clear search & filters
                 </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowFilters((value) => !value)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-text-secondary hover:text-paper transition-colors lg:hidden"
-            >
-              <SlidersIcon />
-              Filters
-            </button>
-          </div>
-        </section>
-
-        <div className="grid gap-7 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <motion.aside
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={`${showFilters ? "block" : "hidden"} h-fit rounded-lg border border-border bg-surface/70 p-4 lg:sticky lg:top-32 lg:block`}
-          >
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h2 className="font-display text-[17px] text-paper">Filters</h2>
-              <button className="text-[12px] text-amber hover:text-paper transition-colors" onClick={resetFilters}>
-                Reset
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-6">
-              <div>
-                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">Genre</label>
-                <div className="space-y-1">
-                  {visibleGenres.map((item) => (
-                    <button
-                      key={item}
-                      onClick={() => setGenre(item)}
-                      className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[12px] transition-colors ${
-                        genre === item ? "bg-amber/[0.06] text-amber" : "text-text-secondary hover:bg-elevated hover:text-paper"
-                      }`}
-                    >
-                      <span>{item}</span>
-                      <span className="text-[10px] text-text-ghost">{item === "All" ? stories.length : genreCounts[item] || 0}</span>
-                    </button>
+              </div>
+            )}
+          </section>
+        ) : (
+          // ── the reading ritual ──
+          <>
+            <div className="mb-5 flex items-center justify-between gap-4 pt-7">
+              <div className="flex items-center gap-2.5 text-[10px] uppercase tracking-[0.22em] text-text-ghost">
+                <span className="h-px w-8 bg-amber/40" />
+                Set aside for you · tonight
+              </div>
+              {pool.length > 0 && (
+                <div className="hidden items-center gap-1.5 sm:flex">
+                  {pool.slice(0, 6).map((_, i) => (
+                    <span key={i} className={`h-1 rounded-full transition-all ${i === safeIndex % Math.min(pool.length, 6) ? "w-6 bg-amber" : "w-2 bg-paper/15"}`} />
                   ))}
                 </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">Format</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {FORMAT_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setFormat(option.value)}
-                      className={`rounded-lg border px-2 py-2 text-[12px] transition-all ${
-                        format === option.value
-                          ? "border-amber/30 bg-amber/[0.06] text-amber"
-                          : "border-border text-text-secondary hover:text-paper"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">Comfort Rating</label>
-                <select
-                  value={maxRating}
-                  onChange={(event) => setMaxRating(event.target.value)}
-                  className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-[12px] text-text-secondary outline-none focus:border-amber/30"
-                >
-                  <option value="all">All Ratings</option>
-                  <option value="everyone">All Ages</option>
-                  <option value="teen">Teen & Below</option>
-                  <option value="mature">Mature & Below</option>
-                  <option value="explicit">Include Explicit</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">Placement Rules</label>
-                <div className="rounded-lg bg-elevated p-3 text-[12px] leading-relaxed text-text-secondary">
-                  Sponsored cards are labeled, capped at two top spots, and hidden when they do not match reader filters.
-                </div>
-              </div>
+              )}
             </div>
-          </motion.aside>
 
-          <div className="min-w-0 space-y-8">
-            {hasActiveDiscovery && sponsoredStories.length > 0 && (
-              <section className="space-y-4">
-                <ShelfHeader label="Sponsored Openings" action="Advertise here" />
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.7fr)]">
-                  <SponsoredHero story={sponsoredStories[0]} />
-                  <div className="space-y-3">
-                    {sponsoredStories.slice(1).map((story) => (
-                      <StoryListCard key={story.id} story={story} sponsored compact />
-                    ))}
-                    <div className="rounded-lg border border-dashed border-border bg-surface/40 p-4">
-                      <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2">Available Slot</p>
-                      <p className="font-display text-[17px] text-paper">Promoted shelf card</p>
-                      <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
-                        Reserve for launches, paid boosts, publisher campaigns, or creator self-promotion.
-                      </p>
+            <section className="flex min-h-[62vh] flex-col justify-center pb-8">
+              <div className="min-h-[440px]">
+                {loading ? (
+                  <div className="grid w-full animate-pulse gap-8 md:grid-cols-[280px_1fr] md:gap-11">
+                    <div className="mx-auto aspect-[2/3] w-[244px] rounded-md bg-elevated" />
+                    <div className="flex flex-col justify-center gap-3">
+                      <div className="h-3 w-40 rounded bg-elevated" />
+                      <div className="h-9 w-2/3 rounded bg-elevated" />
+                      <div className="h-3 w-1/2 rounded bg-elevated" />
+                      <div className="mt-3 h-24 w-full rounded bg-elevated" />
                     </div>
                   </div>
-                </div>
-              </section>
-            )}
-
-            {hasActiveDiscovery && risingStories.length > 0 && (
-              <section className="space-y-4">
-                <ShelfHeader label="Rising Without Promotion" action="See all" />
-                <div className="grid gap-3 md:grid-cols-2">
-                  {risingStories.map((story) => (
-                    <StoryListCard key={story.id} story={story} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2">Results</p>
-                  <h2 className="font-display text-[22px] text-paper">
-                    {loading ? "Loading stories" : `${organicStories.length} matching ${organicStories.length === 1 ? "story" : "stories"}`}
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-                  {SORT_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setSort(option.value)}
-                      className={`whitespace-nowrap rounded-lg px-3 py-2 text-[11px] transition-all ${
-                        sort === option.value ? "bg-elevated text-paper" : "text-text-ghost hover:text-text-secondary"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                ) : story ? (
+                  <AnimatePresence mode="wait">
+                    <PickCard key={story.id} story={story} note={note} dir={dir} />
+                  </AnimatePresence>
+                ) : (
+                  <div className="flex min-h-[440px] flex-col items-center justify-center text-center">
+                    <p className="font-display text-[22px] text-paper">No story fits that exactly.</p>
+                    <p className="mt-2 max-w-sm text-[13px] text-text-secondary">The shelves came up empty for this combination. Loosen a filter and the librarian will find you something.</p>
+                    <button onClick={reset} className="mt-6 rounded-full border border-amber/30 bg-amber/[0.06] px-5 py-2.5 text-[13px] text-amber hover:text-paper">Clear filters</button>
+                  </div>
+                )}
               </div>
 
-              {loading ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <SkeletonCard key={index} />
-                  ))}
-                </div>
-              ) : shownResultStories.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {shownResultStories.map((story) => (
-                    <StoryListCard key={story.id} story={story} />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface/50 px-6 py-20 text-center">
-                  <div className="text-text-ghost mb-5"><BookIcon /></div>
-                  <h3 className="font-display text-lg text-paper mb-2">No stories match these filters</h3>
-                  <p className="text-text-secondary text-[13px] max-w-sm leading-relaxed">
-                    Try a broader genre, clear the search, or loosen the comfort rating.
+              {!loading && pool.length > 1 && (
+                <>
+                  <div className="mt-10 flex items-center justify-center gap-4">
+                    <button onClick={prev} className="grid h-11 w-11 place-items-center rounded-full border border-border text-text-secondary transition-colors hover:border-amber/30 hover:text-amber" aria-label="Previous">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ transform: "rotate(180deg)" }}><path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                    <button onClick={next} className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-6 py-3 text-[13px] text-text-secondary transition-colors hover:border-amber/30 hover:text-paper">
+                      Not tonight — deal another
+                      <motion.svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" whileTap={{ rotate: 360 }} transition={{ duration: 0.4 }}><path d="M13 8a5 5 0 11-1.5-3.5M13 2v3h-3" strokeLinecap="round" strokeLinejoin="round" /></motion.svg>
+                    </button>
+                  </div>
+                  <p className="mt-4 text-center text-[11px] text-text-ghost">
+                    <kbd className="rounded border border-border px-1.5 py-0.5">←</kbd> <kbd className="rounded border border-border px-1.5 py-0.5">→</kbd> or <kbd className="rounded border border-border px-1.5 py-0.5">space</kbd> to flip through tonight&apos;s picks
                   </p>
-                  <button
-                    onClick={() => {
-                      setQuery("");
-                      resetFilters();
-                    }}
-                    className="mt-5 rounded-lg border border-amber/30 bg-amber/[0.06] px-4 py-2 text-[13px] text-amber hover:text-paper transition-colors"
-                  >
-                    Clear search and filters
-                  </button>
-                </div>
-              )}
-
-              {!loading && sponsoredStories.length > 0 && (
-                <div className="rounded-lg border border-border bg-surface/50 p-4 text-[12px] leading-relaxed text-text-secondary">
-                  Organic ranking starts after the sponsored cap. Paid cards are visually labeled and included only when they match the reader&apos;s active filters.
-                </div>
+                </>
               )}
             </section>
-          </div>
-        </div>
+
+            {!loading && pool.length > 0 && (
+              <section className="border-t border-border pt-12">
+                <div className="mb-7">
+                  <h2 className="font-display text-[24px] text-paper">{activeCount > 0 ? "The matching stacks" : "Or wander the full stacks"}</h2>
+                  <p className="mt-1 text-[13px] text-text-secondary">
+                    {activeCount > 0 ? `${pool.length} ${pool.length === 1 ? "story" : "stories"} match your filters — choose for yourself.` : "When you'd rather choose for yourself."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                  {pool.map((s, i) => (
+                    <StackTile key={s.id} story={s} onPick={() => { setDir(1); setIndex(i); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
       </div>
     </main>
   );

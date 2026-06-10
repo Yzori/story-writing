@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { GENRES, CONTENT_RATINGS } from "@/config/genres";
@@ -111,18 +111,18 @@ const ACCENT: Record<AccentKey, {
 
 type WritingMode = "solo" | "co-op" | "campaign" | null;
 
-// Allow deep-linking straight into a mode's setup form, e.g. /create?mode=co-op
-// (the Collaborate door on /welcome relies on this). Read lazily from the URL so
-// it's SSR-safe and skips the mode picker without a flash on client navigation.
-function initialModeFromUrl(): WritingMode {
-  if (typeof window === "undefined") return null;
-  const mode = new URLSearchParams(window.location.search).get("mode");
-  return mode === "solo" || mode === "co-op" || mode === "campaign" ? mode : null;
-}
-
 export default function CreatePage() {
   const router = useRouter();
-  const [writingMode, setWritingMode] = useState<WritingMode>(initialModeFromUrl);
+  const [writingMode, setWritingMode] = useState<WritingMode>(null);
+
+  // Allow deep-linking straight into a mode's setup form, e.g. /create?mode=co-op
+  // (the Collaborate door on /welcome relies on this). The mode is applied after
+  // mount so server and client render identically — a brief flash of the mode
+  // picker on deep links is acceptable.
+  useEffect(() => {
+    const mode = new URLSearchParams(window.location.search).get("mode");
+    if (mode === "solo" || mode === "co-op" || mode === "campaign") setWritingMode(mode);
+  }, []);
 
   // Story details state
   const [title, setTitle] = useState("");
@@ -1618,7 +1618,7 @@ const MODES = [
     title: "Solo Story",
     subtitle: "The Study",
     description: "A quiet room. A desk by the window. The page waits for the impossible to show itself.",
-    features: ["Rich novel editor", "Private story bible", "Export anywhere"],
+    features: ["Rich novel editor", "Private characters & world notes", "Export anywhere"],
     image: "/solo_story_mode.png",
     color: "amber",
     glowColor: "bg-amber/30",

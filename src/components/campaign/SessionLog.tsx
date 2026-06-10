@@ -102,7 +102,7 @@ export default function SessionLog({
       </div>
 
       {/* Event Log */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.24)_transparent]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.24)_transparent]">
         {turns.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-text-ghost text-xs italic font-serif">No messages yet...</p>

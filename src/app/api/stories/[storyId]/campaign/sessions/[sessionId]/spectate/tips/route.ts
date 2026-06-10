@@ -166,7 +166,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
     if (rl) return rl;
 
-    const { sessionId } = await params;
+    const { storyId, sessionId } = await params;
+
+    // Verify story is public and session belongs to it — mirrors the POST
+    // handler and the other spectate GET endpoints.
+    const story = await db.query.stories.findFirst({
+      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
+    });
+    if (!story || !story.isPublic) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+
+    const campaignSession = await db.query.campaignSessions.findFirst({
+      where: and(
+        eq(campaignSessions.id, sessionId),
+        eq(campaignSessions.storyId, storyId)
+      ),
+    });
+    if (!campaignSession) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Session not found" } },
+        { status: 404 }
+      );
+    }
+
     const url = new URL(request.url);
     const afterParam = url.searchParams.get("after");
 

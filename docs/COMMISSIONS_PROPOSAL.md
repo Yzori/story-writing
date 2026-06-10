@@ -1,8 +1,8 @@
-# Workflow 3: Commissions & Creative Services — "The Scriptorium"
+# Commissions & Creative Services — "The Scriptorium"
 
 **Version:** 1.0
-**Date:** 2026-03-29
-**Status:** Proposal
+**Date:** 2026-03-29 (originally written as a proposal)
+**Status:** ✅ Shipped — live in production. This document is retained as the design spec; the marketplace (offerings, escrow-backed commissions, lifecycle, testimonials, trust badges, profile studios) is implemented. Surfaced at `/scriptorium`.
 
 ---
 

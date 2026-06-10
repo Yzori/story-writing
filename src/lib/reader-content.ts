@@ -1,7 +1,19 @@
+// Attribute values come from serialized HTML, so they are already
+// entity-encoded (Tiptap's getHTML encodes & and " in attributes).
+// Decode here so escapeHtml doesn't double-encode on re-render.
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 function extractAttr(tag: string, attr: string): string | null {
   const regex = new RegExp(`${attr}="([^"]*)"`, "i");
   const match = tag.match(regex);
-  return match ? match[1] : null;
+  return match ? decodeEntities(match[1]) : null;
 }
 
 function escapeHtml(str: string): string {

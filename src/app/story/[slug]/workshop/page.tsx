@@ -79,7 +79,10 @@ function WorkshopContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("team");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const t = searchParams.get("tab");
+    return TABS.some((tab) => tab.key === t) ? (t as Tab) : "team";
+  });
 
   // Team state
   const [collaborators, setCollaborators] = useState<ApiCollaborator[]>([]);

@@ -126,6 +126,12 @@ export default function SessionPlayPage() {
   const storyTurns = useMemo(() => turns.filter((t) =>
     isStoryTurnType(t.type)
   ), [turns]);
+  // OOC turns carrying an "Extend +3min" request — InitiativeBar applies
+  // these to every client's countdown (see handleExtendTimer below).
+  const extensionTurns = useMemo(
+    () => logTurns.filter((t) => t.type === "ooc" && !!t.metadata?.includes("timerExtension")),
+    [logTurns],
+  );
 
   useEffect(() => {
     if (loading) return;
@@ -154,6 +160,10 @@ export default function SessionPlayPage() {
   // ── Pending roll request for the current player ───────────
   const pendingRollRequest = ((): RollRequest | null => {
     if (!currentUserId || isGM) return null;
+    // A roll needs a living character. If this player's character died or
+    // retired after the request was issued, don't force the ritual open —
+    // the server rejects every attempt and the modal cannot be dismissed.
+    if (myCharacter?.status !== "active") return null;
     // Find the most recent roll-request targeting this player (or "everyone")
     for (let i = turns.length - 1; i >= 0; i--) {
       const t = turns[i];
@@ -411,12 +421,20 @@ export default function SessionPlayPage() {
     }
   }, [story, setActivePlayer, showToast]);
 
-  // Player extends their turn timer
+  // Player extends their turn timer. The {timerExtension} metadata rides
+  // along on the OOC turn so the GM's InitiativeBar countdown — the one
+  // that auto-returns the spotlight on expiry — extends too, instead of
+  // the extension only existing on this player's screen.
   const handleExtendTimer = useCallback(async () => {
     showToast("Timer extended by 3 minutes");
     try {
       const charName = myCharacter?.name ?? "A player";
-      await sendTurn("ooc", `[${charName}] requested more time to write`);
+      await sendTurn(
+        "ooc",
+        `[${charName}] requested more time to write`,
+        undefined,
+        JSON.stringify({ timerExtension: 180 }),
+      );
     } catch {
       // Non-critical — don't show error for OOC message
     }
@@ -1138,6 +1156,7 @@ export default function SessionPlayPage() {
         onEndSession={handleEndSession}
         onTurnExpired={handleTurnExpired}
         onExtendTimer={handleExtendTimer}
+        extensionTurns={extensionTurns}
         onRollSubmit={handleRollSubmit}
         pendingRollRequest={pendingRollRequest}
         myCharacterStatus={myCharacter?.status ?? null}

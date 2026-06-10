@@ -86,28 +86,13 @@ const Stanza = Node.create({
           const stanzaNode = $from.node(stanzaDepth);
           const lineIndex = $from.index(stanzaDepth);
 
-          // If this empty line is the only line in the stanza
+          // If this empty line is the only line in the stanza, the stanza
+          // already IS a fresh empty stanza — there is nothing to split.
+          // (Deleting the line would be refilled by ProseMirror's fitter,
+          // since the stanza schema is "poetryLine+", and inserting another
+          // stanza after it would stack phantom empties.) Consume the key.
           if (stanzaNode.childCount === 1) {
-            return editor
-              .chain()
-              .command(({ tr, dispatch }) => {
-                if (!dispatch) return true;
-                const pos = $from.before(lineDepth);
-                const stanzaEnd = $from.after(stanzaDepth);
-                tr.delete(pos, pos + currentLine.nodeSize);
-                const newStanza = state.schema.nodes.stanza.create(
-                  null,
-                  state.schema.nodes.poetryLine.create()
-                );
-                const mappedEnd = tr.mapping.map(stanzaEnd);
-                tr.insert(mappedEnd, newStanza);
-                const targetPos = mappedEnd + 2;
-                tr.setSelection(
-                  TextSelection.near(tr.doc.resolve(targetPos))
-                );
-                return true;
-              })
-              .run();
+            return true;
           }
 
           // If empty line is at the end of a stanza with other lines
@@ -128,6 +113,26 @@ const Stanza = Node.create({
                 const targetPos = mappedEnd + 2;
                 tr.setSelection(
                   TextSelection.near(tr.doc.resolve(targetPos))
+                );
+                return true;
+              })
+              .run();
+          }
+
+          // Empty line at the start of a multi-line stanza — the stanza
+          // boundary above already provides the break, so just remove the
+          // empty line and leave the cursor on the (new) first line.
+          // (Splitting here via delete-to-stanza-end would empty the stanza,
+          // which the fitter refills, leaving a phantom empty stanza.)
+          if (lineIndex === 0) {
+            return editor
+              .chain()
+              .command(({ tr, dispatch }) => {
+                if (!dispatch) return true;
+                const linePos = $from.before(lineDepth);
+                tr.delete(linePos, linePos + currentLine.nodeSize);
+                tr.setSelection(
+                  TextSelection.near(tr.doc.resolve(linePos))
                 );
                 return true;
               })
@@ -250,7 +255,10 @@ export default function PoetryEditor({
       Stanza,
       PoetryLine,
       Placeholder.configure({
-        placeholder: () => "",
+        placeholder,
+        // Stanza is not a textblock, so the decoration must descend into
+        // its poetryLine children for the empty-editor placeholder to land.
+        includeChildren: true,
         emptyEditorClass: "is-editor-empty",
         emptyNodeClass: "is-empty-line",
       }),
@@ -262,7 +270,6 @@ export default function PoetryEditor({
     editorProps: {
       attributes: {
         class: `poetry-editor-content ${alignment === "center" ? "poetry-centered" : "poetry-left"}`,
-        "data-placeholder": placeholder,
       },
     },
     onUpdate: ({ editor }) => {
@@ -292,7 +299,9 @@ export default function PoetryEditor({
         if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
-          editor.commands.setContent(wrapInStanzas(newContent) || "");
+          // emitUpdate: false — external sync, not a user edit; Tiptap v3
+          // defaults to true, which would trigger a phantom autosave.
+          editor.commands.setContent(wrapInStanzas(newContent) || "", { emitUpdate: false });
         }
       });
     },
@@ -407,10 +416,12 @@ export default function PoetryEditor({
           content: none;
         }
 
-        .poetry-editor-content.is-editor-empty
-          .stanza:first-child
-          .poetry-line:first-child::before {
+        /* The Placeholder decoration puts is-editor-empty + data-placeholder
+           on the empty poetryLine itself (only when the whole doc is empty) */
+        .poetry-editor-content .poetry-line.is-editor-empty::before {
           content: attr(data-placeholder);
+          float: left;
+          height: 0;
           color: var(--color-text-ghost, #6b6560);
           pointer-events: none;
           font-style: italic;

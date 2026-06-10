@@ -139,24 +139,39 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       try {
         const parsed = JSON.parse(chapter.content);
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].imageDataUrl) {
-          // Migrate legacy panel data
-          const migrated = await db.insert(panels).values(
-            parsed.map((p: { id?: string; imageDataUrl: string; caption?: string; order?: number }, i: number) => ({
-              chapterId,
-              imageData: p.imageDataUrl,
-              caption: p.caption || "",
-              sortOrder: p.order ?? i,
-              layout: "single",
-              frames: JSON.stringify([{ id: p.id || `legacy-${i}`, imageData: p.imageDataUrl }]),
-              borderStyle: "none",
-              imageFit: "cover",
-            }))
-          ).returning();
+          // Migrate legacy panel data. Concurrent first readers race this
+          // check-then-insert, so take the same lock POST uses and re-check
+          // emptiness after acquiring it — otherwise every panel is inserted
+          // once per overlapping reader.
+          const migrated = await db.transaction(async (tx) => {
+            await tx.execute(sql`LOCK TABLE "panels" IN SHARE ROW EXCLUSIVE MODE`);
 
-          // Clear the chapter content now that panels are in their own table
-          await db.update(chapters)
-            .set({ content: "", updatedAt: new Date() })
-            .where(eq(chapters.id, chapterId));
+            const alreadyMigrated = await tx.query.panels.findMany({
+              where: eq(panels.chapterId, chapterId),
+              orderBy: [asc(panels.sortOrder)],
+            });
+            if (alreadyMigrated.length > 0) return alreadyMigrated;
+
+            const inserted = await tx.insert(panels).values(
+              parsed.map((p: { id?: string; imageDataUrl: string; caption?: string; order?: number }, i: number) => ({
+                chapterId,
+                imageData: p.imageDataUrl,
+                caption: p.caption || "",
+                sortOrder: p.order ?? i,
+                layout: "single",
+                frames: JSON.stringify([{ id: p.id || `legacy-${i}`, imageData: p.imageDataUrl }]),
+                borderStyle: "none",
+                imageFit: "cover",
+              }))
+            ).returning();
+
+            // Clear the chapter content now that panels are in their own table
+            await tx.update(chapters)
+              .set({ content: "", updatedAt: new Date() })
+              .where(eq(chapters.id, chapterId));
+
+            return inserted;
+          });
 
           return NextResponse.json({ data: migrated });
         }

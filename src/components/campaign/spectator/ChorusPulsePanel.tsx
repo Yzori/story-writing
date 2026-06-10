@@ -9,7 +9,7 @@ const PULSE_GROUPS: Record<string, { label: string; tone: string; types: string[
   dread: {
     label: "The Chorus is afraid",
     tone: "border-rose/30 bg-rose/10 text-rose",
-    types: ["gasped", "terrified", "heartbroken"],
+    types: ["gasped", "terrified", "heartbroken", "cried"],
   },
   wonder: {
     label: "The Chorus is spellbound",

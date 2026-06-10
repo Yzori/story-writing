@@ -5,8 +5,9 @@ import {
   sessionPollVotes,
   stories,
   playerCharacters,
+  collaborators,
 } from "@/server/db/schema";
-import { eq, and, isNull, desc, inArray } from "drizzle-orm";
+import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
 import { safeParseJson } from "@/lib/safe-json";
 import { auth } from "@/server/auth";
 import { createSessionPollSchema } from "@/lib/validations";
@@ -14,6 +15,37 @@ import { applyRateLimit } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
+
+// Scheduling polls are restricted to the campaign's "table": the GM (story
+// owner), accepted collaborators, and anyone with a player character on this
+// story — mirrors isAuditionVoter on the audition-votes route.
+async function isCampaignMember(
+  storyId: string,
+  storyOwnerId: string,
+  userId: string
+): Promise<boolean> {
+  if (storyOwnerId === userId) return true;
+
+  const member = await db
+    .select({ src: sql<string>`'x'` })
+    .from(collaborators)
+    .where(
+      and(
+        eq(collaborators.storyId, storyId),
+        eq(collaborators.userId, userId),
+        eq(collaborators.status, "accepted")
+      )
+    )
+    .limit(1);
+  if (member.length > 0) return true;
+
+  const character = await db
+    .select({ id: playerCharacters.id })
+    .from(playerCharacters)
+    .where(and(eq(playerCharacters.storyId, storyId), eq(playerCharacters.userId, userId)))
+    .limit(1);
+  return character.length > 0;
+}
 
 /**
  * GET /api/stories/[storyId]/campaign/polls
@@ -43,6 +75,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    if (!(await isCampaignMember(storyId, story.userId, session.user.id))) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the table can see scheduling polls" } },
+        { status: 403 }
+      );
+    }
+
     // Fetch all polls for this story
     const polls = await db.query.sessionPolls.findMany({
       where: eq(sessionPolls.storyId, storyId),
@@ -67,7 +106,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       for (const vote of pollVotes) {
         const selected: number[] = safeParseJson(vote.selectedOptions, []);
         voterSet.add(vote.userId);
-        for (const idx of selected) {
+        // Dedupe defensively — stored votes predating schema dedupe may
+        // contain duplicate indices.
+        for (const idx of new Set(selected)) {
           if (idx >= 0 && idx < options.length) {
             voteCounts[idx]++;
           }

@@ -54,7 +54,7 @@ describe("commitAdventureDraft", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(onCommitDraft).toHaveBeenCalledWith("draws the map", "action");
+    expect(onCommitDraft).toHaveBeenCalledWith("draws the map", "action", undefined);
     expect(clearDraft).toHaveBeenCalledOnce();
   });
 });

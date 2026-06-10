@@ -174,18 +174,21 @@ export default function ChapterNav({
                 </svg>
                 {labels.newLabel}
               </button>
+              {/* One door to everything: the command palette (the old
+                  "Toolkit" was a third duplicate menu of the same items) */}
               <button
                 type="button"
                 onClick={onOpenToolkit}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-amber/70 hover:text-amber hover:bg-amber/[0.06] transition-colors text-sm"
-                aria-label="Open toolkit"
+                aria-label="Open command palette"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M8.5 1.5L2 8l3.5 3.5L12 5" />
                   <path d="M10 3l1 1" />
                   <path d="M2 8l1.5-0.5L3 9.5z" />
                 </svg>
-                Toolkit
+                Commands
+                <span className="ml-auto rounded bg-subtle/50 px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-text-tertiary">⌘K</span>
               </button>
             </div>
           </motion.div>

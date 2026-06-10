@@ -56,7 +56,7 @@ export default function PricingPage() {
       "All 5 story formats",
       "Basic rich text editor",
       "Auto-save & 7-day history",
-      "Story Bible (10 characters)",
+      "Characters & World (10 characters)",
       "Basic publishing & analytics",
       "Monetization via Ink Drops",
     ],

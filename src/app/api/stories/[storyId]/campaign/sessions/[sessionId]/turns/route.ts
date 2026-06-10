@@ -14,6 +14,7 @@ import { APPROACHES, parseStats } from "@/types/campaign";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 const DUPLICATE_ROLL_RESPONSE = "DUPLICATE_ROLL_RESPONSE";
+const TURN_ORDER_CONFLICT = "TURN_ORDER_CONFLICT";
 
 function parseJsonObject(metadata: string | null | undefined): Record<string, unknown> | null {
   if (!metadata) return null;
@@ -122,6 +123,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Create a new turn in a session.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  // Hoisted above the try so the TURN_ORDER_CONFLICT catch can read the
+  // message captured inside the transaction.
+  let turnOrderConflictMessage = "It is not your turn";
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -193,8 +197,36 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validate character ownership if characterId provided. This runs before
+    // the turn-order check because isLastWords below must be derived from the
+    // character's *actual* status, not from client-supplied metadata alone.
+    let turnCharacter: typeof playerCharacters.$inferSelect | null = null;
+    if (parsed.data.characterId) {
+      const char = await db.query.playerCharacters.findFirst({
+        where: and(
+          eq(playerCharacters.id, parsed.data.characterId),
+          eq(playerCharacters.storyId, storyId),
+          eq(playerCharacters.userId, session.user.id),
+        ),
+      });
+      if (!char) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "Character not found or not yours" } },
+          { status: 403 }
+        );
+      }
+      turnCharacter = char;
+    }
+
+    // Last words only count when the resolved character is genuinely dead or
+    // retired. The lastWords flag itself is client-controlled metadata, so an
+    // active character must never be able to use it to skip the spotlight check.
     const turnMetadata = parseJsonObject(parsed.data.metadata);
-    const isLastWords = parsed.data.type === "description" && turnMetadata?.lastWords === true;
+    const isLastWords =
+      parsed.data.type === "description" &&
+      turnMetadata?.lastWords === true &&
+      turnCharacter !== null &&
+      (turnCharacter.status === "dead" || turnCharacter.status === "retired");
 
     // Enforce turn order: players can only post direct-to-canon story turns
     // when assigned the spotlight. Multi-player proposals go through Crossroads
@@ -217,25 +249,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Validate character ownership if characterId provided
-    let turnCharacter: typeof playerCharacters.$inferSelect | null = null;
-    if (parsed.data.characterId) {
-      const char = await db.query.playerCharacters.findFirst({
-        where: and(
-          eq(playerCharacters.id, parsed.data.characterId),
-          eq(playerCharacters.storyId, storyId),
-          eq(playerCharacters.userId, session.user.id),
-        ),
-      });
-      if (!char) {
-        return NextResponse.json(
-          { error: { code: "FORBIDDEN", message: "Character not found or not yours" } },
-          { status: 403 }
-        );
-      }
-      turnCharacter = char;
-    }
-
     if (isPlayerStoryTurn) {
       if (!turnCharacter) {
         return NextResponse.json(
@@ -244,9 +257,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      const characterCanSpeak = turnCharacter.status === "active" || (
-        isLastWords && (turnCharacter.status === "dead" || turnCharacter.status === "retired")
-      );
+      const characterCanSpeak = turnCharacter.status === "active" || isLastWords;
 
       if (!characterCanSpeak) {
         return NextResponse.json(
@@ -483,7 +494,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const stats = turnCharacter ? parseStats(turnCharacter.stats) : null;
       const approaches = stats?.approaches ?? { Bold: 0, Keen: 0, Subtle: 0 };
       const aspect = stats?.aspect ?? "";
-      const approachMod = matchedApproach ? approaches[matchedApproach] ?? 0 : 0;
+      // Stats JSON is player-editable, so never trust the raw value: coerce
+      // non-numbers to 0 and clamp to the range the character creator can
+      // legitimately produce (-1..+2). Otherwise a player could PATCH their
+      // stats to {"Bold":99} and forge a guaranteed success tier.
+      const rawApproachMod = matchedApproach ? approaches[matchedApproach] : 0;
+      const approachMod =
+        typeof rawApproachMod === "number" && Number.isFinite(rawApproachMod)
+          ? Math.max(-1, Math.min(2, Math.trunc(rawApproachMod)))
+          : 0;
       const aspectMod = rollIntent.aspectInvoked && aspect ? 1 : 0;
       const modifier = approachMod + aspectMod;
 
@@ -540,6 +559,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .for("update");
       const currentActivePlayerId = locked?.activePlayerId ?? null;
       const playerCedesAssignedTurn = currentActivePlayerId === session.user.id;
+
+      // Re-validate turn order against the activePlayerId read under the
+      // lock. The pre-transaction check used a stale snapshot, so a
+      // double-submit (or a GM reassignment mid-request) could otherwise
+      // land a second canon turn on a spotlight grant that has already moved.
+      if (isPlayerStoryTurn) {
+        const lockedPermission = canPostDirectStoryTurn({
+          isGM: isStoryOwner,
+          activePlayerId: currentActivePlayerId,
+          currentUserId: session.user.id,
+          isLastWords,
+        });
+        if (!lockedPermission.allowed) {
+          turnOrderConflictMessage = lockedPermission.message;
+          throw new Error(TURN_ORDER_CONFLICT);
+        }
+      }
 
       const [newTurn] = await tx
         .insert(campaignTurns)
@@ -670,6 +706,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: { code: "CONFLICT", message: "You already answered this roll request" } },
         { status: 409 },
+      );
+    }
+    if (error instanceof Error && error.message === TURN_ORDER_CONFLICT) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: turnOrderConflictMessage } },
+        { status: 403 },
       );
     }
     console.error("POST /api/.../turns error:", error);

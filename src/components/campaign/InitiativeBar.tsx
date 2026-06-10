@@ -1,11 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import type { FloorRound, PlayerCharacter } from "@/types/campaign";
+import { useState, useEffect, useRef, useCallback } from "react";
+import type { FloorRound, PlayerCharacter, Turn } from "@/types/campaign";
 import { getPlayerColor } from "@/types/campaign";
 import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
 
 const DEFAULT_TURN_DURATION = 180; // 3 minutes
+
+// "Extend +3min" requests travel as OOC turns with {timerExtension}
+// metadata so every client (most importantly the GM, whose countdown is
+// the one that auto-returns the spotlight) extends the same deadline.
+function parseTimerExtensionSeconds(metadata: string | null | undefined): number {
+  if (!metadata) return 0;
+  try {
+    const parsed = JSON.parse(metadata) as { timerExtension?: unknown } | null;
+    return typeof parsed?.timerExtension === "number" && parsed.timerExtension > 0
+      ? parsed.timerExtension
+      : 0;
+  } catch {
+    return 0;
+  }
+}
 
 interface InitiativeBarProps {
   characters: PlayerCharacter[];
@@ -21,6 +36,8 @@ interface InitiativeBarProps {
   onExtendTimer?: () => void;
   rosterCharacters?: PlayerCharacter[];
   floorRound?: FloorRound | null;
+  /** OOC turns carrying {timerExtension} metadata — see parseTimerExtensionSeconds. */
+  extensionTurns?: Turn[];
 }
 
 export default function InitiativeBar({
@@ -37,6 +54,7 @@ export default function InitiativeBar({
   onExtendTimer,
   rosterCharacters,
   floorRound = null,
+  extensionTurns = [],
 }: InitiativeBarProps) {
   const activeChars = rosterCharacters ?? characters.filter((c) => c.status === "active");
   const playerUserIds = activeChars.map((c) => c.userId);
@@ -52,36 +70,81 @@ export default function InitiativeBar({
   const [secondsLeft, setSecondsLeft] = useState(turnDuration);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expiredRef = useRef(false);
+  const appliedExtensionIdsRef = useRef<Set<string>>(new Set());
+  const extensionTurnsRef = useRef(extensionTurns);
+  useEffect(() => {
+    extensionTurnsRef.current = extensionTurns;
+  }, [extensionTurns]);
+
+  const startCountdown = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          if (!expiredRef.current && isGM) {
+            expiredRef.current = true;
+            // Defer the callback to avoid state update during render
+            setTimeout(() => onTurnExpired(), 0);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [isGM, onTurnExpired]);
 
   // Reset timer whenever active player changes
   useEffect(() => {
     expiredRef.current = false;
+    // Extension requests from earlier turns (or session history at mount)
+    // shouldn't stretch this fresh countdown — mark them all as applied.
+    appliedExtensionIdsRef.current = new Set(extensionTurnsRef.current.map((t) => t.id));
     const resetTimeout = setTimeout(() => setSecondsLeft(turnDuration), 0);
 
-    if (timerRef.current) clearInterval(timerRef.current);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
     if (isPlayerTurn && isActive) {
-      timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            if (!expiredRef.current && isGM) {
-              expiredRef.current = true;
-              // Defer the callback to avoid state update during render
-              setTimeout(() => onTurnExpired(), 0);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      startCountdown();
     }
 
     return () => {
       clearTimeout(resetTimeout);
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
-  }, [activePlayerId, isPlayerTurn, isActive, isGM, turnDuration, onTurnExpired]);
+  }, [activePlayerId, isPlayerTurn, isActive, turnDuration, startCountdown]);
+
+  // Apply extensions requested by the active player. Their own client bumps
+  // its countdown locally in handleExtendTimer; everyone else (the GM above
+  // all) learns about it from the polled OOC turn carrying the metadata.
+  useEffect(() => {
+    if (!isPlayerTurn || !isActive || !activePlayerId) return;
+    // Defer to avoid state updates during render (matches the reset effect).
+    const applyTimeout = setTimeout(() => {
+      let addedSeconds = 0;
+      for (const turn of extensionTurns) {
+        if (appliedExtensionIdsRef.current.has(turn.id)) continue;
+        appliedExtensionIdsRef.current.add(turn.id);
+        if (turn.userId !== activePlayerId || turn.userId === currentUserId) continue;
+        addedSeconds += parseTimerExtensionSeconds(turn.metadata);
+      }
+      if (addedSeconds > 0) {
+        setSecondsLeft((prev) => prev + addedSeconds);
+        expiredRef.current = false;
+        if (!timerRef.current) startCountdown();
+      }
+    }, 0);
+    return () => clearTimeout(applyTimeout);
+  }, [extensionTurns, activePlayerId, currentUserId, isPlayerTurn, isActive, startCountdown]);
 
   // Handle timer extension
   const handleExtendTimer = () => {
@@ -89,19 +152,7 @@ export default function InitiativeBar({
     expiredRef.current = false;
     // Restart the interval if it was cleared
     if (!timerRef.current && isPlayerTurn && isActive) {
-      timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            if (!expiredRef.current && isGM) {
-              expiredRef.current = true;
-              setTimeout(() => onTurnExpired(), 0);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      startCountdown();
     }
     onExtendTimer?.();
   };

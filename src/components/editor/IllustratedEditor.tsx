@@ -11,6 +11,7 @@ import { useEffect, useCallback, useRef, useState, type CSSProperties, type Poin
 import { Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 import { motion, AnimatePresence } from "framer-motion";
 import FloatingToolbar from "./FloatingToolbar";
 import SlashMenu from "./SlashMenu";
@@ -24,6 +25,30 @@ const CHAPTER_IMAGE_MAX_DATA_URL_LENGTH = 420_000;
 
 // ─── Drag-and-Drop Image Plugin ──────────────────────────────────────
 const dropImagePluginKey = new PluginKey("dropImage");
+
+// Patch the placeholder block that belongs to this specific upload.
+// Matching by uploadId (instead of "first uploading block") keeps
+// concurrent drops/pastes from resolving against each other's placeholder.
+function patchUploadPlaceholder(
+  view: EditorView,
+  uploadId: string,
+  patch: { src?: string; uploading: boolean; uploadId: null },
+) {
+  let found = false;
+  view.state.doc.descendants((n, p) => {
+    if (found) return false;
+    if (n.type.name === "illustratedBlock" && n.attrs.uploadId === uploadId) {
+      found = true;
+      const tr = view.state.tr.setNodeMarkup(p, undefined, {
+        ...n.attrs,
+        ...patch,
+      });
+      view.dispatch(tr);
+      return false;
+    }
+    return true;
+  });
+}
 
 function createDropImageExtension(
   onImageUpload?: (file: File) => Promise<string>
@@ -53,6 +78,7 @@ function createDropImageExtension(
               if (!pos) return false;
 
               // Insert a placeholder block immediately
+              const uploadId = crypto.randomUUID();
               const placeholderAttrs = {
                 src: null,
                 alt: "",
@@ -60,6 +86,7 @@ function createDropImageExtension(
                 layout: "inline",
                 prompt: "",
                 uploading: true,
+                uploadId,
               };
 
               const node = view.state.schema.nodes.illustratedBlock?.create(
@@ -76,39 +103,17 @@ function createDropImageExtension(
 
               resolveImage
                 .then((dataUrl) => {
-                  view.state.doc.descendants((n, p) => {
-                    if (
-                      n.type.name === "illustratedBlock" &&
-                      n.attrs.uploading === true &&
-                      n.attrs.src === null
-                    ) {
-                      const tr = view.state.tr.setNodeMarkup(p, undefined, {
-                        ...n.attrs,
-                        src: dataUrl,
-                        uploading: false,
-                      });
-                      view.dispatch(tr);
-                      return false;
-                    }
-                    return true;
+                  patchUploadPlaceholder(view, uploadId, {
+                    src: dataUrl,
+                    uploading: false,
+                    uploadId: null,
                   });
                 })
                 .catch((error) => {
                   console.error("Dropped image compression failed:", error);
-                  view.state.doc.descendants((n, p) => {
-                    if (
-                      n.type.name === "illustratedBlock" &&
-                      n.attrs.uploading === true &&
-                      n.attrs.src === null
-                    ) {
-                      const tr = view.state.tr.setNodeMarkup(p, undefined, {
-                        ...n.attrs,
-                        uploading: false,
-                      });
-                      view.dispatch(tr);
-                      return false;
-                    }
-                    return true;
+                  patchUploadPlaceholder(view, uploadId, {
+                    uploading: false,
+                    uploadId: null,
                   });
                 });
 
@@ -125,10 +130,12 @@ function createDropImageExtension(
                   if (!file) return false;
 
                   const { from } = view.state.selection;
+                  const uploadId = crypto.randomUUID();
                   const node = view.state.schema.nodes.illustratedBlock?.create(
                     {
                       src: null,
                       uploading: true,
+                      uploadId,
                     }
                   );
                   if (!node) return false;
@@ -142,47 +149,17 @@ function createDropImageExtension(
 
                   resolveImage
                     .then((dataUrl) => {
-                      view.state.doc.descendants((n, p) => {
-                        if (
-                          n.type.name === "illustratedBlock" &&
-                          n.attrs.uploading === true &&
-                          n.attrs.src === null
-                        ) {
-                          const tr = view.state.tr.setNodeMarkup(
-                            p,
-                            undefined,
-                            {
-                              ...n.attrs,
-                              src: dataUrl,
-                              uploading: false,
-                            }
-                          );
-                          view.dispatch(tr);
-                          return false;
-                        }
-                        return true;
+                      patchUploadPlaceholder(view, uploadId, {
+                        src: dataUrl,
+                        uploading: false,
+                        uploadId: null,
                       });
                     })
                     .catch((error) => {
-                      console.error("Dropped image compression failed:", error);
-                      view.state.doc.descendants((n, p) => {
-                        if (
-                          n.type.name === "illustratedBlock" &&
-                          n.attrs.uploading === true &&
-                          n.attrs.src === null
-                        ) {
-                          const tr = view.state.tr.setNodeMarkup(
-                            p,
-                            undefined,
-                            {
-                              ...n.attrs,
-                              uploading: false,
-                            }
-                          );
-                          view.dispatch(tr);
-                          return false;
-                        }
-                        return true;
+                      console.error("Pasted image compression failed:", error);
+                      patchUploadPlaceholder(view, uploadId, {
+                        uploading: false,
+                        uploadId: null,
                       });
                     });
                   return true;
@@ -390,7 +367,9 @@ export default function IllustratedEditor({
         if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
-          editor.commands.setContent(newContent || "");
+          // emitUpdate: false — this is an external sync, not a user edit;
+          // Tiptap v3 defaults to true, which would trigger a phantom autosave.
+          editor.commands.setContent(newContent || "", { emitUpdate: false });
         }
       });
     },

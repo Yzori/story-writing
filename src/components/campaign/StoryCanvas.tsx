@@ -60,6 +60,9 @@ interface StoryCanvasProps {
   onEndSession: () => void;
   onTurnExpired: () => void;
   onExtendTimer?: () => void;
+  /** OOC turns carrying {timerExtension} metadata — lets the GM's countdown
+   *  honor a player's "Extend +3min" instead of expiring independently. */
+  extensionTurns?: Turn[];
   onRollSubmit: (intent: { attribute: string; aspectInvoked: boolean }) => Promise<{
     dice: [number, number];
     modifier: number;
@@ -123,6 +126,22 @@ const REACTION_EMOJI_MAP: Record<string, string> = Object.fromEntries(
   REACTIONS.map((r) => [r.key, r.emoji])
 );
 
+// Session activation inserts the opening narration as a turn with
+// metadata {"opening": true} (sessions/[sessionId]/route.ts) while the
+// session row keeps its `opening` column. The dedicated opening block
+// below renders sessionOpening, so that turn must be dropped from the
+// stream or the opening appears twice. Mirrors the compile-side filter
+// in src/server/services/compile-session.ts.
+function isOpeningTurn(turn: Turn): boolean {
+  if (turn.type !== "narration" || !turn.metadata) return false;
+  try {
+    const parsed = JSON.parse(turn.metadata) as { opening?: unknown } | null;
+    return parsed?.opening === true;
+  } catch {
+    return false;
+  }
+}
+
 interface CurrentSceneState {
   currentMood: string | null;
   currentSceneAspects: string[];
@@ -172,7 +191,7 @@ function FloatingReaction({
 export default function StoryCanvas({
   sessionId,
   storyId,
-  storyTurns,
+  storyTurns: allStoryTurns,
   characters,
   activePlayerId,
   currentUserId,
@@ -191,6 +210,7 @@ export default function StoryCanvas({
   onEndSession,
   onTurnExpired,
   onExtendTimer,
+  extensionTurns,
   onRollSubmit,
   pendingRollRequest,
   myCharacterStatus,
@@ -221,6 +241,15 @@ export default function StoryCanvas({
   onAmplifyStoryMoment,
   showSessionChrome = true,
 }: StoryCanvasProps) {
+  // Drop the activation-inserted opening turn whenever the dedicated
+  // opening block renders sessionOpening, so the text appears once. If
+  // the session's opening column was cleared after activation, keep the
+  // turn so the text still shows.
+  const storyTurns = useMemo(
+    () => (sessionOpening ? allStoryTurns.filter((turn) => !isOpeningTurn(turn)) : allStoryTurns),
+    [allStoryTurns, sessionOpening],
+  );
+
   const TURNS_PER_BATCH = 50;
   const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
     Math.max(0, storyTurns.length - TURNS_PER_BATCH)
@@ -302,7 +331,10 @@ export default function StoryCanvas({
     floorRound,
   });
   const canWrite = interactionState.canWriteDirect;
-  const canShowComposer = !spectatorMode && (canWrite || (isActive && !isCharGone));
+  // Gate the composer on the interaction state machine: locked-out players
+  // (another player's assigned turn, Crossroads, etc.) get the waiting
+  // panel / FloorRoundPanel instead of a Submit button the server rejects.
+  const canShowComposer = !spectatorMode && canWrite;
 
   // Find who's currently writing for the lock screen
   const activeChar = characters.find((c) => c.userId === activePlayerId);
@@ -479,6 +511,7 @@ export default function StoryCanvas({
           onEndSession={onEndSession}
           onTurnExpired={onTurnExpired}
           onExtendTimer={onExtendTimer}
+          extensionTurns={extensionTurns}
           floorRound={floorRound}
         />
       )}
@@ -522,7 +555,7 @@ export default function StoryCanvas({
       </AnimatePresence>
 
       {/* Story Canvas */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-10 pb-72 px-4 sm:px-8 lg:px-12 flex flex-col items-center z-10 relative scroll-smooth sm:pt-16 sm:pb-80 [scrollbar-width:thin] [scrollbar-color:rgba(212,168,67,0.22)_transparent]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-10 pb-72 px-4 sm:px-8 lg:px-12 flex flex-col items-center z-10 relative scroll-smooth sm:pt-16 sm:pb-80 [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.22)_transparent]">
 
         {/* Floating reaction bubbles — positioned above story content */}
         <AnimatePresence>
@@ -766,8 +799,9 @@ export default function StoryCanvas({
         )}
 
         {/* Waiting state — replaces draft box when player is locked out */}
-        {!spectatorMode && !isGM && activePlayerId && !isMyTurn && isActive && !isCharGone && (() => {
-          const isGMTurn = !characters.some((c) => c.userId === activePlayerId && c.status === "active");
+        {!spectatorMode && !isGM && !isMyTurn && isActive && !isCharGone && (() => {
+          const isGMTurn =
+            !activePlayerId || !characters.some((c) => c.userId === activePlayerId && c.status === "active");
           return (
             <div className="w-full max-w-[650px] mt-auto">
               <div className="bg-ink border border-border rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">

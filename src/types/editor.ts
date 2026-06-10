@@ -178,7 +178,7 @@ function createMetadata(): StoryMetadata {
     synopsis: "",
     hook: "",
     genres: [],
-    contentRating: "PG",
+    contentRating: "everyone",
     status: "draft",
     language: "English",
     dedication: "",

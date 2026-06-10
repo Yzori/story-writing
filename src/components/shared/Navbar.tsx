@@ -401,8 +401,7 @@ function NavbarInner({ hideBottomTab }: { hideBottomTab: boolean }) {
                             <DropdownLink href={`/profile/${session?.user?.id}/edit`} onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><circle cx="8" cy="8" r="6" /><path d="M8 5v6M5 8h6" /></svg>)}>Edit Profile</DropdownLink>
                             <DropdownLink href="/library" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M3 2h10v12H3z" /><path d="M6 2v12M10 2v12" /></svg>)}>Library</DropdownLink>
                             <DropdownLink href="/dashboard" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><rect x="2" y="2" width="5" height="5" /><rect x="9" y="2" width="5" height="5" /><rect x="2" y="9" width="5" height="5" /><rect x="9" y="9" width="5" height="5" /></svg>)}>Dashboard</DropdownLink>
-                            <DropdownLink href="/scriptorium" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M11 2l3 3-7 7-3 1 1-3z" /><path d="M3 14h10" /></svg>)}>The Scriptorium</DropdownLink>
-                            <DropdownLink href="/jams" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M8 2l1.5 4.5H14l-3.5 2.8L12 14 8 11.2 4 14l1.5-4.7L2 6.5h4.5z" /></svg>)}>Story Jams</DropdownLink>
+                                                        <DropdownLink href="/jams" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M8 2l1.5 4.5H14l-3.5 2.8L12 14 8 11.2 4 14l1.5-4.7L2 6.5h4.5z" /></svg>)}>Story Jams</DropdownLink>
                             <DropdownLink href="/commissions" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M3 3h10v10H3z" /><path d="M3 7h10M7 3v10" /></svg>)}>Commissions</DropdownLink>
                             <DropdownLink href="/creator/monetization" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M8 2v12M4 5h6a2 2 0 010 4H6a2 2 0 000 4h6" /></svg>)}>Monetization</DropdownLink>
                             <DropdownLink href="/creator/boost" onClick={() => setUserMenuOpen(false)} icon={(<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-60"><path d="M8 2l2 4 4 .5-3 3 1 4-4-2-4 2 1-4-3-3 4-.5z" /></svg>)}>Boost</DropdownLink>
@@ -807,7 +806,6 @@ function YouSheet({
             />
           </Section>
           <Section label="Discover">
-            <SheetLink href="/scriptorium" label="The Scriptorium" icon={Feather} onClose={onClose} pathname={pathname} />
             <SheetLink href="/jams" label="Story Jams" icon={Tent} onClose={onClose} pathname={pathname} />
           </Section>
           <Section label="Creator">

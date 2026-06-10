@@ -207,7 +207,9 @@ export default function ProseEditor({
         if (editor.isDestroyed) return;
         const currentHtml = editor.getHTML();
         if (currentHtml !== newContent) {
-          editor.commands.setContent(newContent || "");
+          // emitUpdate: false — this is an external sync, not a user edit;
+          // Tiptap v3 defaults to true, which would trigger a phantom autosave.
+          editor.commands.setContent(newContent || "", { emitUpdate: false });
         }
       });
     },
@@ -505,7 +507,7 @@ export default function ProseEditor({
               {mentionPreview.character.description}
             </p>
           )}
-          <div className="mt-2 text-[9px] text-text-ghost">Click to open in Story Bible</div>
+          <div className="mt-2 text-[9px] text-text-ghost">Click to open in Characters & World</div>
         </div>
       )}
 
