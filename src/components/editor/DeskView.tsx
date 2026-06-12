@@ -6,6 +6,8 @@
  * ⌘E (or the breadcrumb) pulls the camera back from the page: chapters
  * lie on the desk as sheets, with outline / story bible / details /
  * publish as objects beside them. Clicking a sheet dives back into it.
+ * Each sheet carries its own management: rename in place, move along
+ * the desk, version history, delete (two-step).
  *
  * The camera move is a transform-origin zoom: the desk scales down out
  * of the active chapter's card position on entry, and scales back up
@@ -14,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export interface DeskChapter {
   id: string;
@@ -37,6 +39,9 @@ interface DeskViewProps {
   onOpenDetails: () => void;
   onOpenPublish: () => void;
   onOpenHistory: (chapterId: string) => void;
+  onRenameChapter: (id: string, title: string) => void;
+  onMoveChapter: (id: string, dir: -1 | 1) => void;
+  onDeleteChapter: (id: string) => void;
 }
 
 function excerptOf(html: string): string {
@@ -92,12 +97,23 @@ export default function DeskView({
   onOpenDetails,
   onOpenPublish,
   onOpenHistory,
+  onRenameChapter,
+  onMoveChapter,
+  onDeleteChapter,
 }: DeskViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingAction = useRef<(() => void) | null>(null);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
+
+  // Sheet management state
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const busyRef = useRef(false);
+  busyRef.current = menuId !== null || renamingId !== null;
 
   const totalWords = chapters.reduce((sum, c) => sum + c.wordCount, 0);
 
@@ -136,13 +152,21 @@ export default function DeskView({
     [activeChapterId, measureOrigin]
   );
 
-  // Esc and ⌘E both dive back into the page. The page-level handler
-  // only opens the desk, so owning the close here keeps one animation.
+  // Esc and ⌘E both dive back into the page — unless a menu or rename
+  // is open, in which case Esc only dismisses that. The page-level
+  // handler only opens the desk, so owning the close here keeps one
+  // animation.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
+        if (busyRef.current) {
+          setMenuId(null);
+          setConfirmDeleteId(null);
+          setRenamingId(null);
+          return;
+        }
         leave(null);
       }
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "e") {
@@ -155,6 +179,12 @@ export default function DeskView({
   }, [leave]);
 
   const handleCardClick = (id: string) => {
+    if (renamingId === id) return;
+    if (menuId) {
+      setMenuId(null);
+      setConfirmDeleteId(null);
+      return;
+    }
     if (id === activeChapterId) {
       leave(id);
     } else {
@@ -170,6 +200,23 @@ export default function DeskView({
       publish: onOpenPublish,
     };
     leave(null, actions[id]);
+  };
+
+  const startRename = (c: DeskChapter) => {
+    setMenuId(null);
+    setConfirmDeleteId(null);
+    setRenamingId(c.id);
+    setRenameDraft(c.title || "");
+  };
+
+  const commitRename = () => {
+    if (!renamingId) return;
+    const title = renameDraft.trim();
+    const current = chapters.find((c) => c.id === renamingId);
+    if (title && current && title !== current.title) {
+      onRenameChapter(renamingId, title);
+    }
+    setRenamingId(null);
   };
 
   return (
@@ -230,16 +277,28 @@ export default function DeskView({
           {chapters.map((c, i) => (
             <motion.div
               key={c.id}
+              layout
+              transition={{ type: "spring", stiffness: 420, damping: 36 }}
               data-desk-card={c.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0, transition: { delay: 0.06 + i * 0.03 } }}
-              whileHover={{ y: -6, rotate: i % 2 ? 0.6 : -0.6 }}
-              className="relative"
+              whileHover={
+                menuId || renamingId ? undefined : { y: -6, rotate: i % 2 ? 0.6 : -0.6 }
+              }
+              className="group/sheet relative"
             >
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => handleCardClick(c.id)}
-                className={`group flex h-full w-44 flex-col rounded-2xl border bg-ink p-4 text-left shadow-[0_16px_48px_rgba(0,0,0,0.4)] transition-colors ${
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && renamingId !== c.id) {
+                    e.preventDefault();
+                    handleCardClick(c.id);
+                  }
+                }}
+                aria-label={`Open ${c.title || "Untitled"}`}
+                className={`flex h-full w-44 cursor-pointer flex-col rounded-2xl border bg-ink p-4 text-left shadow-[0_16px_48px_rgba(0,0,0,0.4)] transition-colors ${
                   c.id === activeChapterId
                     ? "border-amber/30"
                     : "border-border hover:border-border-active"
@@ -248,9 +307,26 @@ export default function DeskView({
                 <span className="mb-2 font-mono text-[10px] text-text-ghost">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="mb-2.5 font-display text-[15px] font-semibold leading-snug text-paper">
-                  {c.title || "Untitled"}
-                </span>
+                {renamingId === c.id ? (
+                  <input
+                    autoFocus
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") commitRename();
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    className="mb-2.5 w-full rounded-md border border-amber/30 bg-elevated px-1.5 py-0.5 font-display text-[15px] font-semibold leading-snug text-paper outline-none"
+                    aria-label={`Rename ${unit.singular.toLowerCase()}`}
+                  />
+                ) : (
+                  <span className="mb-2.5 font-display text-[15px] font-semibold leading-snug text-paper">
+                    {c.title || "Untitled"}
+                  </span>
+                )}
                 <span className="mb-4 line-clamp-4 font-reading text-[10px] leading-[1.7] text-text-ghost">
                   {excerptOf(c.content)}
                 </span>
@@ -267,39 +343,120 @@ export default function DeskView({
                     {c.status}
                   </span>
                 </span>
-              </button>
-              {/* versions — hangs off each sheet */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  leave(c.id, () => onOpenHistory(c.id));
-                }}
-                className="absolute right-2.5 top-2.5 rounded-md p-1 text-text-ghost opacity-0 transition-all hover:bg-paper/[0.06] hover:text-paper focus:opacity-100 group-hover:opacity-100 [div:hover>&]:opacity-100"
-                title="Versions"
-                aria-label={`Versions of ${c.title || "Untitled"}`}
+              </div>
+
+              {/* sheet tools — versions + manage */}
+              <div
+                className={`absolute right-2 top-2 flex items-center gap-0.5 transition-opacity ${
+                  menuId === c.id ? "opacity-100" : "opacity-0 group-hover/sheet:opacity-100"
+                }`}
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    leave(c.id, () => onOpenHistory(c.id));
+                  }}
+                  className="rounded-md p-1 text-text-ghost transition-colors hover:bg-paper/[0.06] hover:text-paper"
+                  title="Versions"
+                  aria-label={`Versions of ${c.title || "Untitled"}`}
                 >
-                  <path d="M12 8v4l2.5 2.5 M3.05 11a9 9 0 1 1 .5 4" />
-                  <path d="M3 16v-5h5" />
-                </svg>
-              </button>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 8v4l2.5 2.5 M3.05 11a9 9 0 1 1 .5 4" />
+                    <path d="M3 16v-5h5" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDeleteId(null);
+                    setMenuId((v) => (v === c.id ? null : c.id));
+                  }}
+                  className={`rounded-md p-1 transition-colors hover:bg-paper/[0.06] hover:text-paper ${
+                    menuId === c.id ? "text-paper" : "text-text-ghost"
+                  }`}
+                  title="Manage"
+                  aria-label={`Manage ${c.title || "Untitled"}`}
+                  aria-expanded={menuId === c.id}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <circle cx="5" cy="12" r="1.6" />
+                    <circle cx="12" cy="12" r="1.6" />
+                    <circle cx="19" cy="12" r="1.6" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* manage menu */}
+              <AnimatePresence>
+                {menuId === c.id && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: -4, transition: { duration: 0.1 } }}
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    className="absolute right-1 top-9 z-30 w-40 overflow-hidden rounded-xl border border-border bg-elevated py-1 shadow-xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => startRename(c)}
+                      className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => onMoveChapter(c.id, -1)}
+                      className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      Move earlier
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === chapters.length - 1}
+                      onClick={() => onMoveChapter(c.id, 1)}
+                      className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      Move later
+                    </button>
+                    <div className="my-1 h-px bg-border" aria-hidden />
+                    {confirmDeleteId === c.id ? (
+                      <button
+                        type="button"
+                        disabled={chapters.length <= 1}
+                        onClick={() => {
+                          setMenuId(null);
+                          setConfirmDeleteId(null);
+                          onDeleteChapter(c.id);
+                        }}
+                        className="block w-full px-3 py-1.5 text-left text-[12px] font-medium text-rose transition-colors hover:bg-rose/10"
+                      >
+                        Really delete?
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={chapters.length <= 1}
+                        onClick={() => setConfirmDeleteId(c.id)}
+                        className="block w-full px-3 py-1.5 text-left text-[12px] text-rose/80 transition-colors hover:bg-rose/10 hover:text-rose disabled:cursor-not-allowed disabled:opacity-35"
+                        title={chapters.length <= 1 ? `A story keeps its last ${unit.singular.toLowerCase()}` : undefined}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
 
           {/* a fresh sheet */}
           <motion.button
             type="button"
+            layout
             initial={{ opacity: 0, y: 12 }}
             animate={{
               opacity: 1,
@@ -309,21 +466,25 @@ export default function DeskView({
             onClick={() => leave(null, onNewChapter)}
             className="flex min-h-[180px] w-44 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-text-ghost transition-all hover:-translate-y-1.5 hover:border-amber/30 hover:text-amber"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
               <path d="M12 5v14 M5 12h14" />
             </svg>
             <span className="text-[12px]">New {unit.singular.toLowerCase()}</span>
           </motion.button>
         </div>
+
+        {/* click-away for the manage menu */}
+        {menuId && (
+          <button
+            type="button"
+            className="fixed inset-0 z-20 cursor-default"
+            aria-label="Close menu"
+            onClick={() => {
+              setMenuId(null);
+              setConfirmDeleteId(null);
+            }}
+          />
+        )}
 
         {/* the other things on the desk */}
         <motion.div

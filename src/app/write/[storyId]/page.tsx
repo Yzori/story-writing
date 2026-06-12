@@ -3299,6 +3299,17 @@ export default function WriteStoryPage() {
             onOpenHistory={(id) => {
               void handleSelectChapter(id).then(() => setRightPanel("history"));
             }}
+            onRenameChapter={handleRenameChapter}
+            onMoveChapter={(id, dir) => {
+              const chs = project.chapters;
+              const idx = chs.findIndex((c) => c.id === id);
+              const swap = idx + dir;
+              if (idx < 0 || swap < 0 || swap >= chs.length) return;
+              const next = [...chs];
+              [next[idx], next[swap]] = [next[swap], next[idx]];
+              handleReorderChapters(next);
+            }}
+            onDeleteChapter={(id) => void handleDeleteChapter(id)}
           />
         )}
       </AnimatePresence>
