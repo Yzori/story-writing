@@ -2101,9 +2101,117 @@ export default function WriteStoryPage() {
   const leftInsetClass = barePage
     ? "lg:pl-0"
     : leftSidebarCollapsed ? "lg:pl-[104px]" : "lg:pl-[344px]";
-  const rightInsetClass = rightPanel === "none"
-    ? rightContextCollapsed ? (barePage ? "xl:pr-0" : "xl:pr-12") : "xl:pr-[360px]"
-    : "xl:pr-[360px]";
+  const rightInsetClass = barePage
+    ? "xl:pr-0"
+    : rightPanel === "none"
+      ? rightContextCollapsed ? "xl:pr-12" : "xl:pr-[360px]"
+      : "xl:pr-[360px]";
+
+  const rightPanelColumn = (
+        <div className={`flex h-full flex-col ${rightPanel === "none" ? "w-0" : "w-full"}`}>
+          {rightPanel !== "none" && (
+            <PanelRoomTabs
+              current={rightPanel}
+              hasTeam={writingMode !== "solo" && collaborators.length > 0}
+              onSwitch={setRightPanel}
+            />
+          )}
+          <div className="relative flex min-h-0 w-full flex-1">
+        <AnimatePresence>
+          {rightPanel === "comments" && (
+            <CommentsSidebar
+              threads={commentThreads}
+              activeThreadId={activeThreadId}
+              onSelectThread={setActiveThreadId}
+              onReply={handleReplyToThread}
+              onResolve={handleResolveThread}
+              onDelete={handleDeleteThread}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "metadata" && (
+            <MetadataPanel
+              metadata={project.metadata}
+              storyTitle={project.title}
+              storyId={storyId}
+              isPublic={isPublic}
+              onUpdate={handleUpdateMetadata}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "bible" && (
+            <StoryBiblePanel
+              bible={project.bible}
+              storyId={storyId}
+              chapters={bibleChapters}
+              onUpdate={handleUpdateBible}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "frontmatter" && (
+            <FrontMatterPanel
+              frontMatter={project.frontMatter}
+              metadata={project.metadata}
+              chapters={project.chapters}
+              onUpdate={handleUpdateFrontMatter}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "chapter" && activeChapter && (
+            <ChapterSettingsPanel
+              chapter={activeChapter}
+              onUpdate={handleUpdateChapterFields}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "history" && activeChapter && (
+            <HistoryPanel
+              chapter={activeChapter}
+              storyId={storyId}
+              onRestore={handleRestoreSnapshot}
+              onUpdate={handleUpdateChapterFields}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "typography" && (
+            <TypographyPanel
+              settings={project.typography}
+              onUpdate={handleUpdateTypography}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "chat" && sessionUserId && (
+            <WorkshopChatPanel
+              storyId={storyId}
+              currentUserId={sessionUserId}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "monetization" && (
+            <MonetizationPanel
+              storyId={storyId}
+              storyTitle={project.title}
+              isPublic={isPublic}
+              onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
+              onClose={handleClosePanel}
+            />
+          )}
+          {rightPanel === "ai" && editorInstance && (
+            <AIAssistantPanel
+              storyId={storyId as string}
+              selectedText={editorInstance.state.doc.textBetween(
+                editorInstance.state.selection.from,
+                editorInstance.state.selection.to,
+              )}
+              context={activeChapter?.content || ""}
+              onAccept={handleAIAccept}
+              onClose={handleClosePanel}
+            />
+          )}
+        </AnimatePresence>
+          </div>
+        </div>
+  );
 
   return (
     <div className="fixed inset-x-0 top-14 bottom-0 w-screen overflow-hidden transition-colors duration-1000 bg-void">
@@ -2290,7 +2398,7 @@ export default function WriteStoryPage() {
                 }
                 className={
                   barePage
-                    ? "page-sheet w-full max-w-[840px] lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+                    ? `page-sheet w-full ${rightPanel !== "none" || refPaneOpen ? "max-w-[1180px]" : "max-w-[840px]"} lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden`
                     : "w-full flex-1 min-h-0 flex flex-col items-center"
                 }
               >
@@ -2657,6 +2765,9 @@ export default function WriteStoryPage() {
                       </motion.aside>
                     )}
                   </AnimatePresence>
+                  {barePage && rightPanel !== "none" && (
+                    <div className="hidden h-full shrink-0 lg:flex">{rightPanelColumn}</div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -3029,7 +3140,7 @@ export default function WriteStoryPage() {
       <div className={`editor-side-shell absolute inset-y-0 right-0 z-40 flex max-w-full transition-[width] duration-300 ${
         rightPanel === "none"
           ? rightContextCollapsed ? (barePage ? "w-0" : "w-0 xl:w-12") : "w-0 xl:w-[360px]"
-          : "w-full sm:w-[360px]"
+          : barePage ? "w-full lg:w-0" : "w-full sm:w-[360px]"
       }`}>
         {rightPanel === "none" && rightContextCollapsed && !commandOpen && !barePage && (
           /* The quiet right edge: rooms live where they open. */
@@ -3248,109 +3359,14 @@ export default function WriteStoryPage() {
             )}
           </aside>
         )}
-        <div className={`flex h-full flex-col ${rightPanel === "none" ? "w-0" : "w-full"}`}>
-          {rightPanel !== "none" && (
-            <PanelRoomTabs
-              current={rightPanel}
-              hasTeam={writingMode !== "solo" && collaborators.length > 0}
-              onSwitch={setRightPanel}
-            />
-          )}
-          <div className="relative flex min-h-0 w-full flex-1">
-        <AnimatePresence>
-          {rightPanel === "comments" && (
-            <CommentsSidebar
-              threads={commentThreads}
-              activeThreadId={activeThreadId}
-              onSelectThread={setActiveThreadId}
-              onReply={handleReplyToThread}
-              onResolve={handleResolveThread}
-              onDelete={handleDeleteThread}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "metadata" && (
-            <MetadataPanel
-              metadata={project.metadata}
-              storyTitle={project.title}
-              storyId={storyId}
-              isPublic={isPublic}
-              onUpdate={handleUpdateMetadata}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "bible" && (
-            <StoryBiblePanel
-              bible={project.bible}
-              storyId={storyId}
-              chapters={bibleChapters}
-              onUpdate={handleUpdateBible}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "frontmatter" && (
-            <FrontMatterPanel
-              frontMatter={project.frontMatter}
-              metadata={project.metadata}
-              chapters={project.chapters}
-              onUpdate={handleUpdateFrontMatter}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "chapter" && activeChapter && (
-            <ChapterSettingsPanel
-              chapter={activeChapter}
-              onUpdate={handleUpdateChapterFields}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "history" && activeChapter && (
-            <HistoryPanel
-              chapter={activeChapter}
-              storyId={storyId}
-              onRestore={handleRestoreSnapshot}
-              onUpdate={handleUpdateChapterFields}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "typography" && (
-            <TypographyPanel
-              settings={project.typography}
-              onUpdate={handleUpdateTypography}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "chat" && sessionUserId && (
-            <WorkshopChatPanel
-              storyId={storyId}
-              currentUserId={sessionUserId}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "monetization" && (
-            <MonetizationPanel
-              storyId={storyId}
-              storyTitle={project.title}
-              isPublic={isPublic}
-              onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "ai" && editorInstance && (
-            <AIAssistantPanel
-              storyId={storyId as string}
-              selectedText={editorInstance.state.doc.textBetween(
-                editorInstance.state.selection.from,
-                editorInstance.state.selection.to,
-              )}
-              context={activeChapter?.content || ""}
-              onAccept={handleAIAccept}
-              onClose={handleClosePanel}
-            />
-          )}
-        </AnimatePresence>
-          </div>
-        </div>
+        {rightPanel !== "none" &&
+          (!barePage ? (
+            rightPanelColumn
+          ) : (
+            /* Mobile bare page: panels still need the overlay shell. */
+            <div className="flex h-full w-full lg:hidden">{rightPanelColumn}</div>
+          ))}
+
       </div>
 
       {/* ── 7. Comment Popover ──────────────────────────────── */}
@@ -3424,9 +3440,11 @@ export default function WriteStoryPage() {
             storyTitle={project.title}
             metadata={project.metadata}
             frontMatter={project.frontMatter}
+            typography={project.typography}
             onUpdateTitle={handleUpdateStoryTitle}
             onUpdateMetadata={handleUpdateMetadata}
             onUpdateFrontMatter={handleUpdateFrontMatter}
+            onUpdateTypography={handleUpdateTypography}
             onBack={() => {
               setShowJacket(false);
               setShowDesk(true);
@@ -3472,7 +3490,7 @@ export default function WriteStoryPage() {
 
         onOpenChapterSettings={handleToggleSettings}
         onOpenOutline={() => { setCommandOpen(false); setDeskOpensFlipped(true); setShowDesk(true); }}
-        onOpenTypography={handleOpenTypography}
+        onOpenTypography={() => { setCommandOpen(false); setShowJacket(true); }}
         onOpenMonetization={() => { setCommandOpen(false); setShowCounter(true); }}
         onOpenWorkshop={handleOpenWorkshop}
         onOpenOpenCalls={handleOpenOpenCalls}

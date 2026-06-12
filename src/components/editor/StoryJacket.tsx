@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { StoryMetadata, FrontMatter } from "@/types/editor";
+import { StoryMetadata, FrontMatter, TypographySettings } from "@/types/editor";
 import { GENRES, CONTENT_RATINGS, STORY_STATUSES } from "@/config/genres";
 import { compressImage } from "@/client/images";
 
@@ -24,19 +24,48 @@ interface StoryJacketProps {
   storyTitle: string;
   metadata: StoryMetadata;
   frontMatter: FrontMatter;
+  typography: TypographySettings;
   onUpdateTitle: (title: string) => void;
   onUpdateMetadata: (metadata: StoryMetadata) => void;
   onUpdateFrontMatter: (frontMatter: FrontMatter) => void;
+  onUpdateTypography: (typography: TypographySettings) => void;
   onBack: () => void;
 }
+
+const SCENE_BREAKS: Array<{
+  value: TypographySettings["sceneBreakStyle"];
+  label: string;
+  glyph: string;
+}> = [
+  { value: "asterism", label: "Asterism", glyph: "\u2042" },
+  { value: "fleuron", label: "Fleuron", glyph: "\u2767" },
+  { value: "dots", label: "Dots", glyph: "\u2022 \u2022 \u2022" },
+  { value: "line", label: "Line", glyph: "\u2014\u2014\u2014" },
+  { value: "text-line", label: "Words", glyph: "~ later ~" },
+  { value: "space", label: "Silence", glyph: "\u2002" },
+];
+
+const LINE_HEIGHTS: Record<TypographySettings["lineSpacing"], number> = {
+  compact: 1.6,
+  comfortable: 1.8,
+  relaxed: 2.0,
+};
+
+const PARA_GAPS: Record<TypographySettings["paragraphSpacing"], string> = {
+  tight: "0.5em",
+  normal: "1em",
+  loose: "1.5em",
+};
 
 export default function StoryJacket({
   storyTitle,
   metadata,
   frontMatter,
   onUpdateTitle,
+  typography,
   onUpdateMetadata,
   onUpdateFrontMatter,
+  onUpdateTypography,
   onBack,
 }: StoryJacketProps) {
   const [titleDraft, setTitleDraft] = useState(storyTitle);
@@ -80,6 +109,9 @@ export default function StoryJacket({
       update({ coverImageDataUrl: dataUrl });
     } catch {}
   };
+
+  const updateType = (partial: Partial<TypographySettings>) =>
+    onUpdateTypography({ ...typography, ...partial });
 
   const toggleGenre = (genre: string) => {
     update({
@@ -309,6 +341,165 @@ export default function StoryJacket({
                   </button>
                 );
               })}
+            </div>
+
+            {/* how it reads — typography as a specimen, not a form */}
+            <div className="mt-12 border-t border-border pt-8">
+              <p className="mb-4 text-[10px] uppercase tracking-[0.16em] text-text-ghost">
+                How it reads
+                <span className="ml-2 normal-case tracking-normal text-text-ghost/70">
+                  the whole story, in the editor and for readers
+                </span>
+              </p>
+
+              {/* live specimen */}
+              <div
+                className="rounded-xl border border-border bg-ink px-7 py-6 font-reading text-[13.5px] text-text"
+                style={{
+                  lineHeight: LINE_HEIGHTS[typography.lineSpacing],
+                  textAlign:
+                    typography.textAlignment === "justified"
+                      ? "justify"
+                      : typography.textAlignment,
+                }}
+                aria-label="Typography preview"
+              >
+                <p>
+                  {typography.dropCaps && (
+                    <span className="float-left mr-2 mt-1 font-display text-[38px] font-bold leading-[0.8] text-paper">
+                      T
+                    </span>
+                  )}
+                  he morning light crept through the curtains, casting amber
+                  streaks across the worn floorboards. She hadn&apos;t slept, not
+                  really — the bells had seen to that.
+                </p>
+                <p
+                  className="text-center text-amber/70"
+                  style={{ margin: `${PARA_GAPS[typography.paragraphSpacing]} 0` }}
+                >
+                  {typography.sceneBreakStyle === "space"
+                    ? "\u00A0"
+                    : SCENE_BREAKS.find((b) => b.value === typography.sceneBreakStyle)?.glyph}
+                </p>
+                <p
+                  style={{
+                    textIndent: typography.paragraphIndent ? "1.5em" : 0,
+                  }}
+                >
+                  By the time she reached the archive, the tide had already
+                  turned, and the city below had begun to ring its answer.
+                </p>
+              </div>
+
+              {/* the type case */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+                {([
+                  ["dropCaps", "Drop caps"],
+                  ["paragraphIndent", "First-line indent"],
+                ] as Array<[keyof Pick<TypographySettings, "dropCaps" | "paragraphIndent">, string]>).map(
+                  ([key, label]) => (
+                    <label key={key} className="flex cursor-pointer items-center gap-2">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={Boolean(typography[key])}
+                        onClick={() => updateType({ [key]: !typography[key] })}
+                        className={`relative h-[18px] w-8 rounded-full transition-colors ${
+                          typography[key] ? "bg-amber" : "bg-subtle"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-void transition-transform ${
+                            typography[key] ? "left-[16px]" : "left-[2px]"
+                          }`}
+                        />
+                      </button>
+                      <span className="text-[12px] text-text-secondary">{label}</span>
+                    </label>
+                  )
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={fieldLabel}>Scene breaks</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SCENE_BREAKS.map((b) => (
+                      <button
+                        key={b.value}
+                        type="button"
+                        onClick={() => updateType({ sceneBreakStyle: b.value })}
+                        title={b.label}
+                        className={`rounded-lg border px-2.5 py-1 font-reading text-[12px] transition-all ${
+                          typography.sceneBreakStyle === b.value
+                            ? "border-amber/30 bg-amber/[0.06] text-amber"
+                            : "border-border text-text-ghost hover:text-text-secondary"
+                        }`}
+                      >
+                        {b.value === "space" ? "\u2423" : b.glyph}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={fieldLabel}>Alignment</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["left", "center", "justified"] as const).map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => updateType({ textAlignment: a })}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] capitalize transition-all ${
+                          typography.textAlignment === a
+                            ? "border-amber/30 bg-amber/[0.06] text-amber"
+                            : "border-border text-text-ghost hover:text-text-secondary"
+                        }`}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={fieldLabel}>Line spacing</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["compact", "comfortable", "relaxed"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => updateType({ lineSpacing: v })}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] capitalize transition-all ${
+                          typography.lineSpacing === v
+                            ? "border-amber/30 bg-amber/[0.06] text-amber"
+                            : "border-border text-text-ghost hover:text-text-secondary"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={fieldLabel}>Paragraph spacing</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["tight", "normal", "loose"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => updateType({ paragraphSpacing: v })}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] capitalize transition-all ${
+                          typography.paragraphSpacing === v
+                            ? "border-amber/30 bg-amber/[0.06] text-amber"
+                            : "border-border text-text-ghost hover:text-text-secondary"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* inside the cover */}
