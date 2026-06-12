@@ -53,6 +53,7 @@ import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
 import DeskView from "@/components/editor/DeskView";
 import BibleCodex from "@/components/editor/BibleCodex";
 import StoryJacket from "@/components/editor/StoryJacket";
+import PublishCounter from "@/components/editor/PublishCounter";
 import ChapterTicks from "@/components/editor/ChapterTicks";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
@@ -489,6 +490,7 @@ export default function WriteStoryPage() {
   const [showDesk, setShowDesk] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
   const [showJacket, setShowJacket] = useState(false);
+  const [showCounter, setShowCounter] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [undoAction, setUndoAction] = useState<{
@@ -892,6 +894,9 @@ export default function WriteStoryPage() {
       if (e.key === "Escape" && commandOpen) {
         setCommandOpen(false);
       }
+      if (e.key === "Escape" && publishDialog.open && publishDialog.phase !== "publishing") {
+        setPublishDialog((p) => ({ ...p, open: false }));
+      }
 
       // Typing detection — hide UI while writing
       if (!isMod && !e.shiftKey && e.key.length === 1) {
@@ -905,7 +910,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen, showDesk, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
+  }, [commandOpen, showDesk, publishDialog.open, publishDialog.phase, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
 
   useEffect(() => {
     return () => {
@@ -1068,6 +1073,34 @@ export default function WriteStoryPage() {
       });
     },
     [mutateJson, updateProject, storyId]
+  );
+
+  // ── Unpublish (take a live chapter back to draft) ────────
+  const handleUnpublishChapter = useCallback(
+    (id: string) => {
+      const previous = project?.chapters.find((c) => c.id === id)?.status;
+      updateProject((prev) => ({
+        ...prev,
+        chapters: prev.chapters.map((c) =>
+          c.id === id ? { ...c, status: "draft" } : c
+        ),
+      }));
+      void mutateJson(`/api/stories/${storyId}/chapters/${id}`, {
+        body: { status: "draft" },
+        successMessage: "Chapter taken down",
+        errorMessage: "Couldn't take the chapter down",
+        rollback: previous
+          ? () =>
+              updateProject((prev) => ({
+                ...prev,
+                chapters: prev.chapters.map((c) =>
+                  c.id === id ? { ...c, status: previous } : c
+                ),
+              }))
+          : undefined,
+      });
+    },
+    [mutateJson, project?.chapters, updateProject, storyId]
   );
 
   // ── Publish chapter flow (confirmation + share) ──────────
@@ -2786,7 +2819,7 @@ export default function WriteStoryPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-void/70 backdrop-blur-sm px-4"
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-void/70 backdrop-blur-sm px-4"
             onClick={publishDialog.phase !== "publishing" ? closePublishDialog : undefined}
           >
             <motion.div
@@ -3312,7 +3345,7 @@ export default function WriteStoryPage() {
             onNewChapter={() => void handleAddChapter()}
             onOpenBible={() => setShowCodex(true)}
             onOpenDetails={() => setShowJacket(true)}
-            onOpenPublish={handleOpenMonetization}
+            onOpenPublish={() => setShowCounter(true)}
             onOpenHistory={(id) => {
               void handleSelectChapter(id).then(() => setRightPanel("history"));
             }}
@@ -3366,6 +3399,28 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
+      {/* ── The Counter — publishing as a place ─────────────── */}
+      <AnimatePresence>
+        {showCounter && (
+          <PublishCounter
+            storyId={storyId}
+            storyTitle={project.title}
+            storySlug={storySlug}
+            isPublic={isPublic}
+            chapters={project.chapters}
+            unit={getFormatLabels(storyFormat)}
+            onTogglePublic={handleTogglePublish}
+            onPublishChapter={openPublishDialog}
+            holdEsc={publishDialog.open}
+            onUnpublishChapter={handleUnpublishChapter}
+            onBack={() => {
+              setShowCounter(false);
+              setShowDesk(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── 9. Command Palette / The Grimoire ───────────────── */}
       <CommandPalette
         open={commandOpen}
@@ -3381,7 +3436,7 @@ export default function WriteStoryPage() {
         onOpenChapterSettings={handleToggleSettings}
         onOpenOutline={handleToggleOutlineView}
         onOpenTypography={handleOpenTypography}
-        onOpenMonetization={handleOpenMonetization}
+        onOpenMonetization={() => { setCommandOpen(false); setShowCounter(true); }}
         onOpenWorkshop={handleOpenWorkshop}
         onOpenOpenCalls={handleOpenOpenCalls}
         onExportPdf={handleExportPdf}
