@@ -678,6 +678,17 @@ body::after {
   color: var(--t-on-gold);
 }
 
+/* In the manuscript itself, selection is a wash of light over the ink —
+   the words keep their color and the page keeps its polarity. The
+   opaque honey block is fine on chrome, but flipping a paragraph to
+   espresso-on-gold mid-edit is shouting. */
+.tiptap-editor ::selection,
+.ProseMirror ::selection,
+.font-reading ::selection {
+  background-color: color-mix(in srgb, var(--t-gold) 30%, transparent);
+  color: currentColor;
+}
+
 /* ─── Ornamental Utilities ─────────────────────────────────── */
 
 /* Flourish divider */

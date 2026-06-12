@@ -17,6 +17,8 @@ interface TickChapter {
   status: "draft" | "published";
 }
 
+import { useModChord } from "@/lib/keys";
+
 interface ChapterTicksProps {
   chapters: TickChapter[];
   activeChapterId: string | null;
@@ -37,6 +39,7 @@ export default function ChapterTicks({
   onAdd,
   onOpenDesk,
 }: ChapterTicksProps) {
+  const deskChord = useModChord("E");
   return (
     <nav
       className={`fixed left-4 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-start gap-3 transition-opacity duration-500 lg:flex ${
@@ -48,7 +51,7 @@ export default function ChapterTicks({
         type="button"
         onClick={onOpenDesk}
         className="group relative -ml-1 mb-1 flex h-7 w-7 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-paper/[0.05] hover:text-amber"
-        title="The desk (⌘E)"
+        title={`The desk (${deskChord})`}
         aria-label="Step back to the desk"
       >
         <svg

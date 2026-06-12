@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { WritingGoals } from "@/types/editor";
 import { formatNumber } from "@/lib/format";
 import { getTodaySession } from "@/client/goals";
+import { useModChord } from "@/lib/keys";
 
 type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 
@@ -130,6 +131,7 @@ function StatusBar({
   onOpenGrimoire,
   insetClass = "",
 }: StatusBarProps) {
+  const commandChord = useModChord("K");
   const todaySession = getTodaySession(goals);
   const todayWords = todaySession?.wordsWritten ?? 0;
   const dailyTarget = goals.dailyWordTarget ?? 0;
@@ -236,7 +238,7 @@ function StatusBar({
             </svg>
           </div>
           <span className="text-xs font-medium text-paper/50 group-hover:text-amber hidden sm:inline">Commands</span>
-          <span className="px-1.5 py-0.5 rounded text-[9px] bg-subtle/50 text-text-tertiary ml-1 font-mono tracking-wider hidden sm:inline">Ctrl K</span>
+          <span className="px-1.5 py-0.5 rounded text-[9px] bg-subtle/50 text-text-tertiary ml-1 font-mono tracking-wider hidden sm:inline">{commandChord}</span>
         </button>
       </div>
 

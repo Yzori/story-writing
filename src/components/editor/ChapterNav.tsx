@@ -4,6 +4,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Chapter } from "@/types/editor";
 import { formatNumber } from "@/lib/format";
+import { useModChord } from "@/lib/keys";
 
 // Format-aware vocabulary — "chapter" for novels, "poem" for poetry, etc.
 const FORMAT_LABELS: Record<string, { singular: string; plural: string; newLabel: string }> = {
@@ -51,6 +52,7 @@ export default function ChapterNav({
   onOpenToolkit,
   coachSlot,
 }: ChapterNavProps) {
+  const commandChord = useModChord("K");
   const totalWords = chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
   const labels = getFormatLabels(format);
   const publishedCount = chapters.filter((ch) => ch.status === "published").length;
@@ -188,7 +190,7 @@ export default function ChapterNav({
                   <path d="M2 8l1.5-0.5L3 9.5z" />
                 </svg>
                 Commands
-                <span className="ml-auto rounded bg-subtle/50 px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-text-tertiary">⌘K</span>
+                <span className="ml-auto rounded bg-subtle/50 px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-text-tertiary">{commandChord}</span>
               </button>
             </div>
           </motion.div>

@@ -42,7 +42,7 @@ const hints: Hint[] = [
     id: "status",
     title: "Track your progress",
     message:
-      "Your words are auto-saved here. Everything else — characters & world, comments, history, goals — is one ⌘K away, or on the right edge.",
+      "Your words are auto-saved here. Everything else — characters & world, comments, history, goals — is one ⌘K / Ctrl K away, or on the right edge.",
     position: { bottom: "72px", left: "50%" },
     arrowDirection: "down",
   },
