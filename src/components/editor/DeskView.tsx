@@ -42,6 +42,8 @@ interface DeskViewProps {
   onOpenPublish: () => void;
   onOpenHistory: (chapterId: string) => void;
   onUpdateOutline: (chapterId: string, outline: string) => void;
+  /** Open with the sheets already turned to their outline side. */
+  initialFlipped?: boolean;
   /** True when the cockpit is rendering the bare-page sheet (write mode). */
   morphEnabled: boolean;
   onRenameChapter: (id: string, title: string) => void;
@@ -102,6 +104,7 @@ export default function DeskView({
   onOpenPublish,
   onOpenHistory,
   onUpdateOutline,
+  initialFlipped,
   morphEnabled,
   onRenameChapter,
   onMoveChapter,
@@ -112,7 +115,7 @@ export default function DeskView({
   const [morphId, setMorphId] = useState<string | null>(activeChapterId);
 
   // Flip the sheets over: the back of every sheet is its outline.
-  const [flipped, setFlipped] = useState(false);
+  const [flipped, setFlipped] = useState(initialFlipped ?? false);
   const [outlineDrafts, setOutlineDrafts] = useState<Record<string, string>>({});
   const outlineTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -317,7 +320,7 @@ export default function DeskView({
                   ? undefined
                   : { y: -6, rotate: i % 2 ? 0.6 : -0.6 }
               }
-              className="group/sheet relative"
+              className={`group/sheet relative ${menuId === c.id ? "z-30" : ""}`}
               style={{ perspective: 1200 }}
             >
               <motion.div
