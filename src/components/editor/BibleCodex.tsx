@@ -29,6 +29,8 @@ type EntryKind = "character" | "place" | "note";
 type Selection = { kind: EntryKind; id: string } | null;
 
 interface BibleCodexProps {
+  /** Open focused on this entry (e.g. from an @-mention in the text). */
+  initialEntryId?: string | null;
   bible: StoryBible;
   storyId: string;
   storyTitle: string;
@@ -80,6 +82,7 @@ function parseList(value: string): string[] {
 }
 
 export default function BibleCodex({
+  initialEntryId,
   bible,
   storyId,
   storyTitle,
@@ -88,6 +91,14 @@ export default function BibleCodex({
   onBack,
 }: BibleCodexProps) {
   const [selected, setSelected] = useState<Selection>(() => {
+    if (initialEntryId) {
+      if (bible.characters.some((c) => c.id === initialEntryId))
+        return { kind: "character", id: initialEntryId };
+      if (bible.places.some((pl) => pl.id === initialEntryId))
+        return { kind: "place", id: initialEntryId };
+      if (bible.notes.some((n) => n.id === initialEntryId))
+        return { kind: "note", id: initialEntryId };
+    }
     if (bible.characters[0]) return { kind: "character", id: bible.characters[0].id };
     if (bible.places[0]) return { kind: "place", id: bible.places[0].id };
     if (bible.notes[0]) return { kind: "note", id: bible.notes[0].id };

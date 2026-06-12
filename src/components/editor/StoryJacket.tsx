@@ -29,6 +29,7 @@ interface StoryJacketProps {
   onUpdateMetadata: (metadata: StoryMetadata) => void;
   onUpdateFrontMatter: (frontMatter: FrontMatter) => void;
   onUpdateTypography: (typography: TypographySettings) => void;
+  onDeleteStory: () => void;
   onBack: () => void;
 }
 
@@ -66,8 +67,10 @@ export default function StoryJacket({
   onUpdateMetadata,
   onUpdateFrontMatter,
   onUpdateTypography,
+  onDeleteStory,
   onBack,
 }: StoryJacketProps) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [titleDraft, setTitleDraft] = useState(storyTitle);
   const [dragging, setDragging] = useState(false);
 
@@ -602,6 +605,36 @@ export default function StoryJacket({
                   </span>
                 </label>
               </div>
+            </div>
+
+            {/* the shredder — last thing on the jacket, deliberately */}
+            <div className="mt-12 border-t border-border pt-5 pb-2">
+              {confirmingDelete ? (
+                <span className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onDeleteStory}
+                    className="text-[12px] font-medium text-rose transition-colors"
+                  >
+                    Really delete this story and all its chapters? This cannot be undone.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    className="text-[12px] text-text-ghost transition-colors hover:text-text-secondary"
+                  >
+                    Keep it
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="text-[12px] text-text-ghost transition-colors hover:text-rose"
+                >
+                  Delete this story
+                </button>
+              )}
             </div>
           </div>
         </div>

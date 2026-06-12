@@ -30,20 +30,13 @@ import EditorErrorBoundary from "@/components/editor/EditorErrorBoundary";
 import CommandPalette from "@/components/editor/CommandPalette";
 import CommentsSidebar from "@/components/editor/CommentsSidebar";
 import CommentPopover from "@/components/editor/CommentPopover";
-import MetadataPanel from "@/components/editor/MetadataPanel";
-import MonetizationPanel from "@/components/editor/MonetizationPanel";
-import StoryBiblePanel from "@/components/editor/StoryBiblePanel";
-import FrontMatterPanel from "@/components/editor/FrontMatterPanel";
 import ChapterSettingsPanel from "@/components/editor/ChapterSettingsPanel";
 import HistoryPanel from "@/components/editor/HistoryPanel";
-import OutlineView from "@/components/editor/OutlineView";
-import TypographyPanel from "@/components/editor/TypographyPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
 import { useToast } from "@/components/shared/Toast";
 import { useModChord } from "@/lib/keys";
-import { QuillRingMark } from "@/components/shared/BrandLogo";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
@@ -69,8 +62,7 @@ import { useApiMutation } from "@/hooks/use-api-mutation";
 import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
 import { normalizeTypographySettings, typographyClassName } from "@/lib/typography";
 
-type RightPanel = "none" | "comments" | "metadata" | "bible" | "frontmatter" | "chapter" | "typography" | "history" | "chat" | "monetization" | "ai";
-type EditorMode = "write" | "plan" | "review" | "prepare" | "publish";
+type RightPanel = "none" | "comments" | "beats" | "chapter" | "history" | "chat" | "ai";
 
 type DraftRecoveryNotice = {
   chapterId: string;
@@ -81,52 +73,6 @@ type DraftRecoveryNotice = {
   reason: "autosave" | "failed-save" | "conflict";
 };
 
-const editorModes: Array<{
-  id: EditorMode;
-  label: string;
-  icon: string;
-}> = [
-  { id: "write", label: "Write", icon: "M4 20h4L19 9l-4-4L4 16v4z M13 7l4 4" },
-  { id: "plan", label: "Plan", icon: "M5 5h14M5 12h14M5 19h9" },
-  { id: "review", label: "Review", icon: "M21 15a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9z" },
-  { id: "prepare", label: "Prepare", icon: "M4 3h12l4 4v14H4V3z M16 3v5h5M8 13h8M8 17h5" },
-  { id: "publish", label: "Publish", icon: "M12 3v13 M7 8l5-5 5 5 M5 21h14" },
-];
-
-function EditorModeRail({
-  activeMode,
-  onChange,
-}: {
-  activeMode: EditorMode;
-  onChange: (mode: EditorMode) => void;
-}) {
-  return (
-    <nav className="absolute inset-y-0 left-0 z-50 hidden w-14 flex-col items-center gap-2 border-r border-border bg-void/90 px-2 py-3 backdrop-blur-xl lg:flex" aria-label="Editor modes">
-      <div className="mb-3 flex h-8 w-8 items-center justify-center text-paper/90">
-        <QuillRingMark className="h-7 w-7" />
-      </div>
-      {editorModes.map((mode) => (
-        <button
-          key={mode.id}
-          type="button"
-          onClick={() => onChange(mode.id)}
-          className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
-            activeMode === mode.id
-              ? "border-amber/25 bg-amber/[0.08] text-amber"
-              : "border-transparent text-text-ghost hover:border-border hover:bg-paper/[0.05] hover:text-paper"
-          }`}
-          title={mode.label}
-          aria-label={mode.label}
-          aria-pressed={activeMode === mode.id}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d={mode.icon} />
-          </svg>
-        </button>
-      ))}
-    </nav>
-  );
-}
 
 // The ten flat panels, regrouped into three rooms. AI keeps its own sheet;
 // monetization lives in Publish mode only.
@@ -134,14 +80,6 @@ const PANEL_ROOMS: Array<{
   label: string;
   tabs: Array<{ panel: RightPanel; label: string; teamOnly?: boolean }>;
 }> = [
-  {
-    label: "Story",
-    tabs: [
-      { panel: "bible", label: "Characters & World" },
-      { panel: "metadata", label: "Details" },
-      { panel: "frontmatter", label: "Front matter" },
-    ],
-  },
   {
     label: "Feedback",
     tabs: [
@@ -154,7 +92,7 @@ const PANEL_ROOMS: Array<{
     tabs: [
       { panel: "history", label: "History" },
       { panel: "chapter", label: "Chapter" },
-      { panel: "typography", label: "Typography" },
+      { panel: "beats", label: "Beats" },
     ],
   },
 ];
@@ -193,34 +131,6 @@ function PanelRoomTabs({
   );
 }
 
-function ContextAction({
-  label,
-  description,
-  onClick,
-  tone = "neutral",
-}: {
-  label: string;
-  description: string;
-  onClick: () => void;
-  tone?: "neutral" | "accent" | "danger";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
-        tone === "accent"
-          ? "border-amber/25 bg-amber/[0.06] text-amber hover:bg-amber/[0.1]"
-          : tone === "danger"
-            ? "border-rose/20 bg-rose/[0.04] text-rose hover:bg-rose/[0.08]"
-            : "border-border bg-elevated/45 text-text-secondary hover:border-border-active hover:bg-elevated"
-      }`}
-    >
-      <span className="block text-[13px] font-medium text-paper">{label}</span>
-      <span className="mt-1 block text-[11px] leading-relaxed text-text-ghost">{description}</span>
-    </button>
-  );
-}
 
 function DraftRecoveryBanner({
   notice,
@@ -491,6 +401,7 @@ export default function WriteStoryPage() {
   const [showDesk, setShowDesk] = useState(false);
   const [deskOpensFlipped, setDeskOpensFlipped] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
+  const [codexFocusId, setCodexFocusId] = useState<string | null>(null);
   const [showJacket, setShowJacket] = useState(false);
   const [showCounter, setShowCounter] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
@@ -504,13 +415,10 @@ export default function WriteStoryPage() {
 
   // Right panel
   const [rightPanel, setRightPanel] = useState<RightPanel>("none");
-  const [editorMode, setEditorMode] = useState<EditorMode>("write");
-  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   // Below `lg` the mode rail + chapter nav are hidden; this opens them as a
   // left drawer so chapter/mode switching is reachable on phones and tablets.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Collapsed by default — the canvas is the star; beats/context are summoned.
-  const [rightContextCollapsed, setRightContextCollapsed] = useState(true);
 
   // Comments
   const [commentThreads, setCommentThreads] = useState<CommentThread[]>([]);
@@ -528,7 +436,6 @@ export default function WriteStoryPage() {
   // Goals
   const [showGoals, setShowGoals] = useState(false);
   // Outline view
-  const [showOutline, setShowOutline] = useState(false);
   // Publish state
   const [isPublic, setIsPublic] = useState(false);
   const [writingMode, setWritingMode] = useState("solo");
@@ -1855,45 +1762,13 @@ export default function WriteStoryPage() {
   const handleCloseGrimoire = useCallback(() => setCommandOpen(false), []);
   const handleCloseGoals = useCallback(() => setShowGoals(false), []);
   const handleClosePanel = useCallback(() => setRightPanel("none"), []);
-  const handleToggleLeftSidebar = useCallback(() => setLeftSidebarCollapsed((collapsed) => !collapsed), []);
-  const handleToggleRightContext = useCallback(() => setRightContextCollapsed((collapsed) => !collapsed), []);
-  const handleChangeEditorMode = useCallback((mode: EditorMode) => {
-    setEditorMode(mode);
-    setRightPanel("none");
-    // Write mode opens with a clean canvas; the other modes ARE their
-    // context column, so switching to them is an explicit ask for it.
-    setRightContextCollapsed(mode === "write");
-    setShowGoals(false);
-    if (mode !== "plan") {
-      setShowOutline(false);
-    }
-  }, []);
   // Comments, chapter settings and typography are companions now — they
   // slide in beside the page without dragging the old mode shell back.
   const handleToggleComments = useCallback(() => {
     togglePanel("comments");
   }, [togglePanel]);
-  const handleToggleBible = useCallback(() => {
-    setEditorMode("plan");
-    togglePanel("bible");
-  }, [togglePanel]);
   const handleToggleSettings = useCallback(() => {
     togglePanel("chapter");
-  }, [togglePanel]);
-  const handleOpenMetadata = useCallback(() => {
-    setEditorMode("prepare");
-    togglePanel("metadata");
-  }, [togglePanel]);
-  const handleOpenFrontMatter = useCallback(() => {
-    setEditorMode("prepare");
-    togglePanel("frontmatter");
-  }, [togglePanel]);
-  const handleOpenTypography = useCallback(() => {
-    togglePanel("typography");
-  }, [togglePanel]);
-  const handleOpenMonetization = useCallback(() => {
-    setEditorMode("publish");
-    togglePanel("monetization");
   }, [togglePanel]);
   const handleOpenWorkshop = useCallback(() => {
     if (storySlug) router.push(`/story/${storySlug}/workshop?from=editor`);
@@ -1901,21 +1776,10 @@ export default function WriteStoryPage() {
   const handleOpenOpenCalls = useCallback(() => {
     if (storySlug) router.push(`/story/${storySlug}/calls?from=editor`);
   }, [router, storySlug]);
-  const handleToggleOutlineView = useCallback(() => {
-    setEditorMode("plan");
-    setRightPanel("none");
-    setShowOutline((v) => !v);
-  }, []);
   const handleMentionClick = useCallback((characterId: string) => {
-    setRightPanel("bible");
-    setTimeout(() => {
-      const el = document.querySelector(`[data-bible-entry="${characterId}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      el?.classList.add("ring-2", "ring-amber/50");
-      setTimeout(() => el?.classList.remove("ring-2", "ring-amber/50"), 1500);
-    }, 300);
+    setCodexFocusId(characterId);
+    setShowCodex(true);
   }, []);
-  const noopCallback = useCallback(() => {}, []);
   const handleCloseSearch = useCallback(() => setShowSearch(false), []);
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
@@ -2093,19 +1957,6 @@ export default function WriteStoryPage() {
   // All formats now have dedicated editors — no FormatStub needed
 
   const showUI = !isTyping && !commandOpen;
-  // The bare page: in write mode the rails step away entirely — chapter
-  // ticks in the left margin are the only resident navigation, and the
-  // desk (⌘E) carries everything heavier. The other modes ARE their
-  // context columns, so they keep the rails.
-  const barePage = editorMode === "write";
-  const leftInsetClass = barePage
-    ? "lg:pl-0"
-    : leftSidebarCollapsed ? "lg:pl-[104px]" : "lg:pl-[344px]";
-  const rightInsetClass = barePage
-    ? "xl:pr-0"
-    : rightPanel === "none"
-      ? rightContextCollapsed ? "xl:pr-12" : "xl:pr-[360px]"
-      : "xl:pr-[360px]";
 
   const rightPanelColumn = (
         <div className={`flex h-full flex-col ${rightPanel === "none" ? "w-0" : "w-full"}`}>
@@ -2118,6 +1969,26 @@ export default function WriteStoryPage() {
           )}
           <div className="relative flex min-h-0 w-full flex-1">
         <AnimatePresence>
+          {rightPanel === "beats" && activeChapter && (
+            <motion.aside
+              key="beats-panel"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 360, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
+              className="h-full border-l border-border bg-surface shrink-0 overflow-hidden flex flex-col"
+            >
+              <div className="min-w-[360px] flex h-full flex-col">
+                <ChapterOutlinePanel
+                  chapter={activeChapter}
+                  docked
+                  onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
+                  onClose={handleClosePanel}
+                  onCollapse={handleClosePanel}
+                />
+              </div>
+            </motion.aside>
+          )}
           {rightPanel === "comments" && (
             <CommentsSidebar
               threads={commentThreads}
@@ -2126,34 +1997,6 @@ export default function WriteStoryPage() {
               onReply={handleReplyToThread}
               onResolve={handleResolveThread}
               onDelete={handleDeleteThread}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "metadata" && (
-            <MetadataPanel
-              metadata={project.metadata}
-              storyTitle={project.title}
-              storyId={storyId}
-              isPublic={isPublic}
-              onUpdate={handleUpdateMetadata}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "bible" && (
-            <StoryBiblePanel
-              bible={project.bible}
-              storyId={storyId}
-              chapters={bibleChapters}
-              onUpdate={handleUpdateBible}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "frontmatter" && (
-            <FrontMatterPanel
-              frontMatter={project.frontMatter}
-              metadata={project.metadata}
-              chapters={project.chapters}
-              onUpdate={handleUpdateFrontMatter}
               onClose={handleClosePanel}
             />
           )}
@@ -2173,26 +2016,10 @@ export default function WriteStoryPage() {
               onClose={handleClosePanel}
             />
           )}
-          {rightPanel === "typography" && (
-            <TypographyPanel
-              settings={project.typography}
-              onUpdate={handleUpdateTypography}
-              onClose={handleClosePanel}
-            />
-          )}
           {rightPanel === "chat" && sessionUserId && (
             <WorkshopChatPanel
               storyId={storyId}
               currentUserId={sessionUserId}
-              onClose={handleClosePanel}
-            />
-          )}
-          {rightPanel === "monetization" && (
-            <MonetizationPanel
-              storyId={storyId}
-              storyTitle={project.title}
-              isPublic={isPublic}
-              onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
               onClose={handleClosePanel}
             />
           )}
@@ -2224,10 +2051,9 @@ export default function WriteStoryPage() {
         <div className="absolute inset-0 transition-opacity duration-1000 shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
       </div>
 
-      {!barePage && <EditorModeRail activeMode={editorMode} onChange={handleChangeEditorMode} />}
 
       {/* ── 2a. Bare page: thumb-index ticks + first-night coach ── */}
-      {barePage && !focusMode && (
+      {!focusMode && (
         <>
           <ChapterTicks
             chapters={project.chapters}
@@ -2254,39 +2080,6 @@ export default function WriteStoryPage() {
         </>
       )}
 
-      {/* ── 2. Book Navigation (Left) ──────────────────────── */}
-      {!barePage && (
-      <aside className="absolute inset-y-0 left-14 z-30 hidden border-r border-border bg-surface/80 backdrop-blur-2xl lg:flex">
-        <ChapterNav
-          chapters={project.chapters}
-          activeChapterId={project.activeChapterId}
-          storyTitle={project.title}
-          collapsed={leftSidebarCollapsed}
-          format={storyFormat}
-          onSelectChapter={handleSelectChapter}
-          onAddChapter={handleAddChapter}
-          onReorderChapters={handleReorderChapters}
-          onRenameChapter={handleRenameChapter}
-          onDeleteChapter={handleDeleteChapter}
-          onToggleCollapse={handleToggleLeftSidebar}
-          onUpdateStoryTitle={handleUpdateStoryTitle}
-          onOpenToolkit={handleOpenGrimoire}
-          coachSlot={
-            <FirstChapterCoach
-              variant="inline"
-              state={{
-                hasTitle: !!project.title && project.title !== "Untitled story" && project.title !== "Untitled",
-                hasGenre: (project.metadata?.genres?.length ?? 0) > 0,
-                hasCover: !!project.metadata?.coverImageDataUrl,
-                hasContent: (activeChapter?.wordCount ?? 0) >= 100,
-              }}
-              totalWords={totalWords}
-              onOpenSetup={() => setShowJacket(true)}
-            />
-          }
-        />
-      </aside>
-      )}
 
       {/* ── 3. Mobile nav drawer (below lg) ─────────────────── */}
       <AnimatePresence>
@@ -2307,28 +2100,6 @@ export default function WriteStoryPage() {
               transition={{ type: "spring", stiffness: 380, damping: 38 }}
               className="fixed inset-y-0 left-0 z-[61] flex w-[272px] max-w-[88vw] flex-col border-r border-border bg-surface/95 backdrop-blur-2xl shadow-[20px_0_50px_rgba(0,0,0,0.5)]"
             >
-              {/* Mode switcher (the desktop rail, laid out horizontally) */}
-              <div className="flex items-center gap-1.5 border-b border-border px-3 py-2.5">
-                {editorModes.map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => handleChangeEditorMode(mode.id)}
-                    className={`flex h-9 flex-1 items-center justify-center rounded-lg border transition-all ${
-                      editorMode === mode.id
-                        ? "border-amber/25 bg-amber/[0.08] text-amber"
-                        : "border-transparent text-text-ghost hover:bg-paper/[0.05] hover:text-paper"
-                    }`}
-                    title={mode.label}
-                    aria-label={mode.label}
-                    aria-pressed={editorMode === mode.id}
-                  >
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <path d={mode.icon} />
-                    </svg>
-                  </button>
-                ))}
-              </div>
               <div className="min-h-0 flex-1">
                 <ChapterNav
                   chapters={project.chapters}
@@ -2352,7 +2123,7 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       {/* ── 4. The Canvas (Editor Center Stage) ─────────────── */}
-      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-hidden transition-[opacity,padding] duration-500 ${leftInsetClass} ${rightInsetClass} ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
+      <div className={`relative z-10 w-full h-full flex flex-col items-center overflow-hidden transition-[opacity,padding] duration-500 ${commandOpen ? "opacity-30 blur-sm pointer-events-none" : "opacity-100"}`}>
 
         {/* Search bar */}
         <AnimatePresence>
@@ -2370,43 +2141,22 @@ export default function WriteStoryPage() {
         </AnimatePresence>
 
         {/* Editor */}
-        {showOutline ? (
-          <div className="w-full max-w-[680px] px-8 flex-1 min-h-0">
-            <OutlineView
-              chapters={project.chapters}
-              activeChapterId={project.activeChapterId}
-              onSelectChapter={(id) => {
-                handleSelectChapter(id);
-                setShowOutline(false);
-              }}
-              onUpdateOutline={handleUpdateOutline}
-            />
-          </div>
-        ) : (
-          <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait">
             {activeChapter && (
               <motion.div
                 key={activeChapter.id}
-                layoutId={barePage ? "page-sheet" : undefined}
+                layoutId="page-sheet"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={
-                  barePage
-                    ? { layout: { type: "spring", stiffness: 340, damping: 34 }, duration: 0.2, ease: "easeInOut" }
-                    : { duration: 0.2, ease: "easeInOut" }
-                }
-                className={
-                  barePage
-                    ? `page-sheet w-full ${rightPanel !== "none" || refPaneOpen ? "max-w-[1180px]" : "max-w-[840px]"} lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden`
-                    : "w-full flex-1 min-h-0 flex flex-col items-center"
-                }
+                transition={{ layout: { type: "spring", stiffness: 340, damping: 34 }, duration: 0.2, ease: "easeInOut" }}
+                className={`page-sheet w-full ${rightPanel !== "none" || refPaneOpen ? "max-w-[1180px]" : "max-w-[840px]"} lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden`}
               >
                 {/* Spacer to push content below navbar area */}
-                <div className={barePage ? "w-full h-5 shrink-0" : "w-full h-16 shrink-0"} />
+                <div className="w-full h-5 shrink-0" />
 
                 {/* Sticky chapter header */}
-                <div className={`w-full sticky top-0 z-20 backdrop-blur-sm border-b border-paper/[0.03] pt-3 ${barePage ? "bg-ink/70" : "bg-void/80"}`}>
+                <div className={`w-full sticky top-0 z-20 backdrop-blur-sm border-b border-paper/[0.03] pt-3 bg-ink/70`}>
                   <div className="max-w-[680px] mx-auto px-4 sm:px-8 pb-3">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
@@ -2765,14 +2515,13 @@ export default function WriteStoryPage() {
                       </motion.aside>
                     )}
                   </AnimatePresence>
-                  {barePage && rightPanel !== "none" && (
+                  {rightPanel !== "none" && (
                     <div className="hidden h-full shrink-0 lg:flex">{rightPanelColumn}</div>
                   )}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        )}
       </div>
 
       {/* ── 5. Floating Status Bar ──────────────────────────── */}
@@ -2784,7 +2533,7 @@ export default function WriteStoryPage() {
             goals={project.goals}
             saveState={saveState}
             onOpenGrimoire={handleOpenGrimoire}
-            insetClass={`${leftInsetClass} ${rightInsetClass}`}
+            insetClass=""
           />
         )}
       </AnimatePresence>
@@ -3138,234 +2887,12 @@ export default function WriteStoryPage() {
 
       {/* ── 6. Right Context + Panels ─────────────────────── */}
       <div className={`editor-side-shell absolute inset-y-0 right-0 z-40 flex max-w-full transition-[width] duration-300 ${
-        rightPanel === "none"
-          ? rightContextCollapsed ? (barePage ? "w-0" : "w-0 xl:w-12") : "w-0 xl:w-[360px]"
-          : barePage ? "w-full lg:w-0" : "w-full sm:w-[360px]"
+        rightPanel === "none" ? "w-0" : "w-full lg:w-0"
       }`}>
-        {rightPanel === "none" && rightContextCollapsed && !commandOpen && !barePage && (
-          /* The quiet right edge: rooms live where they open. */
-          <aside className="hidden h-full w-12 flex-col items-center border-l border-border bg-surface/80 py-3 backdrop-blur-2xl xl:flex">
-            <button
-              type="button"
-              onClick={handleToggleRightContext}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
-              title="Expand context panel"
-              aria-label="Expand context panel"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
-            </button>
-            <div className="my-3 h-px w-6 bg-border" />
-            {/* Story room */}
-            <button
-              type="button"
-              onClick={() => setRightPanel("bible")}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
-              title="Story — characters & world, details, front matter"
-              aria-label="Open story room"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 6.04A9 9 0 0 0 6 3.75c-1.05 0-2.06.18-3 .51v14.25a9 9 0 0 1 3-.51c2.3 0 4.4.87 6 2.29m0-14.25a9 9 0 0 1 6-2.29c1.05 0 2.06.18 3 .51v14.25a9 9 0 0 0-3-.51 9 9 0 0 0-6 2.29m0-14.25v14.25" />
-              </svg>
-            </button>
-            {/* Feedback room */}
-            <button
-              type="button"
-              onClick={() => setRightPanel("comments")}
-              className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
-              title="Feedback — comments and chat"
-              aria-label="Open feedback room"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </button>
-            {/* Craft room */}
-            <button
-              type="button"
-              onClick={() => setRightPanel("history")}
-              className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
-              title="Craft — chapter settings, history, typography"
-              aria-label="Open craft room"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 3" />
-              </svg>
-            </button>
-          </aside>
+        {/* Mobile: companions still need the overlay shell. */}
+        {rightPanel !== "none" && (
+          <div className="flex h-full w-full lg:hidden">{rightPanelColumn}</div>
         )}
-
-        {rightPanel === "none" && !rightContextCollapsed && !commandOpen && (
-          <aside className="hidden h-full w-full flex-col border-l border-border bg-surface/90 backdrop-blur-2xl xl:flex">
-            {editorMode === "write" && activeChapter && (
-              <ChapterOutlinePanel
-                chapter={activeChapter}
-                docked
-                onUpdateOutline={(outline) => handleUpdateOutline(activeChapter.id, outline)}
-                onClose={() => setEditorMode("plan")}
-                onCollapse={handleToggleRightContext}
-              />
-            )}
-
-            {editorMode !== "write" && (
-              <>
-                <div className="flex items-start gap-3 border-b border-border px-5 py-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-paper">
-                      {editorMode === "plan" && "Plan"}
-                      {editorMode === "review" && "Review"}
-                      {editorMode === "prepare" && "Prepare"}
-                      {editorMode === "publish" && "Publish"}
-                    </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-text-ghost">
-                      {editorMode === "plan" && "Structure, continuity, and reference material."}
-                      {editorMode === "review" && "Feedback, comments, snapshots, and recovery."}
-                      {editorMode === "prepare" && "Packaging tools for a ready manuscript."}
-                      {editorMode === "publish" && "Visibility, reader access, monetization, and launch."}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleToggleRightContext}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-ghost transition-colors hover:bg-subtle/50 hover:text-text-secondary"
-                    title="Collapse context panel"
-                    aria-label="Collapse context panel"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 3L5 7l4 4" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-                  {editorMode === "plan" && (
-                    <>
-                      <ContextAction
-                        label="Book Map"
-                        description="Plan the whole book by chapter."
-                        onClick={handleToggleOutlineView}
-                        tone="accent"
-                      />
-                      <ContextAction
-                        label="Characters & World"
-                        description="Characters, places, lore, and continuity notes."
-                        onClick={handleToggleBible}
-                      />
-                      <ContextAction
-                        label="Chapter Beats"
-                        description="Scene notes for the current chapter."
-                        onClick={() => {
-                          setEditorMode("write");
-                          setRightPanel("none");
-                        }}
-                      />
-                    </>
-                  )}
-
-                  {editorMode === "review" && (
-                    <>
-                      <ContextAction
-                        label="Comments"
-                        description={`${commentThreads.filter((thread) => !thread.resolved).length} open thread${commentThreads.filter((thread) => !thread.resolved).length === 1 ? "" : "s"}.`}
-                        onClick={handleToggleComments}
-                        tone="accent"
-                      />
-                      <ContextAction
-                        label="Version History"
-                        description={`${activeChapter?.snapshots.length ?? 0} snapshot${(activeChapter?.snapshots.length ?? 0) === 1 ? "" : "s"} for this chapter.`}
-                        onClick={() => {
-                          setEditorMode("review");
-                          setRightPanel("history");
-                        }}
-                      />
-                      <ContextAction
-                        label="Workshop"
-                        description="Team space, suggestions, lore book, and agreement."
-                        onClick={handleOpenWorkshop}
-                      />
-                    </>
-                  )}
-
-                  {editorMode === "prepare" && (
-                    <>
-                      <ContextAction
-                        label="Cover & Details"
-                        description="Cover art, synopsis, genre, rating, and language."
-                        onClick={handleOpenMetadata}
-                        tone="accent"
-                      />
-                      <ContextAction
-                        label="Front Matter"
-                        description="Epigraph, foreword, and table of contents."
-                        onClick={handleOpenFrontMatter}
-                      />
-                      <ContextAction
-                        label="Typography"
-                        description="Drop caps, scene breaks, and reading style."
-                        onClick={handleOpenTypography}
-                      />
-                      <ContextAction
-                        label="Chapter Settings"
-                        description="Status, author notes, and chapter-level metadata."
-                        onClick={handleToggleSettings}
-                      />
-                      <div className="grid grid-cols-3 gap-2 pt-2">
-                        <button onClick={handleExportPdf} className="rounded-lg border border-border bg-elevated/45 px-2 py-2 text-[11px] text-text-secondary hover:text-paper">PDF</button>
-                        <button onClick={handleExportEpub} className="rounded-lg border border-border bg-elevated/45 px-2 py-2 text-[11px] text-text-secondary hover:text-paper">EPUB</button>
-                        <button onClick={handleExportDocx} className="rounded-lg border border-border bg-elevated/45 px-2 py-2 text-[11px] text-text-secondary hover:text-paper">DOCX</button>
-                      </div>
-                    </>
-                  )}
-
-                  {editorMode === "publish" && (
-                    <>
-                      <div className="rounded-xl border border-border bg-elevated/45 px-3 py-3">
-                        <span className="block text-[13px] font-medium text-paper">
-                          {isPublic ? "Story is public" : "Story is private"}
-                        </span>
-                        <span className="mt-1 block text-[11px] leading-relaxed text-text-ghost">
-                          {isPublic ? "Readers can discover this story." : "Only you and collaborators can see it."}
-                        </span>
-                      </div>
-                      <ContextAction
-                        label={isPublic ? "Make Story Private" : "Make Story Public"}
-                        description="Control whether readers can discover the story."
-                        onClick={handleTogglePublish}
-                        tone="accent"
-                      />
-                      <ContextAction
-                        label="Monetization"
-                        description="Circle, chapter gating, and commissions."
-                        onClick={handleOpenMonetization}
-                      />
-                      <ContextAction
-                        label="Open Calls"
-                        description="Post roles and recruit collaborators."
-                        onClick={handleOpenOpenCalls}
-                      />
-                      {/* Delete moved here when the Toolkit (its only home) was removed */}
-                      <ContextAction
-                        label="Delete Story"
-                        description="Remove this story and all its chapters. Cannot be undone."
-                        onClick={handleDeleteStory}
-                        tone="danger"
-                      />
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </aside>
-        )}
-        {rightPanel !== "none" &&
-          (!barePage ? (
-            rightPanelColumn
-          ) : (
-            /* Mobile bare page: panels still need the overlay shell. */
-            <div className="flex h-full w-full lg:hidden">{rightPanelColumn}</div>
-          ))}
 
       </div>
 
@@ -3391,7 +2918,7 @@ export default function WriteStoryPage() {
             activeChapterId={project.activeChapterId}
             onClose={() => setShowDesk(false)}
             initialFlipped={deskOpensFlipped}
-            morphEnabled={barePage}
+            morphEnabled={true}
             onUpdateOutline={handleUpdateOutline}
             onSelectChapter={(id) => void handleSelectChapter(id)}
             onNewChapter={() => void handleAddChapter()}
@@ -3420,6 +2947,7 @@ export default function WriteStoryPage() {
       <AnimatePresence>
         {showCodex && (
           <BibleCodex
+            initialEntryId={codexFocusId}
             bible={project.bible}
             storyId={storyId}
             storyTitle={project.title}
@@ -3427,6 +2955,7 @@ export default function WriteStoryPage() {
             onUpdate={handleUpdateBible}
             onBack={() => {
               setShowCodex(false);
+              setCodexFocusId(null);
               setShowDesk(true);
             }}
           />
@@ -3445,6 +2974,7 @@ export default function WriteStoryPage() {
             onUpdateMetadata={handleUpdateMetadata}
             onUpdateFrontMatter={handleUpdateFrontMatter}
             onUpdateTypography={handleUpdateTypography}
+            onDeleteStory={() => void handleDeleteStory()}
             onBack={() => {
               setShowJacket(false);
               setShowDesk(true);
@@ -3503,9 +3033,7 @@ export default function WriteStoryPage() {
         onOpenGoals={handleToggleGoals}
         onOpenBeats={() => {
           setCommandOpen(false);
-          setEditorMode("write");
-          setRightPanel("none");
-          setRightContextCollapsed(false);
+          setRightPanel("beats");
         }}
       />
 
