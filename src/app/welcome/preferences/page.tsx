@@ -4,7 +4,9 @@ import { Suspense, useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { QuillRingMark, QuiloriaWordmark } from "@/components/shared/BrandLogo";
 import { GENRES } from "@/config/genres";
+import { readTasteGenres, clearTaste } from "@/lib/anon-reader";
 
 type ReadLength = "quick" | "short" | "medium" | "long" | "any";
 type Comfort = "everyone" | "teen" | "mature" | "explicit";
@@ -51,7 +53,9 @@ export default function ReaderPreferencesPage() {
 function ReaderPreferencesContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params?.get("next") || "/read";
+  // internal paths only — same guard as login's callbackUrl
+  const rawNext = params?.get("next") || "/read";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/read";
 
   const [step, setStep] = useState(0);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -60,6 +64,16 @@ function ReaderPreferencesContent() {
   const [genreSearch, setGenreSearch] = useState("");
   const [showAllGenres, setShowAllGenres] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // The anonymous journey was the quiz: genre worlds visited before signup
+  // arrive here pre-selected — confirm, don't re-ask.
+  useEffect(() => {
+    const taste = readTasteGenres(8).filter((g) => (GENRES as readonly string[]).includes(g));
+    if (taste.length > 0) {
+       
+      setSelectedGenres((cur) => (cur.length > 0 ? cur : taste));
+    }
+  }, []);
 
   const filteredGenres = useMemo(() => {
     if (genreSearch) return GENRES.filter((g) => g.toLowerCase().includes(genreSearch.toLowerCase()));
@@ -92,6 +106,7 @@ function ReaderPreferencesContent() {
     } catch {
       // Best-effort — even on failure we let the user through.
     } finally {
+      clearTaste(); // the journey's signals have served their purpose
       router.push(next);
     }
   };
@@ -348,10 +363,8 @@ function ReaderPreferencesContent() {
           href="/"
           className="absolute top-6 left-6 inline-flex items-center gap-2 text-text-ghost hover:text-paper transition-colors"
         >
-          <svg className="w-4 h-4 text-amber" viewBox="0 0 32 32" fill="none">
-            <path d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z" fill="currentColor" opacity="0.85" />
-          </svg>
-          <span className="font-display text-[11px] font-bold tracking-wide hidden sm:inline">Quiloria</span>
+          <QuillRingMark className="w-5 h-5" />
+          <QuiloriaWordmark className="font-display text-[11px] font-bold tracking-wide hidden sm:inline" />
         </Link>
       </div>
     </div>

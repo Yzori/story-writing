@@ -1,7 +1,7 @@
-import InteractiveSplitLayout from "@/components/landing/InteractiveSplitLayout";
+import FilmLanding from "@/components/landing/FilmLanding";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
-import { getFeaturedStory, getShelfStories } from "@/lib/landing-data";
+import { getLandingTales, getPublicStoryCount } from "@/lib/landing-data";
 
 export default async function Page() {
   const session = await auth();
@@ -10,16 +10,11 @@ export default async function Page() {
     redirect("/dashboard");
   }
 
-  // Pull real featured + shelf data on the server so the anon homepage
-  // ships with live content instead of hardcoded fixtures. Both helpers
-  // return null/[] on empty, and the client component falls back to
-  // mock data — so a brand-new install still renders sensibly.
-  const featured = await getFeaturedStory();
-  const shelf = await getShelfStories(5, featured?.slug ?? null);
+  // Real stories for the First Line + Ledger and a real count for the
+  // "…and N more in the stacks" receipt. Both degrade gracefully: the
+  // component falls back to fixtures when the platform is empty.
+  const tales = await getLandingTales(5);
+  const storyCount = await getPublicStoryCount();
 
-  return (
-    <main className="bg-void overflow-x-hidden w-full min-h-screen">
-      <InteractiveSplitLayout featured={featured} shelf={shelf} />
-    </main>
-  );
+  return <FilmLanding tales={tales} storyCount={storyCount} />;
 }

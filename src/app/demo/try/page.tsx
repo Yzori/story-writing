@@ -9,6 +9,8 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Underline from "@tiptap/extension-underline";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { QuillRingMark, QuiloriaWordmark } from "@/components/shared/BrandLogo";
+import CrossingVeil from "@/components/shared/CrossingVeil";
 import { getPromptsForFormat } from "@/lib/writing-prompts";
 
 // localStorage keys — same ones the register page reads on first signup
@@ -127,14 +129,14 @@ export default function TryEditorPage() {
 
   return (
     <div className="min-h-screen bg-void text-paper">
+      {/* arriving through the film's write door — its light dissolves here */}
+      <CrossingVeil />
       {/* Sticky save-and-signup strip */}
       <div className="sticky top-0 z-30 bg-void/85 backdrop-blur-xl border-b border-border-subtle">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2 group shrink-0">
-            <svg className="w-5 h-5 text-amber" viewBox="0 0 32 32" fill="none">
-              <path d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z" fill="currentColor" opacity="0.85" />
-            </svg>
-            <span className="font-display text-[13px] font-semibold tracking-wide hidden sm:inline">Quiloria</span>
+            <QuillRingMark className="w-6 h-6 text-paper" />
+            <QuiloriaWordmark className="font-display text-[13px] font-semibold tracking-wide hidden sm:inline" />
             <span className="text-[10px] text-text-ghost uppercase tracking-[0.14em] border-l border-border pl-2 ml-1 hidden sm:inline">
               Try the editor
             </span>

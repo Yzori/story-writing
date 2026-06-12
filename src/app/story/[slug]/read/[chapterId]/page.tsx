@@ -19,6 +19,8 @@ import SceneClip from "@/components/reader/SceneClip";
 import ClipSelectionFAB from "@/components/reader/ClipSelectionFAB";
 import ChapterLockScreen from "@/components/reader/ChapterLockScreen";
 import SupportFooter from "@/components/story/SupportFooter";
+import KeepYourPlaceCard from "@/components/reader/KeepYourPlaceCard";
+import { saveAnonPlace, readAnonPlace } from "@/lib/anon-reader";
 import { normalizeTypographySettings } from "@/lib/typography";
 
 const READER_PREFS_KEY = "quiloria-reader-prefs";
@@ -115,7 +117,7 @@ function saveReadingMode(mode: ReadingMode) {
 export default function ChapterReadPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const slug = params.slug as string;
   const chapterId = params.chapterId as string;
 
@@ -228,9 +230,11 @@ export default function ChapterReadPage() {
   }, [slug, chapterId]);
 
   // ── Reading progress: save helper ──────────────────────────
+  // Members PUT to the API; anonymous readers keep their place in
+  // localStorage — register/login imports it so the place survives signup.
   const saveProgress = useCallback(
     (opts: { scrollPercent?: number; pageNumber?: number }) => {
-      if (!session?.user?.id || !storyId) return;
+      if (!storyId) return;
       const now = Date.now();
       // Debounce: skip if saved less than 5 seconds ago
       if (now - lastSaveRef.current < 5000) {
@@ -240,6 +244,19 @@ export default function ChapterReadPage() {
         return;
       }
       lastSaveRef.current = now;
+      if (!session?.user?.id) {
+        if (sessionStatus === "unauthenticated") {
+          saveAnonPlace({
+            storyId,
+            slug,
+            chapterId,
+            scrollPercent: opts.scrollPercent ?? 0,
+            pageNumber: opts.pageNumber ?? 1,
+            storyTitle,
+          });
+        }
+        return;
+      }
       fetch("/api/reading-progress", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -251,7 +268,7 @@ export default function ChapterReadPage() {
         }),
       }).catch(() => {});
     },
-    [session?.user?.id, storyId, chapterId]
+    [session?.user?.id, sessionStatus, storyId, chapterId, slug, storyTitle]
   );
 
   // Fetch initial reading progress for this story to restore position
@@ -267,6 +284,17 @@ export default function ChapterReadPage() {
       })
       .catch(() => {});
   }, [session?.user?.id, storyId, chapterId]);
+
+  // Anonymous visitors get their place back too — same chapter, same spot
+  useEffect(() => {
+    if (sessionStatus !== "unauthenticated" || !storyId) return;
+    const place = readAnonPlace();
+    if (place && place.storyId === storyId && place.chapterId === chapterId) {
+       
+      setInitialScrollPercent(place.scrollPercent);
+      setInitialPageNumber(place.pageNumber);
+    }
+  }, [sessionStatus, storyId, chapterId]);
 
   // Flush pending save on unmount so progress is never lost
   useEffect(() => {
@@ -339,10 +367,13 @@ export default function ChapterReadPage() {
             pageNumber: 1,
           }),
         }).catch(() => {});
+      } else if (sessionStatus === "unauthenticated" && storyId) {
+        lastSaveRef.current = Date.now();
+        saveAnonPlace({ storyId, slug, chapterId: id, scrollPercent: 0, pageNumber: 1, storyTitle });
       }
       router.push(`/story/${slug}/read/${id}`);
     },
-    [router, slug, session?.user?.id, storyId]
+    [router, slug, session?.user?.id, sessionStatus, storyId, storyTitle]
   );
 
   const handlePrevChapter = useCallback(() => {
@@ -699,6 +730,11 @@ export default function ChapterReadPage() {
             isOwner={session?.user?.id === storyUserId}
           />
         </div>
+      )}
+
+      {/* Anonymous readers: their place is kept — registering carries it over */}
+      {sessionStatus === "unauthenticated" && storyId && (
+        <KeepYourPlaceCard slug={slug} chapterId={chapterId} />
       )}
 
       {/* Comments section */}
