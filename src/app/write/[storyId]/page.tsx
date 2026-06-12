@@ -1868,8 +1868,9 @@ export default function WriteStoryPage() {
       setShowOutline(false);
     }
   }, []);
+  // Comments, chapter settings and typography are companions now — they
+  // slide in beside the page without dragging the old mode shell back.
   const handleToggleComments = useCallback(() => {
-    setEditorMode("review");
     togglePanel("comments");
   }, [togglePanel]);
   const handleToggleBible = useCallback(() => {
@@ -1877,7 +1878,6 @@ export default function WriteStoryPage() {
     togglePanel("bible");
   }, [togglePanel]);
   const handleToggleSettings = useCallback(() => {
-    setEditorMode("prepare");
     togglePanel("chapter");
   }, [togglePanel]);
   const handleOpenMetadata = useCallback(() => {
@@ -1889,7 +1889,6 @@ export default function WriteStoryPage() {
     togglePanel("frontmatter");
   }, [togglePanel]);
   const handleOpenTypography = useCallback(() => {
-    setEditorMode("prepare");
     togglePanel("typography");
   }, [togglePanel]);
   const handleOpenMonetization = useCallback(() => {
