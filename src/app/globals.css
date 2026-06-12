@@ -818,6 +818,15 @@ body::after {
   background: linear-gradient(to top, var(--t-void) 0%, transparent 100%);
 }
 
+/* Inside the bare page's sheet the canvas surface is ink, not void —
+   a void-black fade there reads as a dirty bar under the header. */
+.page-sheet .editor-scroll-glass-top {
+  background: linear-gradient(to bottom, var(--t-ink) 0%, transparent 100%);
+}
+.page-sheet .editor-scroll-glass-bottom {
+  background: linear-gradient(to top, var(--t-ink) 0%, transparent 100%);
+}
+
 .editor-scroll-magic {
   position: sticky;
   top: 96px;

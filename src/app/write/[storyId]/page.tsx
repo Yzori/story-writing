@@ -2291,7 +2291,7 @@ export default function WriteStoryPage() {
                 }
                 className={
                   barePage
-                    ? "w-full max-w-[840px] lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink/50 shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+                    ? "page-sheet w-full max-w-[840px] lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden"
                     : "w-full flex-1 min-h-0 flex flex-col items-center"
                 }
               >
