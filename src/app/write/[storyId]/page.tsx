@@ -42,12 +42,15 @@ import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
 import { useToast } from "@/components/shared/Toast";
+import { QuillRingMark } from "@/components/shared/BrandLogo";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
 import ShortcutsPanel from "@/components/editor/ShortcutsPanel";
 import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
 import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
 import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
+import DeskView from "@/components/editor/DeskView";
+import ChapterTicks from "@/components/editor/ChapterTicks";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { useFeatureAccess } from "@/components/billing/FeatureGate";
@@ -94,8 +97,8 @@ function EditorModeRail({
 }) {
   return (
     <nav className="absolute inset-y-0 left-0 z-50 hidden w-14 flex-col items-center gap-2 border-r border-border bg-void/90 px-2 py-3 backdrop-blur-xl lg:flex" aria-label="Editor modes">
-      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-amber font-display text-sm font-bold text-void">
-        I
+      <div className="mb-3 flex h-8 w-8 items-center justify-center text-paper/90">
+        <QuillRingMark className="h-7 w-7" />
       </div>
       {editorModes.map((mode) => (
         <button
@@ -478,6 +481,7 @@ export default function WriteStoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [showDesk, setShowDesk] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [undoAction, setUndoAction] = useState<{
@@ -859,9 +863,12 @@ export default function WriteStoryPage() {
         e.preventDefault();
         togglePanel("bible");
       }
+      // The Desk: Cmd/Ctrl+E zooms out to the chapters overview.
+      // DeskView owns the close (capture-phase listener) so the
+      // zoom-back animation always plays.
       if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
         e.preventDefault();
-        setCommandOpen(true);
+        if (!showDesk) setShowDesk(true);
       }
       // Ctrl+S — manual save
       if (isMod && e.key.toLowerCase() === "s" && !e.shiftKey) {
@@ -891,7 +898,7 @@ export default function WriteStoryPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (typingTimer.current) clearTimeout(typingTimer.current);
     };
-  }, [commandOpen, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
+  }, [commandOpen, showDesk, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
 
   useEffect(() => {
     return () => {
@@ -2023,9 +2030,16 @@ export default function WriteStoryPage() {
   // All formats now have dedicated editors — no FormatStub needed
 
   const showUI = !isTyping && !commandOpen;
-  const leftInsetClass = leftSidebarCollapsed ? "lg:pl-[104px]" : "lg:pl-[344px]";
+  // The bare page: in write mode the rails step away entirely — chapter
+  // ticks in the left margin are the only resident navigation, and the
+  // desk (⌘E) carries everything heavier. The other modes ARE their
+  // context columns, so they keep the rails.
+  const barePage = editorMode === "write";
+  const leftInsetClass = barePage
+    ? "lg:pl-0"
+    : leftSidebarCollapsed ? "lg:pl-[104px]" : "lg:pl-[344px]";
   const rightInsetClass = rightPanel === "none"
-    ? rightContextCollapsed ? "xl:pr-12" : "xl:pr-[360px]"
+    ? rightContextCollapsed ? (barePage ? "xl:pr-0" : "xl:pr-12") : "xl:pr-[360px]"
     : "xl:pr-[360px]";
 
   return (
@@ -2039,9 +2053,38 @@ export default function WriteStoryPage() {
         <div className="absolute inset-0 transition-opacity duration-1000 shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
       </div>
 
-      <EditorModeRail activeMode={editorMode} onChange={handleChangeEditorMode} />
+      {!barePage && <EditorModeRail activeMode={editorMode} onChange={handleChangeEditorMode} />}
+
+      {/* ── 2a. Bare page: thumb-index ticks + first-night coach ── */}
+      {barePage && (
+        <>
+          <ChapterTicks
+            chapters={project.chapters}
+            activeChapterId={project.activeChapterId}
+            unitSingular={getFormatLabels(storyFormat).singular}
+            dimmed={isTyping}
+            onSelect={(id) => void handleSelectChapter(id)}
+            onAdd={() => void handleAddChapter()}
+            onOpenDesk={() => setShowDesk(true)}
+          />
+          <div className="fixed bottom-24 left-4 z-30 hidden w-[264px] lg:block">
+            <FirstChapterCoach
+              variant="inline"
+              state={{
+                hasTitle: !!project.title && project.title !== "Untitled story" && project.title !== "Untitled",
+                hasGenre: (project.metadata?.genres?.length ?? 0) > 0,
+                hasCover: !!project.metadata?.coverImageDataUrl,
+                hasContent: (activeChapter?.wordCount ?? 0) >= 100,
+              }}
+              totalWords={totalWords}
+              onOpenSetup={handleOpenMetadata}
+            />
+          </div>
+        </>
+      )}
 
       {/* ── 2. Book Navigation (Left) ──────────────────────── */}
+      {!barePage && (
       <aside className="absolute inset-y-0 left-14 z-30 hidden border-r border-border bg-surface/80 backdrop-blur-2xl lg:flex">
         <ChapterNav
           chapters={project.chapters}
@@ -2072,6 +2115,7 @@ export default function WriteStoryPage() {
           }
         />
       </aside>
+      )}
 
       {/* ── 3. Mobile nav drawer (below lg) ─────────────────── */}
       <AnimatePresence>
@@ -2197,7 +2241,14 @@ export default function WriteStoryPage() {
                           <path d="M2 4h12M2 8h12M2 12h8" />
                         </svg>
                       </button>
-                      <span className="text-[10px] text-amber/50 uppercase tracking-[0.15em]">{project.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowDesk(true)}
+                        className="text-[10px] text-amber/50 uppercase tracking-[0.15em] transition-colors hover:text-amber"
+                        title="Step back to the desk (⌘E)"
+                      >
+                        {project.title}
+                      </button>
                       {writingMode === "co-op" && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal/10 border border-teal/20 text-teal uppercase tracking-widest">Co-op</span>
                       )}
@@ -2888,17 +2939,19 @@ export default function WriteStoryPage() {
 
       {/* ── 6. Right Context + Panels ─────────────────────── */}
       <div className={`editor-side-shell absolute inset-y-0 right-0 z-40 flex max-w-full transition-[width] duration-300 ${
-        rightPanel === "none" ? rightContextCollapsed ? "w-0 xl:w-12" : "w-0 xl:w-[360px]" : "w-full sm:w-[360px]"
+        rightPanel === "none"
+          ? rightContextCollapsed ? (barePage ? "w-0" : "w-0 xl:w-12") : "w-0 xl:w-[360px]"
+          : "w-full sm:w-[360px]"
       }`}>
-        {rightPanel === "none" && rightContextCollapsed && !commandOpen && (
+        {rightPanel === "none" && rightContextCollapsed && !commandOpen && !barePage && (
           /* The quiet right edge: rooms live where they open. */
           <aside className="hidden h-full w-12 flex-col items-center border-l border-border bg-surface/80 py-3 backdrop-blur-2xl xl:flex">
             <button
               type="button"
               onClick={handleToggleRightContext}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-text-ghost transition-colors hover:bg-subtle/50 hover:text-amber"
-              title={editorMode === "write" ? "Chapter beats" : "Expand context panel"}
-              aria-label={editorMode === "write" ? "Open chapter beats" : "Expand context panel"}
+              title="Expand context panel"
+              aria-label="Expand context panel"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
                 <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
@@ -3220,6 +3273,32 @@ export default function WriteStoryPage() {
             selectedText={commentPopover.selectedText}
             onSubmit={handleSubmitComment}
             onCancel={handleCancelComment}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── The Desk — zoom-out chapters overview (⌘E) ──────── */}
+      <AnimatePresence>
+        {showDesk && (
+          <DeskView
+            storyTitle={project.title}
+            unit={getFormatLabels(storyFormat)}
+            chapters={project.chapters}
+            activeChapterId={project.activeChapterId}
+            onClose={() => setShowDesk(false)}
+            onSelectChapter={(id) => void handleSelectChapter(id)}
+            onNewChapter={() => void handleAddChapter()}
+            onOpenOutline={() => {
+              setEditorMode("plan");
+              setRightPanel("none");
+              setShowOutline(true);
+            }}
+            onOpenBible={handleToggleBible}
+            onOpenDetails={handleOpenMetadata}
+            onOpenPublish={handleOpenMonetization}
+            onOpenHistory={(id) => {
+              void handleSelectChapter(id).then(() => setRightPanel("history"));
+            }}
           />
         )}
       </AnimatePresence>

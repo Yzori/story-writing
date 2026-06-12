@@ -22,6 +22,7 @@ const HIDE_NAVBAR_PATTERNS: RegExp[] = [
   /^\/demo\//,
   /^\/landing-experience(\/|$)/,
   /^\/mockup-homepage-v4(\/|$)/,
+  /^\/mockup\/editor-desk(\/|$)/,
 ];
 
 // Surfaces that need the full mobile viewport — the dock still shows on
@@ -37,7 +38,15 @@ export default function Navbar() {
   const mobileHidden = Boolean(
     pathname && HIDE_MOBILE_DOCK.some((re) => re.test(pathname))
   );
-  return <NavbarInner mobileHidden={mobileHidden} />;
+  // The editor owns ⌘K for its own command palette (the Grimoire); the
+  // Quill stays reachable there via the dock's search button.
+  const paletteShortcutSuppressed = Boolean(pathname && /^\/write\//.test(pathname));
+  return (
+    <NavbarInner
+      mobileHidden={mobileHidden}
+      paletteShortcutSuppressed={paletteShortcutSuppressed}
+    />
+  );
 }
 
 type StreakState = {
@@ -45,7 +54,13 @@ type StreakState = {
   status: "active" | "at-risk" | "broken" | "none";
 };
 
-function NavbarInner({ mobileHidden }: { mobileHidden: boolean }) {
+function NavbarInner({
+  mobileHidden,
+  paletteShortcutSuppressed,
+}: {
+  mobileHidden: boolean;
+  paletteShortcutSuppressed: boolean;
+}) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [inkDropBalance, setInkDropBalance] = useState<number | null>(null);
   const [streak, setStreak] = useState<StreakState | null>(null);
@@ -63,17 +78,19 @@ function NavbarInner({ mobileHidden }: { mobileHidden: boolean }) {
     return () => document.body.classList.remove("with-bottom-tab");
   }, [mobileHidden]);
 
-  // ⌘K / Ctrl-K summons the Quill.
+  // ⌘K / Ctrl-K summons the Quill. Shift-modified chords (⌘⇧K is the
+  // Editor's Desk) are someone else's binding.
   useEffect(() => {
+    if (paletteShortcutSuppressed) return;
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((open) => !open);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [paletteShortcutSuppressed]);
 
   // Fetch unread notification count
   useEffect(() => {

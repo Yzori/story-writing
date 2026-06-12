@@ -20,6 +20,7 @@ const shortcuts = [
     { keys: "@", action: "Mention a character" },
   ]},
   { category: "Navigation", items: [
+    { keys: `${mod}E`, action: "The desk (chapters overview)" },
     { keys: `${mod}K`, action: "Command palette" },
     { keys: `${mod}${shift}H`, action: "Search & replace" },
     { keys: `${mod}${shift}\u2191`, action: "Previous chapter" },
