@@ -54,6 +54,7 @@ import DeskView from "@/components/editor/DeskView";
 import BibleCodex from "@/components/editor/BibleCodex";
 import StoryJacket from "@/components/editor/StoryJacket";
 import PublishCounter from "@/components/editor/PublishCounter";
+import ReferenceVersions from "@/components/editor/ReferenceVersions";
 import ChapterTicks from "@/components/editor/ChapterTicks";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
@@ -575,7 +576,7 @@ export default function WriteStoryPage() {
   const [focusMode, setFocusMode] = useState(false);
   // Reference pane
   const [refPaneOpen, setRefPaneOpen] = useState(false);
-  const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes">("bible");
+  const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes" | "versions">("bible");
   // Editor's Desk — docked in the right-panels block. This shim preserves the
   // existing setShowAIAssistant() call sites (Cmd+Shift+K, command palette, etc.)
   const setShowAIAssistant = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
@@ -879,6 +880,7 @@ export default function WriteStoryPage() {
       if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
         e.preventDefault();
         if (!showDesk) {
+          setCommandOpen(false);
           setDeskOpensFlipped(false);
           setShowDesk(true);
         }
@@ -902,19 +904,31 @@ export default function WriteStoryPage() {
         setPublishDialog((p) => ({ ...p, open: false }));
       }
 
-      // Typing detection — hide UI while writing
-      if (!isMod && !e.shiftKey && e.key.length === 1) {
-        setIsTyping(true);
-        if (typingTimer.current) clearTimeout(typingTimer.current);
-        typingTimer.current = setTimeout(() => setIsTyping(false), 2000);
-      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      if (typingTimer.current) clearTimeout(typingTimer.current);
     };
   }, [commandOpen, showDesk, publishDialog.open, publishDialog.phase, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
+
+  // Typing detection — its own stable listener. It used to live in the
+  // shortcuts effect above, whose cleanup cleared the pending 2s reset
+  // every time a dep flipped (open the desk within 2s of typing and
+  // isTyping stayed true forever, stranding the status bar hidden).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key.length !== 1) return;
+      setIsTyping(true);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      typingTimer.current = setTimeout(() => setIsTyping(false), 2000);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -2581,6 +2595,16 @@ export default function WriteStoryPage() {
                               Notes
                             </button>
                             <button
+                              onClick={() => setRefPaneTab("versions")}
+                              className={`px-2.5 py-1 rounded-md text-[11px] transition-colors ${
+                                refPaneTab === "versions"
+                                  ? "bg-amber/[0.08] text-amber border border-amber/20"
+                                  : "text-text-ghost hover:text-text-secondary"
+                              }`}
+                            >
+                              Versions
+                            </button>
+                            <button
                               onClick={() => setRefPaneOpen(false)}
                               className="ml-auto p-1 rounded text-text-ghost hover:text-text-secondary transition-colors"
                             >
@@ -2591,7 +2615,9 @@ export default function WriteStoryPage() {
                             </button>
                           </div>
                           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                            {refPaneTab === "bible" ? (
+                            {refPaneTab === "versions" && activeChapter ? (
+                              <ReferenceVersions storyId={storyId} chapterId={activeChapter.id} />
+                            ) : refPaneTab === "bible" ? (
                               project.bible.characters.length > 0 ? (
                                 project.bible.characters.map((char) => (
                                   <div key={char.id} className="rounded-lg border border-border bg-elevated/50 p-3">
