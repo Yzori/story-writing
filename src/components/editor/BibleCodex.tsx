@@ -95,6 +95,9 @@ export default function BibleCodex({
   });
   const [search, setSearch] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The just-created entry: its name field takes focus, pre-selected,
+  // so "create → type the name" is one motion.
+  const [freshId, setFreshId] = useState<string | null>(null);
 
   // ── Debounced PATCH, flushed (not cancelled) on unmount ────
   const patchTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -192,6 +195,7 @@ export default function BibleCodex({
         onUpdate({ ...bible, notes: [...bible.notes, note] });
       }
       setSelected({ kind, id: data.id });
+      setFreshId(data.id);
     } catch {}
   };
 
@@ -371,7 +375,24 @@ export default function BibleCodex({
             {storyTitle}
           </span>
         </p>
-        <div className="w-24" aria-hidden />
+        <div className="flex items-center gap-1.5">
+          {(
+            [
+              ["character", "Character"],
+              ["place", "Place"],
+              ["note", "Note"],
+            ] as Array<[EntryKind, string]>
+          ).map(([kind, label]) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => void addEntry(kind)}
+              className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-text-secondary transition-colors hover:border-amber/25 hover:bg-amber/[0.04] hover:text-amber"
+            >
+              + {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1">
@@ -386,7 +407,7 @@ export default function BibleCodex({
               aria-label="Search entries"
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto pb-6">
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
             {sections.map((section) => (
               <div key={section.kind} className="mt-4">
                 <div className="mb-1 flex items-center justify-between px-4">
@@ -451,6 +472,9 @@ export default function BibleCodex({
               </div>
             ))}
           </div>
+          <p className="border-t border-border px-4 py-2.5 text-[10px] text-text-ghost/70">
+            Everything here saves as you type.
+          </p>
         </aside>
 
         {/* ── the entry page ── */}
@@ -491,6 +515,10 @@ export default function BibleCodex({
                     placeholder="Their name"
                     className="w-full bg-transparent font-display text-[30px] font-semibold leading-tight text-paper outline-none placeholder:text-text-ghost/50"
                     aria-label="Character name"
+                    autoFocus={selectedCharacter.id === freshId}
+                    onFocus={(e) => {
+                      if (e.target.value && selectedCharacter.id === freshId) e.target.select();
+                    }}
                   />
                   <input
                     key={`aliases-${selectedCharacter.id}`}
@@ -595,6 +623,10 @@ export default function BibleCodex({
                     placeholder="Name this place"
                     className="w-full bg-transparent font-display text-[30px] font-semibold leading-tight text-paper outline-none placeholder:text-text-ghost/50"
                     aria-label="Place name"
+                    autoFocus={selectedPlace.id === freshId}
+                    onFocus={(e) => {
+                      if (e.target.value && selectedPlace.id === freshId) e.target.select();
+                    }}
                   />
                 </div>
               </div>
@@ -636,6 +668,10 @@ export default function BibleCodex({
                 placeholder="What is this note about?"
                 className="mb-4 w-full bg-transparent font-display text-[30px] font-semibold leading-tight text-paper outline-none placeholder:text-text-ghost/50"
                 aria-label="Note title"
+                autoFocus={selectedNote.id === freshId}
+                onFocus={(e) => {
+                  if (e.target.value && selectedNote.id === freshId) e.target.select();
+                }}
               />
               <div className="mb-8 flex items-center gap-1.5">
                 {NOTE_CATEGORIES.map((cat) => (

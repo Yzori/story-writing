@@ -527,23 +527,75 @@ export default function CommandPalette({
     [query, commands]
   );
 
+  // ── The launcher (rest state) ──────────────────────────────
+  // Going somewhere is the 90% case and there are only a handful of
+  // places — those get tiles. A short list of frequent verbs sits
+  // beneath. Everything else exists the moment you type.
+  const isLauncher = !query;
+  const places = useMemo(() => commands.filter((c) => c.category === "Go"), [commands]);
+  const quick = useMemo(() => {
+    const ids = ["focus-mode", "history", "comments", "goals", "search"];
+    return ids
+      .map((id) => commands.find((c) => c.id === id))
+      .filter((c): c is Command => Boolean(c));
+  }, [commands]);
+  // One linear selection across tiles then quick rows.
+  const navList = useMemo(
+    () => (isLauncher ? [...places, ...quick] : filtered),
+    [isLauncher, places, quick, filtered]
+  );
+  const TILE_COLS = 4;
+
+  const moveSelection = useCallback(
+    (key: string): boolean => {
+      const max = navList.length - 1;
+      if (max < 0) return false;
+      const tiles = isLauncher ? places.length : 0;
+      const step = (i: number, d: number) => Math.min(Math.max(i + d, 0), max);
+      if (key === "ArrowDown") {
+        setSelectedIndex((i) =>
+          isLauncher && i < tiles
+            ? i + TILE_COLS < tiles
+              ? i + TILE_COLS
+              : Math.min(tiles, max)
+            : step(i, 1)
+        );
+        return true;
+      }
+      if (key === "ArrowUp") {
+        setSelectedIndex((i) =>
+          isLauncher && i >= tiles
+            ? i === tiles
+              ? Math.max(tiles - 1, 0)
+              : i - 1
+            : isLauncher
+              ? Math.max(i - TILE_COLS, 0)
+              : step(i, -1)
+        );
+        return true;
+      }
+      if (isLauncher && (key === "ArrowRight" || key === "ArrowLeft")) {
+        setSelectedIndex((i) => step(i, key === "ArrowRight" ? 1 : -1));
+        return true;
+      }
+      return false;
+    },
+    [navList.length, isLauncher, places.length]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
+      if (moveSelection(e.key)) {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === "Enter" && navList[selectedIndex]) {
         e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && filtered[selectedIndex]) {
-        e.preventDefault();
-        filtered[selectedIndex].action();
+        navList[selectedIndex].action();
         onClose();
       } else if (e.key === "Escape") {
         onClose();
       }
     },
-    [filtered, selectedIndex, onClose]
+    [moveSelection, navList, selectedIndex, onClose]
   );
 
   useEffect(() => {
@@ -569,17 +621,14 @@ export default function CommandPalette({
   useEffect(() => {
     if (!open) return;
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
+      // The input has its own handler — running both double-steps the arrows.
+      if (e.target === inputRef.current) return;
+      if (moveSelection(e.key)) {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-        inputRef.current?.focus();
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
         inputRef.current?.focus();
       } else if (e.key === "Enter") {
         e.preventDefault();
-        const cmd = filtered[selectedIndex];
+        const cmd = navList[selectedIndex];
         if (cmd) {
           cmd.action();
           onClose();
@@ -590,7 +639,7 @@ export default function CommandPalette({
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [open, filtered, selectedIndex, onClose]);
+  }, [open, moveSelection, navList, selectedIndex, onClose]);
 
   // Focus trap: cycle Tab/Shift+Tab within the palette
   useEffect(() => {
@@ -692,6 +741,89 @@ export default function CommandPalette({
 
             {/* Results */}
             <div role="listbox" aria-label="Commands" className="overflow-y-auto py-2 px-2">
+              {isLauncher ? (
+                <>
+                  {/* the rooms, as tiles */}
+                  <div className="grid grid-cols-4 gap-2 px-1 pt-1" role="presentation">
+                    {places.map((cmd) => {
+                      const idx = navList.indexOf(cmd);
+                      const active = idx === selectedIndex;
+                      return (
+                        <button
+                          key={cmd.id}
+                          role="option"
+                          aria-selected={active}
+                          onClick={() => {
+                            cmd.action();
+                            onClose();
+                          }}
+                          onMouseEnter={() => setSelectedIndex(idx)}
+                          className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors ${
+                            active
+                              ? "border-amber/30 bg-amber/[0.08]"
+                              : "border-border bg-paper/[0.02] hover:border-border-active hover:bg-paper/[0.04]"
+                          }`}
+                        >
+                          <CommandGlyph id={cmd.id} active={active} />
+                          <span
+                            className={`text-[11px] leading-tight ${
+                              active ? "text-paper" : "text-text-secondary"
+                            }`}
+                          >
+                            {cmd.label.replace(" — Flip the Sheets", "")}
+                          </span>
+                          {cmd.shortcut ? (
+                            <kbd className="rounded border border-border bg-surface px-1 py-0.5 font-mono text-[9px] text-text-ghost">
+                              {cmd.shortcut}
+                            </kbd>
+                          ) : (
+                            <span className="h-[17px]" aria-hidden />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* frequent verbs — no scrolling, everything else is one keystroke away */}
+                  {quick.length > 0 && (
+                    <>
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost px-2 py-1.5 mt-2">
+                        Quick
+                      </p>
+                      {quick.map((cmd) => {
+                        const idx = navList.indexOf(cmd);
+                        const active = idx === selectedIndex;
+                        return (
+                          <button
+                            key={cmd.id}
+                            role="option"
+                            aria-selected={active}
+                            onClick={() => {
+                              cmd.action();
+                              onClose();
+                            }}
+                            onMouseEnter={() => setSelectedIndex(idx)}
+                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                              active ? "bg-amber/10 text-paper" : "text-text-secondary hover:text-paper"
+                            }`}
+                          >
+                            <CommandGlyph id={cmd.id} active={active} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm">{cmd.label}</span>
+                            </div>
+                            {cmd.shortcut && (
+                              <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-surface text-text-ghost border border-border font-mono shrink-0">
+                                {cmd.shortcut}
+                              </kbd>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
               {Object.entries(grouped).map(([category, cmds]) => (
                 <div key={category}>
                   <p className="text-[10px] uppercase tracking-[0.12em] text-text-ghost px-2 py-1.5 mt-1 first:mt-0">
@@ -738,6 +870,8 @@ export default function CommandPalette({
                 <p className="text-sm text-text-ghost text-center py-8">
                   No commands found
                 </p>
+              )}
+                </>
               )}
             </div>
 
