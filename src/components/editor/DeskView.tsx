@@ -480,6 +480,16 @@ export default function DeskView({
                     </button>
                     <button
                       type="button"
+                      onClick={() => {
+                        setMenuId(null);
+                        leave(c.id, () => onOpenHistory(c.id));
+                      }}
+                      className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper"
+                    >
+                      Versions
+                    </button>
+                    <button
+                      type="button"
                       disabled={i === 0}
                       onClick={() => onMoveChapter(c.id, -1)}
                       className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper disabled:cursor-not-allowed disabled:opacity-35"

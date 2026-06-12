@@ -16,18 +16,25 @@ interface Hint {
 
 const hints: Hint[] = [
   {
-    id: "sidebar",
-    title: "Chapters live here",
+    id: "ticks",
+    title: "Chapters live in the margin",
     message:
-      "Hover the left edge to see your chapters, add new ones, and access all your writing tools.",
-    position: { top: "50%", left: "56px" },
+      "Each tick is a chapter — hover for its name, click to jump. The + below starts a new one.",
+    position: { top: "50%", left: "48px" },
     arrowDirection: "left",
+  },
+  {
+    id: "desk",
+    title: "Step back to the desk",
+    message: "", // filled dynamically for platform detection
+    position: { top: "96px", left: "50%" },
+    arrowDirection: "up",
   },
   {
     id: "formatting",
     title: "Format as you write",
     message:
-      "Select text to format it, or use Insert to add headings, quotes, scene breaks, and illustrations. Typing / still opens the same insert menu.",
+      "Select text to format it. Typing / opens the insert menu — headings, quotes, scene breaks, illustrations.",
     position: { top: "30%", left: "50%" },
     arrowDirection: "up",
   },
@@ -42,7 +49,7 @@ const hints: Hint[] = [
     id: "status",
     title: "Track your progress",
     message:
-      "Your words are auto-saved here. Everything else — characters & world, comments, history, goals — is one ⌘K / Ctrl K away, or on the right edge.",
+      "Your words are auto-saved here. Comments, history, goals and more are one ⌘K / Ctrl K away.",
     position: { bottom: "72px", left: "50%" },
     arrowDirection: "down",
   },
@@ -179,10 +186,13 @@ export default function OnboardingHints({ onComplete, enabled = true }: Onboardi
 
   const hint = hints[currentStep];
   const shortcut = isMac ? "\u2318K" : "Ctrl+K";
+  const deskShortcut = isMac ? "\u2318E" : "Ctrl+E";
   const message =
     hint.id === "commands"
-      ? `Press ${shortcut} for commands: export, search, panels, and view options. Use Insert or / inside the editor for blocks.`
-      : hint.message;
+      ? `Press ${shortcut} for commands: export, search, panels, and view options. Use / inside the editor for blocks.`
+      : hint.id === "desk"
+        ? `Press ${deskShortcut} — or click your story's name here. The desk holds your chapters (flip them for outlines), the story bible, the jacket, and publishing.`
+        : hint.message;
 
   const transforms: string[] = [];
   if (hint.position.top === "50%" && !hint.position.bottom) {
