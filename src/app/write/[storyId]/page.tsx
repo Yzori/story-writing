@@ -3303,13 +3303,9 @@ export default function WriteStoryPage() {
             activeChapterId={project.activeChapterId}
             onClose={() => setShowDesk(false)}
             morphEnabled={barePage}
+            onUpdateOutline={handleUpdateOutline}
             onSelectChapter={(id) => void handleSelectChapter(id)}
             onNewChapter={() => void handleAddChapter()}
-            onOpenOutline={() => {
-              setEditorMode("plan");
-              setRightPanel("none");
-              setShowOutline(true);
-            }}
             onOpenBible={handleToggleBible}
             onOpenDetails={handleOpenMetadata}
             onOpenPublish={handleOpenMonetization}

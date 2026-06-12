@@ -24,6 +24,7 @@ export interface DeskChapter {
   id: string;
   title: string;
   content: string;
+  outline: string;
   wordCount: number;
   status: "draft" | "published";
 }
@@ -36,11 +37,11 @@ interface DeskViewProps {
   onClose: () => void;
   onSelectChapter: (id: string) => void;
   onNewChapter: () => void;
-  onOpenOutline: () => void;
   onOpenBible: () => void;
   onOpenDetails: () => void;
   onOpenPublish: () => void;
   onOpenHistory: (chapterId: string) => void;
+  onUpdateOutline: (chapterId: string, outline: string) => void;
   /** True when the cockpit is rendering the bare-page sheet (write mode). */
   morphEnabled: boolean;
   onRenameChapter: (id: string, title: string) => void;
@@ -96,11 +97,11 @@ export default function DeskView({
   onClose,
   onSelectChapter,
   onNewChapter,
-  onOpenOutline,
   onOpenBible,
   onOpenDetails,
   onOpenPublish,
   onOpenHistory,
+  onUpdateOutline,
   morphEnabled,
   onRenameChapter,
   onMoveChapter,
@@ -110,6 +111,11 @@ export default function DeskView({
   // Which card the page morphs out of / back into.
   const [morphId, setMorphId] = useState<string | null>(activeChapterId);
 
+  // Flip the sheets over: the back of every sheet is its outline.
+  const [flipped, setFlipped] = useState(false);
+  const [outlineDrafts, setOutlineDrafts] = useState<Record<string, string>>({});
+  const outlineTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   // Sheet management state
   const [menuId, setMenuId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -117,13 +123,47 @@ export default function DeskView({
   const [renameDraft, setRenameDraft] = useState("");
   const busyRef = useRef(false);
   busyRef.current = menuId !== null || renamingId !== null;
+  const flippedRef = useRef(false);
+  flippedRef.current = flipped;
 
   const totalWords = chapters.reduce((sum, c) => sum + c.wordCount, 0);
+
+  const commitOutline = useCallback(
+    (id: string, value: string) => {
+      const chapter = chapters.find((c) => c.id === id);
+      if (chapter && value !== chapter.outline) onUpdateOutline(id, value);
+    },
+    [chapters, onUpdateOutline]
+  );
+
+  const scheduleOutlineSave = useCallback(
+    (id: string, value: string) => {
+      setOutlineDrafts((prev) => ({ ...prev, [id]: value }));
+      clearTimeout(outlineTimers.current[id]);
+      outlineTimers.current[id] = setTimeout(() => commitOutline(id, value), 800);
+    },
+    [commitOutline]
+  );
+
+  const flushOutlineSaves = useCallback(() => {
+    for (const [id, timer] of Object.entries(outlineTimers.current)) {
+      clearTimeout(timer);
+      const draft = outlineDrafts[id];
+      if (draft !== undefined) commitOutline(id, draft);
+    }
+    outlineTimers.current = {};
+  }, [outlineDrafts, commitOutline]);
+
+  // Don't lose a half-typed outline to an unmount.
+  const flushRef = useRef(flushOutlineSaves);
+  flushRef.current = flushOutlineSaves;
+  useEffect(() => () => flushRef.current(), []);
 
   const leave = useCallback(
     (cardId: string | null, action?: () => void) => {
       if (leavingRef.current) return;
       leavingRef.current = true;
+      flushRef.current();
       // Hand the layoutId to the chosen card first, so the page grows
       // out of the right sheet; commit the action a frame later.
       setMorphId(cardId ?? activeChapterId);
@@ -152,10 +192,18 @@ export default function DeskView({
           setRenamingId(null);
           return;
         }
+        if (flippedRef.current) {
+          setFlipped(false);
+          return;
+        }
         leave(null);
       }
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "e") {
         e.preventDefault();
+        if (flippedRef.current) {
+          setFlipped(false);
+          return;
+        }
         leave(null);
       }
     };
@@ -164,7 +212,7 @@ export default function DeskView({
   }, [leave]);
 
   const handleCardClick = (id: string) => {
-    if (renamingId === id) return;
+    if (flipped || renamingId === id) return;
     if (menuId) {
       setMenuId(null);
       setConfirmDeleteId(null);
@@ -178,8 +226,14 @@ export default function DeskView({
   };
 
   const handleObject = (id: DeskObjectId) => {
-    const actions: Record<DeskObjectId, () => void> = {
-      outline: onOpenOutline,
+    if (id === "outline") {
+      // The outline isn't a place — it's the manuscript seen from its
+      // skeleton side. Turn the sheets over.
+      if (flipped) flushOutlineSaves();
+      setFlipped((v) => !v);
+      return;
+    }
+    const actions: Record<Exclude<DeskObjectId, "outline">, () => void> = {
       bible: onOpenBible,
       details: onOpenDetails,
       publish: onOpenPublish,
@@ -259,13 +313,27 @@ export default function DeskView({
                   : { opacity: 1, y: 0, transition: { delay: 0.06 + i * 0.03 } }
               }
               whileHover={
-                menuId || renamingId ? undefined : { y: -6, rotate: i % 2 ? 0.6 : -0.6 }
+                flipped || menuId || renamingId
+                  ? undefined
+                  : { y: -6, rotate: i % 2 ? 0.6 : -0.6 }
               }
               className="group/sheet relative"
+              style={{ perspective: 1200 }}
             >
+              <motion.div
+                className="relative h-full"
+                style={{ transformStyle: "preserve-3d" }}
+                animate={{ rotateY: flipped ? 180 : 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 280,
+                  damping: 28,
+                  delay: i * 0.05,
+                }}
+              >
               <div
                 role="button"
-                tabIndex={0}
+                tabIndex={flipped ? -1 : 0}
                 onClick={() => handleCardClick(c.id)}
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && renamingId !== c.id) {
@@ -274,11 +342,13 @@ export default function DeskView({
                   }
                 }}
                 aria-label={`Open ${c.title || "Untitled"}`}
+                aria-hidden={flipped}
                 className={`flex h-full w-44 cursor-pointer flex-col rounded-2xl border bg-ink p-4 text-left shadow-[0_16px_48px_rgba(0,0,0,0.4)] transition-colors ${
                   c.id === activeChapterId
                     ? "border-amber/30"
                     : "border-border hover:border-border-active"
                 }`}
+                style={{ backfaceVisibility: "hidden" }}
               >
                 <span className="mb-2 font-mono text-[10px] text-text-ghost">
                   {String(i + 1).padStart(2, "0")}
@@ -321,7 +391,32 @@ export default function DeskView({
                 </span>
               </div>
 
+              {/* the back of the sheet — its outline */}
+              <div
+                className="absolute inset-0 flex w-44 flex-col rounded-2xl border border-amber/25 bg-ink p-4 shadow-[0_16px_48px_rgba(0,0,0,0.4)]"
+                style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}
+                aria-hidden={!flipped}
+              >
+                <span className="mb-1 font-mono text-[10px] text-text-ghost">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="mb-2 truncate font-display text-[12px] font-semibold text-paper/70">
+                  {c.title || "Untitled"}
+                </span>
+                <textarea
+                  value={outlineDrafts[c.id] ?? c.outline}
+                  onChange={(e) => scheduleOutlineSave(c.id, e.target.value)}
+                  onBlur={() => commitOutline(c.id, outlineDrafts[c.id] ?? c.outline)}
+                  tabIndex={flipped ? 0 : -1}
+                  placeholder={`What happens in this ${unit.singular.toLowerCase()}?`}
+                  aria-label={`Outline of ${c.title || "Untitled"}`}
+                  className="flex-1 resize-none bg-transparent font-reading text-[11px] leading-[1.7] text-text outline-none placeholder:text-text-ghost/60"
+                />
+              </div>
+              </motion.div>
+
               {/* sheet tools — versions + manage */}
+              {!flipped && (
               <div
                 className={`absolute right-2 top-2 flex items-center gap-0.5 transition-opacity ${
                   menuId === c.id ? "opacity-100" : "opacity-0 group-hover/sheet:opacity-100"
@@ -363,6 +458,7 @@ export default function DeskView({
                   </svg>
                 </button>
               </div>
+              )}
 
               {/* manage menu */}
               <AnimatePresence>
@@ -468,33 +564,48 @@ export default function DeskView({
           animate={{ opacity: 1, y: 0, transition: { delay: 0.2 } }}
           className="mt-12 flex flex-wrap items-center justify-center gap-3"
         >
-          {DESK_OBJECTS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => handleObject(o.id)}
-              className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-amber/25 hover:bg-amber/[0.04]"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-text-ghost transition-colors group-hover:text-amber"
-                aria-hidden
+          {DESK_OBJECTS.map((o) => {
+            const isFlip = o.id === "outline";
+            const active = isFlip && flipped;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => handleObject(o.id)}
+                aria-pressed={isFlip ? flipped : undefined}
+                className={`group flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                  active
+                    ? "border-amber/30 bg-amber/[0.06]"
+                    : "border-border bg-surface hover:border-amber/25 hover:bg-amber/[0.04]"
+                }`}
               >
-                <path d={o.icon} />
-              </svg>
-              <span className="text-left">
-                <span className="block text-[13px] text-paper">{o.label}</span>
-                <span className="block text-[11px] text-text-ghost">{o.hint}</span>
-              </span>
-            </button>
-          ))}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-colors ${
+                    active ? "text-amber" : "text-text-ghost group-hover:text-amber"
+                  }`}
+                  aria-hidden
+                >
+                  <path d={o.icon} />
+                </svg>
+                <span className="text-left">
+                  <span className={`block text-[13px] ${active ? "text-amber" : "text-paper"}`}>
+                    {o.label}
+                  </span>
+                  <span className="block text-[11px] text-text-ghost">
+                    {isFlip && flipped ? "turn the sheets back" : o.hint}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </motion.div>
 
         <motion.p
@@ -505,7 +616,7 @@ export default function DeskView({
           <kbd className="mr-1.5 rounded border border-border bg-elevated px-1.5 py-0.5 font-mono text-[10px]">
             Esc
           </kbd>
-          back to the page
+          {flipped ? "turn the sheets back" : "back to the page"}
         </motion.p>
       </div>
     </motion.div>
