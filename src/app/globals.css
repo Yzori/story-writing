@@ -1593,9 +1593,8 @@ body::after {
 .focus-mode .tiptap-editor blockquote,
 .focus-mode .tiptap-editor ul,
 .focus-mode .tiptap-editor ol {
-  opacity: 0.2;
-  filter: blur(0.3px);
-  transition: opacity 0.3s ease, filter 0.3s ease;
+  opacity: 0.22;
+  transition: opacity 0.3s ease;
 }
 
 .focus-mode .tiptap-editor .has-focus,
@@ -1607,7 +1606,6 @@ body::after {
 .focus-mode .tiptap-editor ul:focus-within,
 .focus-mode .tiptap-editor ol:focus-within {
   opacity: 1;
-  filter: blur(0px);
 }
 
 /* Tiptap marks the focused node with .has-focus via the Focus extension */

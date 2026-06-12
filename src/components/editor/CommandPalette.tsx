@@ -13,16 +13,83 @@ interface Command {
   action: () => void;
 }
 
+// Scannable glyphs per command — a path for an SVG stroke icon, or a
+// short text glyph for the typographic ones (B, H1, Aa…).
+const COMMAND_ICONS: Record<string, { path?: string; text?: string }> = {
+  // Go
+  desk: { path: "M3 4h7v8H3z M14 4h7v8h-7z M3 16h18v5H3z" },
+  outline: { path: "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01" },
+  codex: { path: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" },
+  jacket: { path: "M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" },
+  counter: { path: "M12 19V5 M5 12l7-7 7 7" },
+  workshop: { path: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" },
+  "open-calls": { path: "M3 11l18-7-7 18-2-7-9-4z" },
+  // Insert
+  "scene-break": { path: "M5 12h3 M10.5 12h3 M16 12h3" },
+  "heading-1": { text: "H1" },
+  "heading-2": { text: "H2" },
+  blockquote: { path: "M10 15H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6z M20 15h-4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6z" },
+  "bullet-list": { path: "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01" },
+  "ordered-list": { path: "M10 6h11 M10 12h11 M10 18h11 M4 6h1v4 M4 10h2 M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" },
+  illustration: { path: "M3 5h18v14H3z M3 15l5-5 4 4 3-3 6 6" },
+  "full-bleed-illustration": { path: "M2 7h20v10H2z M2 13l5-4 4 3 3-2 6 4" },
+  "chapter-header-art": { path: "M3 4h18v8H3z M3 9l5-3 4 2 3-1 6 3 M5 16h14 M5 20h9" },
+  // Format
+  bold: { text: "B" },
+  italic: { text: "I" },
+  strikethrough: { text: "S" },
+  highlight: { path: "M9 11l-6 6v3h9l3-3 M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" },
+  "align-left": { path: "M4 6h16 M4 12h10 M4 18h14" },
+  "align-center": { path: "M4 6h16 M7 12h10 M5 18h14" },
+  "align-right": { path: "M4 6h16 M10 12h10 M6 18h14" },
+  "align-justify": { path: "M4 6h16 M4 12h16 M4 18h16" },
+  "clear-formatting": { path: "M4 7V5h16v2 M9 5l6 14 M5 19h8 M18 14l4 4 M22 14l-4 4" },
+  // View / Chapter / Tools
+  "focus-mode": { path: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M12 2v3 M12 19v3 M2 12h3 M19 12h3" },
+  search: { path: "M21 21l-4.35-4.35 M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" },
+  "ai-assistant": { path: "M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" },
+  comments: { path: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
+  history: { path: "M12 8v4l2.5 2.5 M3.05 11a9 9 0 1 1 .5 4 M3 16v-5h5" },
+  goals: { path: "M4 21V4 M4 4h12l-2 4 2 4H4" },
+  beats: { path: "M4 6h16 M4 12h10 M4 18h7" },
+  "chapter-settings": { path: "M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M2 14h4 M10 12h4 M18 16h4" },
+  typography: { text: "Aa" },
+  "keyboard-shortcuts": { path: "M2 6h20v12H2z M6 10h.01 M10 10h.01 M14 10h.01 M18 10h.01 M7 14h10" },
+  // Export
+  "export-pdf": { path: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" },
+  "export-epub": { path: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" },
+  "export-docx": { path: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" },
+};
+
+function CommandGlyph({ id, active }: { id: string; active: boolean }) {
+  const icon = COMMAND_ICONS[id];
+  return (
+    <span
+      className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border transition-colors ${
+        active
+          ? "border-amber/30 bg-amber/10 text-amber"
+          : "border-border bg-paper/[0.03] text-text-ghost"
+      }`}
+      aria-hidden
+    >
+      {icon?.text ? (
+        <span className="font-mono text-[10px] font-semibold">{icon.text}</span>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d={icon?.path ?? "M12 5v14 M5 12h14"} />
+        </svg>
+      )}
+    </span>
+  );
+}
+
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   editor: Editor | null;
-  onToggleZen: () => void;
-  isZenMode: boolean;
   onOpenSearch?: () => void;
   onOpenMetadata?: () => void;
   onOpenBible?: () => void;
-  onOpenFrontMatter?: () => void;
   onOpenChapterSettings?: () => void;
   onOpenOutline?: () => void;
   onOpenTypography?: () => void;
@@ -38,18 +105,21 @@ interface CommandPaletteProps {
   onOpenHistory?: () => void;
   onOpenGoals?: () => void;
   onOpenBeats?: () => void;
+  onOpenDesk?: () => void;
+  onToggleFocus?: () => void;
+  isFocusMode?: boolean;
 }
 
 export default function CommandPalette({
   open,
   onClose,
   editor,
-  onToggleZen,
-  isZenMode,
+  onOpenDesk,
+  onToggleFocus,
+  isFocusMode,
   onOpenSearch,
   onOpenMetadata,
   onOpenBible,
-  onOpenFrontMatter,
   onOpenChapterSettings,
   onOpenOutline,
   onOpenTypography,
@@ -83,6 +153,19 @@ export default function CommandPalette({
   );
 
   const commands = useMemo<Command[]>(() => [
+    // Go — the places off the desk
+    ...(onOpenDesk
+      ? [
+          {
+            id: "desk",
+            label: "The Desk",
+            description: "Your chapters, laid out as sheets",
+            shortcut: `${modKey}E`,
+            category: "Go",
+            action: onOpenDesk,
+          },
+        ]
+      : []),
     // Insert
     {
       id: "scene-break",
@@ -215,14 +298,18 @@ export default function CommandPalette({
       action: () => editor?.chain().focus().clearNodes().unsetAllMarks().run(),
     },
     // View
-    {
-      id: "zen-mode",
-      label: isZenMode ? "Exit Zen Mode" : "Zen Mode",
-      description: "Full immersion — just you and the page",
-      shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}Z`,
-      category: "View",
-      action: onToggleZen,
-    },
+    ...(onToggleFocus
+      ? [
+          {
+            id: "focus-mode",
+            label: isFocusMode ? "Leave Focus Mode" : "Focus Mode",
+            description: "Dim everything but the line you're writing",
+            shortcut: `${modKey}.`,
+            category: "View",
+            action: onToggleFocus,
+          },
+        ]
+      : []),
     // Tools
     ...(onOpenSearch
       ? [
@@ -231,7 +318,7 @@ export default function CommandPalette({
             label: "Search & Replace",
             description: "Find and replace across chapters",
             shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}H`,
-            category: "Tools",
+            category: "Chapter",
             action: onOpenSearch,
           },
         ]
@@ -251,10 +338,10 @@ export default function CommandPalette({
     ...(onOpenMetadata
       ? [
           {
-            id: "metadata",
-            label: "Story Details",
-            description: "Cover, synopsis, genres, rating",
-            category: "Tools",
+            id: "jacket",
+            label: "The Jacket",
+            description: "Cover, synopsis, genres, dedication, front matter",
+            category: "Go",
             action: onOpenMetadata,
           },
         ]
@@ -262,10 +349,11 @@ export default function CommandPalette({
     ...(onOpenBible
       ? [
           {
-            id: "bible",
-            label: "Characters & World",
-            description: "Characters, places, and lore — your story bible",
-            category: "Tools",
+            id: "codex",
+            label: "The Codex",
+            description: "Characters, places, lore — the story bible",
+            shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}L`,
+            category: "Go",
             action: onOpenBible,
           },
         ]
@@ -276,7 +364,7 @@ export default function CommandPalette({
             id: "comments",
             label: "Comments",
             description: "Review notes and threads",
-            category: "Tools",
+            category: "Chapter",
             action: onOpenComments,
           },
         ]
@@ -287,7 +375,7 @@ export default function CommandPalette({
             id: "history",
             label: "Version History",
             description: "Snapshots and recovery",
-            category: "Tools",
+            category: "Chapter",
             action: onOpenHistory,
           },
         ]
@@ -309,7 +397,7 @@ export default function CommandPalette({
             id: "beats",
             label: "Chapter Beats",
             description: "Scene notes for the current chapter",
-            category: "Tools",
+            category: "Chapter",
             action: onOpenBeats,
           },
         ]
@@ -317,10 +405,10 @@ export default function CommandPalette({
     ...(onOpenMonetization
       ? [
           {
-            id: "monetization",
-            label: "Monetization",
-            description: "Circle, chapter gating, commissions",
-            category: "Tools",
+            id: "counter",
+            label: "The Counter",
+            description: "Publishing, chapter gates, income",
+            category: "Go",
             action: onOpenMonetization,
           },
         ]
@@ -331,7 +419,7 @@ export default function CommandPalette({
             id: "workshop",
             label: "Workshop",
             description: "Team, suggestions, lore book, agreement",
-            category: "Tools",
+            category: "Go",
             action: onOpenWorkshop,
           },
         ]
@@ -342,19 +430,8 @@ export default function CommandPalette({
             id: "open-calls",
             label: "Open Calls",
             description: "Post roles and recruit collaborators",
-            category: "Tools",
+            category: "Go",
             action: onOpenOpenCalls,
-          },
-        ]
-      : []),
-    ...(onOpenFrontMatter
-      ? [
-          {
-            id: "frontmatter",
-            label: "Front Matter",
-            description: "Epigraph, foreword, table of contents",
-            category: "Tools",
-            action: onOpenFrontMatter,
           },
         ]
       : []),
@@ -363,8 +440,8 @@ export default function CommandPalette({
           {
             id: "chapter-settings",
             label: "Chapter Settings",
-            description: "Status, outline, and author notes",
-            category: "Tools",
+            description: "Author notes and chapter status",
+            category: "Chapter",
             action: onOpenChapterSettings,
           },
         ]
@@ -373,9 +450,9 @@ export default function CommandPalette({
       ? [
           {
             id: "outline",
-            label: "Book Map",
-            description: "Plan the whole book by chapter",
-            category: "View",
+            label: "Outline — Flip the Sheets",
+            description: "Every chapter's outline, on the backs of the sheets",
+            category: "Go",
             action: onOpenOutline,
           },
         ]
@@ -436,7 +513,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, supportsIllustrations, supportsParagraphAlignment, onToggleZen, isZenMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenFrontMatter, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, supportsIllustrations, supportsParagraphAlignment, onOpenDesk, onToggleFocus, isFocusMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query
@@ -638,6 +715,7 @@ export default function CommandPalette({
                             : "text-text-secondary hover:text-paper"
                         }`}
                       >
+                        <CommandGlyph id={cmd.id} active={globalIndex === selectedIndex} />
                         <div className="flex-1 min-w-0">
                           <span className="text-sm">{cmd.label}</span>
                           {cmd.description && (

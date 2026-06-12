@@ -488,6 +488,7 @@ export default function WriteStoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showDesk, setShowDesk] = useState(false);
+  const [deskOpensFlipped, setDeskOpensFlipped] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
   const [showJacket, setShowJacket] = useState(false);
   const [showCounter, setShowCounter] = useState(false);
@@ -877,7 +878,10 @@ export default function WriteStoryPage() {
       // zoom-back animation always plays.
       if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
         e.preventDefault();
-        if (!showDesk) setShowDesk(true);
+        if (!showDesk) {
+          setDeskOpensFlipped(false);
+          setShowDesk(true);
+        }
       }
       // Ctrl+S — manual save
       if (isMod && e.key.toLowerCase() === "s" && !e.shiftKey) {
@@ -2096,7 +2100,7 @@ export default function WriteStoryPage() {
       {!barePage && <EditorModeRail activeMode={editorMode} onChange={handleChangeEditorMode} />}
 
       {/* ── 2a. Bare page: thumb-index ticks + first-night coach ── */}
-      {barePage && (
+      {barePage && !focusMode && (
         <>
           <ChapterTicks
             chapters={project.chapters}
@@ -2631,7 +2635,7 @@ export default function WriteStoryPage() {
 
       {/* ── 5. Floating Status Bar ──────────────────────────── */}
       <AnimatePresence>
-        {showUI && (
+        {showUI && !focusMode && (
           <StatusBar
             chapterWordCount={activeChapter?.wordCount ?? 0}
             totalWords={totalWords}
@@ -2645,7 +2649,7 @@ export default function WriteStoryPage() {
 
       {/* ── Persistent Save Indicator (visible even while typing) ── */}
       <AnimatePresence>
-        {!showUI && saveState !== "idle" && (
+        {(!showUI || focusMode) && saveState !== "idle" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -3339,6 +3343,7 @@ export default function WriteStoryPage() {
             chapters={project.chapters}
             activeChapterId={project.activeChapterId}
             onClose={() => setShowDesk(false)}
+            initialFlipped={deskOpensFlipped}
             morphEnabled={barePage}
             onUpdateOutline={handleUpdateOutline}
             onSelectChapter={(id) => void handleSelectChapter(id)}
@@ -3426,15 +3431,16 @@ export default function WriteStoryPage() {
         open={commandOpen}
         onClose={handleCloseGrimoire}
         editor={editorInstance}
-        onToggleZen={noopCallback}
-        isZenMode={false}
+        onOpenDesk={() => { setCommandOpen(false); setDeskOpensFlipped(false); setShowDesk(true); }}
+        onToggleFocus={() => { setCommandOpen(false); setFocusMode((f) => !f); }}
+        isFocusMode={focusMode}
         onOpenSearch={handleOpenSearch}
         onOpenEditorDesk={() => { setCommandOpen(false); setShowAIAssistant(true); }}
         onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
         onOpenBible={() => { setCommandOpen(false); setShowCodex(true); }}
-        onOpenFrontMatter={() => { setCommandOpen(false); setShowJacket(true); }}
+
         onOpenChapterSettings={handleToggleSettings}
-        onOpenOutline={handleToggleOutlineView}
+        onOpenOutline={() => { setCommandOpen(false); setDeskOpensFlipped(true); setShowDesk(true); }}
         onOpenTypography={handleOpenTypography}
         onOpenMonetization={() => { setCommandOpen(false); setShowCounter(true); }}
         onOpenWorkshop={handleOpenWorkshop}
