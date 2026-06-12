@@ -1741,7 +1741,30 @@ export default function WriteStoryPage() {
     [project?.activeChapterId, storyId]
   );
 
+  // Strip a thread's comment marks from the text — one transaction, no
+  // caret theft. Used on resolve and delete alike: a resolved note has
+  // no business still highlighting the manuscript.
+  const removeCommentMarks = useCallback(
+    (threadId: string) => {
+      if (!editorInstance) return;
+      const { state } = editorInstance;
+      const { tr } = state;
+      let changed = false;
+      state.doc.descendants((node, pos) => {
+        node.marks.forEach((mark) => {
+          if (mark.type.name === "comment" && mark.attrs.threadId === threadId) {
+            tr.removeMark(pos, pos + node.nodeSize, mark);
+            changed = true;
+          }
+        });
+      });
+      if (changed) editorInstance.view.dispatch(tr);
+    },
+    [editorInstance]
+  );
+
   const handleResolveThread = useCallback(async (threadId: string) => {
+    removeCommentMarks(threadId);
     const chapterId = project?.activeChapterId;
     if (chapterId) {
       try {
@@ -1765,7 +1788,7 @@ export default function WriteStoryPage() {
     setCommentThreads((prev) =>
       prev.map((t) => (t.id === threadId ? { ...t, resolved: true } : t))
     );
-  }, [project?.activeChapterId, storyId]);
+  }, [project?.activeChapterId, storyId, removeCommentMarks]);
 
   const handleDeleteThread = useCallback(
     async (threadId: string) => {
@@ -1792,27 +1815,10 @@ export default function WriteStoryPage() {
       } else {
         setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
       }
-      if (editorInstance) {
-        const { doc } = editorInstance.state;
-        doc.descendants((node, pos) => {
-          node.marks.forEach((mark) => {
-            if (
-              mark.type.name === "comment" &&
-              mark.attrs.threadId === threadId
-            ) {
-              editorInstance
-                .chain()
-                .focus()
-                .setTextSelection({ from: pos, to: pos + node.nodeSize })
-                .unsetComment()
-                .run();
-            }
-          });
-        });
-      }
+      removeCommentMarks(threadId);
       if (activeThreadId === threadId) setActiveThreadId(null);
     },
-    [editorInstance, activeThreadId, project?.activeChapterId, storyId]
+    [removeCommentMarks, activeThreadId, project?.activeChapterId, storyId]
   );
 
   // ── Memoized computed values ─────────────────────────────
