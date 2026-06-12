@@ -234,8 +234,8 @@ function IdentityRibbon({
     : "No readers yet";
 
   const dropsLabel = inkDropsReceived > 0
-    ? `${formatNumber(inkDropsReceived)} ink drops gifted`
-    : "Awaiting first drop";
+    ? `${formatNumber(inkDropsReceived)} drops of ink gifted`
+    : "An empty well, for now";
 
   return (
     <div className="mt-4 flex flex-wrap items-stretch gap-2">

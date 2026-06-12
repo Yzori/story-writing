@@ -3,6 +3,11 @@ import Link from "next/link";
 // Quick hop between dashboard mockups so they can be compared without bouncing
 // through the index. Throwaway support for the design exploration.
 const CONCEPTS = [
+  { key: "spillover", href: "/dashboard-mockup/spillover", label: "Spillover" },
+  { key: "worlds", href: "/dashboard-mockup/worlds", label: "Two Worlds" },
+  { key: "hearth", href: "/dashboard-mockup/hearth", label: "Hearth" },
+  { key: "treehouse", href: "/dashboard-mockup/treehouse", label: "Treehouse" },
+  { key: "bookshop", href: "/dashboard-mockup/bookshop", label: "Bookshop" },
   { key: "banner", href: "/dashboard-mockup/banner", label: "Banner" },
   { key: "canon", href: "/dashboard-mockup/canon", label: "Work-hero" },
   { key: "brief", href: "/dashboard-mockup/brief", label: "Brief" },

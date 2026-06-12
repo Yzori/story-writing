@@ -1,0 +1,14 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+await page.goto("http://localhost:3000/landing-experience", { waitUntil: "networkidle" });
+await page.mouse.move(1080, 450);
+await page.waitForTimeout(400);
+await page.mouse.click(1080, 450);
+await page.waitForTimeout(3600);
+await page.screenshot({ path: "/tmp/art-reader-full.png" });
+const spot = page.locator('button[aria-label^="The Great Library"]');
+await spot.hover();
+await page.waitForTimeout(500);
+await page.screenshot({ path: "/tmp/art-reader-hotspot.png" });
+await browser.close();

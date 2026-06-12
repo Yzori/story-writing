@@ -48,6 +48,7 @@ const APP_URL = process.env.NEXTAUTH_URL || "https://quiloria.app";
 const WRAPPER = (body: string) => `
 <div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#D4C4A8;background:#1A1510;padding:32px 24px;border-radius:12px;">
   <div style="text-align:center;margin-bottom:24px;">
+    <img src="${APP_URL}/email-logo.png" width="40" height="40" alt="" style="display:block;margin:0 auto 6px;" />
     <span style="font-size:20px;font-weight:700;color:#C8963C;letter-spacing:0.05em;">Quiloria</span>
   </div>
   ${body}

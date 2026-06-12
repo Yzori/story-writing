@@ -224,9 +224,9 @@ export default function DonationButton({
                   <p className="text-text-secondary text-[13px]">
                     You sent{" "}
                     <span className="text-amber font-semibold">
-                      {sentAmount} Ink Drops
+                      {sentAmount} drops of ink
                     </span>{" "}
-                    to {authorName}
+                    to {authorName}&apos;s well
                   </p>
                   <p className="text-text-ghost text-[11px] mt-3">
                     Closing automatically...
@@ -249,14 +249,14 @@ export default function DonationButton({
                         <>
                           Send{" "}
                           <span className="text-amber font-semibold">
-                            {effectiveAmount} Ink Drops
+                            {effectiveAmount} drops of ink
                           </span>{" "}
                           to {authorName} for{" "}
                           <span className="text-paper">{storyTitle}</span>
                         </>
                       ) : (
                         <>
-                          Send Ink Drops to {authorName} for{" "}
+                          Refill {authorName}&apos;s well for{" "}
                           <span className="text-paper">{storyTitle}</span>
                         </>
                       )}
@@ -275,7 +275,7 @@ export default function DonationButton({
                       <path d="M8 2C8 2 4 7 4 10a4 4 0 0 0 8 0c0-3-4-8-4-8z" />
                     </svg>
                     <span className="text-[12px] text-text-secondary">
-                      Your balance:
+                      In your well:
                     </span>
                     {balanceLoading ? (
                       <div className="w-3 h-3 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
@@ -303,13 +303,13 @@ export default function DonationButton({
                       </svg>
                       <div>
                         <p className="text-rose text-[12px] font-medium">
-                          Not enough Ink Drops
+                          Not enough ink in your well
                         </p>
                         <Link
                           href="/settings/ink-drops"
                           className="text-amber text-[12px] hover:underline"
                         >
-                          Get Ink Drops
+                          Refill your inkwell
                         </Link>
                       </div>
                     </div>
@@ -350,7 +350,7 @@ export default function DonationButton({
                               Sending...
                             </span>
                           ) : (
-                            `Send ${effectiveAmount} Ink Drops`
+                            `Send ${effectiveAmount} drops of ink`
                           )}
                         </button>
                         <button
@@ -406,7 +406,7 @@ export default function DonationButton({
                             className="w-full bg-ink border border-border rounded-xl px-4 py-2.5 text-text text-[13px] placeholder:text-text-ghost focus:outline-none focus:border-amber/30 transition-colors pr-20"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] text-text-ghost">
-                            Ink Drops
+                            drops of ink
                           </span>
                         </div>
                       </div>
@@ -440,7 +440,7 @@ export default function DonationButton({
                             href="/settings/ink-drops"
                             className="px-6 py-2.5 bg-amber/15 border border-amber/25 text-amber font-semibold text-[13px] rounded-full hover:bg-amber/25 transition-all duration-200"
                           >
-                            Get Ink Drops
+                            Refill your inkwell
                           </Link>
                         ) : (
                           <button

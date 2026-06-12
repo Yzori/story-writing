@@ -37,7 +37,7 @@ export default function TipEntry({
           <span className="font-medium">{fromDisplayName || "A spectator"}</span>
           {" sent "}
           <span className="font-bold tabular-nums">{amount}</span>
-          {" Ink Drops"}
+          {" drops of ink"}
         </p>
         {message && (
           <p className="text-[11px] text-text-secondary italic mt-0.5 truncate">

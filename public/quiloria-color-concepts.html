@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiloria — Color System Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0A0908;
+    color: #CBC5B7;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding: 64px 32px 120px;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  h1 { font-family: 'Fraunces', serif; font-size: 44px; font-weight: 600; color: #F4EFE4; letter-spacing: -0.01em; }
+  .lede { max-width: 720px; margin-top: 16px; font-size: 15px; line-height: 1.7; color: #9B9482; }
+  .lede strong { color: #E0A93E; font-weight: 600; }
+
+  .concept { margin-top: 96px; }
+  .concept-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .concept-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #E0A93E; letter-spacing: 0.2em; }
+  .concept h2 { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 600; color: #F4EFE4; }
+  .badge { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; background: rgba(224,169,62,0.15); color: #E0A93E; border: 1px solid rgba(224,169,62,0.3); }
+  .concept-story { max-width: 760px; margin-top: 12px; font-size: 14px; line-height: 1.7; color: #9B9482; }
+  .concept-story em { color: #CBC5B7; font-style: normal; font-weight: 600; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px; }
+  @media (max-width: 1000px) { .panels { grid-template-columns: 1fr; } }
+
+  /* ===== Mockup panel — all visuals driven by per-panel CSS variables ===== */
+  .panel {
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+  .panel-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 10px 20px; color: var(--t-sec);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg2);
+    display: flex; justify-content: space-between;
+  }
+  .mock { padding: 0 0 24px; }
+
+  .m-nav {
+    display: flex; align-items: center; gap: 18px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--nav, var(--bg));
+  }
+  .m-logo { display: flex; align-items: center; gap: 8px; font-family: 'Fraunces', serif; font-weight: 600; font-size: 16px; color: var(--t-hi); }
+  .m-logo .ring { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--gold); position: relative; }
+  .m-logo .ring::after { content:''; position: absolute; left: 7px; top: -4px; width: 2px; height: 14px; background: var(--gold); transform: rotate(28deg); border-radius: 2px; }
+  .m-links { display: flex; gap: 16px; font-size: 12.5px; font-weight: 500; color: var(--t-sec); margin-left: 8px; }
+  .m-links .active { color: var(--gold-text); }
+  .m-nav .cta { margin-left: auto; }
+
+  .btn { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 8px 18px; border-radius: 99px; letter-spacing: 0.01em; }
+  .btn-gold { background: var(--gold-fill); color: var(--on-gold); box-shadow: var(--gold-shadow, none); }
+  .btn-ghost { color: var(--t-hi); border: 1px solid var(--line-strong); background: var(--btn-ghost-bg, transparent); }
+  .btn-dark { background: var(--btn-dark-bg, var(--t-hi)); color: var(--btn-dark-fg, var(--bg)); }
+
+  .m-hero { padding: 36px 24px 28px; }
+  .m-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold-text); }
+  .m-hero h3 { font-family: 'Fraunces', serif; font-size: 30px; line-height: 1.15; font-weight: 600; color: var(--t-hi); margin-top: 12px; max-width: 420px; }
+  .m-hero h3 .gild { color: var(--gold-text); }
+  .m-hero p { margin-top: 12px; font-size: 13.5px; line-height: 1.65; color: var(--t-body); max-width: 400px; }
+  .m-hero .row { display: flex; gap: 12px; margin-top: 20px; align-items: center; }
+  .m-hint { font-size: 11.5px; color: var(--t-sec); }
+
+  .m-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; padding: 4px 24px 0; }
+  .card {
+    border-radius: 14px; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line);
+    box-shadow: var(--card-shadow, none);
+  }
+  .cover { height: 76px; position: relative; }
+  .cover-1 { background: linear-gradient(135deg, #2b1d3a 0%, #6b3e6e 55%, #c8845a 100%); }
+  .cover-2 { background: linear-gradient(135deg, #0d2b27 0%, #1d5c50 60%, #7fc796 100%); }
+  .cover-3 { background: linear-gradient(135deg, #3a1d1d 0%, #8a4a2e 55%, #e0a93e 100%); }
+  .card-body { padding: 12px 14px 14px; }
+  .card h4 { font-family: 'Fraunces', serif; font-size: 13.5px; font-weight: 600; color: var(--t-hi); }
+  .card .meta { margin-top: 5px; font-size: 10.5px; color: var(--t-sec); }
+  .pill { display: inline-block; margin-top: 9px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; background: var(--pill-bg); color: var(--gold-text); }
+
+  .m-inks { display: flex; gap: 8px; padding: 18px 24px 0; flex-wrap: wrap; }
+  .ink { font-size: 10.5px; font-weight: 600; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); }
+
+  .m-ladder { padding: 18px 24px 0; font-size: 12.5px; line-height: 2; }
+  .m-ladder .l1 { color: var(--t-hi); font-weight: 600; }
+  .m-ladder .l2 { color: var(--t-body); }
+  .m-ladder .l3 { color: var(--t-sec); }
+  .m-ladder .cr { font-family: 'IBM Plex Mono', monospace; font-size: 10px; opacity: 0.7; margin-left: 8px; }
+
+  .swatches { display: flex; padding: 20px 24px 0; gap: 0; }
+  .sw { flex: 1; height: 44px; position: relative; }
+  .sw:first-child { border-radius: 8px 0 0 8px; } .sw:last-child { border-radius: 0 8px 8px 0; }
+  .sw span { position: absolute; bottom: -18px; left: 0; font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; color: var(--t-sec); white-space: nowrap; }
+  .swatches { margin-bottom: 24px; }
+
+  .verdict { margin-top: 28px; padding: 20px 24px; border: 1px solid rgba(255,224,176,0.12); border-radius: 14px; background: #11100E; font-size: 13.5px; line-height: 1.7; color: #CBC5B7; max-width: 980px; }
+  .verdict b { color: #E0A93E; }
+
+  .footer-note { margin-top: 96px; padding-top: 32px; border-top: 1px solid rgba(255,224,176,0.1); max-width: 760px; font-size: 14px; line-height: 1.8; color: #9B9482; }
+  .footer-note h2 { font-family: 'Fraunces', serif; font-size: 24px; color: #F4EFE4; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Quiloria — Color Concepts</h1>
+  <p class="lede">Three full directions, each shown as the same app screen in dark and light. The brief: keep the
+  <strong>gold-on-black</strong> the homepage already nails, and make light mode <strong>Apple-slick</strong> — porcelain
+  and ink, not beige. Every text value shown passes WCAG AA on its background (ratios annotated).</p>
+
+  <!-- ════════════════════════ CONCEPT A ════════════════════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="concept-num">CONCEPT 01</span>
+      <h2>Gilded Obsidian</h2>
+      <span class="badge">Recommended</span>
+    </div>
+    <p class="concept-story">The homepage black, promoted to the whole app. Surfaces are <em>true near-black</em> —
+    a whisper of warmth (you feel it, you can't name it), never brown. Gold is jewelry: CTAs, the logo, active states,
+    little else. Light mode is <em>porcelain</em> — Apple's white-on-soft-gray layering with hairline borders and
+    feather shadows, warmed by maybe 2% so it doesn't go clinical. Accent inks stay saturated and jewel-like.</p>
+
+    <div class="panels">
+      <!-- A · DARK -->
+      <div class="panel" style="
+        --bg:#0A0908; --bg2:#11100E; --card:#171511; --nav:#0A0908;
+        --line:rgba(255,224,176,0.09); --line-strong:rgba(255,224,176,0.2);
+        --t-hi:#F4EFE4; --t-body:#CBC5B7; --t-sec:#9B9482;
+        --gold:#E0A93E; --gold-text:#E0A93E; --gold-fill:#E0A93E; --on-gold:#16120A;
+        --gold-shadow:0 0 24px rgba(224,169,62,0.18);
+        --pill-bg:rgba(224,169,62,0.13);">
+        <div class="panel-label"><span>OBSIDIAN — DARK</span><span>page #0A0908</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Tonight in the library</div>
+            <h3>Stories written <span class="gild">together</span>, by lamplight</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#E0708A">● Ruby 6.5</span>
+            <span class="ink" style="color:#7FC796">● Emerald 10.0</span>
+            <span class="ink" style="color:#B49CF0">● Amethyst 8.5</span>
+            <span class="ink" style="color:#D89A60">● Copper 7.0</span>
+            <span class="ink" style="color:#6FC2BD">● Teal 9.6</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — warm white #F4EFE4 <span class="cr">17.4:1</span></div>
+            <div class="l2">Body copy — parchment grey #CBC5B7 <span class="cr">11.6:1</span></div>
+            <div class="l3">Secondary — #9B9482 <span class="cr">6.6:1</span></div>
+            <div style="color:#E0A93E">Gold as text — #E0A93E <span class="cr">9.4:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#0A0908"><span>void 0A0908</span></div>
+            <div class="sw" style="background:#11100E"><span>ink 11100E</span></div>
+            <div class="sw" style="background:#171511"><span>surface 171511</span></div>
+            <div class="sw" style="background:#201D18"><span>elevated 201D18</span></div>
+            <div class="sw" style="background:#2A2620"><span>subtle 2A2620</span></div>
+            <div class="sw" style="background:#E0A93E"><span>gold E0A93E</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- A · LIGHT -->
+      <div class="panel" style="
+        --bg:#F7F7F5; --bg2:#EFEEEA; --card:#FFFFFF; --nav:rgba(255,255,255,0.8);
+        --line:rgba(0,0,0,0.07); --line-strong:rgba(0,0,0,0.16);
+        --t-hi:#1C1B18; --t-body:#45423C; --t-sec:#6E6A61;
+        --gold:#C8901E; --gold-text:#8A6512; --gold-fill:#E8B23F; --on-gold:#1C1B18;
+        --card-shadow:0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(20,18,12,0.06);
+        --gold-shadow:0 1px 2px rgba(0,0,0,0.08), 0 6px 16px rgba(200,144,30,0.25);
+        --pill-bg:rgba(200,144,30,0.12);">
+        <div class="panel-label"><span>PORCELAIN — LIGHT</span><span>page #F7F7F5 · cards #FFFFFF</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Today in the library</div>
+            <h3>Stories written <span class="gild">together</span>, in morning light</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#B0455B">● Ruby</span>
+            <span class="ink" style="color:#2F7A4D">● Emerald</span>
+            <span class="ink" style="color:#6C55A3">● Amethyst</span>
+            <span class="ink" style="color:#9A5A28">● Copper</span>
+            <span class="ink" style="color:#2E7479">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — ink #1C1B18 <span class="cr">16.1:1</span></div>
+            <div class="l2">Body copy — #45423C <span class="cr">9.3:1</span></div>
+            <div class="l3">Secondary — #6E6A61 <span class="cr">5.0:1</span></div>
+            <div style="color:#8A6512">Gold as text — bronze #8A6512 <span class="cr">5.0:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#F7F7F5;border:1px solid rgba(0,0,0,0.06)"><span>page F7F7F5</span></div>
+            <div class="sw" style="background:#EFEEEA"><span>recessed EFEEEA</span></div>
+            <div class="sw" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.06)"><span>card FFFFFF</span></div>
+            <div class="sw" style="background:#E9E7E2"><span>subtle E9E7E2</span></div>
+            <div class="sw" style="background:#E8B23F"><span>gold-fill E8B23F</span></div>
+            <div class="sw" style="background:#8A6512"><span>gold-text 8A6512</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Why it's the pick:</b> dark mode finally matches the homepage you love — same black, same gold —
+    instead of the browner Lamplight sitting one room away from it. Light mode stops being "old paper" and becomes a bright,
+    modern reading surface: white cards floating on warm porcelain, exactly the Apple layering trick (white on #F5F5F7),
+    with gold the only loud thing in the room. The literary feel survives in the type, the gold and the jewel inks — not in beige.</div>
+  </section>
+
+  <!-- ════════════════════════ CONCEPT B ════════════════════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="concept-num">CONCEPT 02</span>
+      <h2>The Gallery</h2>
+    </div>
+    <p class="concept-story">Full Apple. Pure neutral greys — no warmth in any surface — and gold as the <em>only</em>
+    color in the chrome. Dark is true black with graphite layers (#000 → #1C1C1E territory); light is white on #F5F5F7.
+    Primary buttons in light mode are <em>black</em>, not gold — gold is reserved for brand moments, highlights and earnings.
+    Maximum slick, minimum atmosphere.</p>
+
+    <div class="panels">
+      <!-- B · DARK -->
+      <div class="panel" style="
+        --bg:#000000; --bg2:#0E0E0F; --card:#161618; --nav:#000000;
+        --line:rgba(255,255,255,0.10); --line-strong:rgba(255,255,255,0.22);
+        --t-hi:#F5F5F7; --t-body:#C7C7CC; --t-sec:#98989D;
+        --gold:#E0A93E; --gold-text:#E0A93E; --gold-fill:#E0A93E; --on-gold:#0A0908;
+        --gold-shadow:0 0 24px rgba(224,169,62,0.18);
+        --pill-bg:rgba(224,169,62,0.13);">
+        <div class="panel-label"><span>GALLERY — DARK</span><span>page #000000</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Tonight in the library</div>
+            <h3>Stories written <span class="gild">together</span>, after dark</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#FF6B81">● Ruby</span>
+            <span class="ink" style="color:#5BD78E">● Emerald</span>
+            <span class="ink" style="color:#B49CF0">● Amethyst</span>
+            <span class="ink" style="color:#E0A93E">● Gold</span>
+            <span class="ink" style="color:#64D2CC">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — #F5F5F7 <span class="cr">19.3:1</span></div>
+            <div class="l2">Body copy — #C7C7CC <span class="cr">12.4:1</span></div>
+            <div class="l3">Secondary — #98989D <span class="cr">7.3:1</span></div>
+            <div style="color:#E0A93E">Gold as text — #E0A93E <span class="cr">9.9:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#000000"><span>void 000000</span></div>
+            <div class="sw" style="background:#0E0E0F"><span>ink 0E0E0F</span></div>
+            <div class="sw" style="background:#161618"><span>surface 161618</span></div>
+            <div class="sw" style="background:#1F1F21"><span>elevated 1F1F21</span></div>
+            <div class="sw" style="background:#2A2A2D"><span>subtle 2A2A2D</span></div>
+            <div class="sw" style="background:#E0A93E"><span>gold E0A93E</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B · LIGHT -->
+      <div class="panel" style="
+        --bg:#FFFFFF; --bg2:#F5F5F7; --card:#FFFFFF; --nav:rgba(255,255,255,0.85);
+        --line:rgba(0,0,0,0.08); --line-strong:rgba(0,0,0,0.18);
+        --t-hi:#1D1D1F; --t-body:#48484C; --t-sec:#6E6E73;
+        --gold:#C8901E; --gold-text:#8A6512; --gold-fill:#1D1D1F; --on-gold:#FFFFFF;
+        --btn-dark-bg:#1D1D1F; --btn-dark-fg:#FFFFFF;
+        --card-shadow:0 1px 2px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.06);
+        --gold-shadow:0 1px 3px rgba(0,0,0,0.18);
+        --pill-bg:rgba(138,101,18,0.10);">
+        <div class="panel-label"><span>GALLERY — LIGHT</span><span>page #FFFFFF · sections #F5F5F7</span></div>
+        <div class="mock" style="background:#F5F5F7">
+          <div class="m-nav" style="background:#FFFFFF">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Today in the library</div>
+            <h3>Stories written <span class="gild">together</span>, in gallery light</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#C13A55">● Ruby</span>
+            <span class="ink" style="color:#1F7A45">● Emerald</span>
+            <span class="ink" style="color:#6C55A3">● Amethyst</span>
+            <span class="ink" style="color:#8A6512">● Gold</span>
+            <span class="ink" style="color:#1F7176">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — #1D1D1F <span class="cr">16.8:1</span></div>
+            <div class="l2">Body copy — #48484C <span class="cr">8.8:1</span></div>
+            <div class="l3">Secondary — #6E6E73 <span class="cr">4.7:1</span></div>
+            <div style="color:#8A6512">Gold as text — bronze #8A6512 <span class="cr">5.3:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.07)"><span>page FFFFFF</span></div>
+            <div class="sw" style="background:#F5F5F7"><span>section F5F5F7</span></div>
+            <div class="sw" style="background:#E8E8ED"><span>subtle E8E8ED</span></div>
+            <div class="sw" style="background:#1D1D1F"><span>ink 1D1D1F</span></div>
+            <div class="sw" style="background:#E8B23F"><span>gold E8B23F</span></div>
+            <div class="sw" style="background:#8A6512"><span>bronze 8A6512</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Honest take:</b> this is the slickest and the safest — it would photograph beautifully on
+    Product Hunt. But it's also the most anonymous: pure-neutral grey + black buttons is the default costume of every
+    2026 SaaS. The brief that killed the old blue dark mode ("generic dark mode under a literary brand") applies here too.
+    Pick it only if "Apple-slick" matters more to you than "magical library." The light mode's black-button trick, though,
+    is worth stealing for Concept 01.</div>
+  </section>
+
+  <!-- ════════════════════════ CONCEPT C ════════════════════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="concept-num">CONCEPT 03</span>
+      <h2>Bookbinder's Green</h2>
+    </div>
+    <p class="concept-story">The wildcard. Clothbound-classic: <em>deep green-black velvet</em> with gold leaf — the
+    palette of old Penguin hardbacks, reading lamps, and private libraries. Dark surfaces carry a forest tint instead of
+    brown; gold pops even harder against green-black than against neutral black. Light mode is ivory-white with green
+    ink as a second voice. A colored dark, not a brown gloom — and nobody else's app looks like this.</p>
+
+    <div class="panels">
+      <!-- C · DARK -->
+      <div class="panel" style="
+        --bg:#0A0F0C; --bg2:#0F1511; --card:#141C16; --nav:#0A0F0C;
+        --line:rgba(227,176,75,0.10); --line-strong:rgba(227,176,75,0.22);
+        --t-hi:#F0EFE6; --t-body:#C2C6BB; --t-sec:#8F968B;
+        --gold:#E3B04B; --gold-text:#E3B04B; --gold-fill:#E3B04B; --on-gold:#0F1107;
+        --gold-shadow:0 0 24px rgba(227,176,75,0.18);
+        --pill-bg:rgba(227,176,75,0.13);">
+        <div class="panel-label"><span>VELVET — DARK</span><span>page #0A0F0C (green-black)</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Tonight in the library</div>
+            <h3>Stories bound in <span class="gild">gold leaf</span> and green cloth</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#E0708A">● Ruby</span>
+            <span class="ink" style="color:#8FD0A4">● Emerald 10.8</span>
+            <span class="ink" style="color:#B49CF0">● Amethyst</span>
+            <span class="ink" style="color:#D89A60">● Copper</span>
+            <span class="ink" style="color:#6FC2BD">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — #F0EFE6 <span class="cr">16.8:1</span></div>
+            <div class="l2">Body copy — #C2C6BB <span class="cr">11.1:1</span></div>
+            <div class="l3">Secondary — #8F968B <span class="cr">6.4:1</span></div>
+            <div style="color:#E3B04B">Gold as text — #E3B04B <span class="cr">9.7:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#0A0F0C"><span>void 0A0F0C</span></div>
+            <div class="sw" style="background:#0F1511"><span>ink 0F1511</span></div>
+            <div class="sw" style="background:#141C16"><span>surface 141C16</span></div>
+            <div class="sw" style="background:#1C261E"><span>elevated 1C261E</span></div>
+            <div class="sw" style="background:#25312A"><span>subtle 25312A</span></div>
+            <div class="sw" style="background:#E3B04B"><span>gold E3B04B</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C · LIGHT -->
+      <div class="panel" style="
+        --bg:#FBFAF6; --bg2:#F2F1EA; --card:#FFFFFF; --nav:rgba(255,255,255,0.8);
+        --line:rgba(32,42,34,0.10); --line-strong:rgba(32,42,34,0.22);
+        --t-hi:#20251F; --t-body:#474F44; --t-sec:#6C7367;
+        --gold:#C8901E; --gold-text:#8C660E; --gold-fill:#E8B23F; --on-gold:#20251F;
+        --btn-ghost-bg:rgba(42,68,53,0.05);
+        --card-shadow:0 1px 2px rgba(32,42,34,0.05), 0 8px 24px rgba(32,42,34,0.07);
+        --gold-shadow:0 1px 2px rgba(0,0,0,0.08), 0 6px 16px rgba(200,144,30,0.25);
+        --pill-bg:rgba(42,68,53,0.08);">
+        <div class="panel-label"><span>IVORY & GREEN — LIGHT</span><span>page #FBFAF6 · cards #FFFFFF</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active" style="color:#2A4435">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow" style="color:#2A4435">Today in the library</div>
+            <h3>Stories bound in <span class="gild">gold leaf</span> and ivory</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill" style="color:#2A4435">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill" style="color:#2A4435">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill" style="color:#2A4435">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#B0455B">● Ruby</span>
+            <span class="ink" style="color:#2A4435">● Green ink 10.2</span>
+            <span class="ink" style="color:#6C55A3">● Amethyst</span>
+            <span class="ink" style="color:#8C660E">● Gold 5.0</span>
+            <span class="ink" style="color:#2E7479">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — #20251F <span class="cr">14.9:1</span></div>
+            <div class="l2">Body copy — #474F44 <span class="cr">8.3:1</span></div>
+            <div class="l3">Secondary — #6C7367 <span class="cr">4.9:1</span></div>
+            <div style="color:#8C660E">Gold as text — #8C660E <span class="cr">5.0:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#FBFAF6;border:1px solid rgba(0,0,0,0.06)"><span>page FBFAF6</span></div>
+            <div class="sw" style="background:#F2F1EA"><span>recessed F2F1EA</span></div>
+            <div class="sw" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.06)"><span>card FFFFFF</span></div>
+            <div class="sw" style="background:#2A4435"><span>green ink 2A4435</span></div>
+            <div class="sw" style="background:#E8B23F"><span>gold E8B23F</span></div>
+            <div class="sw" style="background:#8C660E"><span>gold-text 8C660E</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Honest take:</b> the most distinctive and the most "private library at midnight" — gold
+    genuinely glows harder on green-black than on neutral black, and it's a colored dark rather than a brown one.
+    The risk: green is a flavor you have to commit to everywhere (empty states, illustrations, marketing), and the
+    homepage film was graded for pure black — it would need a regrade or the app and homepage drift apart again.</div>
+  </section>
+
+  <!-- ════════════════════════ CONCEPT D ════════════════════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="concept-num">CONCEPT 04</span>
+      <h2>Midnight Scriptorium</h2>
+      <span class="badge" style="background:rgba(127,163,240,0.12);color:#7FA3F0;border-color:rgba(127,163,240,0.3)">Claude's pick</span>
+    </div>
+    <p class="concept-story">The unconstrained answer. Quiloria's whole vocabulary is <em>ink</em> — Ink Drops, the
+    Ink Dock, the quill — and real writing ink is iron-gall <em>blue-black</em>, not brown. This is the illuminated
+    manuscript palette: <em>lapis and gold leaf on vellum</em>. Dark mode is a true midnight — deep ink-blue-black that
+    gets slightly more chromatic as surfaces rise — with warm vellum text and candle gold. Gold sits opposite blue on
+    the wheel, so it <em>glows harder here than on any neutral or brown black</em>. Light mode is the page itself:
+    warm white vellum, iron-gall ink text, gilt details. Warm light, cool shadow — the physics of reading by lamplight.</p>
+
+    <div class="panels">
+      <!-- D · DARK -->
+      <div class="panel" style="
+        --bg:#090B12; --bg2:#0E1220; --card:#131A2D; --nav:#090B12;
+        --line:rgba(226,172,74,0.10); --line-strong:rgba(226,172,74,0.22);
+        --t-hi:#F2EDDD; --t-body:#C6C3B4; --t-sec:#94948A;
+        --gold:#E2AC4A; --gold-text:#E2AC4A; --gold-fill:#E2AC4A; --on-gold:#13100A;
+        --gold-shadow:0 0 28px rgba(226,172,74,0.22);
+        --pill-bg:rgba(226,172,74,0.13);">
+        <div class="panel-label"><span>MIDNIGHT — DARK</span><span>page #090B12 (ink-blue-black)</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Tonight in the scriptorium</div>
+            <h3>Stories written in <span class="gild">gold</span>, on midnight</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#E0708A">● Ruby 6.4</span>
+            <span class="ink" style="color:#7FC796">● Emerald 9.8</span>
+            <span class="ink" style="color:#7FA3F0">● Lapis 7.9</span>
+            <span class="ink" style="color:#D89A60">● Copper</span>
+            <span class="ink" style="color:#6FC2BD">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — vellum #F2EDDD <span class="cr">16.8:1</span></div>
+            <div class="l2">Body copy — #C6C3B4 <span class="cr">11.1:1</span></div>
+            <div class="l3">Secondary — #94948A <span class="cr">6.4:1</span></div>
+            <div style="color:#E2AC4A">Gold as text — #E2AC4A <span class="cr">9.6:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#090B12"><span>void 090B12</span></div>
+            <div class="sw" style="background:#0E1220"><span>ink 0E1220</span></div>
+            <div class="sw" style="background:#131A2D"><span>surface 131A2D</span></div>
+            <div class="sw" style="background:#19223B"><span>elevated 19223B</span></div>
+            <div class="sw" style="background:#202C4A"><span>subtle 202C4A</span></div>
+            <div class="sw" style="background:#E2AC4A"><span>gold E2AC4A</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- D · LIGHT -->
+      <div class="panel" style="
+        --bg:#FBF9F4; --bg2:#F1EFE8; --card:#FFFFFF; --nav:rgba(255,255,255,0.8);
+        --line:rgba(27,34,48,0.10); --line-strong:rgba(27,34,48,0.22);
+        --t-hi:#1B2230; --t-body:#3D4452; --t-sec:#636B7B;
+        --gold:#C8901E; --gold-text:#8A6512; --gold-fill:#E8B23F; --on-gold:#1B2230;
+        --card-shadow:0 1px 2px rgba(27,34,48,0.05), 0 8px 24px rgba(27,34,48,0.07);
+        --gold-shadow:0 1px 2px rgba(0,0,0,0.08), 0 6px 16px rgba(200,144,30,0.25);
+        --pill-bg:rgba(47,79,143,0.08);">
+        <div class="panel-label"><span>VELLUM — LIGHT</span><span>page #FBF9F4 · iron-gall ink text</span></div>
+        <div class="mock">
+          <div class="m-nav">
+            <div class="m-logo"><span class="ring"></span>Quiloria</div>
+            <div class="m-links"><span class="active" style="color:#2F4F8F">Read</span><span>Write</span><span>Browse</span></div>
+            <span class="cta btn btn-gold">Begin a story</span>
+          </div>
+          <div class="m-hero">
+            <div class="m-eyebrow">Today on the page</div>
+            <h3>Stories written in <span class="gild">gold</span>, on vellum</h3>
+            <p>Draft novels, webtoons and screenplays with co-authors around one table. Your readers are already waiting.</p>
+            <div class="row"><span class="btn btn-gold">Start writing</span><span class="btn btn-ghost">Wander the stacks</span><span class="m-hint">no account needed</span></div>
+          </div>
+          <div class="m-cards">
+            <div class="card"><div class="cover cover-1"></div><div class="card-body"><h4>The Hollow Crown</h4><div class="meta">Mara V. · 24 chapters</div><span class="pill" style="color:#2F4F8F">Fantasy</span></div></div>
+            <div class="card"><div class="cover cover-2"></div><div class="card-body"><h4>Saltwater Letters</h4><div class="meta">J. Okafor · 11 chapters</div><span class="pill" style="color:#2F4F8F">Romance</span></div></div>
+            <div class="card"><div class="cover cover-3"></div><div class="card-body"><h4>Emberfall</h4><div class="meta">3 co-authors · ongoing</div><span class="pill" style="color:#2F4F8F">Adventure</span></div></div>
+          </div>
+          <div class="m-inks">
+            <span class="ink" style="color:#B0455B">● Ruby</span>
+            <span class="ink" style="color:#2F7A4D">● Emerald</span>
+            <span class="ink" style="color:#2F4F8F">● Lapis 7.6</span>
+            <span class="ink" style="color:#8A6512">● Gold 5.1</span>
+            <span class="ink" style="color:#2E7479">● Teal</span>
+          </div>
+          <div class="m-ladder">
+            <div class="l1">Heading — iron-gall ink #1B2230 <span class="cr">15.1:1</span></div>
+            <div class="l2">Body copy — #3D4452 <span class="cr">9.3:1</span></div>
+            <div class="l3">Secondary — #636B7B <span class="cr">5.1:1</span></div>
+            <div style="color:#8A6512">Gold as text — bronze #8A6512 <span class="cr">5.1:1</span></div>
+          </div>
+          <div class="swatches">
+            <div class="sw" style="background:#FBF9F4;border:1px solid rgba(0,0,0,0.06)"><span>page FBF9F4</span></div>
+            <div class="sw" style="background:#F1EFE8"><span>recessed F1EFE8</span></div>
+            <div class="sw" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.06)"><span>card FFFFFF</span></div>
+            <div class="sw" style="background:#1B2230"><span>ink 1B2230</span></div>
+            <div class="sw" style="background:#E8B23F"><span>gold E8B23F</span></div>
+            <div class="sw" style="background:#2F4F8F"><span>lapis 2F4F8F</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Why I believe in it (and why it's contentious):</b> this project has a hard rule — "no blue,
+    ever" — written after a blue-violet dark mode failed. I think that postmortem blamed the hue when the crime was
+    execution: those surfaces were desaturated gray-violet with ashen pastel accents — <i>that's</i> what reads as generic
+    SaaS, not blueness itself. No SaaS dashboard looks like lapis-and-gold-leaf. Three real arguments: (1) gold is blue's
+    complement — it burns brighter on midnight than on any black or brown; (2) cool neutral chrome flatters colorful
+    cover art the way warm umber never can — galleries hang art on neutral walls for a reason; (3) the warmth belongs
+    in the <i>light</i> (text, gold, lamp glows), not the <i>shadows</i> — warm-light-on-cool-dark is literally how
+    lamplight works at night, and it's why the old all-warm dark mode kept collapsing into brown mush. The honest
+    counterargument: you have consistently chosen warmth every time, and taste legitimately outranks theory.</div>
+  </section>
+
+  <div class="footer-note">
+    <h2>Where I'd land</h2>
+    <p>Two different answers to two different questions.
+    <strong style="color:#F4EFE4">Safest great outcome:</strong> Concept 01 (Gilded Obsidian) — it matches your stated
+    taste, unifies homepage and app, and can't miss. Steal the Gallery's black button for light-mode secondary actions.
+    <strong style="color:#F4EFE4">What I'd actually ship if it were my product:</strong> Concept 04 (Midnight
+    Scriptorium). Ink is the brand; midnight-and-gold is the rarest, most "magical library" pairing on this page, and
+    it makes the gold — the thing you love most — glow hardest. Judge it at night, with the lights low, next to 01.
+    If 04 still reads "corporate" to your eye after that, ship 01 and never look back.</p>
+  </div>
+</div>
+</body>
+</html>

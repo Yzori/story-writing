@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { QuillRingMark, QuiloriaWordmark } from "@/components/shared/BrandLogo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -50,13 +51,13 @@ export default function ForgotPasswordPage() {
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
-            <svg className="w-5 h-5 text-amber" viewBox="0 0 32 32" fill="none">
-              <path d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z" fill="currentColor" opacity="0.85" />
-              <path d="M7 28L5 29L4 27L7 28Z" fill="currentColor" />
-              <circle cx="4.5" cy="28" r="1" fill="currentColor" opacity="0.6" />
-            </svg>
-            <span className="font-display text-sm font-bold text-paper tracking-wide">Quiloria</span>
+          <Link
+            href="/"
+            aria-label="Quiloria — home"
+            className="inline-flex items-center gap-2 mb-6 group"
+          >
+            <QuillRingMark className="w-6 h-6 text-paper" />
+            <QuiloriaWordmark className="font-display text-sm font-bold text-paper tracking-wide" />
           </Link>
           <h1 className="font-display text-3xl text-paper font-semibold">Reset your password</h1>
           <p className="text-text-secondary text-sm mt-2">

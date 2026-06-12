@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quiloria — Logo Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,640&family=Plus+Jakarta+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #161210;
+    --paper: #f4ead8;
+    --ink: #221a12;
+    --muted: #a3937c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 64px 48px 96px;
+    background: var(--page);
+    color: var(--paper);
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+  h1 { font-family: Fraunces, serif; font-weight: 560; font-size: 42px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 56px; font-size: 15px; }
+  h2 { font-family: Fraunces, serif; font-weight: 560; font-size: 24px; margin: 0 0 4px; }
+  .why { color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 640px; margin: 0 0 20px; }
+  section { margin-bottom: 88px; }
+
+  .row { display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap; }
+  .tile {
+    background: var(--paper); color: var(--ink);
+    border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  }
+  .tile.dark { background: #0f0c09; color: var(--paper); }
+  .tile.big { width: 280px; height: 280px; }
+  .tile svg { display: block; }
+  .stack {
+    display: flex; flex-direction: column; gap: 20px; justify-content: space-between;
+  }
+  .tile.med { width: 130px; height: 130px; }
+  .scale-test {
+    width: 130px; height: 130px; border-radius: 18px;
+    background: var(--paper); color: var(--ink);
+    display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
+  }
+  .scale-test span { font-size: 10px; color: #8d7c63; letter-spacing: .08em; text-transform: uppercase; }
+
+  /* wordmark */
+  .wordmark {
+    font-family: Fraunces, serif; font-weight: 560;
+    font-size: 88px; letter-spacing: 0.005em; line-height: 1;
+    display: inline-flex; align-items: baseline;
+  }
+  .i-drop { position: relative; display: inline-block; }
+  .i-drop svg {
+    position: absolute; left: 50%; transform: translateX(-54%);
+    bottom: 0.66em; width: 0.19em; height: auto;
+  }
+  .lockup { display: flex; align-items: center; gap: 28px; }
+  .lockup .markslot svg { width: 96px; height: 96px; }
+  .wm-tile { padding: 56px 64px; border-radius: 18px; }
+  .wm-tile.small-test { padding: 24px 32px; }
+  .wm-small { font-size: 26px; }
+  .wm-small .i-drop svg { top: -0.665em; }
+
+  /* ── animated lockup: letters write themselves in, then the quill
+        flicks a trail of gold dust that settles below the word ── */
+  .lk-l {
+    display: inline-block; opacity: 0;
+    animation: lk-letter .55s cubic-bezier(.2,.8,.3,1) var(--ld) forwards;
+  }
+  @keyframes lk-letter {
+    from { opacity: 0; transform: translateY(.2em); filter: blur(3px); }
+    to   { opacity: 1; transform: none; filter: none; }
+  }
+  .lockup-anim .wordmark { position: relative; }
+  .dust-tail {
+    position: absolute; left: 0.98em; bottom: -0.36em;
+    width: 3.5em; height: 0.42em; pointer-events: none;
+  }
+  .dust-tail svg { width: 100%; height: 100%; overflow: visible; display: block; }
+  .dust-flick {
+    stroke-dasharray: 200; stroke-dashoffset: 200; opacity: .5;
+    animation: dust-flick-draw 1.1s ease-in-out 1.05s forwards,
+               dust-flick-fade 1s ease 2.4s forwards;
+  }
+  @keyframes dust-flick-draw { to { stroke-dashoffset: 0; } }
+  @keyframes dust-flick-fade { to { opacity: 0; } }
+  .dust-p {
+    opacity: 0; transform-box: fill-box; transform-origin: center;
+    animation: dust-pop .45s cubic-bezier(.2,.9,.3,1.4) var(--d) forwards,
+               dust-twinkle var(--tw) ease-in-out calc(var(--d) + .9s) infinite alternate;
+  }
+  @keyframes dust-pop { from { opacity: 0; transform: scale(0) rotate(-60deg); } to { opacity: 1; transform: none; } }
+  @keyframes dust-twinkle { from { opacity: 1; transform: scale(1); } to { opacity: .62; transform: scale(.84); } }
+</style>
+</head>
+<body>
+
+<h1>Quiloria — logo concepts</h1>
+<p class="sub">Quill + lore + “-ia”: a place made of stories. Monochrome on purpose — form first, palette later.</p>
+
+<section>
+  <h2>A · The Quill Ring</h2>
+  <p class="why">A quill laid across the world it writes. The ring is a hidden Q; the nib slips out as its tail, shedding a single Ink Drop, and a Spark rises where the feather touched. Name, currency and the love-mechanic in one mark.</p>
+  <div class="row">
+    <div class="tile big slotA"></div>
+    <div class="stack">
+      <div class="tile med dark slotA"></div>
+      <div class="scale-test"><span>32 px</span><span class="slotA" data-size="32"></span><span>20 px</span><span class="slotA" data-size="20"></span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>B · The Drop of Stories</h2>
+  <p class="why">One Ink Drop, holding an open book in its negative space. The quietest mark of the set — reads at any size, works as an app icon, and literally says “stories come from ink.”</p>
+  <div class="row">
+    <div class="tile big slotB"></div>
+    <div class="stack">
+      <div class="tile med dark slotB"></div>
+      <div class="scale-test"><span>32 px</span><span class="slotB" data-size="32"></span><span>20 px</span><span class="slotB" data-size="20"></span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>C · The Weave</h2>
+  <p class="why">Three nibs leaning into the same point — writer, illustrator, worldbuilder — leaving a spark of negative space where they meet. The collaboration thesis as geometry.</p>
+  <div class="row">
+    <div class="tile big slotC"></div>
+    <div class="stack">
+      <div class="tile med dark slotC"></div>
+      <div class="scale-test"><span>32 px</span><span class="slotC" data-size="32"></span><span>20 px</span><span class="slotC" data-size="20"></span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>D · Wordmark + lockup</h2>
+  <p class="why">Fraunces, with the dot of the “i” replaced by a falling Ink Drop — the smallest possible intervention that makes the name unmistakably ours. Shown alone and locked up with the Quill Ring.</p>
+  <div class="row">
+    <div class="tile wm-tile">
+      <span class="wordmark">Quilor<span class="i-drop">ı<svg viewBox="0 0 10 14" xmlns="http://www.w3.org/2000/svg"><path d="M 5 0.5 C 5 0.5 1.2 6 1.2 8.8 a 3.8 3.8 0 0 0 7.6 0 C 8.8 6 5 0.5 5 0.5 Z" fill="currentColor"/></svg></span>a</span>
+    </div>
+  </div>
+  <div class="row" style="margin-top:20px">
+    <div class="tile wm-tile dark lockup">
+      <span class="markslot slotA"></span>
+      <span class="wordmark" style="font-size:64px">Quilor<span class="i-drop">ı<svg viewBox="0 0 10 14" xmlns="http://www.w3.org/2000/svg"><path d="M 5 0.5 C 5 0.5 1.2 6 1.2 8.8 a 3.8 3.8 0 0 0 7.6 0 C 8.8 6 5 0.5 5 0.5 Z" fill="currentColor"/></svg></span>a</span>
+    </div>
+    <div class="tile wm-tile small-test">
+      <span class="wordmark wm-small">Quilor<span class="i-drop">ı<svg viewBox="0 0 10 14" xmlns="http://www.w3.org/2000/svg"><path d="M 5 0.5 C 5 0.5 1.2 6 1.2 8.8 a 3.8 3.8 0 0 0 7.6 0 C 8.8 6 5 0.5 5 0.5 Z" fill="currentColor"/></svg></span>a</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>E · Animated Quill Ring</h2>
+  <p class="why">The mark assembling itself: the ring is drawn, the quill settles onto it, one Ink Drop drips from the nib, and the Spark ignites — then keeps twinkling. Self-contained SVG (CSS animation works inside a plain <code>&lt;img&gt;</code>): <code>/brand/quill-ring-animated.svg</code>. Refresh the page to replay.</p>
+  <div class="row">
+    <div class="tile big dark"><img src="/brand/quill-ring-animated.svg" width="200" height="200" alt="Animated Quill Ring"></div>
+    <div class="stack">
+      <div class="tile med dark"><img src="/brand/quill-ring-lamplight.svg" width="92" height="92" alt="Static Quill Ring"></div>
+      <div class="scale-test"><span>App icon</span><img src="/icon-192.png" width="64" height="64" style="border-radius:14px" alt="App icon"></div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:20px">
+    <div class="tile wm-tile dark lockup lockup-anim">
+      <img src="/brand/quill-ring-animated.svg" width="96" height="96" alt="">
+      <span class="wordmark" style="font-size:64px" aria-label="Quiloria"><span class="lk-l" style="--ld:.95s">Q</span><span class="lk-l" style="--ld:1.05s">u</span><span class="lk-l" style="--ld:1.15s">i</span><span class="lk-l" style="--ld:1.25s">l</span><span class="lk-l" style="--ld:1.35s">o</span><span class="lk-l" style="--ld:1.45s">r</span><span class="lk-l i-drop" style="--ld:1.55s">ı<svg viewBox="0 0 10 14" xmlns="http://www.w3.org/2000/svg"><path d="M 5 0.5 C 5 0.5 1.2 6 1.2 8.8 a 3.8 3.8 0 0 0 7.6 0 C 8.8 6 5 0.5 5 0.5 Z" fill="#E0A93E"/></svg></span><span class="lk-l" style="--ld:1.65s">a</span><span class="dust-tail" id="dustTail"></span></span>
+    </div>
+  </div>
+</section>
+
+<script>
+const CX = 50, CY = 47, R = 29;
+function pt(r, deg) {
+  const a = deg * Math.PI / 180;
+  return [CX + r * Math.cos(a), CY + r * Math.sin(a)];
+}
+function f(n) { return n.toFixed(2); }
+
+function markA() {
+  // Q ring with a straight quill laid diagonally across it; the nib exits
+  // bottom-right as the Q's tail, shedding one drop. Quill built in local
+  // horizontal coords (spine on y=0, plume tip at x=-25, nib tip at x=+39.5),
+  // then rotated 45deg about the ring center.
+  // smooth solid feather silhouette; rachis + barb separations are thin
+  // negative lines so it stays iconic at small sizes
+  const vane = `M -26 -1
+    C -20 -8.5 -8 -10.8 3 -9.8
+    C 12 -9 18.5 -6.2 23.5 -2.5
+    L 24.5 -0.5
+    C 19 4.8 9 7.8 -1 7.2
+    C -11.5 6.6 -20.5 4.2 -26 -1 Z`;
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="46" cy="44" r="30" fill="none" stroke="currentColor" stroke-width="3.2"/>
+    <g transform="translate(46 44) rotate(45)">
+      <path d="${vane}" fill="currentColor"/>
+      <path d="M -22.5 -0.7 C -10 -1.8 6 -1 21 -0.6" fill="none" stroke="var(--tilebg, #f4ead8)" stroke-width="1.5" stroke-linecap="round" class="bookstroke"/>
+      <path d="M 13 -0.8 L 6.5 7.5 M 3 -0.9 L -3.5 7.4 M -7 -1 L -13 6.2" fill="none" stroke="var(--tilebg, #f4ead8)" stroke-width="1.5" class="bookstroke"/>
+      <path d="M 22 0 L 30 0" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M 28 -1.9 Q 36 -1.2 39.5 0.6 Q 34.5 1.5 28 1.9 Z" fill="currentColor"/>
+    </g>
+    <path d="M 79.5 76.5 C 79.5 76.5 75.1 82.4 75.1 85.1 a 4.4 4.4 0 0 0 8.8 0 C 83.9 82.4 79.5 76.5 79.5 76.5 Z" fill="currentColor"/>
+    <path d="M 54.5 22.5 C 55.6 26.7 57.6 28.7 61.8 29.8 C 57.6 30.9 55.6 32.9 54.5 37.1 C 53.4 32.9 51.4 30.9 47.2 29.8 C 51.4 28.7 53.4 26.7 54.5 22.5 Z" fill="currentColor"/>
+  </svg>`;
+}
+
+function markB() {
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 50 9 C 50 9 26.5 41.5 26.5 61 C 26.5 75 37 84.5 50 84.5 C 63 84.5 73.5 75 73.5 61 C 73.5 41.5 50 9 50 9 Z" fill="currentColor"/>
+    <path d="M 50 56.5 C 45.5 52.5 38.5 52 34 53.8 L 34 68.5 C 38.5 67 45.5 67.6 50 71.8 C 54.5 67.6 61.5 67 66 68.5 L 66 53.8 C 61.5 52 54.5 52.5 50 56.5 Z" fill="var(--tilebg, #f4ead8)" class="bookfill"/>
+    <path d="M 50 57.5 L 50 70.5" stroke="currentColor" stroke-width="1.8"/>
+  </svg>`;
+}
+
+function markC() {
+  // nib points down toward center, tip stopping short of it; body extends outward
+  const nib = `<path d="M 50 42 C 46.5 37.5 44.5 32.5 44.5 27.5 L 44.5 16.5 Q 44.5 14.5 46.5 14.5 L 53.5 14.5 Q 55.5 14.5 55.5 16.5 L 55.5 27.5 C 55.5 32.5 53.5 37.5 50 42 Z" fill="currentColor"/>
+    <path d="M 50 41 L 50 27" stroke="var(--tilebg, #f4ead8)" stroke-width="1.4" stroke-linecap="round" class="bookstroke"/>
+    <circle cx="50" cy="24" r="2" fill="var(--tilebg, #f4ead8)" class="bookfill"/>`;
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <g>${nib}</g>
+    <g transform="rotate(120 50 50)">${nib}</g>
+    <g transform="rotate(240 50 50)">${nib}</g>
+    <path d="M 50 45.2 C 50.7 48 52 49.3 54.8 50 C 52 50.7 50.7 52 50 54.8 C 49.3 52 48 50.7 45.2 50 C 48 49.3 49.3 48 50 45.2 Z" fill="currentColor"/>
+  </svg>`;
+}
+
+const marks = { slotA: markA(), slotB: markB(), slotC: markC() };
+for (const cls of Object.keys(marks)) {
+  document.querySelectorAll('.' + cls).forEach(el => {
+    el.innerHTML = marks[cls];
+    const svg = el.querySelector('svg');
+    const size = el.dataset.size;
+    if (size) { svg.style.width = size + 'px'; svg.style.height = size + 'px'; }
+    else if (el.classList.contains('big')) { svg.style.width = '200px'; svg.style.height = '200px'; }
+    else if (el.classList.contains('med')) { svg.style.width = '92px'; svg.style.height = '92px'; }
+  });
+}
+// negative-space fills need to match the tile they sit on
+document.querySelectorAll('.tile.dark .bookfill').forEach(p => p.setAttribute('fill', '#0f0c09'));
+document.querySelectorAll('.tile.dark .bookstroke').forEach(p => p.setAttribute('stroke', '#0f0c09'));
+
+// gold dust trail after the final "a" — hand-placed particles along a rising
+// arc so it reads as a flick of the quill, not a uniform line
+const dustHost = document.getElementById('dustTail');
+if (dustHost) {
+  const SPARKD = 'M 0 -1 C 0.15 -0.42 0.42 -0.15 1 0 C 0.42 0.15 0.15 0.42 0 1 C -0.15 0.42 -0.42 0.15 -1 0 C -0.42 -0.15 -0.15 -0.42 0 -1 Z';
+  // dust kicked up beneath the word as it's written, left to right — uneven
+  // scatter along a shallow dipping arc so it never reads as an underline
+  const ps = [
+    [14, 5, 1.6, 's'], [38, 11, 2.0, 's'], [66, 12.5, 1.7, 's'], [96, 11, 2.2, 's'],
+    [126, 7.5, 1.8, 's'], [152, 4, 2.4, 's'], [170, 1.5, 1.9, 's'],
+    [8, 9, 0.7, 'd'], [22, 8.5, 0.9, 'd'], [30, 5, 0.6, 'd'], [48, 13, 0.8, 'd'], [58, 9, 0.6, 'd'],
+    [76, 9.5, 0.9, 'd'], [86, 13.5, 0.6, 'd'], [106, 12.5, 0.8, 'd'], [116, 8, 0.6, 'd'],
+    [136, 10, 0.7, 'd'], [146, 7, 0.9, 'd'], [160, 6.5, 0.6, 'd'], [178, 3, 0.8, 'd'], [184, 5, 0.5, 'd'],
+  ];
+  let inner = '<path class="dust-flick" d="M 2 8 C 40 13 90 13 140 9 S 168 4 174 2" fill="none" stroke="#E0A93E" stroke-width="1.1" stroke-linecap="round"/>';
+  ps.forEach(([x, y, r, k], i) => {
+    const d = (1.05 + x * 0.0055).toFixed(2), tw = (1.8 + (i % 4) * 0.35).toFixed(2);
+    const rr = k === 'd' ? r * 1.3 : r; // dust carries the trail once the stroke fades
+    inner += k === 's'
+      ? `<g transform="translate(${x} ${y}) scale(${rr})"><path class="dust-p" style="--d:${d}s;--tw:${tw}s" d="${SPARKD}" fill="#E0A93E"/></g>`
+      : `<circle class="dust-p" style="--d:${d}s;--tw:${tw}s" cx="${x}" cy="${y}" r="${rr}" fill="#E0A93E"/>`;
+  });
+  dustHost.innerHTML = `<svg viewBox="0 0 175 21" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+</script>
+</body>
+</html>

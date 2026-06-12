@@ -146,8 +146,8 @@ export default function StudioRail({ offerings, isOwner }: StudioRailProps) {
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-ghost">
                       <span className="font-medium text-text-secondary">
                         {offering.priceMin === offering.priceMax
-                          ? `${offering.priceMin} drops`
-                          : `${offering.priceMin}–${offering.priceMax} drops`}
+                          ? `${offering.priceMin} drops of ink`
+                          : `${offering.priceMin}–${offering.priceMax} drops of ink`}
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Clock3 size={10} />

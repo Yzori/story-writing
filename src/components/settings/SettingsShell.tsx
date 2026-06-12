@@ -22,8 +22,8 @@ const NAV_ITEMS = [
   },
   {
     href: "/settings/ink-drops",
-    label: "Ink Drops",
-    description: "Balance, packs, and purchase history",
+    label: "Inkwell",
+    description: "Your ink, refills, and purchase history",
     icon: Droplet,
     match: (pathname: string) => pathname.startsWith("/settings/ink-drops"),
   },

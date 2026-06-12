@@ -37,6 +37,7 @@
   --color-copper: var(--t-copper);
   --color-burnt: var(--t-copper);
   --color-teal: var(--t-teal);
+  --color-lapis: var(--t-lapis);
 
   --color-charcoal: var(--t-charcoal);
   --color-espresso: var(--t-espresso);
@@ -62,167 +63,169 @@
   --font-dm-sans: var(--font-dm-sans);
 }
 
-/* ─── Lamplight — the library at night ────────────────────── */
-/*   Firelit umber darks (hue 30–38, no blue). The room is lit  */
-/*   by the lamp, not the moon: every surface is a warm brown-  */
-/*   black, text is cream, and candle-gold reads as light from  */
-/*   a flame rather than an accent painted on. Elevation via    */
-/*   lightness steps + candlelit border-light, not shadows.     */
-/*   Full rationale + contrast matrix: docs/COLOR_SYSTEM.md     */
+/* ─── Midnight Scriptorium — ink and gold leaf at night ─────── */
+/*   The illuminated-manuscript palette: deep iron-gall ink-blue  */
+/*   blacks (hue ~222) that gain a little chroma as surfaces      */
+/*   rise, warm vellum text, and candle gold burning against its  */
+/*   complement. Warm light on cool dark — the physics of a lit   */
+/*   window at night. Elevation via lightness steps + gilt        */
+/*   border-light, not shadows.                                   */
+/*   Full rationale + contrast matrix: docs/COLOR_SYSTEM.md       */
 
 /* .theme-dark/.theme-light also work as nested scopes (brand previews etc.) */
 html, html.theme-dark, .theme-dark {
-  --t-void: #110E09;
-  --t-ink: #181410;
-  --t-surface: #211B13;
-  --t-elevated: #2B241A;
-  --t-subtle: #362E22;
+  --t-void: #090B12;
+  --t-ink: #0E1220;
+  --t-surface: #131A2D;
+  --t-elevated: #19223B;
+  --t-subtle: #202C4A;
 
-  --t-paper: #F3EBDB;
-  --t-text: #CEC3AC;
-  --t-text-secondary: #A1957C;
-  --t-text-tertiary: #837861;
+  /* Text is vellum — the warm thing in the cool room */
+  --t-paper: #F2EDDD;
+  --t-text: #C6C3B4;
+  --t-text-secondary: #94948A;
+  --t-text-tertiary: #767A7E;
   /* Ghost carries real product copy (eyebrows, hints) — must clear
-     4.5:1 on void and 3.5:1 on elevated. Currently 5.3 / 4.2. */
-  --t-text-ghost: #918569;
+     4.5:1 on void and 3.5:1 on elevated. Currently 5.9 / 4.7. */
+  --t-text-ghost: #8C8D83;
 
-  /* Candle gold — the flame itself; 9:1 on void, safe as text anywhere */
-  --t-gold: #E0A93E;
-  --t-gold-soft: #E0A93E26;
-  --t-gold-glow: #E0A93E14;
-  --t-gold-light: #EFC465;
-  --t-gold-dark: #B28432;
+  /* Candle gold — blue's complement; 9.6:1 on void, safe as text anywhere */
+  --t-gold: #E2AC4A;
+  --t-gold-soft: #E2AC4A26;
+  --t-gold-glow: #E2AC4A14;
+  --t-gold-light: #F0C76C;
+  --t-gold-dark: #B5862F;
   /* Solid gold fills (buttons, badges) + the label color on them.
-     At night fill == gold; in Daybreak they diverge (see below). */
-  --t-gold-fill: #E0A93E;
-  --t-gold-fill-hover: #EFC465;
-  --t-on-gold: #110E09;
+     At night fill == gold; in Vellum (light) they diverge (see below). */
+  --t-gold-fill: #E2AC4A;
+  --t-gold-fill-hover: #F0C76C;
+  --t-on-gold: #13100A;
 
-  /* Accents — inks warmed by lamplight; all ≥4.5:1 on void */
-  --t-ruby: #CE7186;
-  --t-emerald: #85B796;
-  --t-amethyst: #AC9CDE;
-  --t-copper: #CD9468;
-  --t-teal: #72B5B2;
+  /* Accents — saturated inks on midnight; all ≥4.5:1 on void */
+  --t-ruby: #E0708A;
+  --t-emerald: #7FC796;
+  --t-amethyst: #B49CF0;
+  --t-copper: #D89A60;
+  --t-teal: #6FC2BD;
+  --t-lapis: #7FA3F0;
 
-  --t-charcoal: #15110C;
-  --t-espresso: #1D1812;
-  --t-walnut: #4A3E2C;
-  --t-linen: #F3EBDB;
-  --t-cream: #FAF5E7;
-  --t-parchment: #CFC4A9;
+  --t-charcoal: #0C0F18;
+  --t-espresso: #111626;
+  --t-walnut: #3A4257;
+  --t-linen: #F2EDDD;
+  --t-cream: #FAF6E8;
+  --t-parchment: #C4C2B0;
 
-  /* Borders — candlelight catching an edge, not white wireframes */
-  --t-border: rgba(255, 222, 170, 0.08);
-  --t-border-subtle: rgba(255, 222, 170, 0.05);
-  --t-border-active: rgba(255, 222, 170, 0.16);
+  /* Borders — gilt catching an edge, not white wireframes */
+  --t-border: rgba(240, 199, 108, 0.09);
+  --t-border-subtle: rgba(240, 199, 108, 0.05);
+  --t-border-active: rgba(240, 199, 108, 0.18);
   --t-backdrop-opacity: 0.20;
 
   /* Theme-aware shadow system */
   --t-shadow-card: none;
-  --t-shadow-card-hover: 0 0 24px rgba(224, 169, 62, 0.10);
-  --t-shadow-elevated: 0 0 0 1px rgba(255, 224, 176, 0.09);
-  --t-shadow-modal: 0 0 0 1px rgba(255, 224, 176, 0.10), 0 24px 48px rgba(0, 0, 0, 0.5);
+  --t-shadow-card-hover: 0 0 24px rgba(226, 172, 74, 0.10);
+  --t-shadow-elevated: 0 0 0 1px rgba(240, 199, 108, 0.09);
+  --t-shadow-modal: 0 0 0 1px rgba(240, 199, 108, 0.10), 0 24px 48px rgba(2, 4, 9, 0.55);
 
-  --t-vignette: rgba(9, 6, 2, 0.38);
-  --t-card-bg: rgba(43, 36, 26, 0.3);
-  --t-card-bg-fallback: linear-gradient(135deg, #211B13, #181410);
-  --t-veil: #110E09;
-  --t-veil-50: rgba(17, 14, 9, 0.5);
-  --t-veil-40: rgba(17, 14, 9, 0.4);
-  --t-veil-90: rgba(17, 14, 9, 0.9);
+  --t-vignette: rgba(3, 5, 10, 0.42);
+  --t-card-bg: rgba(25, 34, 59, 0.3);
+  --t-card-bg-fallback: linear-gradient(135deg, #131A2D, #0E1220);
+  --t-veil: #090B12;
+  --t-veil-50: rgba(9, 11, 18, 0.5);
+  --t-veil-40: rgba(9, 11, 18, 0.4);
+  --t-veil-90: rgba(9, 11, 18, 0.9);
 
   color-scheme: dark;
 }
 
-/* ─── Daybreak (light) — the same library, morning ──────────── */
-/*   Sun through the reading-room windows: brighter ivory paper  */
-/*   (less grey-beige murk), deeper espresso ink for real        */
-/*   contrast, and a burnt-amber signature that passes AA as     */
-/*   as text — the old mustard gold (2.9:1) never did. Same      */
-/*   room as Lamplight, lamp off, curtains open.                 */
-/*   Full rationale + contrast matrix: docs/COLOR_SYSTEM.md      */
+/* ─── Vellum (light) — the page itself ──────────────────────── */
+/*   The manuscript by day: warm vellum-white paper (near white,  */
+/*   never beige), white cards floating on it Apple-style, and    */
+/*   iron-gall blue-black ink for text — the color real writing   */
+/*   ink dries to. Gold splits by role: honey for fills, bronze   */
+/*   for text. Hairline ink borders + feather ink-tinted shadows. */
+/*   Full rationale + contrast matrix: docs/COLOR_SYSTEM.md       */
 
 html.theme-light, .theme-light {
   /* ── Surface layers (back → front) ── */
-  --t-void: #F6F0E3;        /* page bg — sunlit ivory */
-  --t-ink: #EFE7D5;         /* app zones — vellum, a step deeper */
-  --t-surface: #FCF9F1;     /* panels — clean warm white */
-  --t-elevated: #FFFEFA;    /* cards, inputs, modals — lifted paper */
-  --t-subtle: #E7DCC6;      /* pills, hover states, dividers */
+  --t-void: #FBF9F4;        /* page bg — vellum white */
+  --t-ink: #F1EFE8;         /* app zones — recessed vellum */
+  --t-surface: #FDFCF9;     /* panels — just off the page */
+  --t-elevated: #FFFFFF;    /* cards, inputs, modals — true white, floats */
+  --t-subtle: #E9E6DD;      /* pills, hover states, dividers */
 
-  /* ── Text hierarchy (strongest → ghost) — espresso inks ── */
-  --t-paper: #231A10;       /* primary — espresso ink */
-  --t-text: #483828;        /* body — rich warm brown, ~9.9:1 */
-  --t-text-secondary: #6E5E4B;
-  --t-text-tertiary: #7C6B50;
-  /* Ghost was #B8AA98 (1.95:1 — illegible). Same fix dark mode
-     already got: it carries copy, so it clears 3:1 minimum. */
-  --t-text-ghost: #8E7D5E;
+  /* ── Text hierarchy (strongest → ghost) — iron-gall inks ── */
+  --t-paper: #1B2230;       /* primary — iron-gall blue-black, 15.1:1 */
+  --t-text: #3D4452;        /* body — ink at half strength, 9.3:1 */
+  --t-text-secondary: #636B7B;
+  --t-text-tertiary: #79808E;
+  /* Ghost carries copy, so it clears the 3:1 minimum (3.2:1). */
+  --t-text-ghost: #878D9A;
 
   /* ── Gold splits by role in daylight ──
-     As TEXT it must be dark enough to read on ivory → burnt-amber ink.
-     As a FILL, a dark amber slab reads muddy, not cozy → solid fills stay
-     honey gold (the same warmth as Lamplight's flame) with espresso labels
-     (8.9:1). bg-amber/bg-gold resolve to the honey fill via the overrides
-     further down; text-amber stays burnt amber. New code can use bg-gold-fill +
-     text-on-gold explicitly. */
-  /* Text-gold is burnt AMBER (h29, high sat), not bronze (h36-40) — the
-     yellow-leaning dark golds read as muddy brown on ivory. 4.9:1. */
-  --t-gold: #A0540B;
-  --t-gold-soft: #A0540B22;
-  --t-gold-glow: #BE6F1514;
-  --t-gold-light: #BE6F15;
-  --t-gold-dark: #7A3E06;
+     As TEXT it must be dark enough to read on vellum → bronze ink
+     (5.0:1; on the near-white page it reads as old gold, not mud —
+     the muddiness problem was specific to the old beige ivory).
+     As a FILL, a dark slab isn't gold → solid fills stay honey
+     (same flame as Midnight) with ink labels (8.3:1). bg-amber/bg-gold
+     resolve to the honey fill via the overrides further down; text-amber
+     stays bronze. New code can use bg-gold-fill + text-on-gold explicitly. */
+  --t-gold: #8A6512;
+  --t-gold-soft: #8A651222;
+  --t-gold-glow: #B5861A14;
+  --t-gold-light: #B5861A;
+  --t-gold-dark: #6E500E;
   --t-gold-fill: #E8B23F;
   --t-gold-fill-hover: #DFA52C;
-  --t-on-gold: #231A10;
+  --t-on-gold: #1B2230;
 
   /* ── Accents — ink colors on paper; all ≥4.5:1 on page bg ── */
-  --t-ruby: #A2455A;
-  --t-emerald: #426C52;
-  --t-amethyst: #6B549F;
-  --t-copper: #98512A;
-  --t-teal: #3D7176;
+  --t-ruby: #B0455B;
+  --t-emerald: #2F7A4D;
+  --t-amethyst: #6C55A3;
+  --t-copper: #9A5A28;
+  --t-teal: #2E7479;
+  --t-lapis: #2F4F8F;
 
-  /* ── Legacy slots — warm equivalents for older components ── */
-  --t-charcoal: #EFE7D5;
-  --t-espresso: #E2D5BE;
-  --t-walnut: #C9B493;
-  --t-linen: #231A10;
-  --t-cream: #362718;
-  --t-parchment: #6F5F49;
+  /* ── Legacy slots — stone/ink equivalents for older components ── */
+  --t-charcoal: #F1EFE8;
+  --t-espresso: #E6E3D9;
+  --t-walnut: #AAB0BC;
+  --t-linen: #1B2230;
+  --t-cream: #2A3242;
+  --t-parchment: #5F6673;
 
-  /* ── Borders — printed edges, not grey wireframes ── */
-  --t-border: rgba(76, 54, 28, 0.15);
-  --t-border-subtle: rgba(76, 54, 28, 0.09);
-  --t-border-active: rgba(76, 54, 28, 0.28);
+  /* ── Borders — hairline ink edges, not grey wireframes ── */
+  --t-border: rgba(27, 34, 48, 0.12);
+  --t-border-subtle: rgba(27, 34, 48, 0.07);
+  --t-border-active: rgba(27, 34, 48, 0.24);
   --t-backdrop-opacity: 0.40;
 
-  /* ── Shadows — soft paper lift ── */
+  /* ── Shadows — feather paper lift, tinted with ink ── */
   --t-shadow-card:
-    0 1px 2px rgba(76, 54, 28, 0.05),
-    0 8px 24px rgba(76, 54, 28, 0.06);
+    0 1px 2px rgba(27, 34, 48, 0.04),
+    0 8px 24px rgba(27, 34, 48, 0.06);
   --t-shadow-card-hover:
-    0 2px 4px rgba(76, 54, 28, 0.06),
-    0 16px 38px rgba(76, 54, 28, 0.08),
-    0 3px 14px rgba(160, 84, 11, 0.08);
+    0 2px 4px rgba(27, 34, 48, 0.05),
+    0 16px 38px rgba(27, 34, 48, 0.08),
+    0 3px 14px rgba(138, 101, 18, 0.08);
   --t-shadow-elevated:
-    0 1px 3px rgba(76, 54, 28, 0.06),
-    0 10px 28px rgba(76, 54, 28, 0.08);
+    0 1px 3px rgba(27, 34, 48, 0.05),
+    0 10px 28px rgba(27, 34, 48, 0.08);
   --t-shadow-modal:
-    0 2px 6px rgba(76, 54, 28, 0.08),
-    0 20px 52px rgba(76, 54, 28, 0.14),
-    0 0 0 1px rgba(76, 54, 28, 0.07);
+    0 2px 6px rgba(27, 34, 48, 0.07),
+    0 20px 52px rgba(27, 34, 48, 0.14),
+    0 0 0 1px rgba(27, 34, 48, 0.06);
 
   /* ── Overlays & effects ── */
   --t-vignette: transparent;
-  --t-card-bg: rgba(255, 254, 250, 0.78);
-  --t-card-bg-fallback: linear-gradient(135deg, #FFFEFA, #FCF9F1);
-  --t-veil: #231A10;
-  --t-veil-50: rgba(35, 26, 16, 0.42);
-  --t-veil-40: rgba(35, 26, 16, 0.32);
-  --t-veil-90: rgba(35, 26, 16, 0.82);
+  --t-card-bg: rgba(255, 255, 255, 0.78);
+  --t-card-bg-fallback: linear-gradient(135deg, #FFFFFF, #FDFCF9);
+  --t-veil: #1B2230;
+  --t-veil-50: rgba(27, 34, 48, 0.42);
+  --t-veil-40: rgba(27, 34, 48, 0.32);
+  --t-veil-90: rgba(27, 34, 48, 0.82);
 
   color-scheme: light;
 }
@@ -230,10 +233,10 @@ html.theme-light, .theme-light {
 /* ── Light-mode: warm paper atmosphere ── */
 
 html.theme-light body {
-  /* Morning sun pooling at the top of the page */
+  /* A faint pool of gilt at the top of the page — restrained, Apple-quiet */
   background:
-    radial-gradient(circle at 50% 0%, rgba(160, 84, 11, 0.07), transparent 36rem),
-    linear-gradient(180deg, #FAF5EA 0%, #F6F0E3 100%);
+    radial-gradient(circle at 50% 0%, rgba(181, 134, 26, 0.05), transparent 36rem),
+    linear-gradient(180deg, #FDFCF8 0%, #FBF9F4 100%);
 }
 
 html.theme-light body::before {
@@ -252,11 +255,11 @@ html.theme-light body::after {
    full-screen backdrops and image treatments can keep their own intent. */
 
 html.theme-light [class*="bg-black/"]:not([class*="fixed"]):not([class*="inset-0"]) {
-  background-color: rgba(255, 254, 250, 0.72) !important;
+  background-color: rgba(255, 255, 255, 0.72) !important;
 }
 
 html.theme-light [class*="hover:bg-black/"]:hover {
-  background-color: rgba(239, 231, 213, 0.82) !important;
+  background-color: rgba(241, 239, 232, 0.82) !important;
 }
 
 html.theme-light [class*="shadow-"][class*="inset_0_0"] {
@@ -268,6 +271,15 @@ html.theme-light textarea,
 html.theme-light select {
   background-color: var(--t-elevated);
   color: var(--t-paper);
+}
+
+/* ── The Quill palette — a slip of paper in both themes ── */
+/* The sheet is bg-paper + text-on-gold: in dark that's a vellum slip with
+   ink text. In light, paper IS the ink color, so the slip must become a
+   white sheet instead (on-gold already resolves to ink, which reads on it). */
+html.theme-light .quill-sheet {
+  background: var(--t-elevated);
+  box-shadow: var(--t-shadow-modal);
 }
 
 /* ── Daybreak: solid gold fills are honey, never dark amber ── */
@@ -384,18 +396,18 @@ html.theme-light .create-details-paper-wash {
 html.theme-light .create-details-book {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 16px 42px rgba(76, 54, 28, 0.18),
-    0 2px 8px rgba(76, 54, 28, 0.08);
+    0 16px 42px rgba(27, 34, 48, 0.16),
+    0 2px 8px rgba(27, 34, 48, 0.07);
 }
 
 html.theme-light .create-details-form-panel {
   background:
-    linear-gradient(180deg, rgba(255, 254, 250, 0.92), rgba(249, 244, 233, 0.86)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(251, 249, 244, 0.86)),
     var(--t-surface);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.78) inset,
-    0 18px 48px rgba(76, 54, 28, 0.1),
-    0 2px 8px rgba(76, 54, 28, 0.05);
+    0 18px 48px rgba(27, 34, 48, 0.09),
+    0 2px 8px rgba(27, 34, 48, 0.05);
 }
 
 html.theme-light .create-details-dossier {
@@ -456,18 +468,18 @@ html.theme-light .create-mode-ambient-teal {
 }
 
 html.theme-light .create-mode-card {
-  background: rgba(255, 254, 250, 0.88);
+  background: rgba(255, 255, 255, 0.88);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.78) inset,
-    0 16px 42px rgba(76, 54, 28, 0.12),
-    0 2px 8px rgba(76, 54, 28, 0.06);
+    0 16px 42px rgba(27, 34, 48, 0.11),
+    0 2px 8px rgba(27, 34, 48, 0.05);
 }
 
 html.theme-light .create-mode-card:hover {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.82) inset,
-    0 20px 54px rgba(76, 54, 28, 0.16),
-    0 4px 14px rgba(76, 54, 28, 0.08);
+    0 20px 54px rgba(27, 34, 48, 0.15),
+    0 4px 14px rgba(27, 34, 48, 0.07);
 }
 
 html.theme-light .create-mode-card-fade-bottom {
@@ -492,7 +504,7 @@ html.theme-light .create-mode-card-fade-top {
 
 html.theme-light .create-mode-card-subtitle {
   color: color-mix(in srgb, var(--t-gold-dark) 72%, var(--t-paper)) !important;
-  text-shadow: 0 1px 0 rgba(255, 254, 250, 0.72);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 html.theme-light .create-mode-card-title {
@@ -570,7 +582,7 @@ html.theme-light .reader-foryou-article {
     linear-gradient(180deg, color-mix(in srgb, var(--t-surface) 76%, transparent), color-mix(in srgb, var(--t-surface) 38%, transparent));
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 16px 44px rgba(76, 54, 28, 0.08);
+    0 16px 44px rgba(27, 34, 48, 0.08);
   padding: clamp(1.5rem, 3vw, 2.5rem);
 }
 

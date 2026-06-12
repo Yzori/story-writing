@@ -1,91 +1,154 @@
 "use client";
 
+/*
+ * The lamp switch — Quiloria's theme toggle.
+ *
+ * A slip of sky in a pill: at Midnight the flame-knob glows at the right
+ * end under three slow-twinkling stars; in Vellum a porcelain knob with a
+ * small bronze sun rests at the left on a white track. Spring slide,
+ * soft flame bloom, no generic sun/moon icon-swap.
+ */
+
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
-import { type Theme, setTheme, getStoredTheme } from "@/client/theme";
+import { useEffect, useState } from "react";
+import { type Theme, setTheme, getStoredTheme, THEME_CHANGE_EVENT } from "@/client/theme";
+
+// Star field on the night side of the track (knob sits right when dark).
+const STARS = [
+  { left: 9, top: 7, size: 3, delay: 0 },
+  { left: 16, top: 15, size: 2, delay: 1.3 },
+  { left: 22, top: 8, size: 2, delay: 2.1 },
+];
 
 export default function ThemeToggle() {
-  const [current, setCurrent] = useState<Theme>(() => getStoredTheme());
+  const [current, setCurrent] = useState<Theme>("dark");
 
+  // Sync from storage after mount (SSR renders dark), then stay in sync
+  // with every other lamp in the app — dock, reader, the Quill palette.
   useEffect(() => {
-    setTheme(current);
-  }, [current]);
+    setCurrent(getStoredTheme());
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent<Theme>).detail;
+      if (detail === "dark" || detail === "light") setCurrent(detail);
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, onChange);
+  }, []);
 
   const isDark = current === "dark";
-
-  const toggleTheme = () => {
-    const next: Theme = isDark ? "light" : "dark";
-    setCurrent(next);
-  };
+  // setTheme dispatches THEME_CHANGE_EVENT, which round-trips into setCurrent.
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
   return (
     <motion.button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label="Turn the lamp — toggle dark and light theme"
       onClick={toggleTheme}
-      className={`
-        relative flex items-center justify-center w-12 h-12 rounded-full
-        border border-border-subtle/50 backdrop-blur-md overflow-hidden
-        transition-colors duration-500 focus:outline-none focus:ring-2 focus:ring-amber/50
-        ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'}
-      `}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      aria-label="Toggle Theme"
+      whileTap={{ scale: 0.94 }}
+      className="relative inline-flex w-[46px] h-[26px] shrink-0 rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus-visible:ring-offset-2 focus-visible:ring-offset-void"
     >
-      {/* Dynamic Background Glow */}
-      <motion.div
-        className="absolute inset-0 opacity-40 mix-blend-screen"
+      {/* Track — midnight sky / vellum paper */}
+      <motion.span
+        aria-hidden
+        className="absolute inset-0 rounded-full"
+        initial={false}
         animate={{
           background: isDark
-            ? "radial-gradient(circle at center, rgba(167, 139, 250, 0.4) 0%, transparent 70%)"
-            : "radial-gradient(circle at center, rgba(198, 154, 71, 0.4) 0%, transparent 70%)"
+            ? "linear-gradient(160deg, #0A0D18 10%, #18223C 90%)"
+            : "linear-gradient(160deg, #FFFFFF 10%, #ECE9E0 90%)",
+          boxShadow: isDark
+            ? "inset 0 1px 3px rgba(2, 4, 9, 0.6), inset 0 0 0 1px rgba(240, 199, 108, 0.22)"
+            : "inset 0 1px 3px rgba(27, 34, 48, 0.10), inset 0 0 0 1px rgba(27, 34, 48, 0.14)",
         }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.45 }}
       />
 
-      {/* The Icons Container */}
-      <div className="relative z-10 w-full h-full flex items-center justify-center">
-        {/* SUN / LIGHT MODE ICON */}
-        <motion.div
+      {/* Stars — fade in at night, gone by day */}
+      {STARS.map((star, i) => (
+        <motion.span
+          key={i}
+          aria-hidden
+          className="absolute rounded-full bg-[#F2EDDD]"
+          style={{ left: star.left, top: star.top, width: star.size, height: star.size }}
           initial={false}
-          animate={{
-            opacity: isDark ? 0 : 1,
-            scale: isDark ? 0.5 : 1,
-            rotate: isDark ? -90 : 0,
-          }}
-          transition={{ duration: 0.5, ease: "anticipate" }}
-          className="absolute text-amber drop-shadow-[0_0_8px_rgba(198,154,71,0.6)]"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="4" fill="currentColor" fillOpacity="0.2" />
-            <path d="M12 2v2" />
-            <path d="M12 20v2" />
-            <path d="m4.93 4.93 1.41 1.41" />
-            <path d="m17.66 17.66 1.41 1.41" />
-            <path d="M2 12h2" />
-            <path d="M20 12h2" />
-            <path d="m6.34 17.66-1.41 1.41" />
-            <path d="m19.07 4.93-1.41 1.41" />
-          </svg>
-        </motion.div>
+          animate={
+            isDark
+              ? { opacity: [0.3, 0.9, 0.3], scale: 1 }
+              : { opacity: 0, scale: 0.4 }
+          }
+          transition={
+            isDark
+              ? { duration: 3.4, repeat: Infinity, delay: star.delay, ease: "easeInOut" }
+              : { duration: 0.25 }
+          }
+        />
+      ))}
 
-        {/* MOON / DARK MODE ICON */}
-        <motion.div
+      {/* Knob — flame at night, porcelain sun by day */}
+      <motion.span
+        aria-hidden
+        className="absolute top-[3px] left-[3px] w-5 h-5 rounded-full flex items-center justify-center"
+        initial={false}
+        animate={{
+          x: isDark ? 20 : 0,
+          background: isDark
+            ? "radial-gradient(circle at 35% 30%, #F6D88A 0%, #E2AC4A 55%, #C18F33 100%)"
+            : "radial-gradient(circle at 35% 30%, #FFFFFF 0%, #F2EFE7 100%)",
+          boxShadow: isDark
+            ? "0 0 10px rgba(226, 172, 74, 0.55), 0 0 22px rgba(226, 172, 74, 0.25), 0 1px 2px rgba(2, 4, 9, 0.5)"
+            : "0 0 0 1px rgba(27, 34, 48, 0.12), 0 1px 3px rgba(27, 34, 48, 0.20)",
+        }}
+        transition={{ type: "spring", stiffness: 520, damping: 32 }}
+      >
+        {/* flame silhouette */}
+        <motion.svg
+          width="9"
+          height="12"
+          viewBox="0 0 10 13"
+          className="absolute"
           initial={false}
-          animate={{
-            opacity: isDark ? 1 : 0,
-            scale: isDark ? 1 : 0.5,
-            rotate: isDark ? 0 : 90,
-          }}
-          transition={{ duration: 0.5, ease: "anticipate" }}
-          className="absolute text-paper drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+          animate={{ opacity: isDark ? 0.9 : 0, scale: isDark ? 1 : 0.4 }}
+          transition={{ duration: 0.3 }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" fill="currentColor" fillOpacity="0.2" />
-             <path d="M19 3v4" strokeWidth="1" opacity="0.5" />
-             <path d="M21 5h-4" strokeWidth="1" opacity="0.5" />
-          </svg>
-        </motion.div>
-      </div>
+          <path
+            d="M5 0.5 C5 0.5 9 5.2 9 8.2 A4 4 0 1 1 1 8.2 C1 5.2 5 0.5 5 0.5 Z"
+            fill="#7A4F0F"
+          />
+          <path
+            d="M5 4.5 C5 4.5 7.1 7.2 7.1 8.8 A2.1 2.1 0 1 1 2.9 8.8 C2.9 7.2 5 4.5 5 4.5 Z"
+            fill="#F6D88A"
+          />
+        </motion.svg>
+        {/* bronze sun */}
+        <motion.svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          className="absolute"
+          initial={false}
+          animate={{ opacity: isDark ? 0 : 1, scale: isDark ? 0.4 : 1, rotate: isDark ? -60 : 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <circle cx="6" cy="6" r="2.1" fill="#8A6512" />
+          {Array.from({ length: 8 }, (_, i) => {
+            const a = (i * Math.PI) / 4;
+            return (
+              <line
+                key={i}
+                x1={6 + Math.cos(a) * 3.4}
+                y1={6 + Math.sin(a) * 3.4}
+                x2={6 + Math.cos(a) * 4.9}
+                y2={6 + Math.sin(a) * 4.9}
+                stroke="#8A6512"
+                strokeWidth="1"
+                strokeLinecap="round"
+              />
+            );
+          })}
+        </motion.svg>
+      </motion.span>
     </motion.button>
   );
 }

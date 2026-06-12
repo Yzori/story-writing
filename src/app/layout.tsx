@@ -6,7 +6,8 @@ import "./globals.css";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
-  subsets: ["latin"],
+  // latin-ext for U+0131 (dotless ı) used by the wordmark's Ink-Drop "i"
+  subsets: ["latin", "latin-ext"],
   display: "swap",
 });
 
@@ -65,7 +66,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0A0805",
+  themeColor: "#090B12",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,

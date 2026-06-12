@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto("http://localhost:3000/landing-experience", { waitUntil: "networkidle" });
+await page.mouse.move(360, 450);
+await page.waitForTimeout(400);
+await page.mouse.click(360, 450);
+await page.waitForTimeout(3200);
+await page.screenshot({ path: "/tmp/iso-writer.png" });
+await page.getByRole("button", { name: "⟵ the other door" }).click();
+await page.waitForTimeout(800);
+await page.mouse.move(1080, 450);
+await page.waitForTimeout(500);
+await page.mouse.click(1080, 450);
+await page.waitForTimeout(3200);
+await page.screenshot({ path: "/tmp/iso-reader.png" });
+await browser.close();

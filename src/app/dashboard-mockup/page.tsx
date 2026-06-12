@@ -4,6 +4,51 @@ import Link from "next/link";
 
 const MOCKS = [
   {
+    href: "/dashboard-mockup/spillover",
+    emoji: "✨",
+    name: "The Spillover",
+    tagline: "not a dashboard — a home",
+    blurb:
+      "The full viewport is your home: writing world left (your page mid-sentence, ember air), reading world right (your book, your chosen ink, tonight's arrivals from the crossing) — and between them a living seam carrying REAL events: sparks and notes coming home, chapters flowing out. A live table seizes the crossing (rose seam, sword at its heart). The dragon constellation only ignites on a real milestone. First-night empty states designed (preview toggle in the header), a morning letter assembled from what you missed, 'your ritual' personalization (air + reading ink, persisted), and a desk drawer one scroll below with the shelf, earnings, and everything practical. The hero video, become the page.",
+    accent: "from-amber/30 via-lavender/20 to-transparent border-amber/50",
+  },
+  {
+    href: "/dashboard-mockup/worlds",
+    emoji: "🌉",
+    name: "Two Worlds",
+    tagline: "the hero video, made yours",
+    blurb:
+      "Your reading life and your writing life as two separate worlds, joined only by the river of luminous ink from the landing video. Arrive at the threshold — both worlds lit on the horizon, your likely one already glowing, a dragon hinted in the stars — and walk into one. Inside the writing world, your readers are amethyst lights across the river; inside the reading world, the writers you follow glow gold on the far shore, fellow readers' lamps burn beside yours, and the author who starred your note left it tucked in the pages. Video-brief palette: mahogany, firelight gold, amethyst.",
+    accent: "from-amber/30 via-lavender/15 to-transparent border-amber/45",
+  },
+  {
+    href: "/dashboard-mockup/treehouse",
+    emoji: "🌳",
+    name: "The Treehouse",
+    tagline: "half den, half open sky",
+    blurb:
+      "Your studio up in a tree. The den keeps your craft — desk (or live table) and a little shelf of your works. The platform keeps your world: a reading cushion under real stars, a telescope aimed at everyone else's stories, a birdhouse that takes reader mail, a lantern your streak keeps lit, a rope bridge to your collaborators, and a sapling waiting to be planted. The tree itself grows as your word count climbs. An owl and a squirrel react if you bother them.",
+    accent: "from-sage/30 to-amber/15 border-sage/45",
+  },
+  {
+    href: "/dashboard-mockup/bookshop",
+    emoji: "🏪",
+    name: "The Bookshop After Hours",
+    tagline: "inside is craft, the glass is audience",
+    blurb:
+      "You own a tiny bookshop, closed for the night, lamps still on. Your published works face the street on display stands while sparks drift past the glass; the back desk holds your WIP under a banker's lamp; the till counts your drops; reader letters pile under the mail slot; a HELP WANTED card is your open call; the chalkboard tallies words in stock; the calendar crosses off your reading streak. The shop cat sleeps on the counter, the dog guards the rug, and the sign says CLOSED — gone writing.",
+    accent: "from-amber/30 to-copper/15 border-amber/45",
+  },
+  {
+    href: "/dashboard-mockup/hearth",
+    emoji: "🕯️",
+    name: "The Hearth",
+    tagline: "your room, drawn — now in color, with signals",
+    blurb:
+      "The dashboard as an illustrated cross-section of your own room — and the furniture IS the UI. Your desk holds the WIP (or the live table's dice), the bed keeps your current read, the bookshelf shelves your real stories spine by spine, letters in the rack are reader notes, the wood stove burns your reading streak, a jar of fireflies holds your sparks. The window keeps the hour, the cat wakes if you hover her, the dog wags by the stove. Hover anything and the room speaks; click and it takes you there.",
+    accent: "from-amber/35 to-burnt/15 border-amber/50",
+  },
+  {
     href: "/dashboard-mockup/banner",
     emoji: "🖼️",
     name: "The Studio · Banner",

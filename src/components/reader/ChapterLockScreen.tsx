@@ -390,14 +390,14 @@ export default function ChapterLockScreen({
             /* Insufficient balance */
             <div className="space-y-3 text-center">
               <p className="text-text-secondary text-sm">
-                You need {price} ◆ to unlock this chapter.
+                This chapter costs {price} ◆ — your well is running low.
               </p>
               <Link
                 href="/settings/ink-drops"
                 className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-3 font-display text-sm font-semibold text-void transition-colors hover:bg-gold-light"
               >
                 <DropletIcon className="h-4 w-4" />
-                Get Ink Drops
+                Refill your inkwell
               </Link>
             </div>
           )}
@@ -410,7 +410,7 @@ export default function ChapterLockScreen({
               transition={{ delay: 0.2 }}
               className="mt-5 text-center text-xs text-text-ghost"
             >
-              Your balance: {balance.toLocaleString()} ◆
+              In your well: {balance.toLocaleString()} ◆
             </motion.p>
           )}
         </div>

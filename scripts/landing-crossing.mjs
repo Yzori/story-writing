@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto("http://localhost:3000/landing-experience", { waitUntil: "networkidle" });
+await page.mouse.move(1080, 450);
+await page.waitForTimeout(900);
+await page.mouse.click(1080, 450);
+await page.waitForTimeout(280);
+await page.screenshot({ path: "/tmp/cross-1.png" });
+await page.waitForTimeout(300);
+await page.screenshot({ path: "/tmp/cross-2.png" });
+await page.waitForTimeout(350);
+await page.screenshot({ path: "/tmp/cross-3.png" });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: "/tmp/cross-4.png" });
+await browser.close();

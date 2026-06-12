@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+await page.goto("http://localhost:3000/landing-experience", { waitUntil: "networkidle" });
+await page.mouse.move(360, 450);
+await page.waitForTimeout(300);
+await page.mouse.click(360, 450);
+await page.waitForTimeout(3400);
+await page.screenshot({ path: "/tmp/zoom-writer.png", clip: { x: 360, y: 280, width: 720, height: 540 } });
+await page.getByRole("button", { name: "⟵ the other door" }).click();
+await page.waitForTimeout(800);
+await page.mouse.move(1080, 450);
+await page.waitForTimeout(400);
+await page.mouse.click(1080, 450);
+await page.waitForTimeout(3400);
+await page.screenshot({ path: "/tmp/zoom-reader.png", clip: { x: 360, y: 280, width: 720, height: 540 } });
+await browser.close();

@@ -917,8 +917,8 @@ function WritingHallSVG() {
     <svg viewBox="0 0 240 128" className="h-full w-full" preserveAspectRatio="xMidYMid slice">
       <defs>
         <radialGradient id="w-lamp" cx="35%" cy="40%" r="40%">
-          <stop offset="0%" stopColor="#E0A93E" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#E0A93E" stopOpacity="0" />
+          <stop offset="0%" stopColor="#E2AC4A" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#E2AC4A" stopOpacity="0" />
         </radialGradient>
       </defs>
       <rect width="240" height="128" fill="#1a140d" />
@@ -939,8 +939,8 @@ function WritingHallSVG() {
         </g>
       </g>
       <g transform="translate(178, 70) rotate(-22)">
-        <line x1="0" y1="0" x2="46" y2="-3" stroke="#B28432" strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M 6 -1.5 Q 18 -7 28 -8 Q 38 -8 46 -3" fill="#E0A93E" fillOpacity="0.9" stroke="#B28432" strokeWidth="0.4" />
+        <line x1="0" y1="0" x2="46" y2="-3" stroke="#B5862F" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M 6 -1.5 Q 18 -7 28 -8 Q 38 -8 46 -3" fill="#E2AC4A" fillOpacity="0.9" stroke="#B5862F" strokeWidth="0.4" />
       </g>
       <g transform="translate(196, 86)">
         <ellipse cx="0" cy="0" rx="9" ry="3" fill="#1C1B28" />
@@ -961,7 +961,7 @@ function VisualHallSVG() {
         </radialGradient>
         <linearGradient id="canvas-paint" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#B8697A" />
-          <stop offset="50%" stopColor="#E0A93E" />
+          <stop offset="50%" stopColor="#E2AC4A" />
           <stop offset="100%" stopColor="#5A8A9A" />
         </linearGradient>
       </defs>
@@ -970,19 +970,19 @@ function VisualHallSVG() {
       <line x1="100" y1="118" x2="86" y2="22" stroke="#5C4A30" strokeWidth="2.5" strokeLinecap="round" />
       <line x1="156" y1="118" x2="170" y2="22" stroke="#5C4A30" strokeWidth="2.5" strokeLinecap="round" />
       <line x1="92" y1="60" x2="164" y2="60" stroke="#5C4A30" strokeWidth="2" strokeLinecap="round" />
-      <rect x="76" y="20" width="104" height="80" fill="#F3EBDB" stroke="#B28432" strokeWidth="1.5" rx="1" />
+      <rect x="76" y="20" width="104" height="80" fill="#F3EBDB" stroke="#B5862F" strokeWidth="1.5" rx="1" />
       <rect x="80" y="24" width="96" height="50" fill="url(#canvas-paint)" opacity="0.6" />
       <path d="M 80 60 Q 110 40 140 55 T 176 50" stroke="#4A3E2C" strokeWidth="1.2" fill="none" opacity="0.7" />
       <circle cx="100" cy="44" r="6" fill="#F3EBDB" opacity="0.5" />
       <g transform="translate(38, 90)">
         <ellipse cx="0" cy="0" rx="20" ry="11" fill="#7A5A3A" />
         <circle cx="-8" cy="-2" r="2.5" fill="#B8697A" />
-        <circle cx="0" cy="2" r="2.5" fill="#E0A93E" />
+        <circle cx="0" cy="2" r="2.5" fill="#E2AC4A" />
         <circle cx="8" cy="-2" r="2.5" fill="#5A8A9A" />
       </g>
       <g transform="translate(200, 88) rotate(-30)">
         <rect x="0" y="-1.2" width="22" height="2.4" rx="0.5" fill="#5C4A30" />
-        <rect x="22" y="-2" width="6" height="4" rx="0.6" fill="#B28432" />
+        <rect x="22" y="-2" width="6" height="4" rx="0.6" fill="#B5862F" />
         <path d="M 28 -1.5 L 36 -3 L 36 3 L 28 1.5 Z" fill="#4A3E2C" />
       </g>
     </svg>
@@ -1010,18 +1010,18 @@ function ServicesHallSVG() {
         <path d="M 60 60 L 66 50 L 72 60 Z" fill="#5C4A30" opacity="0.6" />
         <path d="M 70 64 L 80 48 L 90 64 Z" fill="#5C4A30" opacity="0.6" />
         <g transform="translate(118, 60)">
-          <circle r="8" fill="none" stroke="#B28432" strokeWidth="0.7" />
-          <path d="M 0 -8 L 2 0 L 0 8 L -2 0 Z" fill="#B28432" />
-          <path d="M -8 0 L 0 2 L 8 0 L 0 -2 Z" fill="#B28432" opacity="0.5" />
+          <circle r="8" fill="none" stroke="#B5862F" strokeWidth="0.7" />
+          <path d="M 0 -8 L 2 0 L 0 8 L -2 0 Z" fill="#B5862F" />
+          <path d="M -8 0 L 0 2 L 8 0 L 0 -2 Z" fill="#B5862F" opacity="0.5" />
         </g>
-        <ellipse cx="0" cy="38" rx="4" ry="38" fill="#B28432" opacity="0.5" />
-        <ellipse cx="140" cy="38" rx="4" ry="38" fill="#B28432" opacity="0.5" />
+        <ellipse cx="0" cy="38" rx="4" ry="38" fill="#B5862F" opacity="0.5" />
+        <ellipse cx="140" cy="38" rx="4" ry="38" fill="#B5862F" opacity="0.5" />
       </g>
       <g transform="translate(192, 80)">
-        <polygon points="0,-15 13,-5 10,12 -10,12 -13,-5" fill="#4A3E2C" stroke="#B28432" strokeWidth="0.7" />
+        <polygon points="0,-15 13,-5 10,12 -10,12 -13,-5" fill="#4A3E2C" stroke="#B5862F" strokeWidth="0.7" />
         <polygon points="0,-15 13,-5 0,2" fill="#5A5870" />
         <polygon points="0,-15 -13,-5 0,2" fill="#28263A" />
-        <path d="M-5 0H5M0-5V5" stroke="#E0A93E" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M-5 0H5M0-5V5" stroke="#E2AC4A" strokeWidth="1.2" strokeLinecap="round" />
       </g>
     </svg>
   );

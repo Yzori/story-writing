@@ -2,6 +2,9 @@ export type Theme = "dark" | "light";
 
 const STORAGE_KEY = "quiloria-theme";
 
+/** Fired on window whenever setTheme runs, so every mounted toggle stays in sync. */
+export const THEME_CHANGE_EVENT = "quiloria:theme-change";
+
 export function getStoredTheme(): Theme {
   if (typeof window === "undefined") return "dark";
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -20,4 +23,7 @@ export function setTheme(theme: Theme) {
 
   // Persist
   localStorage.setItem(STORAGE_KEY, theme);
+
+  // Let every mounted toggle (dock, reader toolbar, editor) follow along
+  window.dispatchEvent(new CustomEvent<Theme>(THEME_CHANGE_EVENT, { detail: theme }));
 }

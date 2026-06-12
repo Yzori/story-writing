@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto("http://localhost:3000/landing-experience", { waitUntil: "networkidle" });
+await page.screenshot({ path: "/tmp/doors-rest.png" });
+await page.mouse.move(1080, 450);
+await page.waitForTimeout(1400);
+await page.screenshot({ path: "/tmp/doors-portal.png" });
+await page.mouse.move(360, 450);
+await page.waitForTimeout(1400);
+await page.screenshot({ path: "/tmp/doors-portal-writer.png" });
+await browser.close();

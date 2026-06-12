@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto("http://localhost:3000/landing-experience", { waitUntil: "networkidle" });
+await page.mouse.move(1080, 450);
+await page.waitForTimeout(700);
+await page.mouse.click(1080, 450);
+await page.waitForTimeout(3200);
+await page.locator('button[aria-label^="Enter Horror"]').click({ force: true });
+await page.waitForTimeout(1600);
+await page.getByRole("button", { name: /The Lit Window/ }).click();
+await page.waitForTimeout(900);
+await page.screenshot({ path: "/tmp/plate-1.png" });
+await page.getByRole("button", { name: "read chapter one →" }).click();
+await page.waitForTimeout(1600);
+await page.screenshot({ path: "/tmp/plate-2.png" });
+await browser.close();

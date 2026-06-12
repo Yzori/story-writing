@@ -97,9 +97,9 @@ export default function InkDropsPage() {
         <div className="mb-6 rounded-2xl border border-border bg-ink/45 p-5">
           <p className="section-label mb-2 max-w-[160px] text-[10px]">Ink Drops</p>
           <div>
-            <h2 className="font-display text-2xl font-semibold text-paper sm:text-3xl">Balance and purchases</h2>
+            <h2 className="font-display text-2xl font-semibold text-paper sm:text-3xl">Your inkwell</h2>
             <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-text-secondary">
-              The platform currency. Spend on tips, unlocks, polls, subscriptions, and commissions.
+              Ink is Quiloria&apos;s currency. Keep your well full, then spend it on gifts, unlocks, polls, Circles, and commissions.
             </p>
           </div>
         </div>
@@ -111,7 +111,7 @@ export default function InkDropsPage() {
           transition={{ delay: 0.1 }}
           className="mb-6 rounded-2xl border border-border bg-surface/68 p-5 shadow-[var(--t-shadow-card)] sm:p-6"
         >
-          <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3">What Ink Drops do</p>
+          <p className="text-[10px] uppercase tracking-[0.14em] text-text-ghost mb-3">Where your ink goes</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-[12px]">
             <div className="flex items-center gap-2 text-text-secondary">
               <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
@@ -153,7 +153,7 @@ export default function InkDropsPage() {
                 <path d="M3 8.5l3 3 7-7" />
               </svg>
               <span className="text-sm text-emerald">
-                {dropsAdded ? `${dropsAdded} Ink Drops added to your balance!` : "Purchase successful!"}
+                {dropsAdded ? `+${dropsAdded} drops of ink in your well!` : "Purchase successful!"}
               </span>
             </motion.div>
           )}
@@ -179,14 +179,14 @@ export default function InkDropsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-text-ghost">Your Balance</p>
+              <p className="text-[11px] uppercase tracking-wider text-text-ghost">In your well</p>
               <p className="text-2xl font-bold text-gold tabular-nums">
                 {balance !== null ? balance.toLocaleString() : "—"}
               </p>
             </div>
             </div>
             <p className="max-w-sm text-[12px] leading-relaxed text-text-secondary">
-              Drops are prepaid balance. Purchases are handled through checkout before any balance is added.
+              Ink is prepaid balance. Purchases are handled through checkout before a single drop is added.
             </p>
           </div>
         </div>
@@ -237,7 +237,7 @@ export default function InkDropsPage() {
                     : "bg-elevated/50 border border-border text-text hover:border-gold/30 hover:text-gold"
                 } ${purchasing === tier.key ? "opacity-70" : ""} disabled:cursor-not-allowed`}
               >
-                {purchasing === tier.key ? "Redirecting..." : `Buy ${tier.drops}`}
+                {purchasing === tier.key ? "Redirecting..." : `Refill +${tier.drops.toLocaleString()}`}
               </button>
             </motion.div>
           ))}
