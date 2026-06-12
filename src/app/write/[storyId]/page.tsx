@@ -51,6 +51,7 @@ import WorkshopChatPanel from "@/components/editor/WorkshopChatPanel";
 import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
 import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
 import DeskView from "@/components/editor/DeskView";
+import BibleCodex from "@/components/editor/BibleCodex";
 import ChapterTicks from "@/components/editor/ChapterTicks";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
@@ -485,6 +486,7 @@ export default function WriteStoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showDesk, setShowDesk] = useState(false);
+  const [showCodex, setShowCodex] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [undoAction, setUndoAction] = useState<{
@@ -864,7 +866,7 @@ export default function WriteStoryPage() {
       }
       if (isMod && e.shiftKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
-        togglePanel("bible");
+        setShowCodex((v) => !v);
       }
       // The Desk: Cmd/Ctrl+E zooms out to the chapters overview.
       // DeskView owns the close (capture-phase listener) so the
@@ -3306,7 +3308,7 @@ export default function WriteStoryPage() {
             onUpdateOutline={handleUpdateOutline}
             onSelectChapter={(id) => void handleSelectChapter(id)}
             onNewChapter={() => void handleAddChapter()}
-            onOpenBible={handleToggleBible}
+            onOpenBible={() => setShowCodex(true)}
             onOpenDetails={handleOpenMetadata}
             onOpenPublish={handleOpenMonetization}
             onOpenHistory={(id) => {
@@ -3327,6 +3329,23 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
+      {/* ── The Codex — the story bible as a place ──────────── */}
+      <AnimatePresence>
+        {showCodex && (
+          <BibleCodex
+            bible={project.bible}
+            storyId={storyId}
+            storyTitle={project.title}
+            chapters={bibleChapters}
+            onUpdate={handleUpdateBible}
+            onBack={() => {
+              setShowCodex(false);
+              setShowDesk(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── 9. Command Palette / The Grimoire ───────────────── */}
       <CommandPalette
         open={commandOpen}
@@ -3337,7 +3356,7 @@ export default function WriteStoryPage() {
         onOpenSearch={handleOpenSearch}
         onOpenEditorDesk={() => { setCommandOpen(false); setShowAIAssistant(true); }}
         onOpenMetadata={handleOpenMetadata}
-        onOpenBible={handleToggleBible}
+        onOpenBible={() => { setCommandOpen(false); setShowCodex(true); }}
         onOpenFrontMatter={handleOpenFrontMatter}
         onOpenChapterSettings={handleToggleSettings}
         onOpenOutline={handleToggleOutlineView}
