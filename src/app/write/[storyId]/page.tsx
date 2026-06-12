@@ -42,6 +42,7 @@ import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
 import { useToast } from "@/components/shared/Toast";
+import { useModChord } from "@/lib/keys";
 import { QuillRingMark } from "@/components/shared/BrandLogo";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
 import OnboardingHints from "@/components/editor/OnboardingHints";
@@ -467,6 +468,8 @@ export default function WriteStoryPage() {
   const { toast } = useToast();
   const { mutateJson } = useApiMutation({ toast });
   const storyId = params.storyId as string;
+  const deskChord = useModChord("E");
+  const focusChord = useModChord(".");
 
   const [project, setProject] = useState<StoryProject | null>(null);
   const updateProject = useCallback(
@@ -2043,7 +2046,7 @@ export default function WriteStoryPage() {
     : "xl:pr-[360px]";
 
   return (
-    <div className="fixed inset-x-0 top-14 bottom-0 w-screen overflow-hidden selection:bg-amber/30 selection:text-white transition-colors duration-1000 bg-void">
+    <div className="fixed inset-x-0 top-14 bottom-0 w-screen overflow-hidden transition-colors duration-1000 bg-void">
 
       {/* ── 1. Cinematic Canvas Background ──────────────────── */}
       <div className="absolute inset-0 pointer-events-none z-0">
@@ -2216,17 +2219,26 @@ export default function WriteStoryPage() {
             {activeChapter && (
               <motion.div
                 key={activeChapter.id}
+                layoutId={barePage ? "page-sheet" : undefined}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="w-full flex-1 min-h-0 flex flex-col items-center"
+                transition={
+                  barePage
+                    ? { layout: { type: "spring", stiffness: 340, damping: 34 }, duration: 0.2, ease: "easeInOut" }
+                    : { duration: 0.2, ease: "easeInOut" }
+                }
+                className={
+                  barePage
+                    ? "w-full max-w-[840px] lg:mx-auto flex-1 min-h-0 flex flex-col items-center mt-4 mb-16 rounded-2xl border border-border bg-ink/50 shadow-[0_24px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+                    : "w-full flex-1 min-h-0 flex flex-col items-center"
+                }
               >
                 {/* Spacer to push content below navbar area */}
-                <div className="w-full h-16 shrink-0" />
+                <div className={barePage ? "w-full h-5 shrink-0" : "w-full h-16 shrink-0"} />
 
                 {/* Sticky chapter header */}
-                <div className="w-full sticky top-0 z-20 bg-void/80 backdrop-blur-sm border-b border-paper/[0.03] pt-3">
+                <div className={`w-full sticky top-0 z-20 backdrop-blur-sm border-b border-paper/[0.03] pt-3 ${barePage ? "bg-ink/70" : "bg-void/80"}`}>
                   <div className="max-w-[680px] mx-auto px-4 sm:px-8 pb-3">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-2 mb-1.5">
@@ -2245,7 +2257,7 @@ export default function WriteStoryPage() {
                         type="button"
                         onClick={() => setShowDesk(true)}
                         className="text-[10px] text-amber/50 uppercase tracking-[0.15em] transition-colors hover:text-amber"
-                        title="Step back to the desk (⌘E)"
+                        title={`Step back to the desk (${deskChord})`}
                       >
                         {project.title}
                       </button>
@@ -2341,7 +2353,7 @@ export default function WriteStoryPage() {
                               ? "bg-amber/10 text-amber border border-amber/20"
                               : "text-text-ghost hover:text-text-secondary border border-transparent"
                           }`}
-                          title="Focus mode (⌘.)"
+                          title={`Focus mode (${focusChord})`}
                         >
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
                             <circle cx="7" cy="7" r="3" />
@@ -2387,7 +2399,11 @@ export default function WriteStoryPage() {
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                               <path d="M2 6l3 3 5-5" />
                             </svg>
-                            <span className="hidden min-[420px]:inline">Publish Chapter</span>
+                            <span className="hidden min-[420px]:inline">
+                              {(activeChapter.wordCount ?? 0) < 100
+                                ? `Publish · ${activeChapter.wordCount ?? 0}/100 words`
+                                : "Publish Chapter"}
+                            </span>
                             <span className="min-[420px]:hidden">Publish</span>
                           </button>
                         ) : (
@@ -3286,6 +3302,7 @@ export default function WriteStoryPage() {
             chapters={project.chapters}
             activeChapterId={project.activeChapterId}
             onClose={() => setShowDesk(false)}
+            morphEnabled={barePage}
             onSelectChapter={(id) => void handleSelectChapter(id)}
             onNewChapter={() => void handleAddChapter()}
             onOpenOutline={() => {

@@ -9,13 +9,15 @@
  * Each sheet carries its own management: rename in place, move along
  * the desk, version history, delete (two-step).
  *
- * The camera move is a transform-origin zoom: the desk scales down out
- * of the active chapter's card position on entry, and scales back up
- * into whichever card the writer chooses on exit. Concept approved from
- * /mockup/editor-desk (2026-06-12).
+ * The camera move is a shared-layout morph: the page sheet in the
+ * cockpit and the chosen chapter's card share layoutId "page-sheet",
+ * so the page physically shrinks into its place on the desk and grows
+ * back out of whichever card the writer picks (the card-expand pattern,
+ * reversed). Falls back to a plain fade when the cockpit isn't showing
+ * the bare-page sheet. Concept approved from /mockup/editor-desk.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export interface DeskChapter {
@@ -39,6 +41,8 @@ interface DeskViewProps {
   onOpenDetails: () => void;
   onOpenPublish: () => void;
   onOpenHistory: (chapterId: string) => void;
+  /** True when the cockpit is rendering the bare-page sheet (write mode). */
+  morphEnabled: boolean;
   onRenameChapter: (id: string, title: string) => void;
   onMoveChapter: (id: string, dir: -1 | 1) => void;
   onDeleteChapter: (id: string) => void;
@@ -97,15 +101,14 @@ export default function DeskView({
   onOpenDetails,
   onOpenPublish,
   onOpenHistory,
+  morphEnabled,
   onRenameChapter,
   onMoveChapter,
   onDeleteChapter,
 }: DeskViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const pendingAction = useRef<(() => void) | null>(null);
-  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
-  const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
+  // Which card the page morphs out of / back into.
+  const [morphId, setMorphId] = useState<string | null>(activeChapterId);
 
   // Sheet management state
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -117,39 +120,21 @@ export default function DeskView({
 
   const totalWords = chapters.reduce((sum, c) => sum + c.wordCount, 0);
 
-  const measureOrigin = useCallback((cardId: string | null) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const card = cardId
-      ? container.querySelector(`[data-desk-card="${cardId}"]`)
-      : null;
-    if (card) {
-      const rect = card.getBoundingClientRect();
-      setOrigin({
-        x: rect.left + rect.width / 2 - containerRect.left,
-        y: rect.top + rect.height / 2 - containerRect.top,
-      });
-    } else {
-      setOrigin({ x: containerRect.width / 2, y: containerRect.height / 2 });
-    }
-  }, []);
-
-  // The camera arrives out of the active chapter's place on the desk.
-  useLayoutEffect(() => {
-    measureOrigin(activeChapterId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const leave = useCallback(
     (cardId: string | null, action?: () => void) => {
       if (leavingRef.current) return;
       leavingRef.current = true;
-      pendingAction.current = action ?? null;
-      measureOrigin(cardId ?? activeChapterId);
-      setLeaving(true);
+      // Hand the layoutId to the chosen card first, so the page grows
+      // out of the right sheet; commit the action a frame later.
+      setMorphId(cardId ?? activeChapterId);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          action?.();
+          onClose();
+        })
+      );
     },
-    [activeChapterId, measureOrigin]
+    [activeChapterId, onClose]
   );
 
   // Esc and ⌘E both dive back into the page — unless a menu or rename
@@ -221,44 +206,28 @@ export default function DeskView({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[70] overflow-y-auto bg-void/95 backdrop-blur-xl"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+      className="fixed inset-0 z-[70] overflow-y-auto"
+      exit={{ opacity: 0, transition: { duration: 0.18 } }}
       role="dialog"
       aria-modal="true"
       aria-label="The desk — chapters overview"
     >
+      {/* Backdrop fades on its own so the root never "enters" — a root
+          entrance animation makes framer skip the shared-layout
+          promotion of the page sheet into its card. */}
+      <motion.div
+        className="pointer-events-none fixed inset-0 bg-void/95 backdrop-blur-xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: 0.25 } }}
+        aria-hidden
+      />
       {/* lamp glow */}
       <div
         className="pointer-events-none fixed left-1/2 top-[-180px] h-[420px] w-[760px] -translate-x-1/2 rounded-full bg-amber/[0.07] blur-[130px]"
         aria-hidden
       />
 
-      <motion.div
-        ref={containerRef}
-        className="relative flex min-h-full flex-col items-center px-6 pb-24 pt-16"
-        style={origin ? { transformOrigin: `${origin.x}px ${origin.y}px` } : undefined}
-        initial={{ scale: 1.55, opacity: 0 }}
-        animate={
-          origin
-            ? leaving
-              ? { scale: 1.55, opacity: 0 }
-              : { scale: 1, opacity: 1 }
-            : undefined
-        }
-        transition={
-          leaving
-            ? { duration: 0.26, ease: "easeIn" }
-            : { type: "spring", stiffness: 260, damping: 32 }
-        }
-        onAnimationComplete={() => {
-          if (!leavingRef.current) return;
-          pendingAction.current?.();
-          pendingAction.current = null;
-          onClose();
-        }}
-      >
+      <div className="relative flex min-h-full flex-col items-center px-6 pb-24 pt-16">
         <header className="mb-10 text-center">
           <p className="mb-3 text-[11px] uppercase tracking-[0.22em] text-text-ghost">
             Your desk
@@ -277,11 +246,18 @@ export default function DeskView({
           {chapters.map((c, i) => (
             <motion.div
               key={c.id}
-              layout
-              transition={{ type: "spring", stiffness: 420, damping: 36 }}
+              layout={!(morphEnabled && c.id === morphId)}
+              layoutId={morphEnabled && c.id === morphId ? "page-sheet" : undefined}
+              transition={{ type: "spring", stiffness: 340, damping: 34 }}
               data-desk-card={c.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0, transition: { delay: 0.06 + i * 0.03 } }}
+              initial={
+                morphEnabled && c.id === morphId ? false : { opacity: 0, y: 12 }
+              }
+              animate={
+                morphEnabled && c.id === morphId
+                  ? undefined
+                  : { opacity: 1, y: 0, transition: { delay: 0.06 + i * 0.03 } }
+              }
               whileHover={
                 menuId || renamingId ? undefined : { y: -6, rotate: i % 2 ? 0.6 : -0.6 }
               }
@@ -531,7 +507,7 @@ export default function DeskView({
           </kbd>
           back to the page
         </motion.p>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
