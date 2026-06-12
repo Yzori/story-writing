@@ -36,8 +36,34 @@ export interface StudioNotification {
   createdAt: string;
 }
 
+export interface StudioManuscript {
+  storyId: string;
+  slug: string | null;
+  storyTitle: string;
+  chapterId: string;
+  chapterTitle: string;
+  chapterNumber: number;
+  words: number;
+  /** closing lines of the chapter, plain text, "…"-prefixed when mid-stream */
+  lastLines: string;
+  updatedAt: string;
+}
+
+export interface StudioReaderNote {
+  id: string;
+  content: string;
+  author: string | null;
+  storyTitle: string;
+  slug: string | null;
+  chapterId: string;
+  createdAt: string;
+}
+
 export interface DashboardSignals {
   readingStreak: number;
+  manuscript: StudioManuscript | null;
+  readerNotes: StudioReaderNote[];
+  newFollowersWeek: number;
   continueReading: {
     storyId: string;
     slug: string | null;
@@ -67,6 +93,9 @@ export interface DiscoverData {
 
 const EMPTY_SIGNALS: DashboardSignals = {
   readingStreak: 0,
+  manuscript: null,
+  readerNotes: [],
+  newFollowersWeek: 0,
   continueReading: null,
   wordsTrend: [],
   sparksWeek: 0,

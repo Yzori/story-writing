@@ -382,7 +382,7 @@ function FlyoutPanel({
 }) {
   return (
     <motion.div
-      className={`absolute w-60 max-md:bottom-full max-md:mb-3 md:top-full md:mt-3 ${side === "left" ? "left-0 max-md:left-1/2 max-md:-translate-x-1/2" : "right-0"}`}
+      className={`absolute w-72 max-md:bottom-full max-md:mb-3 md:top-full md:mt-3 ${side === "left" ? "left-0 max-md:left-1/2 max-md:-translate-x-1/2" : "right-0"}`}
       initial={{ opacity: 0, y: -6, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -4, scale: 0.98 }}
@@ -421,8 +421,8 @@ function YouLink({
       className="flex items-center gap-2.5 px-4 py-2 text-[12.5px] text-text-secondary hover:text-paper hover:bg-paper/[0.04] transition-colors"
     >
       <Icon size={13} strokeWidth={1.6} className="opacity-60 shrink-0" />
-      <span className="flex-1">{label}</span>
-      {hint && <span className="text-[9.5px] uppercase tracking-[0.12em] text-text-ghost">{hint}</span>}
+      <span className="flex-1 whitespace-nowrap">{label}</span>
+      {hint && <span className="whitespace-nowrap text-[9.5px] uppercase tracking-[0.12em] text-text-ghost">{hint}</span>}
     </Link>
   );
 }

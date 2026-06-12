@@ -66,6 +66,25 @@ export const users = pgTable("users", {
     .default(sql`'{}'::text[]`),
   preferredReadLength: text("preferred_read_length"), // "quick" | "short" | "medium" | "long" | null = no preference
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  // Study hosting — what the writer sets out for profile visitors.
+  // Hearth: visitors may light a candle (7-day warm presence on the mantel).
+  profileHearth: boolean("profile_hearth").notNull().default(true),
+  // Letterbox policy: 'open' (anyone signed in) | 'followers' (follows one of
+  // the writer's stories) | 'closed'. Letters are private until answered.
+  profileLetterbox: text("profile_letterbox").notNull().default("open"),
+  // Whether "Leave a gift" is set out on the profile.
+  profileShowGifts: boolean("profile_show_gifts").notNull().default(true),
+  // What fronts the profile cover's disc:
+  //   'auto'     — the writer's best (most-sparked) work, portrait fallback
+  //   'portrait' — the writer themselves
+  //   'story'    — the specific work in profileCoverStoryId
+  // When a work fronts the cover, the portrait rides along as a small
+  // medallion beside the disc.
+  profileCoverMode: text("profile_cover_mode").notNull().default("auto"),
+  profileCoverStoryId: uuid("profile_cover_story_id").references(
+    (): AnyPgColumn => stories.id,
+    { onDelete: "set null" }
+  ),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -2862,5 +2881,93 @@ export const deskNotesRelations = relations(deskNotes, ({ one }) => ({
   story: one(stories, {
     fields: [deskNotes.storyId],
     references: [stories.id],
+  }),
+}));
+
+// ── Profile visits — candles & letters ───────────────────────
+// The profile is the writer's study opened to visitors. A candle is a
+// lightweight warm gesture (one per visitor, re-lightable; "burning" =
+// lit within the last 7 days). A letter is private correspondence that
+// becomes public only when the writer answers it.
+
+export const profileCandles = pgTable(
+  "profile_candles",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    profileUserId: uuid("profile_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    visitorId: uuid("visitor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    litAt: timestamp("lit_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("profile_candles_visitor_unique").on(
+      table.profileUserId,
+      table.visitorId
+    ),
+    index("idx_profile_candles_recent").on(table.profileUserId, table.litAt),
+  ]
+);
+
+export const profileCandlesRelations = relations(profileCandles, ({ one }) => ({
+  profileUser: one(users, {
+    fields: [profileCandles.profileUserId],
+    references: [users.id],
+  }),
+  visitor: one(users, {
+    fields: [profileCandles.visitorId],
+    references: [users.id],
+  }),
+}));
+
+export const profileLetters = pgTable(
+  "profile_letters",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    /** The writer whose desk the letter lands on. */
+    profileUserId: uuid("profile_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    /** The writer's answer. A letter is public correspondence once answered. */
+    reply: text("reply"),
+    repliedAt: timestamp("replied_at", { withTimezone: true }),
+    isPinned: boolean("is_pinned").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_profile_letters_feed").on(
+      table.profileUserId,
+      table.deletedAt,
+      table.repliedAt,
+      table.createdAt
+    ),
+    index("idx_profile_letters_sender").on(table.senderId, table.createdAt),
+  ]
+);
+
+export const profileLettersRelations = relations(profileLetters, ({ one }) => ({
+  profileUser: one(users, {
+    fields: [profileLetters.profileUserId],
+    references: [users.id],
+  }),
+  sender: one(users, {
+    fields: [profileLetters.senderId],
+    references: [users.id],
   }),
 }));

@@ -85,7 +85,7 @@ export default function Threshold({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1], delay: 0.1 }}
-      className="relative mx-auto mt-8 max-w-5xl px-5 lg:px-8"
+      className="relative mx-auto mt-8 max-w-6xl px-5 lg:px-8"
     >
       <div className="relative overflow-hidden rounded-[1.75rem] border border-amber/25 bg-surface/85 p-6 shadow-[var(--t-shadow-card)] backdrop-blur-xl sm:p-8">
         {/* Lamp glow */}

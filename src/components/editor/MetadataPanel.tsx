@@ -118,7 +118,9 @@ export default function MetadataPanel({
   const handleImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     try {
-      const dataUrl = await compressImage(file, 600, 0.75);
+      // 900 matches the create/story-page cover paths — cover art can front
+      // the profile's full-height disc, where 600px goes soft.
+      const dataUrl = await compressImage(file, 900, 0.8);
       update({ coverImageDataUrl: dataUrl });
     } catch (err) {
       console.error("Failed to process cover image:", err);

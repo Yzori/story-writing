@@ -36,6 +36,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         createdAt: users.createdAt,
         readingStreakDays: users.readingStreakDays,
         readingStreakBest: users.readingStreakBest,
+        profileHearth: users.profileHearth,
+        profileLetterbox: users.profileLetterbox,
+        profileShowGifts: users.profileShowGifts,
+        profileCoverMode: users.profileCoverMode,
+        profileCoverStoryId: users.profileCoverStoryId,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -298,6 +303,13 @@ const updateProfileSchema = z.object({
       z.null(),
     ])
     .optional(),
+  // Study hosting — what the writer sets out for profile visitors.
+  profileHearth: z.boolean().optional(),
+  profileLetterbox: z.enum(["open", "followers", "closed"]).optional(),
+  profileShowGifts: z.boolean().optional(),
+  // Cover choice: auto (best work) | portrait | a specific published story.
+  profileCoverMode: z.enum(["auto", "portrait", "story"]).optional(),
+  profileCoverStoryId: z.string().uuid().nullable().optional(),
 });
 
 /**
@@ -349,6 +361,34 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // The cover may only front one of the writer's own public published stories.
+    if (updates.profileCoverStoryId) {
+      const [coverStory] = await db
+        .select({ id: stories.id })
+        .from(stories)
+        .where(
+          and(
+            eq(stories.id, updates.profileCoverStoryId),
+            eq(stories.userId, userId),
+            eq(stories.isPublic, true),
+            eq(stories.status, "published"),
+            isNull(stories.deletedAt)
+          )
+        )
+        .limit(1);
+      if (!coverStory) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "The cover must be one of your published stories",
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const [updatedUser] = await db
       .update(users)
       .set({ ...updates, updatedAt: new Date() })
@@ -361,6 +401,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         image: users.image,
         bio: users.bio,
         role: users.role,
+        profileHearth: users.profileHearth,
+        profileLetterbox: users.profileLetterbox,
+        profileShowGifts: users.profileShowGifts,
+        profileCoverMode: users.profileCoverMode,
+        profileCoverStoryId: users.profileCoverStoryId,
         updatedAt: users.updatedAt,
       });
 

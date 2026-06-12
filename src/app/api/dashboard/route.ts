@@ -13,10 +13,12 @@ import {
   readingProgress,
   commissions,
   offerings,
+  comments,
 } from "@/server/db/schema";
-import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { extractLastLines } from "@/lib/text-extract";
 
 /**
  * GET /api/dashboard
@@ -34,6 +36,11 @@ import { applyRateLimit } from "@/server/api-utils";
  *   suggestions      pending suggestions on owned stories (count + latest)
  *   follows          recent published chapters + creator updates from
  *                    stories the user follows
+ *   manuscript       the user's most recently touched chapter (non-campaign)
+ *                    with its closing lines — the studio quotes the page
+ *                    exactly where the ink stopped
+ *   readerNotes      real comments left on owned stories this week, quoted
+ *   newFollowersWeek follows gained on owned stories in the last 7 days
  *
  * Every query is scoped by the authenticated user.
  */
@@ -80,6 +87,9 @@ export async function GET(request: NextRequest) {
       newUpdates,
       commissionRows,
       commissionCountRow,
+      manuscriptRows,
+      readerNoteRows,
+      newFollowersRow,
     ] = await Promise.all([
       // ── reading streak ──
       db.select({ days: users.readingStreakDays }).from(users).where(eq(users.id, userId)).limit(1),
@@ -215,6 +225,65 @@ export async function GET(request: NextRequest) {
         .select({ c: sql<number>`count(*)` })
         .from(commissions)
         .where(and(eq(commissions.artisanId, userId), inArray(commissions.status, ["requested", "accepted"]))),
+
+      // ── the manuscript — most recently touched chapter on an owned,
+      //    non-campaign story; only the content tail crosses the wire ──
+      db
+        .select({
+          storyId: chapters.storyId,
+          slug: stories.slug,
+          storyTitle: stories.title,
+          chapterId: chapters.id,
+          chapterTitle: chapters.title,
+          chapterSort: chapters.sortOrder,
+          chapterWords: chapters.wordCount,
+          contentTail: sql<string>`right(${chapters.content}, 4000)`,
+          updatedAt: chapters.updatedAt,
+        })
+        .from(chapters)
+        .innerJoin(stories, eq(chapters.storyId, stories.id))
+        .where(
+          and(
+            eq(stories.userId, userId),
+            ne(stories.writingMode, "campaign"),
+            isNull(stories.deletedAt),
+            isNull(chapters.deletedAt),
+          ),
+        )
+        .orderBy(desc(chapters.updatedAt))
+        .limit(1),
+
+      // ── reader notes — real comments on owned stories this week ──
+      db
+        .select({
+          id: comments.id,
+          content: comments.content,
+          author: users.displayName,
+          storyTitle: stories.title,
+          slug: stories.slug,
+          chapterId: comments.chapterId,
+          createdAt: comments.createdAt,
+        })
+        .from(comments)
+        .innerJoin(stories, eq(comments.storyId, stories.id))
+        .leftJoin(users, eq(comments.userId, users.id))
+        .where(
+          and(
+            eq(stories.userId, userId),
+            ne(comments.userId, userId),
+            isNull(comments.deletedAt),
+            gte(comments.createdAt, weekAgo),
+          ),
+        )
+        .orderBy(desc(comments.createdAt))
+        .limit(3),
+
+      // ── follows gained on owned stories, last 7 days ──
+      db
+        .select({ c: sql<number>`count(*)` })
+        .from(follows)
+        .innerJoin(stories, eq(follows.storyId, stories.id))
+        .where(and(eq(stories.userId, userId), gte(follows.createdAt, weekAgo))),
     ]);
 
     // ── build the 14-day trend, filling gaps with 0 ──
@@ -263,6 +332,32 @@ export async function GET(request: NextRequest) {
         }
       : null;
 
+    // ── the manuscript, quoted where the ink stopped ──
+    const m = manuscriptRows[0];
+    const manuscript = m
+      ? {
+          storyId: m.storyId,
+          slug: m.slug,
+          storyTitle: m.storyTitle ?? "Untitled",
+          chapterId: m.chapterId,
+          chapterTitle: m.chapterTitle,
+          chapterNumber: (m.chapterSort ?? 0) + 1,
+          words: Number(m.chapterWords ?? 0),
+          lastLines: extractLastLines(m.contentTail ?? ""),
+          updatedAt: m.updatedAt.toISOString(),
+        }
+      : null;
+
+    const readerNotes = readerNoteRows.map((n) => ({
+      id: n.id,
+      content: n.content.length > 220 ? `${n.content.slice(0, 217).trimEnd()}…` : n.content,
+      author: n.author,
+      storyTitle: n.storyTitle ?? "your story",
+      slug: n.slug,
+      chapterId: n.chapterId,
+      createdAt: n.createdAt.toISOString(),
+    }));
+
     const latestSuggestion = suggestionRows[0]
       ? {
           storyId: suggestionRows[0].storyId,
@@ -277,6 +372,9 @@ export async function GET(request: NextRequest) {
       data: {
         readingStreak: Number(streakRow[0]?.days ?? 0),
         continueReading,
+        manuscript,
+        readerNotes,
+        newFollowersWeek: Number(newFollowersRow[0]?.c ?? 0),
         wordsTrend,
         sparksWeek: Number(sparksWeekRow[0]?.c ?? 0),
         dropsWeek: Number(dropsWeekRow[0]?.total ?? 0),

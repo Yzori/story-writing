@@ -112,6 +112,24 @@ const NOTIF_ICONS: Record<NotifType, { icon: React.ReactNode; color: string }> =
       </svg>
     ),
   },
+  letter: {
+    color: "text-amber bg-amber/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="2" y="4" width="12" height="9" rx="1.5" />
+        <path d="M2.5 5l5.5 4.5L13.5 5" />
+      </svg>
+    ),
+  },
+  candle: {
+    color: "text-gold bg-gold/10",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M8 1.5c1 1.2 1.6 2 1.6 2.9a1.6 1.6 0 11-3.2 0c0-.9.6-1.7 1.6-2.9z" />
+        <path d="M6.5 7.5h3V14h-3z" />
+      </svg>
+    ),
+  },
 };
 
 
@@ -165,7 +183,7 @@ export default function NotificationsPage() {
   // Primary filters: most-frequent types stay as chips. Less-common types
   // collapse under a "More" dropdown so the strip stays scannable.
   const PRIMARY_KEYS: ("all" | NotifType)[] = ["all", "chapter", "spark", "comment", "follow"];
-  const MORE_KEYS: NotifType[] = ["update", "collaboration", "suggestion", "open-call", "tip", "jam", "annotation", "circle"];
+  const MORE_KEYS: NotifType[] = ["update", "collaboration", "suggestion", "open-call", "tip", "jam", "annotation", "circle", "letter", "candle"];
 
   const FILTER_LABELS: Record<"all" | NotifType, string> = {
     all: "All",
@@ -181,6 +199,8 @@ export default function NotificationsPage() {
     jam: "Jams",
     annotation: "Notes",
     circle: "Circle",
+    letter: "Letters",
+    candle: "Candles",
   };
 
   const filters = PRIMARY_KEYS.map((key) => ({ key, label: FILTER_LABELS[key] }));

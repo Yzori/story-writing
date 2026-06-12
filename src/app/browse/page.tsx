@@ -84,8 +84,26 @@ function storyFormatLabel(s: ApiStory) {
   if (s.writingMode === "campaign") return "Adventure";
   return FORMATS.find((f) => f.value === s.format)?.label ?? "Novel";
 }
-function storyExcerpt(s: ApiStory) {
-  return s.hook?.trim() || s.synopsis?.trim() || "No synopsis yet — but every shelf holds a surprise. Open it and see.";
+function storyExcerpt(s: ApiStory): string | null {
+  return s.hook?.trim() || s.synopsis?.trim() || null;
+}
+
+// Coverless stories get a spine color from the accent palette (hashed off the
+// story id) so a shelf of fallbacks reads as designed, not missing.
+const SPINE_HUES = [
+  "var(--color-amber)",
+  "var(--color-rose)",
+  "var(--color-sage)",
+  "var(--color-lavender)",
+  "var(--color-teal)",
+  "var(--color-copper)",
+  "var(--color-lapis)",
+];
+function spineHue(s: ApiStory) {
+  const key = s.id || s.title;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return SPINE_HUES[h % SPINE_HUES.length];
 }
 
 function matchesFormat(s: ApiStory, label: string) {
@@ -145,11 +163,15 @@ function SearchIcon() {
 function CoverArt({ story, sizes }: { story: ApiStory; sizes: string }) {
   const [failed, setFailed] = useState(false);
   if (!story.coverImageUrl || failed) {
+    const hue = spineHue(story);
     return (
       <div className="absolute inset-0 bg-gradient-to-br from-elevated via-surface to-void">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(224,169,62,0.20),transparent_55%)]" />
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(circle at 30% 18%, color-mix(in srgb, ${hue} 22%, transparent), transparent 55%)` }}
+        />
         <div className="absolute inset-x-0 bottom-0 p-4">
-          <div className="mb-2 h-px w-8 bg-amber/40" />
+          <div className="mb-2 h-px w-8" style={{ background: `color-mix(in srgb, ${hue} 45%, transparent)` }} />
           <p className="font-display text-[14px] leading-tight text-paper/85 line-clamp-4">{story.title}</p>
         </div>
       </div>
@@ -202,6 +224,27 @@ type Bag = {
 
 function ToolbarFilters({ f }: { f: Bag }) {
   const [open, setOpen] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click / Escape. (A fixed inset-0 overlay doesn't work
+  // here: the sticky header's backdrop-blur makes it a containing block, so
+  // the overlay only covers the toolbar strip.)
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   const groups: Group[] = [
     { key: "genre", label: "Genre", value: f.filters.genre, base: "All", options: ["All", ...f.genres], searchable: true, columns: 2 },
     { key: "format", label: "Format", value: f.filters.format, base: "All", options: FORMAT_FILTERS, columns: 1 },
@@ -211,8 +254,7 @@ function ToolbarFilters({ f }: { f: Bag }) {
     { key: "sort", label: "Sort", value: sortByValue(f.filters.sort)?.label ?? "Recommended", base: "Recommended", options: SORT_FILTERS, columns: 1 },
   ];
   return (
-    <div className="relative flex flex-wrap items-center gap-2">
-      {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(null)} />}
+    <div ref={rootRef} className="relative flex flex-wrap items-center gap-2">
       {groups.map((g) => {
         const active = g.value !== g.base;
         return (
@@ -237,7 +279,8 @@ function ToolbarFilters({ f }: { f: Bag }) {
         );
       })}
       {f.activeCount > 0 && <button onClick={f.reset} className="ml-1 text-[12px] text-text-ghost transition-colors hover:text-amber">Reset</button>}
-      <span className="ml-auto text-[12px] text-text-secondary"><span className="text-paper">{f.poolLength}</span> {f.poolLength === 1 ? "story" : "stories"}</span>
+      {/* count lives in the collapsed row on mobile */}
+      <span className="ml-auto hidden text-[12px] text-text-secondary sm:inline"><span className="text-paper">{f.poolLength}</span> {f.poolLength === 1 ? "story" : "stories"}</span>
     </div>
   );
 }
@@ -253,6 +296,7 @@ function BoostedChip({ overlay = false }: { overlay?: boolean }) {
 }
 
 function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir: number }) {
+  const excerpt = storyExcerpt(story);
   return (
     <motion.div
       key={story.id}
@@ -260,22 +304,10 @@ function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir
       animate={{ opacity: 1, x: 0, rotate: 0 }}
       exit={{ opacity: 0, x: dir * -110, rotate: dir * -4, scale: 0.95 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
-      className="grid w-full gap-8 md:grid-cols-[280px_1fr] md:gap-11"
+      className="grid w-full gap-6 md:grid-cols-[280px_1fr] md:grid-rows-[auto_auto] md:gap-x-11 md:gap-y-0"
     >
-      <div className="justify-self-center">
-        <Link href={storyHref(story)} className="block">
-          <div className="relative w-[244px]">
-            <div className="relative aspect-[2/3] overflow-hidden rounded-r-md rounded-l-sm border border-amber/20 shadow-[0_30px_60px_-18px_rgba(0,0,0,0.9)]">
-              <CoverArt story={story} sizes="244px" />
-              <div className="absolute inset-y-0 left-0 z-10 w-4 bg-gradient-to-r from-black/55 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-t from-void/40 to-transparent" />
-            </div>
-            <div className="pointer-events-none absolute -inset-4 -z-10 rounded-full bg-amber/10 blur-3xl" />
-          </div>
-        </Link>
-      </div>
-
-      <div className="flex flex-col justify-center">
+      {/* Title block first in DOM so the dealt story is never below the fold on mobile. */}
+      <div className="md:col-start-2 md:self-end">
         {story.boosted ? (
           <div className="flex items-center gap-2.5">
             <BoostedChip />
@@ -294,13 +326,34 @@ function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir
           {story.totalWords > 0 && (<><span className="text-text-ghost">·</span><span>{formatReadTime(story.totalWords)}</span></>)}
           <span className="text-text-ghost">·</span><Spark n={story.sparkCount || 0} />
         </div>
+      </div>
 
-        <div className="relative mt-6 max-w-lg border-l-2 border-amber/30 pl-5">
-          <span className="absolute -left-3 -top-3 font-display text-[40px] leading-none text-amber/25">“</span>
-          <p className="novel-reader text-[16px] leading-[1.85] text-text line-clamp-6">{storyExcerpt(story)}</p>
-        </div>
+      <div className="justify-self-center md:col-start-1 md:row-start-1 md:row-span-2 md:self-center">
+        <Link href={storyHref(story)} className="block">
+          <div className="relative w-[176px] md:w-[244px]">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-r-md rounded-l-sm border border-amber/20 shadow-[0_30px_60px_-18px_rgba(0,0,0,0.9)]">
+              <CoverArt story={story} sizes="(min-width:768px) 244px, 176px" />
+              <div className="absolute inset-y-0 left-0 z-10 w-4 bg-gradient-to-r from-black/55 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-void/40 to-transparent" />
+            </div>
+            <div className="pointer-events-none absolute -inset-4 -z-10 rounded-full bg-amber/10 blur-3xl" />
+          </div>
+        </Link>
+      </div>
 
-        <div className="mt-8">
+      <div className="md:col-start-2 md:self-start">
+        {excerpt ? (
+          <div className="relative max-w-lg border-l-2 border-amber/30 pl-5 md:mt-6">
+            <span className="absolute -left-3 -top-3 font-display text-[40px] leading-none text-amber/25">“</span>
+            <p className="novel-reader text-[16px] leading-[1.85] text-text line-clamp-6">{excerpt}</p>
+          </div>
+        ) : (
+          <p className="max-w-lg text-[14px] italic leading-relaxed text-text-ghost md:mt-6">
+            No synopsis yet — but every shelf holds a surprise. Open it and see.
+          </p>
+        )}
+
+        <div className="mt-7">
           <Link href={storyHref(story)} className="rounded-full bg-paper px-6 py-3 text-[13px] font-medium text-void transition-transform hover:translate-x-0.5">
             Begin reading
           </Link>
@@ -375,6 +428,7 @@ function BrowsePage() {
 
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [boosted, setBoosted] = useState<BoostedStory[]>([]);
@@ -543,7 +597,22 @@ function BrowsePage() {
               className="w-full rounded-full border border-border bg-surface py-2.5 pl-10 pr-4 text-[13px] text-text outline-none transition-colors placeholder:text-text-ghost focus:border-amber/35"
             />
           </div>
-          <ToolbarFilters f={f} />
+          {/* mobile: one compact row; the full chip set expands on demand */}
+          <div className="flex items-center justify-between sm:hidden">
+            <button
+              onClick={() => setMobileFiltersOpen((v) => !v)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] transition-colors ${
+                activeCount > 0 ? "border-amber/40 bg-amber/[0.08] text-amber" : "border-border bg-surface text-text-secondary"
+              }`}
+            >
+              Filters{activeCount > 0 && <span>· {activeCount}</span>}
+              <Caret open={mobileFiltersOpen} />
+            </button>
+            <span className="text-[12px] text-text-secondary"><span className="text-paper">{pool.length}</span> {pool.length === 1 ? "story" : "stories"}</span>
+          </div>
+          <div className={mobileFiltersOpen ? "" : "hidden sm:block"}>
+            <ToolbarFilters f={f} />
+          </div>
         </div>
       </div>
 
@@ -578,18 +647,9 @@ function BrowsePage() {
         ) : (
           // ── the reading ritual ──
           <>
-            <div className="mb-5 flex items-center justify-between gap-4 pt-7">
-              <div className="flex items-center gap-2.5 text-[10px] uppercase tracking-[0.22em] text-text-ghost">
-                <span className="h-px w-8 bg-amber/40" />
-                Set aside for you · tonight
-              </div>
-              {pool.length > 0 && (
-                <div className="hidden items-center gap-1.5 sm:flex">
-                  {pool.slice(0, 6).map((_, i) => (
-                    <span key={i} className={`h-1 rounded-full transition-all ${i === safeIndex % Math.min(pool.length, 6) ? "w-6 bg-amber" : "w-2 bg-paper/15"}`} />
-                  ))}
-                </div>
-              )}
+            <div className="mb-5 flex items-center gap-2.5 pt-7 text-[10px] uppercase tracking-[0.22em] text-text-ghost">
+              <span className="h-px w-8 bg-amber/40" />
+              Set aside for you · tonight
             </div>
 
             <section className="flex min-h-[62vh] flex-col justify-center pb-8">
@@ -628,7 +688,7 @@ function BrowsePage() {
                       <motion.svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" whileTap={{ rotate: 360 }} transition={{ duration: 0.4 }}><path d="M13 8a5 5 0 11-1.5-3.5M13 2v3h-3" strokeLinecap="round" strokeLinejoin="round" /></motion.svg>
                     </button>
                   </div>
-                  <p className="mt-4 text-center text-[11px] text-text-ghost">
+                  <p className="mt-4 hidden text-center text-[11px] text-text-ghost sm:block">
                     <kbd className="rounded border border-border px-1.5 py-0.5">←</kbd> <kbd className="rounded border border-border px-1.5 py-0.5">→</kbd> or <kbd className="rounded border border-border px-1.5 py-0.5">space</kbd> to flip through tonight&apos;s picks
                   </p>
                 </>

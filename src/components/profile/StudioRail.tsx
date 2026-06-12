@@ -63,7 +63,7 @@ export default function StudioRail({ offerings, isOwner }: StudioRailProps) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.5 }}
-      className="relative mx-auto mt-8 max-w-5xl px-5 lg:px-8"
+      className="relative mx-auto mt-8 max-w-6xl px-5 lg:px-8"
     >
       <div className="relative overflow-hidden rounded-[1.75rem] border border-border bg-surface/82 p-5 shadow-[var(--t-shadow-card)] backdrop-blur-xl sm:p-6 lg:p-7">
         <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-amber/[0.08] blur-3xl" aria-hidden />

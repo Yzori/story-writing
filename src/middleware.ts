@@ -9,6 +9,13 @@ const authPages = ["/login", "/register"];
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Static files from /public (anything with an extension) are never
+  // auth-gated — /dashboard/study-night.png must not match the /dashboard
+  // route prefix, or anonymous visitors lose profile atmosphere art.
+  if (!pathname.startsWith("/api/") && /\.[^/]+$/.test(pathname)) {
+    return NextResponse.next();
+  }
+
   // CSRF protection for API routes with mutating methods
   // Skip CSRF for webhook routes (they use their own signature verification)
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/webhooks/")) {

@@ -27,6 +27,7 @@ const EMAIL_ENABLED_TYPES = new Set<NotifType>([
   "collaboration", // invited as collaborator
   "open-call",     // your open-call pitch got a response
   "jam",           // jam started
+  "letter",        // a reader left a letter on your desk (rare, high-signal)
 ]);
 
 /**

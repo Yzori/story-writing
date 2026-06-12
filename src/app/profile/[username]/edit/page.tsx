@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/shared/Toast";
-import { compressImage } from "@/client/images";
+import { compressAvatar } from "@/client/images";
 
 const ROLES = ["writer", "illustrator", "editor", "worldbuilder", "reader"] as const;
 
@@ -80,7 +80,9 @@ export default function EditProfilePage() {
       return;
     }
     try {
-      const dataUrl = await compressImage(file, 256, 0.8);
+      // Square-cropped at up to 1024² — the avatar fronts the profile
+      // cover's full-height disc now, not just a navbar chip.
+      const dataUrl = await compressAvatar(file);
       setAvatarPreview(dataUrl);
       setAvatarUrl(dataUrl);
     } catch {

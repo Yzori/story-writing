@@ -54,6 +54,7 @@
   --shadow-card-hover: var(--t-shadow-card-hover);
   --shadow-elevated: var(--t-shadow-elevated);
   --shadow-modal: var(--t-shadow-modal);
+  --shadow-book: var(--t-shadow-book);
 
   --font-display: var(--font-fraunces);
   --font-body: var(--font-jakarta);
@@ -127,6 +128,14 @@ html, html.theme-dark, .theme-dark {
   --t-shadow-card-hover: 0 0 24px rgba(226, 172, 74, 0.10);
   --t-shadow-elevated: 0 0 0 1px rgba(240, 199, 108, 0.09);
   --t-shadow-modal: 0 0 0 1px rgba(240, 199, 108, 0.10), 0 24px 48px rgba(2, 4, 9, 0.55);
+
+  /* Physical objects in the studio (dashboard): standing books + the
+     cozy pair. Night = deep cast shadows + lamplit umber silhouettes. */
+  --t-shadow-book: 0 18px 40px rgba(0, 0, 0, 0.55);
+  --t-contact-shadow: rgba(0, 0, 0, 0.55);
+  /* ink-spirit colors (raw triplets so components can set their own alpha) */
+  --t-sprite-gold: 224, 169, 62;
+  --t-sprite-violet: 168, 140, 200;
 
   --t-vignette: rgba(3, 5, 10, 0.42);
   --t-card-bg: rgba(25, 34, 59, 0.3);
@@ -217,6 +226,16 @@ html.theme-light, .theme-light {
     0 2px 6px rgba(27, 34, 48, 0.07),
     0 20px 52px rgba(27, 34, 48, 0.14),
     0 0 0 1px rgba(27, 34, 48, 0.06);
+
+  /* Physical studio objects: day = feather ink-tinted lift; the cozy
+     pair turns sepia ink-wash so it reads as illustration, not blob. */
+  --t-shadow-book:
+    0 2px 5px rgba(27, 34, 48, 0.08),
+    0 12px 26px rgba(27, 34, 48, 0.16);
+  --t-contact-shadow: rgba(27, 34, 48, 0.18);
+  /* ink-spirits turn to deeper inks so they read on vellum */
+  --t-sprite-gold: 148, 104, 20;
+  --t-sprite-violet: 110, 84, 156;
 
   /* ── Overlays & effects ── */
   --t-vignette: transparent;

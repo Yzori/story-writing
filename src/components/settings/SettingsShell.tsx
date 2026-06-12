@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Bell, ChevronRight, CreditCard, Droplet, Eye, Settings, ShieldCheck, User } from "lucide-react";
+import { ChevronRight, CreditCard, Droplet, Settings, User } from "lucide-react";
 
 const NAV_ITEMS = [
   {
     href: "/settings",
     label: "Preferences",
-    description: "Reading, comfort, and email cadence",
+    description: "Appearance, reading, taste, email",
     icon: Settings,
     match: (pathname: string) => pathname === "/settings",
   },
@@ -29,12 +29,6 @@ const NAV_ITEMS = [
   },
 ];
 
-const TRUST_POINTS = [
-  { label: "Private controls", icon: Eye },
-  { label: "Secure billing", icon: ShieldCheck },
-  { label: "Account synced", icon: Bell },
-];
-
 export default function SettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/settings";
   const active = NAV_ITEMS.find((item) => item.match(pathname)) ?? NAV_ITEMS[0];
@@ -46,30 +40,15 @@ export default function SettingsShell({ children }: { children: React.ReactNode 
           <motion.header
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 rounded-2xl border border-border bg-surface/72 p-5 shadow-[var(--t-shadow-card)] sm:p-6"
+            className="mb-6"
           >
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-gold">Account controls</p>
-                <h1 className="mt-2 font-display text-3xl leading-tight text-paper sm:text-4xl">
-                  Settings
-                </h1>
-                <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-text-secondary">
-                  Manage how Quiloria reads, notifies, charges, and remembers your preferences.
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3 lg:w-[430px]">
-                {TRUST_POINTS.map((point) => {
-                  const Icon = point.icon;
-                  return (
-                    <div key={point.label} className="rounded-xl border border-border bg-ink/45 px-3 py-3">
-                      <Icon size={14} className="mb-2 text-gold" />
-                      <p className="text-[11px] font-medium text-text-secondary">{point.label}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-gold">Account controls</p>
+            <h1 className="mt-2 font-display text-3xl leading-tight text-paper sm:text-4xl">
+              Settings
+            </h1>
+            <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-text-secondary">
+              Your reading, appearance, email, billing, and ink — each in its own place on the left.
+            </p>
           </motion.header>
 
           <div className="mb-5 overflow-x-auto pb-1 lg:hidden">

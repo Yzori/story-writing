@@ -78,7 +78,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable} ${playfair.variable} ${dmSans.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable} ${playfair.variable} ${dmSans.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Re-light the lamp before first paint — setTheme() only persists to
+            localStorage, so without this a Vellum reader reloads into Midnight. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{document.documentElement.classList.add(localStorage.getItem("quiloria-theme")==="light"?"theme-light":"theme-dark")}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="antialiased"><Providers><Navbar />{children}</Providers></body>
     </html>
   );

@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters } from "@/server/db/schema";
 import { and, eq, isNull, or, desc, asc, sql } from "drizzle-orm";
+import { extractFirstLine, htmlToText } from "@/lib/text-extract";
 import type { LandingTale } from "@/components/landing/FilmLanding";
 import type { ShoreStory } from "@/app/landing-experience/LandingExperience";
 
@@ -126,38 +127,9 @@ function formatSparks(n: number): string {
   return `${k >= 100 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, "")}k`;
 }
 
-/**
- * Cheap HTML→text for chapter excerpts. Tag-strip is fine here: editor
- * output is trusted Tiptap HTML and the result is rendered as text,
- * never as markup.
- */
-function htmlToText(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&rsquo;/g, "’")
-    .replace(/&ldquo;/g, "“")
-    .replace(/&rdquo;/g, "”")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** First sentence of a chapter's HTML content, for the First Line hero. */
-function extractFirstLine(html: string): string {
-  const text = htmlToText(html);
-  if (!text) return "";
-  // Sentence boundary: punctuation followed by space + capital/quote.
-  // Falls back to the whole text for one-sentence openers.
-  const match = text.match(/^[\s\S]*?[.!?](?=["”’]?\s+["“‘A-ZÀ-Ü])/);
-  let line = (match ? match[0] : text).trim();
-  if (line.length > 180) line = `${line.slice(0, 177).trimEnd()}…`;
-  return line;
-}
+// HTML→text excerpt helpers live in @/lib/text-extract (shared with the
+// dashboard's manuscript hero). Tag-strip is fine: editor output is trusted
+// Tiptap HTML and the result is rendered as text, never as markup.
 
 /**
  * Top public stories with a published first chapter, shaped for the
