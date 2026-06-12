@@ -8,6 +8,9 @@ import { ArrowRight, PenLine, BookOpen, Swords, MessageSquareText, Users, Heart,
 import { useStudioData, storyHref, readingHref, type DashboardSignals, type DiscoverData } from "@/components/dashboard/useStudioData";
 import { CoverArt, MomentumCard, Sparkline, PhaseClock, phaseInfo, PHASES, READER_ACCENT, CLOCK_FALLBACK, ScenesRail, genrePalette, type PhaseKey } from "@/components/dashboard/studio-kit";
 import FirstRunPanel from "@/components/dashboard/FirstRunPanel";
+import ArrivalOverlay from "@/components/dashboard/ArrivalOverlay";
+import { Grain, Motes } from "@/components/shared/Atmosphere";
+import { consumeArrival, type ArrivalKind } from "@/lib/arrival";
 import type { ApiStory } from "@/types/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,6 +61,15 @@ export default function DashboardPage() {
     } catch {}
   };
 
+  // The Arrival — the homepage film's final beat, played once per sign-in.
+  // Login/register set the flag just before redirecting; we consume it here.
+  const [arrival, setArrival] = useState<ArrivalKind | null>(null);
+  useEffect(() => {
+    const kind = consumeArrival();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (kind) setArrival(kind);
+  }, []);
+
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -100,6 +112,10 @@ export default function DashboardPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-void text-text">
+      {arrival && <ArrivalOverlay kind={arrival} onDone={() => setArrival(null)} />}
+      {/* the film's ambience follows you into the studio — quieter here */}
+      <Motes count={12} opacityScale={0.55} zClass="z-[1]" />
+      <Grain opacityClass="opacity-[0.03]" zClass="z-[40]" />
       <div className="relative z-10 mx-auto max-w-5xl px-5 pb-24 pt-20 sm:px-8">
         <header className="flex items-center justify-between gap-3">
           <span className="font-display text-lg text-paper">{firstName ? `${firstName}'s Studio` : "Your Studio"}</span>
@@ -304,7 +320,7 @@ function buildAside(signals: DashboardSignals): AsideCard[] {
       key: "drops",
       Icon: Coins,
       accent: "208,136,88",
-      title: `${signals.dropsWeek.toLocaleString()} drops`,
+      title: `${signals.dropsWeek.toLocaleString()} drops of ink`,
       sub: "received this week",
       href: "/creator/earnings",
     });
