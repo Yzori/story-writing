@@ -52,6 +52,7 @@ import AIAssistantPanel from "@/components/editor/AIAssistantPanel";
 import FirstChapterCoach from "@/components/editor/FirstChapterCoach";
 import DeskView from "@/components/editor/DeskView";
 import BibleCodex from "@/components/editor/BibleCodex";
+import StoryJacket from "@/components/editor/StoryJacket";
 import ChapterTicks from "@/components/editor/ChapterTicks";
 import WritingPromptsBar from "@/components/editor/WritingPromptsBar";
 import { UpgradeModal } from "@/components/billing/UpgradeModal";
@@ -487,6 +488,7 @@ export default function WriteStoryPage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [showDesk, setShowDesk] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
+  const [showJacket, setShowJacket] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [undoAction, setUndoAction] = useState<{
@@ -2082,7 +2084,7 @@ export default function WriteStoryPage() {
                 hasContent: (activeChapter?.wordCount ?? 0) >= 100,
               }}
               totalWords={totalWords}
-              onOpenSetup={handleOpenMetadata}
+              onOpenSetup={() => setShowJacket(true)}
             />
           </div>
         </>
@@ -2115,7 +2117,7 @@ export default function WriteStoryPage() {
                 hasContent: (activeChapter?.wordCount ?? 0) >= 100,
               }}
               totalWords={totalWords}
-              onOpenSetup={handleOpenMetadata}
+              onOpenSetup={() => setShowJacket(true)}
             />
           }
         />
@@ -3262,7 +3264,7 @@ export default function WriteStoryPage() {
               storyId={storyId}
               storyTitle={project.title}
               isPublic={isPublic}
-              onOpenMetadata={handleOpenMetadata}
+              onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
               onClose={handleClosePanel}
             />
           )}
@@ -3309,7 +3311,7 @@ export default function WriteStoryPage() {
             onSelectChapter={(id) => void handleSelectChapter(id)}
             onNewChapter={() => void handleAddChapter()}
             onOpenBible={() => setShowCodex(true)}
-            onOpenDetails={handleOpenMetadata}
+            onOpenDetails={() => setShowJacket(true)}
             onOpenPublish={handleOpenMonetization}
             onOpenHistory={(id) => {
               void handleSelectChapter(id).then(() => setRightPanel("history"));
@@ -3346,6 +3348,24 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
+      {/* ── The Jacket — story details as a place ───────────── */}
+      <AnimatePresence>
+        {showJacket && (
+          <StoryJacket
+            storyTitle={project.title}
+            metadata={project.metadata}
+            frontMatter={project.frontMatter}
+            onUpdateTitle={handleUpdateStoryTitle}
+            onUpdateMetadata={handleUpdateMetadata}
+            onUpdateFrontMatter={handleUpdateFrontMatter}
+            onBack={() => {
+              setShowJacket(false);
+              setShowDesk(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── 9. Command Palette / The Grimoire ───────────────── */}
       <CommandPalette
         open={commandOpen}
@@ -3355,9 +3375,9 @@ export default function WriteStoryPage() {
         isZenMode={false}
         onOpenSearch={handleOpenSearch}
         onOpenEditorDesk={() => { setCommandOpen(false); setShowAIAssistant(true); }}
-        onOpenMetadata={handleOpenMetadata}
+        onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
         onOpenBible={() => { setCommandOpen(false); setShowCodex(true); }}
-        onOpenFrontMatter={handleOpenFrontMatter}
+        onOpenFrontMatter={() => { setCommandOpen(false); setShowJacket(true); }}
         onOpenChapterSettings={handleToggleSettings}
         onOpenOutline={handleToggleOutlineView}
         onOpenTypography={handleOpenTypography}
