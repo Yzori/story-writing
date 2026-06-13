@@ -21,7 +21,7 @@ export const TIER_PRICES: Record<string, number> = {
   premium: 50,
 };
 
-// ── Scriptorium craft types ─────────────────────────────────
+// ── Commission craft types ─────────────────────────────────
 
 export const VALID_CRAFTS = [
   "custom-chapter",

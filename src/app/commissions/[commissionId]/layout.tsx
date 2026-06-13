@@ -1,1 +1,7 @@
-export { default } from "../../scriptorium/commissions/[commissionId]/layout";
+export default function CommissionDetailLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
+}

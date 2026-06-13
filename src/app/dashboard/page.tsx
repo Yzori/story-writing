@@ -724,13 +724,13 @@ export default function DashboardPage() {
                 )}
                 {signals.commissions.count > 0 && (
                   <LedgerRow
-                    href={signals.commissions.latest?.id ? `/scriptorium/commissions/${signals.commissions.latest.id}` : "/scriptorium"}
+                    href={signals.commissions.latest?.id ? `/commissions/${signals.commissions.latest.id}` : "/commissions"}
                     accent={ROSE}
                     title={`${signals.commissions.count} commission request${signals.commissions.count === 1 ? "" : "s"}`}
                     sub={
                       signals.commissions.latest
                         ? `${signals.commissions.latest.status === "accepted" ? "accepted — ready to start" : "awaiting your quote"}${signals.commissions.latest.patron ? ` · ${signals.commissions.latest.patron}` : ""}`
-                        : "in the Scriptorium"
+                        : "in Commissions"
                     }
                     meta={signals.commissions.latest ? formatTimeAgo(signals.commissions.latest.createdAt) : undefined}
                     idx={1}

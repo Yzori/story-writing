@@ -2531,7 +2531,7 @@ export const contentUnlocksRelations = relations(contentUnlocks, ({ one }) => ({
   }),
 }));
 
-// ── The Scriptorium — Commissions Marketplace ───────────────
+// ── Commissions Marketplace ───────────────
 
 export const offerings = pgTable(
   "offerings",

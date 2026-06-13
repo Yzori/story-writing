@@ -259,7 +259,7 @@ export default function OwnerBackroom({
               </p>
               <div className="mt-auto pt-4">
                 <Link
-                  href="/scriptorium/studio"
+                  href="/commissions/offerings"
                   className="inline-flex items-center gap-1 text-[11px] text-amber underline-offset-2 hover:underline"
                 >
                   Tend the studio
@@ -291,7 +291,7 @@ export default function OwnerBackroom({
               </p>
               <div className="mt-auto pt-4">
                 <Link
-                  href="/scriptorium"
+                  href="/commissions/offerings"
                   className="inline-flex items-center gap-1 text-[11px] text-amber underline-offset-2 hover:underline"
                 >
                   Open a studio
