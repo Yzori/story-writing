@@ -8,13 +8,6 @@ import {
   Chapter,
   ChapterSnapshot,
   StoryProject,
-  StoryMetadata,
-  StoryBible,
-  FrontMatter,
-  TypographySettings,
-  WritingGoals,
-  createChapter,
-  createTypography,
   countWords,
 } from "@/types/editor";
 import { getOrCreateSession } from "@/client/goals";
@@ -60,8 +53,13 @@ import {
   useChapterAutosave,
 } from "@/hooks/use-chapter-autosave";
 import { useApiMutation } from "@/hooks/use-api-mutation";
+import { useEditorExport } from "@/hooks/use-editor-export";
+import { useStoryFields } from "@/hooks/use-story-fields";
+import { useEditorShortcuts, type EditorShortcutActions } from "@/hooks/use-editor-shortcuts";
+import { apiChapterToLocal, type ApiChapter } from "@/lib/editor-story-mappers";
+import { useStoryLoader } from "@/hooks/use-story-loader";
 import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
-import { normalizeTypographySettings, typographyClassName } from "@/lib/typography";
+import { typographyClassName } from "@/lib/typography";
 
 type RightPanel = "none" | "beats" | "chapter" | "history" | "chat" | "ai";
 
@@ -198,128 +196,6 @@ function DraftRecoveryBanner({
   );
 }
 
-// Local storage key for editor-only settings (typography, goals, etc.)
-function editorSettingsKey(storyId: string) {
-  return `quiloria-editor-${storyId}`;
-}
-
-function loadEditorSettings(storyId: string) {
-  if (typeof window === "undefined") return {};
-  try {
-    const saved = localStorage.getItem(editorSettingsKey(storyId));
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveEditorSettings(storyId: string, settings: Record<string, unknown>) {
-  try {
-    localStorage.setItem(editorSettingsKey(storyId), JSON.stringify(settings));
-  } catch {}
-}
-
-// Convert API chapter data → store Chapter format
-interface ApiBibleEntry {
-  id: string;
-  type: string;
-  name: string;
-  description: string;
-  details: string;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-function apiBibleToLocal(entries: ApiBibleEntry[]): StoryBible {
-  const characters = entries
-    .filter((e) => e.type === "character")
-    .map((e) => {
-      const extra = parseDetails(e.details);
-      return {
-        id: e.id,
-        name: e.name,
-        aliases: stringArray(extra.aliases),
-        description: e.description || "",
-        imageDataUrl: nullableString(extra.imageDataUrl),
-        color: stringValue(extra.color, "#D4A574"),
-        tags: stringArray(extra.tags),
-        createdAt: new Date(e.createdAt).getTime(),
-        updatedAt: new Date(e.updatedAt).getTime(),
-      };
-    });
-
-  const places = entries
-    .filter((e) => e.type === "place")
-    .map((e) => {
-      const extra = parseDetails(e.details);
-      return {
-        id: e.id,
-        name: e.name,
-        description: e.description || "",
-        imageDataUrl: nullableString(extra.imageDataUrl),
-        tags: stringArray(extra.tags),
-        createdAt: new Date(e.createdAt).getTime(),
-        updatedAt: new Date(e.updatedAt).getTime(),
-      };
-    });
-
-  const notes = entries
-    .filter((e) => e.type === "note")
-    .map((e) => {
-      const extra = parseDetails(e.details);
-      return {
-        id: e.id,
-        title: e.name,
-        content: e.description || "",
-        category: (extra.category || "custom") as "lore" | "timeline" | "research" | "custom",
-        tags: stringArray(extra.tags),
-        createdAt: new Date(e.createdAt).getTime(),
-        updatedAt: new Date(e.updatedAt).getTime(),
-      };
-    });
-
-  return { characters, places, notes };
-}
-
-function parseDetails(details: string): Record<string, unknown> {
-  if (!details) return {};
-  try {
-    return JSON.parse(details);
-  } catch {
-    return {};
-  }
-}
-
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
-function stringValue(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function nullableString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-interface ApiChapter {
-  id: string;
-  title: string;
-  content: string;
-  wordCount: number;
-  sortOrder: number;
-  status: "draft" | "published";
-  authorNoteBefore: string;
-  authorNoteAfter: string;
-  outline: string;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 const FORMAT_LABELS: Record<string, { singular: string; plural: string }> = {
   novel: { singular: "Chapter", plural: "Chapters" },
   poetry: { singular: "Poem", plural: "Poems" },
@@ -332,23 +208,6 @@ function getFormatLabels(format: string) {
   return FORMAT_LABELS[format] || FORMAT_LABELS.novel;
 }
 
-function apiChapterToLocal(ch: ApiChapter): Chapter {
-  return {
-    id: ch.id,
-    title: ch.title || "Untitled",
-    content: ch.content || "",
-    wordCount: ch.wordCount || 0,
-    createdAt: new Date(ch.createdAt).getTime(),
-    updatedAt: new Date(ch.updatedAt).getTime(),
-    status: ch.status || "draft",
-    authorNoteBefore: ch.authorNoteBefore || "",
-    authorNoteAfter: ch.authorNoteAfter || "",
-    outline: ch.outline || "",
-    version: ch.version || 1,
-    snapshots: [],
-  };
-}
-
 export default function WriteStoryPage() {
   const params = useParams();
   const router = useRouter();
@@ -358,7 +217,23 @@ export default function WriteStoryPage() {
   const deskChord = useModChord("E");
   const focusChord = useModChord(".");
 
-  const [project, setProject] = useState<StoryProject | null>(null);
+  // The story, its chapters/bible, permission + co-op metadata, and the
+  // settings cache all live in useStoryLoader. Everything below mutates the
+  // loaded project through the returned setProject (via updateProject).
+  const {
+    project,
+    setProject,
+    loading,
+    error,
+    isPublic,
+    setIsPublic,
+    storyFormat,
+    writingMode,
+    storySlug,
+    collaborators,
+    sessionUserId,
+    needsTeamSetup,
+  } = useStoryLoader(storyId);
   const updateProject = useCallback(
     (updater: (prev: StoryProject) => StoryProject) => {
       setProject((prev) => {
@@ -366,10 +241,8 @@ export default function WriteStoryPage() {
         return updater(prev);
       });
     },
-    []
+    [setProject]
   );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showDesk, setShowDesk] = useState(false);
   const [deskOpensFlipped, setDeskOpensFlipped] = useState(false);
@@ -419,11 +292,8 @@ export default function WriteStoryPage() {
   // Goals
   const [showGoals, setShowGoals] = useState(false);
   // Outline view
-  // Publish state
-  const [isPublic, setIsPublic] = useState(false);
-  const [writingMode, setWritingMode] = useState("solo");
-  const [storySlug, setStorySlug] = useState("");
-  const [needsTeamSetup, setNeedsTeamSetup] = useState(false);
+  // Publish state (isPublic / writingMode / storySlug / needsTeamSetup are
+  // owned by useStoryLoader)
   const [showRosterNudge, setShowRosterNudge] = useState(false);
   const [rosterNudgeDismissed, setRosterNudgeDismissed] = useState(false);
   // Publish-chapter confirmation dialog state
@@ -444,11 +314,8 @@ export default function WriteStoryPage() {
     shareUrl: "",
     linkCopied: false,
   });
-  // Co-op: collaborator presence
-  const [collaborators, setCollaborators] = useState<{ id: string; userId: string; displayName: string | null; avatarUrl: string | null; role: string; status: string }[]>([]);
-  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
-  // Format-aware editor
-  const [storyFormat, setStoryFormat] = useState("novel");
+  // Co-op presence (collaborators / sessionUserId) and storyFormat are owned
+  // by useStoryLoader.
 
   // Subscription gates
   const hasProAccess = useFeatureAccess("pro");
@@ -477,9 +344,7 @@ export default function WriteStoryPage() {
     }
   }, []);
 
-  // Canvas UI state
-  const [isTyping, setIsTyping] = useState(false);
-  const typingTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  // Canvas UI state — isTyping comes from useEditorShortcuts (below).
   const webtoonScriptTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingWebtoonScriptSave = useRef<{ chapterId: string; outline: string } | null>(null);
 
@@ -492,180 +357,6 @@ export default function WriteStoryPage() {
     retryFailedSaves,
   } = useChapterAutosave({ storyId, updateProject, toast });
   const isSwitching = useRef(false);
-
-  // ── Load story from API ──────────────────────────────────
-  useEffect(() => {
-    async function loadStory() {
-      try {
-        // Fetch story, chapters, and bible entries all in parallel
-        const [storyRes, chaptersRes, bibleRes] = await Promise.all([
-          fetch(`/api/stories/${storyId}`, { cache: "no-store" }),
-          fetch(`/api/stories/${storyId}/chapters?withContent=true`, { cache: "no-store" }),
-          fetch(`/api/stories/${storyId}/bible`, { cache: "no-store" }),
-        ]);
-        if (!storyRes.ok) {
-          setError("Story not found");
-          setLoading(false);
-          return;
-        }
-        const storyJson = await storyRes.json();
-        const story = storyJson.data;
-
-        // Webtoon is a vertical-panel comic, not a prose document — it has its
-        // own full-bleed studio. Send it there instead of the prose cockpit.
-        if (story.format === "webtoon") {
-          router.replace(`/write/${storyId}/webtoon`);
-          return;
-        }
-
-        // Verify current user is the story owner or an accepted collaborator
-        const sessionRes = await fetch("/api/auth/session");
-        const sessionData = await sessionRes.json();
-        if (!sessionData?.user?.id) {
-          setError("You must be logged in to edit this story");
-          setLoading(false);
-          return;
-        }
-        setSessionUserId(sessionData.user.id);
-        const isOwner = sessionData.user.id === story.userId;
-        if (!isOwner) {
-          // For co-op/campaign stories, check if user is an accepted collaborator
-          if (story.writingMode !== "solo") {
-            try {
-              const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
-              const collabJson = collabRes.ok ? await collabRes.json() : { data: [] };
-              const isCollab = (collabJson.data || []).some(
-                (c: { userId: string; status: string }) =>
-                  c.userId === sessionData.user.id && c.status === "accepted"
-              );
-              if (!isCollab) {
-                setError("You don\u2019t have permission to edit this story");
-                setLoading(false);
-                return;
-              }
-            } catch {
-              setError("You don\u2019t have permission to edit this story");
-              setLoading(false);
-              return;
-            }
-          } else {
-            setError("You don\u2019t have permission to edit this story");
-            setLoading(false);
-            return;
-          }
-        }
-
-        const chaptersJson = await chaptersRes.json();
-        const apiChapters = chaptersRes.ok ? chaptersJson.data : [];
-        const bibleJson = bibleRes.ok ? await bibleRes.json() : { data: [] };
-        const apiBibleEntries = bibleJson.data || [];
-
-        // Load editor-only settings from localStorage
-        const settings = loadEditorSettings(storyId);
-
-        // Build StoryProject from API data + local settings
-        const rawChapters: Chapter[] = apiChapters.map(apiChapterToLocal);
-        const formatFirstUnit: Record<string, string> = { novel: "Chapter 1", poetry: "Poem 1", webtoon: "Episode 1", illustrated: "Chapter 1", screenplay: "Scene 1" };
-        const firstTitle = formatFirstUnit[story.format || "novel"] || "Chapter 1";
-        const chaptersToUse = rawChapters.length > 0 ? rawChapters : [createChapter(firstTitle)];
-
-        const proj: StoryProject = {
-          id: story.id,
-          title: story.title,
-          format: story.format || "novel",
-          chapters: chaptersToUse,
-          activeChapterId: chaptersToUse[0]?.id ?? null,
-          metadata: {
-            coverImageDataUrl: story.coverImageUrl || null,
-            synopsis: story.synopsis || "",
-            hook: story.hook || "",
-            genres: story.genres || [],
-            contentRating: story.contentRating || "G",
-            status: story.status || "draft",
-            language: story.language || "English",
-            dedication: story.dedication || "",
-          },
-          frontMatter: {
-            epigraph: story.epigraph || "",
-            epigraphAttribution: story.epigraphAttribution || "",
-            foreword: story.foreword || "",
-            showToc: story.showToc ?? true,
-          },
-          bible: apiBibleToLocal(apiBibleEntries),
-          goals: settings.goals ?? { dailyWordTarget: story.dailyWordTarget || 500, sessions: [] },
-          typography: normalizeTypographySettings({
-            ...createTypography(),
-            ...settings.typography,
-            ...story,
-          }),
-        };
-
-        // If no chapters existed, create the first one via API
-        if (apiChapters.length === 0) {
-          const res = await fetch(`/api/stories/${storyId}/chapters`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: firstTitle }),
-          });
-          if (res.ok) {
-            const json = await res.json();
-            const ch = apiChapterToLocal(json.data);
-            proj.chapters = [ch];
-            proj.activeChapterId = ch.id;
-          }
-        }
-
-        setProject(proj);
-        setIsPublic(!!story.isPublic);
-        setStoryFormat(story.format || "novel");
-        setWritingMode(story.writingMode || "solo");
-        setStorySlug(story.slug || storyId);
-
-        // Co-op: fetch collaborators for presence + gate
-        if (story.writingMode === "co-op" || story.writingMode === "campaign") {
-          try {
-            const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
-            if (collabRes.ok) {
-              const collabJson = await collabRes.json();
-              const allCollabs = (collabJson.data || []).map((c: { id: string; userId: string; role: string; status: string; user?: { displayName?: string | null; avatarUrl?: string | null } | null }) => ({
-                id: c.id,
-                userId: c.userId,
-                displayName: c.user?.displayName || null,
-                avatarUrl: c.user?.avatarUrl || null,
-                role: c.role,
-                status: c.status,
-              }));
-              setCollaborators(allCollabs);
-              const accepted = allCollabs.filter((c: { status: string }) => c.status === "accepted");
-              if (accepted.length === 0 && story.writingMode === "co-op") {
-                setNeedsTeamSetup(true);
-              }
-            }
-          } catch {
-            // Non-blocking — let them write if check fails
-          }
-        }
-      } catch {
-        setError("Failed to load story");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadStory();
-  }, [storyId, router]);
-
-  // ── Editor settings persistence ───────────────────────────
-  // Goals are editor-local. Typography is now story-backed, but we keep a
-  // local copy as a quick draft cache for older/local projects.
-  const projectGoals = project?.goals;
-  const projectTypography = project?.typography;
-  useEffect(() => {
-    if (!projectGoals || !projectTypography) return;
-    saveEditorSettings(storyId, {
-      goals: projectGoals,
-      typography: projectTypography,
-    });
-  }, [storyId, projectGoals, projectTypography]);
 
   // ── Right panel toggle ────────────────────────────────────
   const togglePanel = useCallback(
@@ -714,111 +405,41 @@ export default function WriteStoryPage() {
   );
 
   // ── Keyboard shortcuts + typing detection ────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
-
-      // Grimoire toggle: "/" when not in an input, or Cmd+K
-      if (e.key === "/" && !isMod && !(e.target as HTMLElement)?.closest("[contenteditable], input, textarea, .tiptap-editor")) {
-        e.preventDefault();
-        setCommandOpen((v) => !v);
-        return;
-      }
-      if (isMod && e.key === "k" && !e.shiftKey) {
-        e.preventDefault();
-        setCommandOpen((v) => !v);
-        return;
-      }
-      // Editor's Desk: Cmd+Shift+K
-      if (isMod && e.shiftKey && e.key === "K") {
-        e.preventDefault();
-        setShowAIAssistant((v) => !v);
-        return;
-      }
-      if (isMod && e.shiftKey && e.key.toLowerCase() === "h") {
-        e.preventDefault();
-        setShowSearch((v) => !v);
-      }
-      if (isMod && e.shiftKey && e.key === "ArrowDown") {
-        e.preventDefault();
-        const idx = project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? -1;
-        const nextId = idx >= 0 ? project?.chapters[idx + 1]?.id : null;
-        if (nextId) void handleSelectChapter(nextId);
-      }
-      if (isMod && e.shiftKey && e.key === "ArrowUp") {
-        e.preventDefault();
-        const idx = project?.chapters.findIndex((c) => c.id === project.activeChapterId) ?? -1;
-        const nextId = idx > 0 ? project?.chapters[idx - 1]?.id : null;
-        if (nextId) void handleSelectChapter(nextId);
-      }
-      if (isMod && e.shiftKey && e.key.toLowerCase() === "g") {
-        e.preventDefault();
-        setShowGoals((v) => !v);
-      }
-      // Focus mode: Cmd/Ctrl+. — the writer's most important toggle
-      if (isMod && e.key === ".") {
-        e.preventDefault();
-        setFocusMode((f) => !f);
-      }
-      if (isMod && e.shiftKey && e.key.toLowerCase() === "l") {
-        e.preventDefault();
-        setShowCodex((v) => !v);
-      }
-      // The Desk: Cmd/Ctrl+E zooms out to the chapters overview.
-      // DeskView owns the close (capture-phase listener) so the
-      // zoom-back animation always plays.
-      if (isMod && e.key.toLowerCase() === "e" && !e.shiftKey) {
-        e.preventDefault();
-        if (!showDesk) {
-          setCommandOpen(false);
-          setDeskOpensFlipped(false);
-          setShowDesk(true);
-        }
-      }
-      // Ctrl+S — manual save
-      if (isMod && e.key.toLowerCase() === "s" && !e.shiftKey) {
-        e.preventDefault();
+  const shortcutActions = useMemo<EditorShortcutActions>(
+    () => ({
+      toggleGrimoire: () => setCommandOpen((v) => !v),
+      closeGrimoire: () => setCommandOpen(false),
+      toggleAssistant: () => setShowAIAssistant((v) => !v),
+      toggleSearch: () => setShowSearch((v) => !v),
+      toggleGoals: () => setShowGoals((v) => !v),
+      toggleFocus: () => setFocusMode((f) => !f),
+      toggleCodex: () => setShowCodex((v) => !v),
+      toggleShortcuts: () => setShowShortcuts((v) => !v),
+      openDesk: () => {
+        setCommandOpen(false);
+        setDeskOpensFlipped(false);
+        setShowDesk(true);
+      },
+      selectChapter: (id: string) => {
+        void handleSelectChapter(id);
+      },
+      save: () => {
         void flushPendingSaves().then((ok) => {
           if (ok) void flushWebtoonScriptSave();
         });
-      }
-      // Ctrl+/ — keyboard shortcuts panel
-      if (isMod && e.key === "/") {
-        e.preventDefault();
-        setShowShortcuts((v) => !v);
-      }
-      if (e.key === "Escape" && commandOpen) {
-        setCommandOpen(false);
-      }
-      if (e.key === "Escape" && publishDialog.open && publishDialog.phase !== "publishing") {
-        setPublishDialog((p) => ({ ...p, open: false }));
-      }
-
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [commandOpen, showDesk, publishDialog.open, publishDialog.phase, togglePanel, flushPendingSaves, flushWebtoonScriptSave, project?.chapters, project?.activeChapterId, handleSelectChapter, setShowAIAssistant]);
-
-  // Typing detection — its own stable listener. It used to live in the
-  // shortcuts effect above, whose cleanup cleared the pending 2s reset
-  // every time a dep flipped (open the desk within 2s of typing and
-  // isTyping stayed true forever, stranding the status bar hidden).
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (e.key.length !== 1) return;
-      setIsTyping(true);
-      if (typingTimer.current) clearTimeout(typingTimer.current);
-      typingTimer.current = setTimeout(() => setIsTyping(false), 2000);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      if (typingTimer.current) clearTimeout(typingTimer.current);
-    };
-  }, []);
+      },
+      closePublishDialog: () => setPublishDialog((p) => ({ ...p, open: false })),
+    }),
+    [setShowAIAssistant, handleSelectChapter, flushPendingSaves, flushWebtoonScriptSave]
+  );
+  const { isTyping } = useEditorShortcuts({
+    project,
+    showDesk,
+    commandOpen,
+    publishDialogOpen: publishDialog.open,
+    publishDialogPhase: publishDialog.phase,
+    actions: shortcutActions,
+  });
 
   useEffect(() => {
     return () => {
@@ -1178,126 +799,25 @@ export default function WriteStoryPage() {
     setEditorInstance(editor);
   }, []);
 
-  // ── Metadata handler ──────────────────────────────────────
-
-  const handleUpdateMetadata = useCallback(
-    (metadata: StoryMetadata) => {
-      const previousMetadata = project?.metadata;
-      updateProject((prev) => ({ ...prev, metadata }));
-      const patchBody: Record<string, unknown> = {
-        synopsis: metadata.synopsis,
-        hook: metadata.hook,
-        genres: metadata.genres,
-        contentRating: metadata.contentRating,
-        status: metadata.status,
-        language: metadata.language,
-        dedication: metadata.dedication,
-      };
-      // Sync cover image (data URL for MVP, URL for production)
-      if (metadata.coverImageDataUrl) {
-        patchBody.coverImageUrl = metadata.coverImageDataUrl;
-      } else {
-        patchBody.coverImageUrl = null;
-      }
-      void mutateJson(`/api/stories/${storyId}`, {
-        body: patchBody,
-        errorMessage: "Couldn't save story details",
-        rollback: previousMetadata
-          ? () => updateProject((prev) => ({ ...prev, metadata: previousMetadata }))
-          : undefined,
-      });
-    },
-    [mutateJson, project?.metadata, updateProject, storyId]
-  );
-
-  // ── Bible handler ─────────────────────────────────────────
-
-  const handleUpdateBible = useCallback(
-    (bible: StoryBible) => {
-      updateProject((prev) => ({ ...prev, bible }));
-    },
-    [updateProject]
-  );
-
-  // ── Goals handler ─────────────────────────────────────────
-
-  const handleUpdateGoals = useCallback(
-    (goals: WritingGoals) => {
-      updateProject((prev) => ({ ...prev, goals }));
-    },
-    [updateProject]
-  );
-
-  // ── Front matter handler ─────────────────────────────────
-
-  const handleUpdateFrontMatter = useCallback(
-    (frontMatter: FrontMatter) => {
-      const previousFrontMatter = project?.frontMatter;
-      updateProject((prev) => ({ ...prev, frontMatter }));
-      void mutateJson(`/api/stories/${storyId}`, {
-        body: {
-          epigraph: frontMatter.epigraph,
-          epigraphAttribution: frontMatter.epigraphAttribution,
-          foreword: frontMatter.foreword,
-          showToc: frontMatter.showToc,
-        },
-        errorMessage: "Couldn't save front matter",
-        rollback: previousFrontMatter
-          ? () => updateProject((prev) => ({ ...prev, frontMatter: previousFrontMatter }))
-          : undefined,
-      });
-    },
-    [mutateJson, project?.frontMatter, updateProject, storyId]
-  );
-
-  // ── Typography handler ─────────────────────────────────
-
-  const handleUpdateTypography = useCallback(
-    (typography: TypographySettings) => {
-      const previousTypography = project?.typography;
-      updateProject((prev) => ({ ...prev, typography }));
-      void mutateJson(`/api/stories/${storyId}`, {
-        body: {
-          dropCaps: typography.dropCaps,
-          sceneBreakStyle: typography.sceneBreakStyle,
-          paragraphIndent: typography.paragraphIndent,
-          lineSpacing: typography.lineSpacing,
-          textAlignment: typography.textAlignment,
-          paragraphSpacing: typography.paragraphSpacing,
-        },
-        errorMessage: "Couldn't save typography settings",
-        rollback: previousTypography
-          ? () => updateProject((prev) => ({ ...prev, typography: previousTypography }))
-          : undefined,
-      });
-    },
-    [mutateJson, project?.typography, updateProject, storyId]
-  );
-
-  // ── Publish toggle handler ─────────────────────────────
-
-  const handleTogglePublish = useCallback(() => {
-    const newValue = !isPublic;
-    setIsPublic(newValue);
-    void mutateJson(`/api/stories/${storyId}`, {
-      body: { isPublic: newValue },
-      successMessage: newValue ? "Story published" : "Story unpublished",
-      errorMessage: "Couldn't update publish status",
-      rollback: () => setIsPublic(!newValue),
-    });
-  }, [isPublic, mutateJson, storyId]);
-
-  const handleDeleteStory = useCallback(async () => {
-    if (!confirm("Are you sure you want to delete this story? This cannot be undone.")) return;
-    await mutateJson(`/api/stories/${storyId}`, {
-      method: "DELETE",
-      errorMessage: "Couldn't delete story",
-      onSuccess: () => {
-        toast("Story deleted", "info");
-        router.push("/dashboard");
-      },
-    });
-  }, [mutateJson, storyId, router, toast]);
+  // ── Story-level field handlers (Jacket + typography + publish) ──
+  const {
+    handleUpdateMetadata,
+    handleUpdateBible,
+    handleUpdateGoals,
+    handleUpdateFrontMatter,
+    handleUpdateTypography,
+    handleTogglePublish,
+    handleDeleteStory,
+  } = useStoryFields({
+    project,
+    updateProject,
+    mutateJson,
+    storyId,
+    isPublic,
+    setIsPublic,
+    toast,
+    onDeleted: () => router.push("/dashboard"),
+  });
 
   // ── Chapter settings handler ────────────────────────────
 
@@ -1578,71 +1098,13 @@ export default function WriteStoryPage() {
   }, [updateProject]);
 
   // ── Dynamic export handlers ────────────────────────────────
-  const handleExportPdf = useCallback(async () => {
-    // Check Pro access for exports
-    if (!hasProAccess) {
-      setUpgradeModal({
-        isOpen: true,
-        feature: "PDF Export",
-        tier: "pro",
-      });
-      return;
-    }
-
-    if (!project) return;
-    try {
-      const { exportPdf } = await import("@/client/export-pdf");
-      await exportPdf(project);
-    } catch (err) {
-      console.error("PDF export failed:", err);
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 3000);
-    }
-  }, [project, hasProAccess, setSaveState]);
-
-  const handleExportEpub = useCallback(async () => {
-    // Check Pro access for exports
-    if (!hasProAccess) {
-      setUpgradeModal({
-        isOpen: true,
-        feature: "EPUB Export",
-        tier: "pro",
-      });
-      return;
-    }
-
-    if (!project) return;
-    try {
-      const { exportEpub } = await import("@/client/export-pdf");
-      exportEpub(project);
-    } catch (err) {
-      console.error("EPUB export failed:", err);
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 3000);
-    }
-  }, [project, hasProAccess, setSaveState]);
-
-  const handleExportDocx = useCallback(async () => {
-    // Check Pro access for exports
-    if (!hasProAccess) {
-      setUpgradeModal({
-        isOpen: true,
-        feature: "DOCX Export",
-        tier: "pro",
-      });
-      return;
-    }
-
-    if (!project) return;
-    try {
-      const { exportDocx } = await import("@/client/export-docx");
-      exportDocx(project);
-    } catch (err) {
-      console.error("DOCX export failed:", err);
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 3000);
-    }
-  }, [project, hasProAccess, setSaveState]);
+  const { handleExportPdf, handleExportEpub, handleExportDocx } = useEditorExport({
+    project,
+    hasProAccess,
+    setSaveState,
+    onUpgradeNeeded: (feature) =>
+      setUpgradeModal({ isOpen: true, feature, tier: "pro" }),
+  });
 
   const totalWords = useMemo(() =>
     project?.chapters.reduce((s, c) => s + c.wordCount, 0) ?? 0,
