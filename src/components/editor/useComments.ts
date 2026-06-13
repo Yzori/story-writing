@@ -133,43 +133,53 @@ export function useComments({ editor, storyId, chapterId }: UseCommentsArgs) {
     });
   }, [editor]);
 
+  // One round-trip to the editor-comments route. On success the server's full
+  // thread list becomes canonical (and is mirrored to the offline cache); the
+  // parsed body is returned so callers can read e.g. a freshly-minted threadId.
+  // A null return — no chapter yet, network error, or a non-OK response — is
+  // each caller's cue to fall back to an optimistic local update.
+  const persist = useCallback(
+    async (
+      method: "POST" | "PATCH" | "DELETE",
+      body: Record<string, unknown>
+    ): Promise<EditorCommentsResponse | null> => {
+      if (!chapterId) return null;
+      try {
+        const res = await fetch(
+          `/api/stories/${storyId}/chapters/${chapterId}/editor-comments`,
+          {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+        if (!res.ok) return null;
+        const json = (await res.json()) as EditorCommentsResponse;
+        if (Array.isArray(json.data)) {
+          setThreads(json.data);
+          saveEditorComments(storyId, chapterId, json.data);
+        }
+        return json;
+      } catch {
+        return null;
+      }
+    },
+    [chapterId, storyId]
+  );
+
   const handleSubmitComment = useCallback(
     async (commentText: string) => {
       if (!editor || !commentPopover) return;
 
       let thread = createCommentThread(commentPopover.selectedText, commentText);
-
-      if (chapterId) {
-        try {
-          const res = await fetch(
-            `/api/stories/${storyId}/chapters/${chapterId}/editor-comments`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                quotedText: commentPopover.selectedText,
-                commentText,
-                from: commentPopover.from,
-                to: commentPopover.to,
-              }),
-            }
-          );
-          if (res.ok) {
-            const json = (await res.json()) as EditorCommentsResponse;
-            if (json.threadId) thread = { ...thread, id: json.threadId };
-            if (Array.isArray(json.data)) {
-              setThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-            }
-          } else {
-            setThreads((prev) => [...prev, thread]);
-          }
-        } catch {
-          setThreads((prev) => [...prev, thread]);
-        }
-      } else {
-        setThreads((prev) => [...prev, thread]);
-      }
+      const json = await persist("POST", {
+        quotedText: commentPopover.selectedText,
+        commentText,
+        from: commentPopover.from,
+        to: commentPopover.to,
+      });
+      if (json?.threadId) thread = { ...thread, id: json.threadId };
+      if (!json) setThreads((prev) => [...prev, thread]); // offline fallback
 
       editor
         .chain()
@@ -181,38 +191,19 @@ export function useComments({ editor, storyId, chapterId }: UseCommentsArgs) {
       setActiveThreadId(thread.id);
       setCommentPopover(null);
     },
-    [editor, commentPopover, chapterId, storyId]
+    [editor, commentPopover, persist]
   );
 
   const handleReply = useCallback(
     async (threadId: string, text: string) => {
-      if (chapterId) {
-        try {
-          const res = await fetch(
-            `/api/stories/${storyId}/chapters/${chapterId}/editor-comments`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ threadId, replyText: text }),
-            }
-          );
-          if (res.ok) {
-            const json = (await res.json()) as EditorCommentsResponse;
-            if (Array.isArray(json.data)) {
-              setThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-              return;
-            }
-          }
-        } catch {
-          // Fall back to local reply below.
-        }
+      const json = await persist("PATCH", { threadId, replyText: text });
+      if (!json) {
+        setThreads((prev) =>
+          prev.map((t) => (t.id === threadId ? addReply(t, text) : t))
+        );
       }
-      setThreads((prev) =>
-        prev.map((t) => (t.id === threadId ? addReply(t, text) : t))
-      );
     },
-    [chapterId, storyId]
+    [persist]
   );
 
   // Strip a thread's marks from the text in one transaction — no caret theft.
@@ -241,66 +232,24 @@ export function useComments({ editor, storyId, chapterId }: UseCommentsArgs) {
     async (threadId: string) => {
       removeCommentMarks(threadId);
       if (activeThreadId === threadId) setActiveThreadId(null);
-      if (chapterId) {
-        try {
-          const res = await fetch(
-            `/api/stories/${storyId}/chapters/${chapterId}/editor-comments`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ threadId, resolved: true }),
-            }
-          );
-          if (res.ok) {
-            const json = (await res.json()) as EditorCommentsResponse;
-            if (Array.isArray(json.data)) {
-              setThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-              return;
-            }
-          }
-        } catch {
-          // Fall back to local resolve below.
-        }
+      const json = await persist("PATCH", { threadId, resolved: true });
+      if (!json) {
+        setThreads((prev) =>
+          prev.map((t) => (t.id === threadId ? { ...t, resolved: true } : t))
+        );
       }
-      setThreads((prev) =>
-        prev.map((t) => (t.id === threadId ? { ...t, resolved: true } : t))
-      );
     },
-    [chapterId, storyId, removeCommentMarks, activeThreadId]
+    [persist, removeCommentMarks, activeThreadId]
   );
 
   const handleDelete = useCallback(
     async (threadId: string) => {
-      if (chapterId) {
-        try {
-          const res = await fetch(
-            `/api/stories/${storyId}/chapters/${chapterId}/editor-comments`,
-            {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ threadId }),
-            }
-          );
-          if (res.ok) {
-            const json = (await res.json()) as EditorCommentsResponse;
-            if (Array.isArray(json.data)) {
-              setThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-            }
-          } else {
-            setThreads((prev) => prev.filter((t) => t.id !== threadId));
-          }
-        } catch {
-          setThreads((prev) => prev.filter((t) => t.id !== threadId));
-        }
-      } else {
-        setThreads((prev) => prev.filter((t) => t.id !== threadId));
-      }
+      const json = await persist("DELETE", { threadId });
+      if (!json) setThreads((prev) => prev.filter((t) => t.id !== threadId));
       removeCommentMarks(threadId);
       if (activeThreadId === threadId) setActiveThreadId(null);
     },
-    [removeCommentMarks, activeThreadId, chapterId, storyId]
+    [persist, removeCommentMarks, activeThreadId]
   );
 
   const handleCancelComment = useCallback(() => setCommentPopover(null), []);

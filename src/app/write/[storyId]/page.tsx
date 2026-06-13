@@ -1507,6 +1507,10 @@ export default function WriteStoryPage() {
   }, [draftRecovery, toast]);
 
   // ── Memoized computed values ─────────────────────────────
+  // The alt-format editors (screenplay/poetry/webtoon/illustrated) each render
+  // their own surface; everything else is the default novel ProseEditor, which
+  // is the only one wired for the comment flow + marginalia.
+  const isAltFormat = ["screenplay", "poetry", "webtoon", "illustrated"].includes(storyFormat);
   const mentionCharacters = useMemo(() =>
     (project?.bible?.characters ?? []).map((c) => ({ id: c.id, name: c.name, color: c.color })),
     [project?.bible?.characters]
@@ -2185,11 +2189,7 @@ export default function WriteStoryPage() {
 
                   {/* Comments as marginalia — amber dots in the right gutter.
                       Only the default novel editor wires the comment flow. */}
-                  {editorInstance &&
-                    storyFormat !== "screenplay" &&
-                    storyFormat !== "poetry" &&
-                    storyFormat !== "webtoon" &&
-                    storyFormat !== "illustrated" && (
+                  {editorInstance && !isAltFormat && (
                       <MarginaliaLayer
                         editor={editorInstance}
                         threads={commentThreads}
