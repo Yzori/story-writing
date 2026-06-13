@@ -17,7 +17,6 @@ import {
   createTypography,
   countWords,
 } from "@/types/editor";
-import { CommentThread, createCommentThread, addReply } from "@/client/comments";
 import { getOrCreateSession } from "@/client/goals";
 // export functions are dynamically imported in handlers below
 import ChapterNav from "@/components/editor/ChapterNav";
@@ -28,8 +27,10 @@ import WebtoonEditor from "@/components/editor/WebtoonEditor";
 import IllustratedEditor from "@/components/editor/IllustratedEditor";
 import EditorErrorBoundary from "@/components/editor/EditorErrorBoundary";
 import CommandPalette from "@/components/editor/CommandPalette";
-import CommentsSidebar from "@/components/editor/CommentsSidebar";
 import CommentPopover from "@/components/editor/CommentPopover";
+import { useComments } from "@/components/editor/useComments";
+import MarginaliaLayer from "@/components/editor/MarginaliaLayer";
+import CommentsListOverlay from "@/components/editor/CommentsListOverlay";
 import ChapterSettingsPanel from "@/components/editor/ChapterSettingsPanel";
 import HistoryPanel from "@/components/editor/HistoryPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
@@ -62,7 +63,7 @@ import { useApiMutation } from "@/hooks/use-api-mutation";
 import { canProceedAfterSaveFlush, getSaveGuardMessage } from "@/lib/editor-save-guard";
 import { normalizeTypographySettings, typographyClassName } from "@/lib/typography";
 
-type RightPanel = "none" | "comments" | "beats" | "chapter" | "history" | "chat" | "ai";
+type RightPanel = "none" | "beats" | "chapter" | "history" | "chat" | "ai";
 
 type DraftRecoveryNotice = {
   chapterId: string;
@@ -82,10 +83,7 @@ const PANEL_ROOMS: Array<{
 }> = [
   {
     label: "Feedback",
-    tabs: [
-      { panel: "comments", label: "Comments" },
-      { panel: "chat", label: "Chat", teamOnly: true },
-    ],
+    tabs: [{ panel: "chat", label: "Chat", teamOnly: true }],
   },
   {
     label: "Craft",
@@ -220,31 +218,6 @@ function saveEditorSettings(storyId: string, settings: Record<string, unknown>) 
     localStorage.setItem(editorSettingsKey(storyId), JSON.stringify(settings));
   } catch {}
 }
-
-function editorCommentsKey(storyId: string, chapterId: string) {
-  return `quiloria-editor-comments-${storyId}-${chapterId}`;
-}
-
-function loadEditorComments(storyId: string, chapterId: string): CommentThread[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const saved = localStorage.getItem(editorCommentsKey(storyId, chapterId));
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEditorComments(storyId: string, chapterId: string, threads: CommentThread[]) {
-  try {
-    localStorage.setItem(editorCommentsKey(storyId, chapterId), JSON.stringify(threads));
-  } catch {}
-}
-
-type EditorCommentsResponse = {
-  data?: CommentThread[];
-  threadId?: string;
-};
 
 // Convert API chapter data → store Chapter format
 interface ApiBibleEntry {
@@ -420,16 +393,26 @@ export default function WriteStoryPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Collapsed by default — the canvas is the star; beats/context are summoned.
 
-  // Comments
-  const [commentThreads, setCommentThreads] = useState<CommentThread[]>([]);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [commentPopover, setCommentPopover] = useState<{
-    position: { x: number; y: number };
-    selectedText: string;
-    from: number;
-    to: number;
-  } | null>(null);
-  const commentsLoadedChapter = useRef<string | null>(null);
+  // Comments — the subsystem lives in useComments; the page just wires the
+  // marginalia dots, the create popover, and the ⌘K list to what it returns.
+  const {
+    threads: commentThreads,
+    activeThreadId,
+    setActiveThreadId,
+    commentPopover,
+    handleAddComment,
+    handleSubmitComment,
+    handleReply: handleReplyToThread,
+    handleResolve: handleResolveThread,
+    handleDelete: handleDeleteThread,
+    handleCancelComment,
+  } = useComments({
+    editor: editorInstance,
+    storyId,
+    chapterId: project?.activeChapterId ?? null,
+  });
+  // The ⌘K comments list overlay (replaces the old docked sidebar).
+  const [showCommentsList, setShowCommentsList] = useState(false);
 
   // Search
   const [showSearch, setShowSearch] = useState(false);
@@ -892,39 +875,6 @@ export default function WriteStoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storyId, project?.activeChapterId]);
 
-  useEffect(() => {
-    const chapterId = project?.activeChapterId;
-    if (!chapterId) return;
-    const localThreads = loadEditorComments(storyId, chapterId);
-    setCommentThreads(localThreads);
-    commentsLoadedChapter.current = chapterId;
-    setActiveThreadId(null);
-    setCommentPopover(null);
-
-    let cancelled = false;
-    fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) return;
-        const json = await res.json() as EditorCommentsResponse;
-        if (!cancelled && Array.isArray(json.data)) {
-          setCommentThreads(json.data);
-          saveEditorComments(storyId, chapterId, json.data);
-        }
-      })
-      .catch(() => {
-        // Local comments are already loaded as an offline fallback.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [storyId, project?.activeChapterId]);
-
-  useEffect(() => {
-    if (!project?.activeChapterId) return;
-    if (commentsLoadedChapter.current !== project.activeChapterId) return;
-    saveEditorComments(storyId, project.activeChapterId, commentThreads);
-  }, [storyId, project?.activeChapterId, commentThreads]);
 
   // ── Chapter handlers ──────────────────────────────────────
 
@@ -1556,192 +1506,6 @@ export default function WriteStoryPage() {
     }
   }, [draftRecovery, toast]);
 
-  // ── Comment handlers ──────────────────────────────────────
-
-  const handleAddComment = useCallback(() => {
-    if (!editorInstance) return;
-    const { from, to, empty } = editorInstance.state.selection;
-    if (empty) return;
-
-    const selectedText = editorInstance.state.doc.textBetween(from, to, " ");
-
-    const domSelection = window.getSelection();
-    if (!domSelection || domSelection.rangeCount === 0) return;
-    const range = domSelection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-
-    setCommentPopover({
-      position: { x: rect.left + rect.width / 2, y: rect.bottom },
-      selectedText,
-      from,
-      to,
-    });
-  }, [editorInstance]);
-
-  const handleSubmitComment = useCallback(
-    async (commentText: string) => {
-      if (!editorInstance || !commentPopover) return;
-
-      let thread = createCommentThread(commentPopover.selectedText, commentText);
-      const chapterId = project?.activeChapterId;
-
-      if (chapterId) {
-        try {
-          const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              quotedText: commentPopover.selectedText,
-              commentText,
-              from: commentPopover.from,
-              to: commentPopover.to,
-            }),
-          });
-          if (res.ok) {
-            const json = await res.json() as EditorCommentsResponse;
-            if (json.threadId) {
-              thread = { ...thread, id: json.threadId };
-            }
-            if (Array.isArray(json.data)) {
-              setCommentThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-            }
-          } else {
-            setCommentThreads((prev) => [...prev, thread]);
-          }
-        } catch {
-          setCommentThreads((prev) => [...prev, thread]);
-        }
-      } else {
-        setCommentThreads((prev) => [...prev, thread]);
-      }
-
-      editorInstance
-        .chain()
-        .focus()
-        .setTextSelection({
-          from: commentPopover.from,
-          to: commentPopover.to,
-        })
-        .setComment(thread.id)
-        .run();
-
-      setActiveThreadId(thread.id);
-      setRightPanel("comments");
-      setCommentPopover(null);
-    },
-    [editorInstance, commentPopover, project?.activeChapterId, storyId]
-  );
-
-  const handleReplyToThread = useCallback(
-    async (threadId: string, text: string) => {
-      const chapterId = project?.activeChapterId;
-      if (chapterId) {
-        try {
-          const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ threadId, replyText: text }),
-          });
-          if (res.ok) {
-            const json = await res.json() as EditorCommentsResponse;
-            if (Array.isArray(json.data)) {
-              setCommentThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-              return;
-            }
-          }
-        } catch {
-          // Fall back to local reply below.
-        }
-      }
-      setCommentThreads((prev) =>
-        prev.map((t) => (t.id === threadId ? addReply(t, text) : t))
-      );
-    },
-    [project?.activeChapterId, storyId]
-  );
-
-  // Strip a thread's comment marks from the text — one transaction, no
-  // caret theft. Used on resolve and delete alike: a resolved note has
-  // no business still highlighting the manuscript.
-  const removeCommentMarks = useCallback(
-    (threadId: string) => {
-      if (!editorInstance) return;
-      const { state } = editorInstance;
-      const { tr } = state;
-      let changed = false;
-      state.doc.descendants((node, pos) => {
-        node.marks.forEach((mark) => {
-          if (mark.type.name === "comment" && mark.attrs.threadId === threadId) {
-            tr.removeMark(pos, pos + node.nodeSize, mark);
-            changed = true;
-          }
-        });
-      });
-      if (changed) editorInstance.view.dispatch(tr);
-    },
-    [editorInstance]
-  );
-
-  const handleResolveThread = useCallback(async (threadId: string) => {
-    removeCommentMarks(threadId);
-    const chapterId = project?.activeChapterId;
-    if (chapterId) {
-      try {
-        const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ threadId, resolved: true }),
-        });
-        if (res.ok) {
-          const json = await res.json() as EditorCommentsResponse;
-          if (Array.isArray(json.data)) {
-            setCommentThreads(json.data);
-            saveEditorComments(storyId, chapterId, json.data);
-            return;
-          }
-        }
-      } catch {
-        // Fall back to local resolve below.
-      }
-    }
-    setCommentThreads((prev) =>
-      prev.map((t) => (t.id === threadId ? { ...t, resolved: true } : t))
-    );
-  }, [project?.activeChapterId, storyId, removeCommentMarks]);
-
-  const handleDeleteThread = useCallback(
-    async (threadId: string) => {
-      const chapterId = project?.activeChapterId;
-      if (chapterId) {
-        try {
-          const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/editor-comments`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ threadId }),
-          });
-          if (res.ok) {
-            const json = await res.json() as EditorCommentsResponse;
-            if (Array.isArray(json.data)) {
-              setCommentThreads(json.data);
-              saveEditorComments(storyId, chapterId, json.data);
-            }
-          } else {
-            setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
-          }
-        } catch {
-          setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
-        }
-      } else {
-        setCommentThreads((prev) => prev.filter((t) => t.id !== threadId));
-      }
-      removeCommentMarks(threadId);
-      if (activeThreadId === threadId) setActiveThreadId(null);
-    },
-    [removeCommentMarks, activeThreadId, project?.activeChapterId, storyId]
-  );
-
   // ── Memoized computed values ─────────────────────────────
   const mentionCharacters = useMemo(() =>
     (project?.bible?.characters ?? []).map((c) => ({ id: c.id, name: c.name, color: c.color })),
@@ -1762,11 +1526,24 @@ export default function WriteStoryPage() {
   const handleCloseGrimoire = useCallback(() => setCommandOpen(false), []);
   const handleCloseGoals = useCallback(() => setShowGoals(false), []);
   const handleClosePanel = useCallback(() => setRightPanel("none"), []);
-  // Comments, chapter settings and typography are companions now — they
-  // slide in beside the page without dragging the old mode shell back.
+  // Comments live in the margin now; ⌘K opens the full list for triage.
+  // Chapter settings and typography are companions that slide in beside the
+  // page without dragging the old mode shell back.
   const handleToggleComments = useCallback(() => {
-    togglePanel("comments");
-  }, [togglePanel]);
+    setShowCommentsList((v) => !v);
+  }, []);
+  const handleJumpToComment = useCallback(
+    (threadId: string) => {
+      setShowCommentsList(false);
+      const stage = editorInstance?.view.dom.closest(".editor-scroll-stage");
+      const node = stage?.querySelector(
+        `.comment-highlight[data-thread-id="${threadId}"]`
+      );
+      if (node) node.scrollIntoView({ behavior: "smooth", block: "center" });
+      setActiveThreadId(threadId);
+    },
+    [editorInstance, setActiveThreadId]
+  );
   const handleToggleSettings = useCallback(() => {
     togglePanel("chapter");
   }, [togglePanel]);
@@ -1781,7 +1558,6 @@ export default function WriteStoryPage() {
     setShowCodex(true);
   }, []);
   const handleCloseSearch = useCallback(() => setShowSearch(false), []);
-  const handleCancelComment = useCallback(() => setCommentPopover(null), []);
   const handleOpenSearch = useCallback(() => setShowSearch(true), []);
   const handleWebtoonWordCount = useCallback((wordCount: number) => {
     updateProject((prev) => {
@@ -1988,17 +1764,6 @@ export default function WriteStoryPage() {
                 />
               </div>
             </motion.aside>
-          )}
-          {rightPanel === "comments" && (
-            <CommentsSidebar
-              threads={commentThreads}
-              activeThreadId={activeThreadId}
-              onSelectThread={setActiveThreadId}
-              onReply={handleReplyToThread}
-              onResolve={handleResolveThread}
-              onDelete={handleDeleteThread}
-              onClose={handleClosePanel}
-            />
           )}
           {rightPanel === "chapter" && activeChapter && (
             <ChapterSettingsPanel
@@ -2417,6 +2182,24 @@ export default function WriteStoryPage() {
                       />
                     )}
                   </EditorErrorBoundary>
+
+                  {/* Comments as marginalia — amber dots in the right gutter.
+                      Only the default novel editor wires the comment flow. */}
+                  {editorInstance &&
+                    storyFormat !== "screenplay" &&
+                    storyFormat !== "poetry" &&
+                    storyFormat !== "webtoon" &&
+                    storyFormat !== "illustrated" && (
+                      <MarginaliaLayer
+                        editor={editorInstance}
+                        threads={commentThreads}
+                        activeThreadId={activeThreadId}
+                        onSelect={setActiveThreadId}
+                        onReply={handleReplyToThread}
+                        onResolve={handleResolveThread}
+                        onDelete={handleDeleteThread}
+                      />
+                    )}
                   </div>
 
                   {/* Reference pane */}
@@ -2908,6 +2691,19 @@ export default function WriteStoryPage() {
         )}
       </AnimatePresence>
 
+      {/* ── The ⌘K comments list — triage all threads, jump to one ── */}
+      <AnimatePresence>
+        {showCommentsList && (
+          <CommentsListOverlay
+            threads={commentThreads}
+            onClose={() => setShowCommentsList(false)}
+            onJump={handleJumpToComment}
+            onResolve={handleResolveThread}
+            onDelete={handleDeleteThread}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── The Desk — zoom-out chapters overview (⌘E) ──────── */}
       <AnimatePresence>
         {showDesk && (
@@ -3015,13 +2811,13 @@ export default function WriteStoryPage() {
         isFocusMode={focusMode}
         onOpenSearch={handleOpenSearch}
         onOpenEditorDesk={() => { setCommandOpen(false); setShowAIAssistant(true); }}
-        onOpenMetadata={() => { setCommandOpen(false); setShowJacket(true); }}
-        onOpenBible={() => { setCommandOpen(false); setShowCodex(true); }}
+        onOpenJacket={() => { setCommandOpen(false); setShowJacket(true); }}
+        onOpenCodex={() => { setCommandOpen(false); setShowCodex(true); }}
 
         onOpenChapterSettings={handleToggleSettings}
         onOpenOutline={() => { setCommandOpen(false); setDeskOpensFlipped(true); setShowDesk(true); }}
         onOpenTypography={() => { setCommandOpen(false); setShowJacket(true); }}
-        onOpenMonetization={() => { setCommandOpen(false); setShowCounter(true); }}
+        onOpenCounter={() => { setCommandOpen(false); setShowCounter(true); }}
         onOpenWorkshop={handleOpenWorkshop}
         onOpenOpenCalls={handleOpenOpenCalls}
         onExportPdf={handleExportPdf}

@@ -88,12 +88,12 @@ interface CommandPaletteProps {
   onClose: () => void;
   editor: Editor | null;
   onOpenSearch?: () => void;
-  onOpenMetadata?: () => void;
-  onOpenBible?: () => void;
+  onOpenJacket?: () => void;
+  onOpenCodex?: () => void;
   onOpenChapterSettings?: () => void;
   onOpenOutline?: () => void;
   onOpenTypography?: () => void;
-  onOpenMonetization?: () => void;
+  onOpenCounter?: () => void;
   onOpenWorkshop?: () => void;
   onOpenOpenCalls?: () => void;
   onExportPdf?: () => void;
@@ -118,12 +118,12 @@ export default function CommandPalette({
   onToggleFocus,
   isFocusMode,
   onOpenSearch,
-  onOpenMetadata,
-  onOpenBible,
+  onOpenJacket,
+  onOpenCodex,
   onOpenChapterSettings,
   onOpenOutline,
   onOpenTypography,
-  onOpenMonetization,
+  onOpenCounter,
   onOpenWorkshop,
   onOpenOpenCalls,
   onExportPdf,
@@ -335,18 +335,18 @@ export default function CommandPalette({
           },
         ]
       : []),
-    ...(onOpenMetadata
+    ...(onOpenJacket
       ? [
           {
             id: "jacket",
             label: "The Jacket",
             description: "Cover, synopsis, genres, dedication, front matter",
             category: "Go",
-            action: onOpenMetadata,
+            action: onOpenJacket,
           },
         ]
       : []),
-    ...(onOpenBible
+    ...(onOpenCodex
       ? [
           {
             id: "codex",
@@ -354,7 +354,7 @@ export default function CommandPalette({
             description: "Characters, places, lore — the story bible",
             shortcut: `${modKey}${isMac ? '\u21E7' : 'Shift+'}L`,
             category: "Go",
-            action: onOpenBible,
+            action: onOpenCodex,
           },
         ]
       : []),
@@ -402,14 +402,14 @@ export default function CommandPalette({
           },
         ]
       : []),
-    ...(onOpenMonetization
+    ...(onOpenCounter
       ? [
           {
             id: "counter",
             label: "The Counter",
             description: "Publishing, chapter gates, income",
             category: "Go",
-            action: onOpenMonetization,
+            action: onOpenCounter,
           },
         ]
       : []),
@@ -513,7 +513,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, supportsIllustrations, supportsParagraphAlignment, onOpenDesk, onToggleFocus, isFocusMode, onOpenSearch, onOpenMetadata, onOpenBible, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenMonetization, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, supportsIllustrations, supportsParagraphAlignment, onOpenDesk, onToggleFocus, isFocusMode, onOpenSearch, onOpenJacket, onOpenCodex, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenCounter, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query
