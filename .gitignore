@@ -53,3 +53,8 @@ next-env.d.ts
 /promo-export/
 /public/quiloria-promo.mp4
 /public/quiloria-music.mp3
+
+# Scratch / throwaway (screenshots, verify scripts, IDE)
+scripts/.tmp-*.mjs
+/*.png
+.idea/
