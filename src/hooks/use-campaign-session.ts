@@ -6,6 +6,15 @@ import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEn
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { campaignJsonRequest } from "@/lib/campaign-api";
 
+/** An ephemeral reaction dropped on the stage by someone at the table. */
+export interface TableReaction {
+  id: string;
+  type: string;
+  userId: string | null;
+  displayName: string | null;
+  createdAt: string;
+}
+
 // How far behind the newest known sortOrder each poll reaches. Re-fetching a
 // short tail of already-seen turns lets in-place mutations (turn edits,
 // roll-request close/cancel, bargain resolution) made by other clients reach
@@ -51,13 +60,16 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   const [roster, setRoster] = useState<SessionRosterEntry[]>([]);
   const [clocks, setClocks] = useState<ProgressClockData[]>([]);
   const [floorRound, setFloorRound] = useState<FloorRound | null>(null);
+  const [tableReactions, setTableReactions] = useState<TableReaction[]>([]);
 
   const maxSortRef = useRef(-1);
+  const reactionCursorRef = useRef<string | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
   const floorRoundsUrl = `/api/stories/${storyId}/campaign/sessions/${sessionId}/floor-rounds`;
+  const reactionsUrl = `/api/stories/${storyId}/campaign/sessions/${sessionId}/reactions`;
 
   // Characters present in this session's roster (present or introduced)
   const rosterCharacters = useMemo(() => {
@@ -222,6 +234,29 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           }
         } catch { /* non-critical */ }
 
+        // Ephemeral table reactions — append any we haven't seen, keep a short
+        // tail so the floating-emoji layer has something to animate.
+        try {
+          const cursor = reactionCursorRef.current;
+          const reactRes = await fetch(
+            cursor ? `${reactionsUrl}?after=${encodeURIComponent(cursor)}` : reactionsUrl,
+            { signal: controller.signal },
+          );
+          if (reactRes.ok) {
+            const reactJson = await reactRes.json();
+            const incoming: TableReaction[] = reactJson.data ?? [];
+            if (incoming.length > 0) {
+              reactionCursorRef.current = incoming[incoming.length - 1].createdAt;
+              setTableReactions((prev) => {
+                const seen = new Set(prev.map((r) => r.id));
+                const fresh = incoming.filter((r) => !seen.has(r.id));
+                if (fresh.length === 0) return prev;
+                return [...prev, ...fresh].slice(-40);
+              });
+            }
+          }
+        } catch { /* non-critical */ }
+
         // Refresh character list + roster every 6th poll (~30s)
         charPollCount++;
         if (charPollCount >= 6) {
@@ -257,7 +292,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       controller.abort();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [storyId, sessionId, loading, floorRoundsUrl, isTerminal]);
+  }, [storyId, sessionId, loading, floorRoundsUrl, reactionsUrl, isTerminal]);
 
   // ── Send turn ──────────────────────────────────────────────
   const sendTurn = useCallback(
@@ -464,6 +499,23 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     [storyId, sessionId],
   );
 
+  // Broadcast a reaction to everyone at the table. Best-effort and silent —
+  // a dropped emoji must never interrupt play.
+  const sendReaction = useCallback(
+    async (type: string) => {
+      try {
+        await campaignJsonRequest(reactionsUrl, {
+          method: "POST",
+          body: { type },
+          fallbackError: "Failed to send reaction",
+        });
+      } catch {
+        /* non-critical */
+      }
+    },
+    [reactionsUrl],
+  );
+
   const refreshFloorRound = useCallback(async () => {
     const json = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
     setFloorRound(json.data ?? null);
@@ -630,5 +682,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     refreshClocks,
     createMark,
     removeMark,
+    tableReactions,
+    sendReaction,
   };
 }

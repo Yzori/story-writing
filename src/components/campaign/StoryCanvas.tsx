@@ -59,6 +59,13 @@ interface StoryCanvasProps {
   myCharacterStatus: string | null;
   onLastWords: (content: string) => void;
   onReaction?: (reactionKey: string) => void;
+  /** Reactions from OTHER people at the table (the current user's own clicks
+   *  float locally), to animate into the stage as they arrive. */
+  incomingReactions?: Array<{ id: string; type: string }>;
+  /** A waiting player can bid for the spotlight; the Director sees the queue. */
+  myHandRaised?: boolean;
+  onRaiseHand?: () => void;
+  onLowerHand?: () => void;
   onEditTurn?: (turnId: string, newContent: string) => void;
   lobbyTheme?: string;
   previousEpilogue?: string | null;
@@ -201,6 +208,10 @@ export default function StoryCanvas({
   myCharacterStatus,
   onLastWords,
   onReaction,
+  incomingReactions,
+  myHandRaised = false,
+  onRaiseHand,
+  onLowerHand,
   onEditTurn,
   lobbyTheme,
   previousEpilogue,
@@ -296,6 +307,27 @@ export default function StoryCanvas({
   const removeFloatingReaction = useCallback((id: string) => {
     setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
   }, []);
+
+  // Float reactions arriving from other people at the table. Each id floats
+  // once — the ref guards against re-animating on every poll merge.
+  const floatedReactionIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!incomingReactions?.length) return;
+    const fresh = incomingReactions.filter((r) => !floatedReactionIdsRef.current.has(r.id));
+    if (fresh.length === 0) return;
+    setFloatingReactions((prev) => [
+      ...prev,
+      ...fresh.map((r) => {
+        floatedReactionIdsRef.current.add(r.id);
+        return {
+          id: `incoming-${r.id}`,
+          emoji: REACTION_EMOJI_MAP[r.type] ?? "✨",
+          x: 30 + Math.random() * 40,
+          timestamp: Date.now(),
+        };
+      }),
+    ]);
+  }, [incomingReactions]);
 
   const {
     editableTurn,
@@ -818,6 +850,22 @@ export default function StoryCanvas({
                       </motion.button>
                     ))}
                   </div>
+
+                  {!isGM && onRaiseHand && (
+                    <button
+                      type="button"
+                      onClick={() => (myHandRaised ? onLowerHand?.() : onRaiseHand())}
+                      title={myHandRaised ? "Lower your hand" : "Ask the Director for the spotlight"}
+                      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                        myHandRaised
+                          ? "border-amber/45 bg-amber/15 text-amber"
+                          : "border-border bg-subtle/20 text-text-secondary hover:border-amber/30 hover:text-amber"
+                      }`}
+                    >
+                      <span className="text-sm leading-none">✋</span>
+                      {myHandRaised ? "Hand raised" : "Raise hand"}
+                    </button>
+                  )}
 
                   {onViewChat && (
                     <button

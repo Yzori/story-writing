@@ -61,6 +61,8 @@ export default function SessionPlayPage() {
     refreshClocks,
     createMark,
     removeMark,
+    tableReactions,
+    sendReaction,
   } = useCampaignSession(storyId, sessionId);
 
   const [chatInput, setChatInput] = useState("");
@@ -166,6 +168,47 @@ export default function SessionPlayPage() {
   const extensionTurns = useMemo(
     () => logTurns.filter((t) => t.type === "ooc" && !!t.metadata?.includes("timerExtension")),
     [logTurns],
+  );
+
+  // ── Spotlight queue (hand-raises) ─────────────────────────
+  // Derived from the OOC turn stream: a player's latest {spotlightRequest} is
+  // "open" until they cancel it, post a story beat, or get handed the pen.
+  const spotlightQueue = useMemo(() => {
+    const latestRequest = new Map<string, number>();
+    const latestCancel = new Map<string, number>();
+    const latestStoryBy = new Map<string, number>();
+    for (const t of turns) {
+      if (!t.userId) continue;
+      if (t.type === "ooc" && t.metadata) {
+        let meta: { spotlightRequest?: boolean; spotlightCancel?: boolean } | null = null;
+        try { meta = JSON.parse(t.metadata); } catch { meta = null; }
+        if (meta?.spotlightRequest) {
+          latestRequest.set(t.userId, Math.max(latestRequest.get(t.userId) ?? -1, t.sortOrder));
+        } else if (meta?.spotlightCancel) {
+          latestCancel.set(t.userId, Math.max(latestCancel.get(t.userId) ?? -1, t.sortOrder));
+        }
+      } else if (isStoryTurnType(t.type)) {
+        latestStoryBy.set(t.userId, Math.max(latestStoryBy.get(t.userId) ?? -1, t.sortOrder));
+      }
+    }
+    const out: Array<{ userId: string; characterName: string; sortOrder: number }> = [];
+    for (const [userId, reqSort] of latestRequest) {
+      if (userId === story?.userId) continue; // the Director doesn't queue
+      if ((latestCancel.get(userId) ?? -1) > reqSort) continue;
+      if ((latestStoryBy.get(userId) ?? -1) > reqSort) continue;
+      if (campaignSession?.activePlayerId === userId) continue; // already holds the pen
+      const char = characters.find((c) => c.userId === userId);
+      out.push({ userId, characterName: char?.name ?? "A player", sortOrder: reqSort });
+    }
+    return out.sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [turns, characters, story?.userId, campaignSession?.activePlayerId]);
+
+  const myHandRaised = !!currentUserId && spotlightQueue.some((q) => q.userId === currentUserId);
+
+  // Reactions from everyone but me — my own clicks already float locally.
+  const incomingReactions = useMemo(
+    () => tableReactions.filter((r) => r.userId !== currentUserId).map((r) => ({ id: r.id, type: r.type })),
+    [tableReactions, currentUserId],
   );
 
   useEffect(() => {
@@ -598,15 +641,37 @@ export default function SessionPlayPage() {
     [sendTurn, myCharacter, showToast]
   );
 
-  // Player sends an ephemeral reaction while waiting
+  // Player sends an ephemeral reaction while waiting \u2014 broadcast to the whole
+  // table (and floated locally by the canvas), no longer a self-only toast.
   const handleReaction = useCallback(
     (reactionKey: string) => {
-      const reactions: Record<string, string> = { tension: "\u2694\uFE0F", gasp: "\uD83D\uDE2E", bravo: "\uD83D\uDC4F", laugh: "\uD83D\uDE02", dread: "\uD83D\uDC80" };
-      const charName = myCharacter?.name ?? "Someone";
-      showToast(`${charName} reacted: ${reactions[reactionKey] ?? reactionKey}`);
+      void sendReaction(reactionKey);
     },
-    [myCharacter, showToast]
+    [sendReaction]
   );
+
+  // \u2500\u2500 Hand-raise (spotlight bid) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // A waiting player asks the Director for the pen. Rides the OOC turn stream
+  // (same pattern as the timer-extension signal) so every client \u2014 crucially
+  // the GM's \u2014 sees the request without a new endpoint or table.
+  const handleRaiseHand = useCallback(async () => {
+    const charName = myCharacter?.name ?? "A player";
+    try {
+      await sendTurn("ooc", `${charName} raises a hand for the spotlight.`, myCharacter?.id, JSON.stringify({ spotlightRequest: true }));
+      showToast("Hand raised \u2014 the Director can pass you the pen");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to raise your hand");
+    }
+  }, [myCharacter, sendTurn, showToast]);
+
+  const handleLowerHand = useCallback(async () => {
+    const charName = myCharacter?.name ?? "A player";
+    try {
+      await sendTurn("ooc", `${charName} lowers their hand.`, myCharacter?.id, JSON.stringify({ spotlightCancel: true }));
+    } catch {
+      /* non-critical */
+    }
+  }, [myCharacter, sendTurn]);
 
   // Edit a recently submitted turn (30s window)
   const handleEditTurn = useCallback(
@@ -1110,6 +1175,32 @@ export default function SessionPlayPage() {
       </header>
 
       <main className="relative min-h-0 flex-1">
+        {/* Hand-raise queue — the Director sees who's asking for the pen and
+            grants it with a tap. Players bid from the waiting bar below. */}
+        {isGM && campaignSession?.status === "active" && spotlightQueue.length > 0 && (
+          <div className="pointer-events-none absolute left-4 top-4 z-20 w-[250px] space-y-2">
+            <p className="flex items-center gap-1.5 px-1 text-[9px] font-bold uppercase tracking-[0.16em] text-amber">
+              <span>✋</span> Asking for the spotlight
+            </p>
+            {spotlightQueue.map((req) => (
+              <div
+                key={req.userId}
+                className="pointer-events-auto flex items-center justify-between gap-2 rounded-lg border border-amber/25 bg-void/80 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.3)] backdrop-blur-md"
+              >
+                <span className="min-w-0 flex-1 truncate text-[12px] text-paper">{req.characterName}</span>
+                <button
+                  type="button"
+                  onClick={() => handlePassTurn(req.userId)}
+                  disabled={!canPassSpotlight}
+                  className="shrink-0 rounded-full border border-amber/40 bg-amber/15 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-amber transition-colors hover:bg-amber/25 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Give the pen
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {!showLogDrawer && !showContextDrawer && logTurns.length > 0 && (
           <div className="pointer-events-none absolute right-4 top-4 z-20 hidden w-[270px] space-y-2 xl:block">
             {logTurns.slice(-2).reverse().map((turn) => (
@@ -1188,6 +1279,10 @@ export default function SessionPlayPage() {
         myCharacterStatus={myCharacter?.status ?? null}
         onLastWords={handleLastWords}
         onReaction={handleReaction}
+        incomingReactions={incomingReactions}
+        myHandRaised={myHandRaised}
+        onRaiseHand={handleRaiseHand}
+        onLowerHand={handleLowerHand}
         onEditTurn={handleEditTurn}
         mapImageUrl={story?.mapImageUrl ?? null}
         onUpdateMapImage={async (url) => {

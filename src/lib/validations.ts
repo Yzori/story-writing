@@ -578,6 +578,14 @@ export const storyMomentAmplificationSchema = z.object({
   turnId: z.string().uuid(),
 });
 
+// Reactions sent by people AT the table (GM + players), as opposed to the
+// gallery's spectatorReactionSchema. Shares the spectator_reactions table but
+// carries the table's own ephemeral emoji set.
+export const TABLE_REACTION_TYPES = ["tension", "gasp", "bravo", "laugh", "dread"] as const;
+export const tableReactionSchema = z.object({
+  type: z.enum(TABLE_REACTION_TYPES),
+});
+
 // ── Ink Drop Tips ──────────────────────────────────────────
 
 // ── Annotations ────────────────────────────────────────────
