@@ -7,21 +7,20 @@ import { hash, arand } from "@/components/dashboard/studio-kit";
 import { QuillRingLogoAnimated } from "@/components/shared/BrandLogoAnimated";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Quiloria — 55-second promo. A playable, full-screen cinematic built from the
-// hero-video language (docs/VIDEO_BRIEF.md): mahogany dark, firelight gold,
-// amethyst, luminous ink. Auto-advances through nine scenes with a progress
-// bar. Append ?record to hide the chrome and auto-run once for screen capture
+// Quiloria — "A world made of ink". A playable, full-screen cinematic in the
+// hero-video language (mahogany dark, firelight gold, amethyst, luminous ink).
+// Spine: create (3 ways) → don't build it alone (the guild/marketplace) →
+// readers answer back → readers help carry it → the loop → come make something.
+// Append ?record to hide chrome and auto-run once for capture
 // (scripts/record-promo.mjs). Public route — no auth required.
 //
-//   1. 0–4s     The first sentence (caret, ink-soak)
-//   2. 4–8.5s   Quiloria — the home for the whole life of a story
-//   3. 8.5–16.5 FOR THE WRITER — five format-native editors
-//   4. 16.5–23  Adventure Mode — stories played live, dice and all
-//   5. 23–29    Together — equal credit, workshop, open calls
-//   6. 29–37    FOR THE READER — reactions, sparks, steering the story
-//   7. 37–43    The work pays — gifts, unlocks, the Circle
-//   8. 43–49    How it's different — no feed, no algorithm, a kept library
-//   9. 49–55    Two worlds, one river — quiloria.app
+//   1. 0–4s     A drop of ink becomes a world
+//   2. 4–12s    Three thresholds — Study / Workshop / Tavern (the 3 modes)
+//   3. 12–20s   The guild — summon illustrators & artisans (commissions)
+//   4. 20–27s   The reader answers — reactions, sparks, marginalia
+//   5. 27–35s   They help carry it — steer (Crossroads), gift, the Circle
+//   6. 35–40s   One current — makers · artisans · readers
+//   7. 40–46s   Come make something that doesn't exist yet — quiloria.app
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MAHOG = "rgb(17,14,10)";
@@ -31,11 +30,16 @@ const AMETH = "126,94,158";
 const AMETHL = "168,140,200";
 const PARCH = "242,232,208";
 const ROSE = "184,105,122";
+const ROSEL = "212,150,166";
 const RUBY = "158,59,66";
+const TEAL = "104,168,158";
+const TEALL = "150,205,195";
 const P = (a: number) => `rgba(${PARCH},${a})`;
 
-const SCENES = [4, 4.5, 8, 6.5, 6, 8, 6, 6, 6]; // seconds — 55 total
+const SCENES = [4, 8, 8, 7, 8, 5, 6]; // seconds — 46 total
 const TICK = 100;
+
+// ── reusable ink primitives ──────────────────────────────────────────────────
 
 // words soak in like wet ink
 function Ink({ text, className = "", delay = 0, step = 0.09, style }: { text: string; className?: string; delay?: number; step?: number; style?: React.CSSProperties }) {
@@ -61,8 +65,7 @@ function Caret({ color = `rgb(${PARCH})`, h = "1em" }: { color?: string; h?: str
   return <motion.span className="ml-1 inline-block w-[3px] translate-y-[3px]" style={{ height: h, backgroundColor: color }} animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }} />;
 }
 
-// like Ink, but the caret travels with the writing: each word carries a brief
-// hand-off caret for its reveal window, and the last word keeps a blinking one
+// the caret travels with the writing as each word reveals
 function TypedInk({ text, delay = 0, step = 0.09 }: { text: string; delay?: number; step?: number }) {
   const words = text.split(" ");
   const last = words.length - 1;
@@ -99,7 +102,7 @@ function TypedInk({ text, delay = 0, step = 0.09 }: { text: string; delay?: numb
   );
 }
 
-// small mono chapter label — "for the writer", "for the reader"
+// small mono chapter label
 function ChapterMark({ text, color, delay = 0.2 }: { text: string; color: string; delay?: number }) {
   return (
     <motion.p
@@ -138,183 +141,294 @@ function River({ y = "50%", count = 16 }: { y?: string; count?: number }) {
   );
 }
 
-// ── Scene 1 · the first sentence ─────────────────────────────────────────────
-function S1() {
+const Line = ({ w, c = P(0.5) }: { w: string; c?: string }) => <div className="h-[3px] rounded-full" style={{ width: w, backgroundColor: c }} />;
+
+// ambient ink-motes — a persistent, slowly drifting dust of light behind every
+// scene. Lives outside the scene swap so it never resets: the room is alive.
+function Motes({ count = 30 }: { count?: number }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <p className="max-w-3xl font-reading text-[clamp(22px,3.6vw,40px)] italic leading-snug" style={{ color: P(0.92) }}>
-        <TypedInk text="Every world begins as a single line of ink." delay={0.4} step={0.16} />
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      {Array.from({ length: count }).map((_, i) => {
+        const x = arand(hash(`mo-x-${i}`)) * 100;
+        const y = arand(hash(`mo-y-${i}`)) * 100;
+        const s = 1.4 + arand(hash(`mo-s-${i}`)) * 2.6;
+        const dur = 8 + arand(hash(`mo-d-${i}`)) * 9;
+        const dx = (arand(hash(`mo-dx-${i}`)) - 0.5) * 70;
+        const dy = -40 - arand(hash(`mo-dy-${i}`)) * 70;
+        const gold = i % 3 !== 0;
+        const col = gold ? GOLDL : AMETHL;
+        return (
+          <motion.span
+            key={i}
+            className="absolute rounded-full"
+            style={{ left: `${x}%`, top: `${y}%`, width: s, height: s, backgroundColor: `rgb(${col})`, boxShadow: `0 0 ${Math.round(s * 2.4)}px rgba(${col},0.8)` }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 0.65, 0.65, 0], x: [0, dx], y: [0, dy] }}
+            transition={{ duration: dur, delay: arand(hash(`mo-t-${i}`)) * dur, repeat: Infinity, ease: "easeInOut", times: [0, 0.2, 0.8, 1] }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Scene 1 · a drop of ink becomes a world ──────────────────────────────────
+function S1() {
+  const IMPACT = 1.15; // when the drop lands
+  const splash = Array.from({ length: 10 });
+  return (
+    <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
+      {/* the drop falls, stretching as it accelerates, with a faint ink trail */}
+      <motion.div
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ top: "14%", transformOrigin: "center bottom" }}
+        initial={{ y: -150, opacity: 0, scaleY: 1.5, scaleX: 0.85 }}
+        animate={{ y: 150, opacity: [0, 1, 1, 0], scaleY: [1.7, 1.25, 1, 0.7], scaleX: [0.8, 0.95, 1, 1.25] }}
+        transition={{ delay: 0.3, duration: 0.85, ease: "easeIn", times: [0, 0.2, 0.85, 1] }}
+      >
+        <svg width="16" height="22" viewBox="0 0 30 40" fill="none">
+          <path d="M15 2 C 21 12 27 19 27 27 a12 12 0 1 1 -24 0 C 3 19 9 12 15 2 Z" fill={`rgba(${GOLDL},0.96)`} style={{ filter: `drop-shadow(0 0 12px rgba(${GOLD},0.95))` }} />
+        </svg>
+      </motion.div>
+
+      {/* impact splash — droplets arc out under gravity */}
+      <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2">
+        {splash.map((_, i) => {
+          const a = (i / splash.length) * Math.PI * 2 + arand(hash(`sa-${i}`)) * 0.4;
+          const dist = 56 + arand(hash(`sd-${i}`)) * 54;
+          const sz = 2 + arand(hash(`ss-${i}`)) * 2;
+          return (
+            <motion.span
+              key={i}
+              className="absolute rounded-full"
+              style={{ width: sz, height: sz, backgroundColor: `rgb(${GOLDL})`, boxShadow: `0 0 6px rgba(${GOLD},0.9)` }}
+              initial={{ x: 0, y: 0, opacity: 0, scale: 1 }}
+              animate={{ x: Math.cos(a) * dist, y: [0, Math.sin(a) * dist - 18, Math.sin(a) * dist + 26], opacity: [0, 1, 0], scale: [1, 0.5] }}
+              transition={{ delay: IMPACT, duration: 0.95, ease: "easeOut", times: [0, 0.4, 1] }}
+            />
+          );
+        })}
+      </div>
+
+      {/* the churning ink-world — keeps rotating, alive */}
+      <motion.div
+        className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ width: "30vmin", height: "30vmin", background: `conic-gradient(from 0deg, rgba(${GOLD},0.5), rgba(${AMETH},0.3), rgba(${GOLDL},0.46), rgba(${AMETH},0.3), rgba(${GOLD},0.5))`, filter: "blur(3px)", mixBlendMode: "screen" }}
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: [0, 0.85, 0.62], scale: [0, 1.12, 1], rotate: 360 }}
+        transition={{ opacity: { delay: IMPACT, duration: 1.4, times: [0, 0.5, 1] }, scale: { delay: IMPACT, duration: 1.4, ease: "easeOut", times: [0, 0.5, 1] }, rotate: { delay: IMPACT, duration: 24, ease: "linear", repeat: Infinity } }}
+      />
+      {/* warm core, breathing */}
+      <motion.div
+        className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ width: "16vmin", height: "16vmin", background: `radial-gradient(circle, rgba(${GOLDL},0.62), transparent 70%)` }}
+        initial={{ opacity: 0, scale: 0.4 }}
+        animate={{ opacity: [0, 0.9, 0.72, 0.82, 0.72], scale: [0.4, 1.02, 0.96, 1.0, 0.96] }}
+        transition={{ delay: IMPACT, duration: 6, ease: "easeOut", times: [0, 0.25, 0.5, 0.75, 1] }}
+      />
+      {/* two shockwave rings off the impact */}
+      {[0, 0.18].map((d, i) => (
+        <motion.div
+          key={i}
+          className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 rounded-full border"
+          style={{ width: "16vmin", height: "16vmin", borderColor: `rgba(${GOLDL},0.5)` }}
+          initial={{ opacity: 0, scale: 0.2 }}
+          animate={{ opacity: [0, 0.7, 0], scale: [0.2, 2.4, 3] }}
+          transition={{ delay: IMPACT + d, duration: 1.5, ease: "easeOut" }}
+        />
+      ))}
+
+      <p className="relative z-10 mt-[30vmin] max-w-2xl font-reading text-[clamp(20px,3.2vw,38px)] italic leading-snug" style={{ color: P(0.92) }}>
+        <TypedInk text="Every world begins as a drop of ink." delay={2.05} step={0.14} />
       </p>
     </div>
   );
 }
 
-// ── Scene 2 · the reveal ─────────────────────────────────────────────────────
-function S2() {
+// ── Scene 2 · three thresholds (the three modes) ─────────────────────────────
+function QuillIcon() {
   return (
-    <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
-      <River y="58%" />
-      {/* the real mark: ring inks on, quill springs from the well, drop falls */}
-      <div className="relative z-10" style={{ filter: `drop-shadow(0 0 50px rgba(${GOLD},0.35))` }}>
-        <QuillRingLogoAnimated size={120} textClassName="text-[clamp(48px,8.5vw,112px)]" />
-      </div>
-      <motion.p className="relative z-10 mt-6 font-reading text-[clamp(15px,2vw,22px)] italic" style={{ color: P(0.75) }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.2, duration: 0.8 }}>
-        The home for the whole life of a story.
-      </motion.p>
-    </div>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20c6-1 9.5-4 12.5-9C18 8.5 18.5 5.5 18.5 3 15.5 3 12.5 3.6 10 5 5 8 2 13 2 19" />
+      <path d="M6.5 17.5 13 11" />
+    </svg>
+  );
+}
+function LinkIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="9" cy="12" r="5" />
+      <circle cx="15" cy="12" r="5" />
+    </svg>
+  );
+}
+function DieIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      {[[8, 8], [16, 8], [12, 12], [8, 16], [16, 16]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="1.4" fill="currentColor" stroke="none" />
+      ))}
+    </svg>
   );
 }
 
-// ── Scene 3 · for the writer — five format-native editors ───────────────────
-// each card carries a tiny honest mockup of its editor
-function FormatCard({ label, delay, children }: { label: string; delay: number; children: React.ReactNode }) {
+function Threshold({ name, mode, accent, accentL, delay, children }: { name: string; mode: string; accent: string; accentL: string; delay: number; children: React.ReactNode }) {
   return (
     <motion.div
-      className="flex flex-col items-center gap-2.5"
-      initial={{ opacity: 0, y: 22, scale: 0.94 }}
+      className="flex flex-col items-center gap-3"
+      initial={{ opacity: 0, y: 34, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.55, ease: "easeOut" }}
+      transition={{ delay, duration: 0.75, ease: [0.34, 1.45, 0.5, 1] }}
     >
-      <div
-        className="h-[clamp(118px,16vh,168px)] w-[clamp(104px,12vw,150px)] overflow-hidden rounded-lg border p-3"
-        style={{ borderColor: `rgba(${GOLDL},0.22)`, backgroundColor: "rgba(30,24,17,0.92)", boxShadow: `0 14px 36px rgba(0,0,0,0.5), 0 0 28px rgba(${GOLD},0.08)` }}
-      >
-        {children}
+      {/* the door floats, as if lit from within */}
+      <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay }}>
+        <div
+          className="relative h-[clamp(140px,21vh,196px)] w-[clamp(100px,12vw,140px)] overflow-hidden rounded-t-[999px] rounded-b-lg border"
+          style={{
+            borderColor: `rgba(${accentL},0.42)`,
+            background: `linear-gradient(180deg, rgba(${accent},0.03), rgba(${accent},0.2))`,
+            boxShadow: `0 0 42px rgba(${accent},0.22), inset 0 -34px 54px rgba(${accent},0.2)`,
+          }}
+        >
+          {/* hearth-light pooled at the threshold, flickering */}
+          <motion.div
+            className="absolute inset-x-0 bottom-0 h-2/3"
+            style={{ background: `linear-gradient(180deg, transparent, rgba(${accentL},0.32))` }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.82, 1, 0.9, 1] }}
+            transition={{ delay: delay + 0.4, duration: 4.2, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }}
+          />
+          <motion.div
+            className="absolute bottom-[-12%] left-1/2 h-[56%] w-[130%] -translate-x-1/2 rounded-full"
+            style={{ background: `radial-gradient(ellipse at center, rgba(${accentL},0.3), transparent 70%)`, filter: "blur(7px)" }}
+            animate={{ opacity: [0.5, 0.85, 0.55] }}
+            transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut", delay }}
+          />
+          {/* the motif, breathing with light */}
+          <motion.div
+            className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2"
+            style={{ color: `rgb(${accentL})` }}
+            animate={{
+              scale: [1, 1.09, 1],
+              filter: [`drop-shadow(0 0 8px rgba(${accent},0.55))`, `drop-shadow(0 0 17px rgba(${accent},0.95))`, `drop-shadow(0 0 8px rgba(${accent},0.55))`],
+            }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: delay + 0.5 }}
+          >
+            {children}
+          </motion.div>
+        </div>
+      </motion.div>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-display text-[clamp(14px,1.8vw,20px)]" style={{ color: P(0.95) }}>{name}</span>
+        <span className="font-mono text-[9px] uppercase tracking-[0.22em]" style={{ color: `rgb(${accentL})` }}>{mode}</span>
       </div>
-      <span className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: `rgb(${GOLDL})` }}>{label}</span>
     </motion.div>
   );
 }
 
-const Line = ({ w, c = P(0.5) }: { w: string; c?: string }) => <div className="h-[3px] rounded-full" style={{ width: w, backgroundColor: c }} />;
+function S2() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+      <ChapterMark text="three ways in" color={`rgb(${GOLDL})`} />
+      <motion.h2 className="mt-3 font-display text-[clamp(24px,3.6vw,42px)] leading-tight" style={{ color: P(0.95) }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.8 }}>
+        Every story starts at a threshold.
+      </motion.h2>
+      <div className="mt-8 flex flex-wrap items-start justify-center gap-5 sm:gap-8">
+        <Threshold name="The Study" mode="write alone" accent={GOLD} accentL={GOLDL} delay={1.3}><QuillIcon /></Threshold>
+        <Threshold name="The Workshop" mode="build together" accent={AMETH} accentL={AMETHL} delay={1.7}><LinkIcon /></Threshold>
+        <Threshold name="The Tavern" mode="play it live" accent={ROSE} accentL={ROSEL} delay={2.1}><DieIcon /></Threshold>
+      </div>
+      <p className="mt-8 font-reading text-[clamp(15px,2vw,22px)] italic" style={{ color: P(0.8) }}>
+        <Ink text="Write it alone, build it with others, or roll the dice and play it live." delay={3.0} step={0.05} />
+      </p>
+    </div>
+  );
+}
+
+// ── Scene 3 · the guild — summon illustrators & artisans ─────────────────────
+const CRAFTS_RING = [
+  { label: "Cover Art", group: "visual" },
+  { label: "Character Art", group: "visual" },
+  { label: "Worldbuilding", group: "services" },
+  { label: "GM for Hire", group: "services" },
+  { label: "Editing", group: "writing" },
+  { label: "Scene Illustration", group: "visual" },
+] as const;
+
+const GROUP_COL: Record<string, [string, string]> = {
+  visual: [AMETH, AMETHL],
+  writing: [GOLD, GOLDL],
+  services: [TEAL, TEALL],
+};
 
 function S3() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <ChapterMark text="for the writer" color={`rgb(${GOLDL})`} />
-      <motion.h2 className="mt-3 font-display text-[clamp(26px,4vw,46px)] leading-tight" style={{ color: P(0.95) }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.8 }}>
-        Write it in its native form.
+      <ChapterMark text="the guild" color={`rgb(${AMETHL})`} />
+      <motion.h2 className="mt-3 font-display text-[clamp(24px,3.6vw,42px)] leading-tight" style={{ color: P(0.95) }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.8 }}>
+        Summon the hands you need.
       </motion.h2>
-      <div className="mt-8 flex flex-wrap items-start justify-center gap-4 sm:gap-5">
-        <FormatCard label="Novel" delay={1.5}>
-          <div className="flex h-full flex-col gap-[7px] rounded-sm px-2.5 py-3" style={{ backgroundColor: `rgba(${PARCH},0.92)` }}>
-            {["92%", "100%", "96%", "88%", "100%", "64%"].map((w, i) => <Line key={i} w={w} c="rgba(58,44,30,0.55)" />)}
-          </div>
-        </FormatCard>
-        <FormatCard label="Webtoon" delay={1.85}>
-          <div className="flex h-full flex-col gap-2">
-            {[38, 30, 22].map((h, i) => (
-              <div key={i} className="w-full rounded-[3px] border" style={{ height: `${h}%`, borderColor: `rgba(${AMETHL},0.5)`, background: `linear-gradient(135deg, rgba(${AMETH},0.35), rgba(${AMETH},0.1))` }} />
-            ))}
-          </div>
-        </FormatCard>
-        <FormatCard label="Poetry" delay={2.2}>
-          <div className="flex h-full flex-col items-center justify-center gap-[6px]">
-            <Line w="62%" /><Line w="44%" /><Line w="56%" />
-            <div className="h-2" />
-            <Line w="50%" /><Line w="66%" /><Line w="38%" />
-          </div>
-        </FormatCard>
-        <FormatCard label="Screenplay" delay={2.55}>
-          <div className="flex h-full flex-col items-center justify-center gap-[7px]">
-            <span className="font-mono text-[8px] tracking-[0.18em]" style={{ color: P(0.85) }}>INT. LIGHTHOUSE</span>
-            <div className="h-1.5" />
-            <span className="font-mono text-[8px] tracking-[0.18em]" style={{ color: `rgb(${GOLDL})` }}>MIRA</span>
-            <Line w="58%" /><Line w="46%" />
-          </div>
-        </FormatCard>
-        <FormatCard label="Illustrated" delay={2.9}>
-          <div className="flex h-full flex-col gap-2">
-            <div className="w-full flex-1 rounded-[3px]" style={{ background: `linear-gradient(135deg, rgba(${GOLD},0.45), rgba(${AMETH},0.4))`, boxShadow: `inset 0 0 18px rgba(${GOLD},0.25)` }} />
-            <Line w="100%" /><Line w="78%" />
-          </div>
-        </FormatCard>
+
+      <div className="relative mt-4 h-[clamp(230px,36vh,300px)] w-[min(560px,92vw)]">
+        {/* the guild ring */}
+        <motion.div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border"
+          style={{ width: "70%", height: "82%", borderColor: `rgba(${AMETHL},0.16)` }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.8, duration: 0.9, ease: "easeOut" }}
+        />
+        {/* your story at the centre */}
+        <motion.div
+          className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        >
+          <div className="h-11 w-11 rounded-lg" style={{ background: `linear-gradient(135deg, rgba(${GOLDL},0.9), rgba(${GOLD},0.5))`, boxShadow: `0 0 26px rgba(${GOLD},0.55)` }} />
+          <span className="font-mono text-[9px] uppercase tracking-[0.2em]" style={{ color: P(0.6) }}>your story</span>
+        </motion.div>
+        {/* artisans around the ring */}
+        {CRAFTS_RING.map((c, i) => {
+          const angle = (-90 + i * 60) * (Math.PI / 180);
+          const left = 50 + 35 * Math.cos(angle);
+          const top = 50 + 40 * Math.sin(angle);
+          const [base, light] = GROUP_COL[c.group];
+          return (
+            <motion.span
+              key={c.label}
+              className="absolute whitespace-nowrap rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] backdrop-blur-sm"
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+                transform: "translate(-50%,-50%)",
+                borderColor: `rgba(${light},0.4)`,
+                color: `rgb(${light})`,
+                backgroundColor: `rgba(${base},0.12)`,
+                boxShadow: c.group === "visual" ? `0 0 18px rgba(${base},0.32)` : "none",
+              }}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 1.2 + i * 0.16, duration: 0.5, ease: "backOut" }}
+            >
+              {c.label}
+            </motion.span>
+          );
+        })}
       </div>
-      <motion.p className="mt-7 font-reading text-[clamp(14px,1.8vw,19px)] italic" style={{ color: P(0.7) }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 4.6, duration: 0.7 }}>
-        Five editors. Nothing fights the form.
+
+      <motion.p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: `rgb(${AMETHL})` }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.8, duration: 0.6 }}>
+        open calls · find your illustrator
+      </motion.p>
+      <motion.p className="mt-4 font-reading text-[clamp(15px,2vw,22px)] italic" style={{ color: P(0.82) }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.4, duration: 0.8 }}>
+        You don&apos;t have to build the world alone.
       </motion.p>
     </div>
   );
 }
 
-// ── Scene 4 · adventure mode — played live ───────────────────────────────────
-function Die({ n, delay }: { n: number; delay: number }) {
-  const pips: Record<number, [number, number][]> = {
-    3: [[25, 25], [50, 50], [75, 75]],
-    5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
-  };
-  return (
-    <motion.div
-      className="relative h-16 w-16 rounded-2xl border-2 sm:h-20 sm:w-20"
-      style={{ borderColor: `rgba(${ROSE},0.9)`, backgroundColor: "rgba(184,105,122,0.12)", boxShadow: `0 0 30px rgba(${ROSE},0.4)` }}
-      initial={{ opacity: 0, rotate: -160, y: -40 }}
-      animate={{ opacity: 1, rotate: [-160, 12, 0], y: 0 }}
-      transition={{ delay, duration: 0.9, ease: "easeOut" }}
-    >
-      {(pips[n] ?? []).map(([x, y], i) => (
-        <span key={i} className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full sm:h-2.5 sm:w-2.5" style={{ left: `${x}%`, top: `${y}%`, backgroundColor: `rgb(${ROSE})` }} />
-      ))}
-    </motion.div>
-  );
-}
-
-function S4() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <ChapterMark text="play it live" color={`rgb(${ROSE})`} />
-      <p className="mt-5 max-w-2xl font-reading text-[clamp(18px,2.6vw,30px)] italic leading-snug" style={{ color: P(0.92) }}>
-        <Ink text="The door groans open. Kestrel — what do you do?" delay={0.6} step={0.1} />
-      </p>
-      <div className="mt-8 flex items-center gap-4">
-        <Die n={5} delay={2.6} />
-        <Die n={3} delay={2.85} />
-      </div>
-      <motion.p className="mt-4 font-mono text-[12px] uppercase tracking-[0.24em]" style={{ color: `rgb(${ROSE})` }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3.8, duration: 0.5 }}>
-        8 · success, at a price
-      </motion.p>
-      <motion.p className="mt-6 font-reading text-[clamp(14px,1.9vw,20px)] italic" style={{ color: P(0.75) }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 4.7, duration: 0.7 }}>
-        Adventure Mode — a narrator, a table of players, and every session becomes a chapter.
-      </motion.p>
-    </div>
-  );
-}
-
-// ── Scene 5 · together — equal credit, workshop ──────────────────────────────
-const TOGETHER_CHIPS = ["Workshop", "Suggestions", "Lore Book", "Open Calls"];
-
-function S5() {
-  return (
-    <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
-      <div className="font-display text-[clamp(22px,3.4vw,38px)] leading-tight" style={{ color: P(0.95) }}>
-        <Ink text="Written by Mara Vey" delay={0.4} style={{ color: `rgb(${GOLDL})` }} />
-        <span className="mx-3 opacity-40">·</span>
-        <Ink text="Illustrated by Juno Park" delay={1.1} style={{ color: `rgb(${AMETHL})` }} />
-      </div>
-      <motion.p className="mt-2 font-mono text-[11px] uppercase tracking-[0.24em]" style={{ color: P(0.45) }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2, duration: 0.6 }}>
-        same size · always
-      </motion.p>
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-        {TOGETHER_CHIPS.map((c, i) => (
-          <motion.span
-            key={c}
-            className="rounded-full border px-4 py-1.5 font-mono text-[11px] uppercase tracking-widest"
-            style={{ borderColor: `rgba(${AMETHL},0.35)`, color: `rgb(${AMETHL})`, backgroundColor: `rgba(${AMETH},0.08)` }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2.7 + i * 0.18, duration: 0.4 }}
-          >
-            {c}
-          </motion.span>
-        ))}
-      </div>
-      <motion.p className="mt-6 font-reading text-[clamp(16px,2.2vw,24px)] italic" style={{ color: P(0.85) }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.8, duration: 0.8 }}>
-        Made together. Credit shared, always.
-      </motion.p>
-    </div>
-  );
-}
-
-// ── Scene 6 · for the reader — react, spark, steer ───────────────────────────
+// ── Scene 4 · the reader answers ─────────────────────────────────────────────
 const REACTIONS = [{ e: "😮", l: "gasped" }, { e: "💔", l: "heartbroken" }, { e: "✨", l: "inspired" }, { e: "🔥", l: "needs more" }];
 
 function SparkCount() {
@@ -338,6 +452,61 @@ function SparkCount() {
   );
 }
 
+function S4() {
+  return (
+    <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
+      {REACTIONS.map((r, i) => (
+        <motion.div
+          key={i}
+          className="absolute flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-[13px] backdrop-blur-sm"
+          style={{ left: `${14 + i * 21}%`, color: P(0.9) }}
+          initial={{ top: "100%", opacity: 0 }}
+          animate={{ top: "-8%", opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 6, delay: 0.8 + i * 1.0, ease: "easeOut", times: [0, 0.15, 0.8, 1] }}
+        >
+          <span className="text-base">{r.e}</span>{r.l}
+        </motion.div>
+      ))}
+      <ChapterMark text="the reader answers" color={`rgb(${AMETHL})`} />
+      <div className="mt-6"><SparkCount /></div>
+      {/* a note in the margin */}
+      <motion.div
+        className="relative mt-7 w-[min(440px,84vw)] rounded-xl border p-5 text-left"
+        style={{ borderColor: `rgba(${GOLDL},0.22)`, backgroundColor: "rgba(30,24,17,0.88)", boxShadow: "0 18px 50px rgba(0,0,0,0.5)" }}
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.0, duration: 0.7 }}
+      >
+        <div className="flex flex-col gap-[7px] pr-12">
+          {["94%", "100%", "86%", "70%"].map((w, i) => <Line key={i} w={w} c={P(0.42)} />)}
+        </div>
+        <motion.span
+          className="absolute right-5 top-5 h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: `rgb(${GOLDL})`, boxShadow: `0 0 11px rgba(${GOLD},0.95)` }}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 2.9, type: "spring", stiffness: 460, damping: 16 }}
+        />
+        <motion.span
+          className="absolute right-6 top-9 font-reading text-[12px] italic"
+          style={{ color: P(0.7) }}
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 3.2, duration: 0.5 }}
+        >
+          this line undid me.
+        </motion.span>
+      </motion.div>
+      <motion.p className="mt-6 font-reading text-[clamp(15px,2vw,22px)] italic" style={{ color: P(0.85) }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 4.3, duration: 0.8 }}>
+        They don&apos;t just read — they gasp, spark, and write in the margins.
+      </motion.p>
+    </div>
+  );
+}
+
+// ── Scene 5 · they help carry it (steer / gift / the Circle) ─────────────────
+const SUPPORT_CHIPS = ["Gifts", "Chapter Unlocks", "The Circle"];
+
 function PollBar({ label, pct, win, delay }: { label: string; pct: number; win: boolean; delay: number }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -360,160 +529,80 @@ function PollBar({ label, pct, win, delay }: { label: string; pct: number; win: 
   );
 }
 
-function S6() {
+function S5() {
   return (
-    <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
-      {REACTIONS.map((r, i) => (
-        <motion.div
-          key={i}
-          className="absolute flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-[13px] backdrop-blur-sm"
-          style={{ left: `${14 + i * 21}%`, color: P(0.9) }}
-          initial={{ top: "100%", opacity: 0 }}
-          animate={{ top: "-8%", opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 6, delay: 0.8 + i * 1.1, ease: "easeOut", times: [0, 0.15, 0.8, 1] }}
-        >
-          <span className="text-base">{r.e}</span>{r.l}
-        </motion.div>
-      ))}
-      <ChapterMark text="for the reader" color={`rgb(${AMETHL})`} />
-      <div className="mt-6"><SparkCount /></div>
+    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+      <ChapterMark text="they help carry it" color={`rgb(${GOLDL})`} />
+      {/* steer — a Crossroads vote tips the path */}
       <motion.div
-        className="mt-7 w-[min(440px,84vw)] rounded-xl border p-5 text-left"
+        className="mt-5 w-[min(440px,84vw)] rounded-xl border p-5 text-left"
         style={{ borderColor: `rgba(${AMETHL},0.25)`, backgroundColor: "rgba(30,24,17,0.85)", boxShadow: "0 18px 50px rgba(0,0,0,0.5)" }}
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 2.2, duration: 0.7 }}
+        transition={{ delay: 0.5, duration: 0.7 }}
       >
-        <p className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: `rgb(${AMETHL})` }}>crossroads · the readers decide</p>
-        <p className="mt-2 font-display text-[clamp(16px,2vw,20px)]" style={{ color: P(0.92) }}>Where does Mira go next?</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: `rgb(${AMETHL})` }}>crossroads · the readers steer</p>
+        <p className="mt-2 font-display text-[clamp(16px,2vw,20px)]" style={{ color: P(0.92) }}>Which path does she take?</p>
         <div className="mt-4 flex flex-col gap-3">
-          <PollBar label="The lighthouse" pct={64} win delay={3.4} />
-          <PollBar label="The salt caves" pct={36} win={false} delay={3.6} />
+          <PollBar label="Into the storm" pct={68} win delay={1.4} />
+          <PollBar label="Back to the harbor" pct={32} win={false} delay={1.6} />
         </div>
       </motion.div>
-      <motion.p className="mt-6 font-reading text-[clamp(15px,2vw,22px)] italic" style={{ color: P(0.85) }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 5.6, duration: 0.8 }}>
-        Readers don&apos;t just read — they steer.
-      </motion.p>
-    </div>
-  );
-}
-
-// ── Scene 7 · the work pays ──────────────────────────────────────────────────
-const PAY_CHIPS = ["Gifts", "Chapter unlocks", "The Circle", "Commissions"];
-
-function S7() {
-  // ink drops fall into the well and it fills with light — drops are the
-  // currency, and a filling well reads as earnings (bare drops read as tears)
-  const DROP_TIMES = [0.5, 1.05, 1.6];
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <div className="relative h-[150px] w-[150px]">
-        {DROP_TIMES.map((d, i) => (
-          <motion.div
-            key={i}
-            className="absolute left-1/2 top-0 -translate-x-1/2"
-            initial={{ y: -64, opacity: 0 }}
-            animate={{ y: 44, opacity: [0, 1, 1, 0] }}
-            transition={{ delay: d, duration: 0.55, ease: "easeIn", times: [0, 0.2, 0.85, 1] }}
-          >
-            <svg width="15" height="20" viewBox="0 0 30 40" fill="none">
-              <path d="M15 2 C 21 12 27 19 27 27 a12 12 0 1 1 -24 0 C 3 19 9 12 15 2 Z" fill={`rgba(${GOLDL},0.95)`} style={{ filter: `drop-shadow(0 0 8px rgba(${GOLD},0.8))` }} />
-            </svg>
-          </motion.div>
-        ))}
-        {/* warm bloom behind the well, brightening with each drop */}
-        <motion.div
-          className="absolute left-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ top: "64%", background: `radial-gradient(circle, rgba(${GOLD},0.5), transparent 65%)`, filter: "blur(6px)" }}
-          initial={{ opacity: 0.1, scale: 0.9 }}
-          animate={{ opacity: [0.1, 0.3, 0.55, 0.85], scale: [0.9, 0.95, 1, 1.06] }}
-          transition={{ duration: 2.2, delay: 0.5, times: [0, 0.35, 0.7, 1], ease: "easeOut" }}
-        />
-        {/* the inkwell */}
-        <svg className="absolute left-1/2 -translate-x-1/2" style={{ top: 28 }} width="120" height="110" viewBox="0 0 120 110" fill="none">
-          <path
-            d="M42 22 H78 V36 L88 42 Q98 50 98 64 V86 Q98 100 84 100 H36 Q22 100 22 86 V64 Q22 50 32 42 L42 36 Z"
-            fill="rgba(26,21,16,0.95)"
-            stroke={P(0.4)}
-            strokeWidth="2"
-          />
-          <rect x="38" y="12" width="44" height="10" rx="4" fill="rgba(26,21,16,0.95)" stroke={P(0.4)} strokeWidth="2" />
-          <motion.ellipse
-            cx="60" cy="82" rx="28" ry="11"
-            fill={`rgba(${GOLDL},0.9)`}
-            initial={{ opacity: 0.12 }}
-            animate={{ opacity: [0.12, 0.35, 0.6, 0.95] }}
-            transition={{ duration: 2.2, delay: 0.5, times: [0, 0.35, 0.7, 1] }}
-            style={{ filter: `blur(3px) drop-shadow(0 0 14px rgba(${GOLD},0.9))` }}
-          />
-        </svg>
-      </div>
-      <motion.p
-        className="mt-3 font-mono text-[12px] uppercase tracking-[0.24em]"
-        style={{ color: `rgb(${GOLDL})` }}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 2.4, duration: 0.6 }}
-      >
-        +340 drops · this chapter
-      </motion.p>
+      {/* support — gift it, join the Circle */}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-        {PAY_CHIPS.map((c, i) => (
+        {SUPPORT_CHIPS.map((c, i) => (
           <motion.span
             key={c}
             className="rounded-full border px-4 py-1.5 font-mono text-[11px] uppercase tracking-widest"
             style={{ borderColor: `rgba(${GOLDL},0.35)`, color: `rgb(${GOLDL})`, backgroundColor: `rgba(${GOLD},0.07)` }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 3.0 + i * 0.16, duration: 0.4 }}
+            transition={{ delay: 3.4 + i * 0.16, duration: 0.4 }}
           >
             {c}
           </motion.span>
         ))}
       </div>
-      <motion.p className="mt-7 font-reading text-[clamp(16px,2.2vw,24px)] italic" style={{ color: P(0.85) }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 4.0, duration: 0.8 }}>
-        And the work pays — straight to the makers.
+      <motion.p className="mt-6 font-reading text-[clamp(15px,2.1vw,23px)] italic" style={{ color: P(0.85) }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 4.4, duration: 0.8 }}>
+        Steer it, gift it, join the Circle — the well refills.
       </motion.p>
     </div>
   );
 }
 
-// ── Scene 8 · how it's different ─────────────────────────────────────────────
-function S8() {
+// ── Scene 6 · one current ────────────────────────────────────────────────────
+const LOOP_NODES: { l: string; c: string }[] = [
+  { l: "Makers", c: GOLDL },
+  { l: "Artisans", c: AMETHL },
+  { l: "Readers", c: ROSEL },
+];
+
+function S6() {
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
-      <motion.p
-        className="font-display text-[clamp(20px,3vw,34px)]"
-        style={{ color: P(0.85) }}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: [0, 1, 1, 0.28] }}
-        transition={{ delay: 0.4, duration: 2.8, times: [0, 0.2, 0.75, 1] }}
-      >
-        No endless feed.
-      </motion.p>
-      <motion.p
-        className="mt-3 font-display text-[clamp(20px,3vw,34px)]"
-        style={{ color: P(0.85) }}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: [0, 1, 1, 0.28] }}
-        transition={{ delay: 1.4, duration: 2.4, times: [0, 0.25, 0.75, 1] }}
-      >
-        No algorithm chasing your attention.
-      </motion.p>
-      <motion.p
-        className="mt-9 font-display text-[clamp(26px,4.2vw,48px)] leading-tight"
-        style={{ color: `rgb(${GOLDL})`, textShadow: `0 0 50px rgba(${GOLD},0.4)` }}
-        initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
-        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ delay: 3.4, duration: 1.1, ease: "easeOut" }}
-      >
-        A lamplit library, kept by people.
+      <River y="50%" count={24} />
+      <div className="relative z-10 flex items-center gap-[clamp(28px,8vw,90px)]">
+        {LOOP_NODES.map((n, i) => (
+          <motion.div
+            key={n.l}
+            className="flex flex-col items-center gap-3"
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 + i * 0.35, duration: 0.6, ease: "backOut" }}
+          >
+            <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: `rgb(${n.c})`, boxShadow: `0 0 18px rgba(${n.c},0.9)` }} />
+            <span className="font-mono text-[11px] uppercase tracking-[0.22em]" style={{ color: `rgb(${n.c})` }}>{n.l}</span>
+          </motion.div>
+        ))}
+      </div>
+      <motion.p className="relative z-10 mt-10 max-w-2xl font-reading text-[clamp(16px,2.4vw,26px)] italic leading-snug" style={{ color: P(0.9) }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.9, duration: 0.9 }}>
+        Makers, artisans, readers — one current, always moving.
       </motion.p>
     </div>
   );
 }
 
-// ── Scene 9 · two worlds, one river ──────────────────────────────────────────
+// ── Scene 7 · come make something ────────────────────────────────────────────
 const DRAGON: [number, number][] = [[30, 62], [38, 50], [46, 44], [54, 38], [62, 32], [72, 24], [43, 28], [39, 40], [66, 14], [70, 28]];
 
 // mounts the animated logo late so its ink-on sequence plays while visible
@@ -531,7 +620,7 @@ function ClosingLogo({ delayMs }: { delayMs: number }) {
   );
 }
 
-function S9() {
+function S7() {
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-8 text-center">
       <div aria-hidden className="pointer-events-none absolute inset-0">
@@ -550,26 +639,26 @@ function S9() {
         ))}
       </div>
       <River y="74%" count={20} />
-      <motion.p className="relative z-10 max-w-2xl font-reading text-[clamp(18px,2.8vw,30px)] italic leading-snug" style={{ color: P(0.92) }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.6, duration: 0.9 }}>
-        From the writer&apos;s imagination to the reader&apos;s world.
+      <motion.p className="relative z-10 max-w-2xl font-reading text-[clamp(19px,2.9vw,32px)] italic leading-snug" style={{ color: P(0.92) }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.5, duration: 0.9 }}>
+        Come make something that doesn&apos;t exist yet.
       </motion.p>
       <div className="relative z-10 mt-7 flex flex-col items-center gap-4">
-        <ClosingLogo delayMs={2300} />
+        <ClosingLogo delayMs={2200} />
         <motion.span
           className="rounded-full px-6 py-2.5 text-[15px] font-semibold"
           style={{ backgroundColor: `rgb(${GOLDL})`, color: "rgb(30,20,10)", boxShadow: `0 0 36px rgba(${GOLD},0.45)` }}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 3.9, duration: 0.8 }}
+          transition={{ delay: 3.8, duration: 0.8 }}
         >
-          Begin your first line — quiloria.app
+          Start free — quiloria.app
         </motion.span>
       </div>
     </div>
   );
 }
 
-const SCENE_COMPONENTS = [S1, S2, S3, S4, S5, S6, S7, S8, S9];
+const SCENE_COMPONENTS = [S1, S2, S3, S4, S5, S6, S7];
 
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -650,17 +739,27 @@ export default function PromoPage() {
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(110% 80% at 50% 30%, rgba(${GOLD},0.06), transparent 60%)` }} />
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(135% 110% at 50% 50%, transparent 55%, rgba(8,5,3,0.8) 100%)` }} />
 
-      {/* the film */}
+      {/* ambient ink-dust, alive behind every scene (persists across the swap) */}
+      <Motes count={30} />
+
+      {/* the film — outer crossfades, inner holds a slow camera push */}
       <AnimatePresence mode="wait">
         <motion.div
           key={recordStarted ? `r-${scene}` : scene}
           className="absolute inset-0"
-          initial={{ opacity: 0, scale: 1.015 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.99 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, scale: 0.985 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
         >
-          <Scene />
+          <motion.div
+            className="absolute inset-0"
+            initial={{ scale: 1.07 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 9, ease: [0.16, 0.5, 0.2, 1] }}
+          >
+            <Scene />
+          </motion.div>
         </motion.div>
       </AnimatePresence>
 
@@ -699,7 +798,7 @@ export default function PromoPage() {
             {!playing && !done && <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: P(0.4) }}>space to play · ←→ scenes · r restarts</span>}
           </div>
           <div className="absolute bottom-5 right-5 z-20 sm:right-8">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: P(0.35) }}>quiloria.app · 55s</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: P(0.35) }}>quiloria.app · 46s</span>
           </div>
         </>
       )}

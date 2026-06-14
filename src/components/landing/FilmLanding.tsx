@@ -867,7 +867,7 @@ export default function FilmLanding({ tales = null, storyCount = null }: Props =
           </button>
           <Link
             href="/login"
-            className="text-[11px] text-text-secondary hover:text-paper transition-colors px-3 py-2 whitespace-nowrap border border-border-active rounded-full hover:border-gold/40"
+            className="text-[12px] font-medium text-paper/85 hover:text-paper transition-colors px-3.5 py-2 whitespace-nowrap border border-gold/30 hover:border-gold/55 bg-void/40 backdrop-blur-md rounded-full"
           >
             sign in
           </Link>
@@ -879,6 +879,7 @@ export default function FilmLanding({ tales = null, storyCount = null }: Props =
         <motion.video
           ref={videoRef}
           src="/hero-video.mp4"
+          poster="/hero-poster.jpg"
           className="absolute inset-0 w-full h-full object-cover"
           animate={reduce ? undefined : { scale: cam.scale, x: cam.x }}
           transition={{ duration: 4, ease: "easeInOut" }}
@@ -1050,12 +1051,51 @@ export default function FilmLanding({ tales = null, storyCount = null }: Props =
                   )}
                 </motion.span>
               ))}
+
+              {/* a quill's flourish — drawn once beneath the signed wordmark */}
+              <motion.svg
+                aria-hidden
+                viewBox="0 0 300 44"
+                className="pointer-events-none absolute left-1/2 w-[82%] -translate-x-1/2"
+                style={{ top: "92%", overflow: "visible" }}
+                fill="none"
+              >
+                <defs>
+                  <linearGradient id="quill-flourish" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--t-gold-light)" />
+                    <stop offset="55%" stopColor="var(--t-gold)" />
+                    <stop offset="100%" stopColor="var(--t-copper)" />
+                  </linearGradient>
+                </defs>
+                <motion.path
+                  d="M4 27 C 64 14 150 13 224 21 C 266 26 291 26 296 15 C 299 8 291 4 289 11 C 287 17 294 21 301 18"
+                  stroke="url(#quill-flourish)"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ filter: "drop-shadow(0 0 3px rgba(224,169,62,0.45))" }}
+                  initial={reduce ? false : { pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: phase === "done" ? 0 : 1 }}
+                  transition={
+                    reduce
+                      ? { duration: 0 }
+                      : {
+                          pathLength: { delay: 2.0, duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+                          opacity:
+                            phase === "done"
+                              ? { duration: 0.5, ease: "easeOut" }
+                              : { delay: 2.0, duration: 0.25 },
+                        }
+                  }
+                />
+              </motion.svg>
             </motion.h2>
 
             {/* handoff content — mounted from the start so the wordmark
                doesn't jump when it arrives; invisible during the card */}
             <motion.div
               className="flex flex-col items-center"
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: phase === "done" ? 1 : 0, y: phase === "done" ? 0 : 18 }}
               transition={{ duration: 1, delay: phase === "done" ? 0.35 : 0 }}
               style={{ pointerEvents: phase === "done" ? "auto" : "none" }}
@@ -1081,9 +1121,13 @@ export default function FilmLanding({ tales = null, storyCount = null }: Props =
                   step into a story →
                 </Link>
               </div>
+              <p className="mt-4 flex items-center gap-2 text-[11px] md:text-[12px] text-text-ghost tracking-wide">
+                <span className="inline-block w-1 h-1 rounded-full bg-gold/70" />
+                Free to start — no account needed
+              </p>
               <button
                 onClick={replay}
-                className="mt-7 text-[12px] text-text-ghost hover:text-text-secondary transition-colors"
+                className="mt-6 text-[12px] text-text-ghost hover:text-text-secondary transition-colors"
               >
                 ↺ watch it again
               </button>
