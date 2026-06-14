@@ -38,6 +38,10 @@ interface StoryCanvasProps {
   sessionTitle: string;
   sessionStatus: string;
   sessionOpening: string | null;
+  /** Story title + closing thoughts — for the end-of-session Episode Card. */
+  storyTitle?: string;
+  sessionEpilogue?: string | null;
+  sessionCliffhanger?: string | null;
   showDiceRoller: boolean;
   onCloseDiceRoller: () => void;
   onCommitDraft: (content: string, type: string, metadata?: string) => void | Promise<void>;
@@ -194,6 +198,9 @@ export default function StoryCanvas({
   sessionTitle,
   sessionStatus,
   sessionOpening,
+  storyTitle,
+  sessionEpilogue = null,
+  sessionCliffhanger = null,
   showDiceRoller,
   onCloseDiceRoller,
   onCommitDraft,
@@ -945,6 +952,11 @@ export default function StoryCanvas({
             isGM={isGM}
             storyTurns={storyTurns}
             logTurns={logTurns}
+            characters={characters}
+            sessionTitle={sessionTitle}
+            storyTitle={storyTitle}
+            epilogue={sessionEpilogue}
+            cliffhanger={sessionCliffhanger}
           />
         )}
       </div>

@@ -2,123 +2,14 @@
 
 import { useState, useMemo } from "react";
 import type { Turn } from "@/types/campaign";
-import { parseRollMetadata, parseSceneBreakMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
+import { extractHighlights } from "@/lib/campaign-recap";
 
 // ── Session Highlights ───────────────────────────────────────
+// The pure `extractHighlights` now lives in @/lib/campaign-recap so it can be
+// shared with the Episode Card; this file is just the in-session rail UI.
 
-interface Highlight {
-  icon: string;
-  label: string;
-  text: string;
-  color: string; // tailwind text color
-}
+export { extractHighlights };
 
-export function extractHighlights(storyTurns: Turn[], logTurns: Turn[]): Highlight[] {
-  const highlights: Highlight[] = [];
-
-  // Single-pass through story turns: extract scene breaks, deaths, and count stats
-  let playerTurnCount = 0;
-  let gmTurnCount = 0;
-  let sceneCount = 0;
-
-  for (const t of storyTurns) {
-    // Stats counting
-    if (t.type === "narration" || t.type === "consequence") {
-      gmTurnCount++;
-    } else if (t.type === "scene-break") {
-      sceneCount++;
-    } else if (t.type === "story-moment") {
-      gmTurnCount++;
-    } else {
-      playerTurnCount++;
-    }
-
-    // Scene break highlights (scenes, story moments, deaths)
-    if (t.type === "scene-break" && t.metadata) {
-      const meta = parseSceneBreakMetadata(t.metadata);
-      if (!meta) continue;
-      if (meta.cinematic && meta.title) {
-        highlights.push({
-          icon: meta.mood === "death" ? "\uD83D\uDC80" : "\u2728",
-          label: "Story Moment",
-          text: meta.title,
-          color: meta.mood === "death" ? "text-rose" : "text-amber",
-        });
-      } else if (meta.mood === "death" && !meta.cinematic) {
-        highlights.push({
-          icon: "\u2020",
-          label: "Fallen",
-          text: meta.title || "A hero has fallen",
-          color: "text-rose",
-        });
-      } else if (meta.title) {
-        highlights.push({
-          icon: "\uD83C\uDFAC",
-          label: "Scene",
-          text: meta.title,
-          color: "text-text-secondary",
-        });
-      }
-    }
-
-    if (t.type === "story-moment") {
-      const meta = parseStoryMomentMetadata(t.metadata);
-      highlights.push({
-        icon: meta?.mood === "death" ? "\uD83D\uDC80" : meta?.importance === "major" ? "\u2726" : "\u2728",
-        label: "Story Moment",
-        text: t.content,
-        color: meta?.mood === "death" ? "text-rose" : "text-amber",
-      });
-    }
-  }
-
-  // Single-pass through log turns: dramatic rolls and roll count
-  let rollCount = 0;
-  for (const t of logTurns) {
-    if (t.type !== "roll") continue;
-    rollCount++;
-    if (!t.metadata) continue;
-    const meta = parseRollMetadata(t.metadata);
-    if (!meta) continue;
-    const total = meta.total ?? meta.result ?? 0;
-    const tier = meta.tier ?? "";
-    const charName = t.characterName ?? t.user?.displayName ?? "Someone";
-
-    if (tier === "success" && total >= 11) {
-      highlights.push({
-        icon: "\uD83C\uDFB2",
-        label: "Critical Roll",
-        text: `${charName} rolled ${total} \u2014 a triumphant success`,
-        color: "text-amber",
-      });
-    } else if (tier === "failure" && total <= 4) {
-      highlights.push({
-        icon: "\uD83C\uDFB2",
-        label: "Dramatic Failure",
-        text: `${charName} rolled ${total} \u2014 a devastating miss`,
-        color: "text-red-400",
-      });
-    }
-  }
-
-  // Session stats summary
-  const totalTurns = playerTurnCount + gmTurnCount;
-  if (totalTurns > 0) {
-    const parts: string[] = [];
-    parts.push(`${totalTurns} turns written`);
-    if (sceneCount > 0) parts.push(`${sceneCount} scene${sceneCount > 1 ? "s" : ""}`);
-    if (rollCount > 0) parts.push(`${rollCount} roll${rollCount > 1 ? "s" : ""}`);
-
-    highlights.push({
-      icon: "\uD83D\uDCDC",
-      label: "Session Stats",
-      text: parts.join(" \u00B7 "),
-      color: "text-text-secondary",
-    });
-  }
-
-  return highlights;
-}
 
 export default function SessionHighlights({ storyTurns, logTurns }: { storyTurns: Turn[]; logTurns: Turn[] }) {
   const [expanded, setExpanded] = useState(true);

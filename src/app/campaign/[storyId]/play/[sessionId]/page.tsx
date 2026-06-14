@@ -1239,6 +1239,9 @@ export default function SessionPlayPage() {
         sessionTitle={campaignSession?.title ?? "Session"}
         sessionStatus={campaignSession?.status ?? "draft"}
         sessionOpening={campaignSession?.opening ?? null}
+        storyTitle={story.title}
+        sessionEpilogue={campaignSession?.epilogue ?? null}
+        sessionCliffhanger={campaignSession?.cliffhanger ?? null}
         lobbyTheme="campfire"
         previousEpilogue={previousEpilogue}
         previousMood={previousMood}

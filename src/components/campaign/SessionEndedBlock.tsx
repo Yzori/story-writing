@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { Turn } from "@/types/campaign";
+import { useMemo, useState } from "react";
+import type { PlayerCharacter, Turn } from "@/types/campaign";
 import SessionHighlights from "./StoryHighlights";
+import EpisodeCard from "./EpisodeCard";
+import { buildEpisodeRecap } from "@/lib/campaign-recap";
 
 interface SessionEndedBlockProps {
   sessionId: string;
@@ -10,6 +12,11 @@ interface SessionEndedBlockProps {
   isGM: boolean;
   storyTurns: Turn[];
   logTurns: Turn[];
+  characters?: PlayerCharacter[];
+  sessionTitle?: string;
+  storyTitle?: string;
+  epilogue?: string | null;
+  cliffhanger?: string | null;
 }
 
 type CompileState = "idle" | "loading" | "done" | "error";
@@ -20,10 +27,31 @@ export default function SessionEndedBlock({
   isGM,
   storyTurns,
   logTurns,
+  characters = [],
+  sessionTitle = "A Session",
+  storyTitle = "Quiloria",
+  epilogue = null,
+  cliffhanger = null,
 }: SessionEndedBlockProps) {
   const [compileState, setCompileState] = useState<CompileState>("idle");
   const [compiledChapterId, setCompiledChapterId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showEpisodeCard, setShowEpisodeCard] = useState(false);
+
+  const recap = useMemo(
+    () =>
+      buildEpisodeRecap({
+        storyTurns,
+        logTurns,
+        characters,
+        sessionId,
+        sessionTitle,
+        epilogue,
+        cliffhanger,
+      }),
+    [storyTurns, logTurns, characters, sessionId, sessionTitle, epilogue, cliffhanger],
+  );
+  const shareUrl = typeof window !== "undefined" ? window.location.origin : "https://quiloria.com";
 
   const handleCompile = async () => {
     if (!storyId) return;
@@ -61,10 +89,22 @@ export default function SessionEndedBlock({
         <div className="text-center py-8 border border-border-subtle rounded-2xl bg-subtle/20">
           <p className="text-text-tertiary text-sm font-serif italic">This session has ended.</p>
 
+          {/* The keepsake — everyone at the table can take the episode card home. */}
+          {!recap.isEmpty && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowEpisodeCard(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-6 py-2 text-[11px] font-bold uppercase tracking-widest text-amber transition-all hover:bg-amber/20 hover:shadow-[0_0_20px_rgba(200,150,60,0.4)] cursor-pointer"
+              >
+                <span>✦</span> Take the keepsake
+              </button>
+            </div>
+          )}
+
           {isGM && compileState === "idle" && (
             <button
               onClick={handleCompile}
-              className="mt-4 bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] cursor-pointer"
+              className="mt-3 block mx-auto bg-amber/10 hover:bg-amber border border-amber/20 text-amber hover:text-black transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(200,150,60,0.1)] hover:shadow-[0_0_20px_rgba(200,150,60,0.5)] cursor-pointer"
             >
               Compile to Chapter
             </button>
@@ -112,6 +152,14 @@ export default function SessionEndedBlock({
           )}
         </div>
       </div>
+
+      <EpisodeCard
+        open={showEpisodeCard}
+        onClose={() => setShowEpisodeCard(false)}
+        recap={recap}
+        storyTitle={storyTitle}
+        shareUrl={shareUrl}
+      />
     </>
   );
 }
