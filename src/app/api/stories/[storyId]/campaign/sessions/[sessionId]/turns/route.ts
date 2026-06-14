@@ -492,19 +492,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         (a) => a.toLowerCase() === rawAttribute.toLowerCase(),
       );
       const stats = turnCharacter ? parseStats(turnCharacter.stats) : null;
-      const approaches = stats?.approaches ?? { Bold: 0, Keen: 0, Subtle: 0 };
       const aspect = stats?.aspect ?? "";
-      // Stats JSON is player-editable, so never trust the raw value: coerce
-      // non-numbers to 0 and clamp to the range the character creator can
-      // legitimately produce (-1..+2). Otherwise a player could PATCH their
-      // stats to {"Bold":99} and forge a guaranteed success tier.
-      const rawApproachMod = matchedApproach ? approaches[matchedApproach] : 0;
-      const approachMod =
-        typeof rawApproachMod === "number" && Number.isFinite(rawApproachMod)
-          ? Math.max(-1, Math.min(2, Math.trunc(rawApproachMod)))
-          : 0;
+      // Approaches (Bold/Keen/Subtle) are a fiction & tone choice now, not a
+      // stat — they no longer modify the roll. Invoking the character's aspect
+      // is the one deliberate +1 lever a player can spend.
       const aspectMod = rollIntent.aspectInvoked && aspect ? 1 : 0;
-      const modifier = approachMod + aspectMod;
+      const modifier = aspectMod;
 
       const r1 = randomInt(1, 7);
       const r2 = randomInt(1, 7);
@@ -515,10 +508,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       const tierLabel =
         tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
-      const attrLabel = matchedApproach ?? "";
+      const approachTag = matchedApproach ? ` · ${matchedApproach.toLowerCase()}` : "";
       contentToStore = modifier !== 0
-        ? `Rolled 2d6${modifier >= 0 ? "+" : ""}${modifier}${attrLabel ? ` (${attrLabel.toUpperCase()})` : ""} = ${total} — ${tierLabel}`
-        : `Rolled 2d6 = ${total} — ${tierLabel}`;
+        ? `Rolled 2d6+${modifier} = ${total} — ${tierLabel}${approachTag}`
+        : `Rolled 2d6 = ${total} — ${tierLabel}${approachTag}`;
 
       // markEligible: the resolved roll is worth marking if it cost the
       // character something — partial or worse, OR a fatal-flagged roll

@@ -385,13 +385,34 @@ export const createCampaignTurnSchema = z
 export const createFloorRoundSchema = z
   .object({
     prompt: z.string().min(1, "Prompt is required").max(1000),
-    mode: z.enum(["gm_pick", "vote"]).default("gm_pick"),
+    mode: z.enum(["gm_pick", "vote", "house_fork"]).default("gm_pick"),
     audiencePulseEnabled: z.boolean().optional().default(false),
+    // house_fork: GM-authored options the house votes on
+    options: z
+      .array(z.object({ label: z.string().min(1).max(200) }))
+      .min(2)
+      .max(4)
+      .optional(),
+    constituency: z.enum(["gallery", "table", "both"]).optional().default("gallery"),
+    binding: z.boolean().optional().default(false),
+    closesInSeconds: z.number().int().min(15).max(86_400).optional(),
   })
   .refine((data) => !data.audiencePulseEnabled || data.mode === "vote", {
     message: "Audience Pulse requires vote mode",
     path: ["audiencePulseEnabled"],
+  })
+  .refine((data) => data.mode !== "house_fork" || (data.options?.length ?? 0) >= 2, {
+    message: "Opening the floor needs at least two options",
+    path: ["options"],
   });
+
+// A spectator casts a ballot on a house_fork round. dropsSpent (optional,
+// logged-in only) buys capped extra weight.
+export const houseVoteSchema = z.object({
+  token: z.string().min(8).max(120),
+  optionIndex: z.number().int().min(0).max(3),
+  dropsSpent: z.number().int().min(0).max(500).optional().default(0),
+});
 
 export const updateFloorRoundSchema = z.object({
   status: z.enum(["voting", "closed", "resolved", "cancelled"]),

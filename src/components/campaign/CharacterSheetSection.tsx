@@ -102,7 +102,6 @@ export default function CharacterSheetSection({
   onCreateMark,
   onRemoveMark,
 }: CharacterSheetSectionProps) {
-  const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<{
     characterId: string;
     characterName: string;
@@ -145,7 +144,6 @@ export default function CharacterSheetSection({
           const isRetired = c.status === "retired";
           const isInactive = isDead || isRetired;
           const isActivePlayer = c.userId === activePlayerId;
-          const isExpanded = expandedStats.has(c.id);
 
           return (
             <div key={c.id} className={`bg-subtle/20 p-3 rounded-lg border transition-all relative overflow-hidden ${
@@ -185,40 +183,6 @@ export default function CharacterSheetSection({
                   <p className="text-[10px] text-violet-300/60 font-serif italic ml-4 mt-1 leading-relaxed">&ldquo;{stats.aspect}&rdquo;</p>
                 )}
 
-                {/* Stats disclosure toggle */}
-                {stats && !isInactive && (
-                  <button
-                    onClick={() => {
-                      const next = new Set(expandedStats);
-                      if (isExpanded) next.delete(c.id);
-                      else next.add(c.id);
-                      setExpandedStats(next);
-                    }}
-                    className="flex min-h-8 items-center gap-1 mt-1.5 ml-3 text-[9px] text-text-secondary hover:text-paper transition-colors cursor-pointer"
-                  >
-                    <svg
-                      width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                      className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                    >
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                    <span className="uppercase tracking-wider">Approaches</span>
-                  </button>
-                )}
-
-                {/* Expandable stats */}
-                {isExpanded && stats && !isInactive && (
-                  <div className="mt-2 ml-4 flex gap-3">
-                    {Object.entries(stats.approaches).map(([key, val]) => (
-                      <span key={key} className="text-[10px] text-text-tertiary">
-                        <span className="text-text-ghost uppercase">{key}</span>{" "}
-                        <span className={val > 0 ? "text-amber/60" : val < 0 ? "text-red-400/50" : "text-text-tertiary"}>
-                          {val >= 0 ? `+${val}` : val}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Character marks — scars, vows, debts, memories. The

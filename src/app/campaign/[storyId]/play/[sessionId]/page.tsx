@@ -67,7 +67,16 @@ export default function SessionPlayPage() {
   const [chatInput, setChatInput] = useState("");
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
+  const [logTab, setLogTab] = useState<"talk" | "rolls">("talk");
   const [showContextDrawer, setShowContextDrawer] = useState(false);
+  const [handOpen, setHandOpen] = useState(false);
+  const [consoleFocus, setConsoleFocus] = useState<null | "roll" | "scene" | "story" | "illustration" | "bargain" | "pressure">(null);
+  const [floorFormOpen, setFloorFormOpen] = useState(false);
+  const [floorPrompt, setFloorPrompt] = useState("");
+  const [floorOptions, setFloorOptions] = useState<string[]>(["", ""]);
+  const [floorBinding, setFloorBinding] = useState(false);
+  const [floorSubmitting, setFloorSubmitting] = useState(false);
+  const [houseCount, setHouseCount] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [epilogueText, setEpilogueText] = useState("");
@@ -79,6 +88,33 @@ export default function SessionPlayPage() {
   } | null>(null);
   const playedStoryMomentIdsRef = useRef(new Set<string>());
   const storyMomentPlaybackReadyRef = useRef(false);
+
+  // The table feels the house: poll the live spectator count (read-only — the
+  // GM/players don't register as spectators) while the session is live.
+  const sessionStatus = campaignSession?.status;
+  useEffect(() => {
+    if (!storyId || !sessionId || sessionStatus !== "active") {
+      setHouseCount(0);
+      return;
+    }
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/presence`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && typeof json.spectatorCount === "number") setHouseCount(json.spectatorCount);
+      } catch {
+        // a missing count shouldn't disrupt play
+      }
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [storyId, sessionId, sessionStatus]);
 
   // Detect session ending via poll (for players) — play cinematic
   // Detect session transitions via poll — play cinematics for non-GM players
@@ -420,6 +456,38 @@ export default function SessionPlayPage() {
       showToast(err instanceof Error ? err.message : "Failed to expire turn");
     }
   }, [story, setActivePlayer, showToast]);
+
+  // Open the floor to the house — a GM-authored vote the gallery decides.
+  const handleOpenFloor = async () => {
+    const opts = floorOptions.map((o) => o.trim()).filter(Boolean);
+    if (!floorPrompt.trim() || opts.length < 2 || floorSubmitting) return;
+    setFloorSubmitting(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/floor-rounds`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: floorPrompt.trim(),
+          mode: "house_fork",
+          constituency: "gallery",
+          binding: floorBinding,
+          options: opts.map((label) => ({ label })),
+          closesInSeconds: 120,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message ?? "Failed to open the floor");
+      setFloorFormOpen(false);
+      setFloorPrompt("");
+      setFloorOptions(["", ""]);
+      setFloorBinding(false);
+      showToast("The floor is open to the house");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to open the floor");
+    } finally {
+      setFloorSubmitting(false);
+    }
+  };
 
   // Player extends their turn timer. The {timerExtension} metadata rides
   // along on the OOC turn so the GM's InitiativeBar countdown — the one
@@ -769,6 +837,8 @@ export default function SessionPlayPage() {
     ? rosterCharacters.filter((c) => c.status === "active")
     : characters.filter((c) => c.status === "active");
   const canPassSpotlight = isGM && campaignSession?.status === "active" && !floorRound;
+  // The Director is a first-class seat: holds the pen when no player is on the spotlight.
+  const directorHolds = !campaignSession?.activePlayerId || campaignSession?.activePlayerId === story?.userId;
   const currentScene = (() => {
     for (let i = storyTurns.length - 1; i >= 0; i--) {
       const turn = storyTurns[i];
@@ -788,12 +858,6 @@ export default function SessionPlayPage() {
       aspects: [] as string[],
     };
   })();
-  const primaryClock = clocks[0];
-  const pressureLabel = primaryClock
-    ? `${primaryClock.name} ${primaryClock.filled}/${primaryClock.segments}`
-    : pendingRollRequest
-      ? `${pendingRollRequest.attribute} check pending`
-      : "Canon live";
   const phaseLabel = floorRound
     ? floorRound.status === "open"
       ? "Crossroads Open"
@@ -816,14 +880,6 @@ export default function SessionPlayPage() {
         : isGM
           ? "Frame the scene, call a check, or pass the spotlight."
           : "Waiting for the Director to frame the next beat.";
-  const sceneTexture = Array.from(
-    new Set(
-      (currentScene.aspects.length > 0
-        ? currentScene.aspects
-        : [currentScene.mood, campaignSession?.status ?? "live"]
-      ).filter(Boolean),
-    ),
-  );
 
   return (
     <div className={`adventure-mode flex w-screen flex-col overflow-hidden bg-void text-paper selection:bg-amber/30 ${
@@ -949,33 +1005,75 @@ export default function SessionPlayPage() {
                 Live Canon
               </span>
             </div>
-            <p className="truncate text-[11px] text-text-tertiary">
-              {currentScene.title} · {spotlightLabel} holds the pen · {pressureLabel}
+            <p className="truncate text-[11px] text-text-tertiary" aria-live="polite">
+              {currentScene.title} · <span className="text-amber/75">{phaseLabel}</span> — {phaseHint}
             </p>
+            {(clocks.length > 0 || houseCount > 0) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {clocks.length > 0 && (
+                  <span className="flex items-center gap-2" title={`${clocks[0].name} — ${clocks[0].filled}/${clocks[0].segments}`}>
+                    <span className="text-[11px] leading-none text-amber/80">⛓</span>
+                    <span className="max-w-[180px] truncate text-[11px] text-text-secondary">{clocks[0].name}</span>
+                    <span className="flex items-center gap-0.5">
+                      {Array.from({ length: clocks[0].segments }).map((_, i) => (
+                        <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < clocks[0].filled ? "bg-amber" : "bg-subtle"}`} />
+                      ))}
+                    </span>
+                    <span className="font-mono text-[10px] tabular-nums text-amber/70">{clocks[0].filled}/{clocks[0].segments}</span>
+                  </span>
+                )}
+                {houseCount > 0 && (
+                  <span className="flex items-center gap-1.5 text-[11px] text-text-secondary" title={`${houseCount} watching`}>
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet [animation:pulse_1.8s_ease-in-out_infinite]" />
+                    {houseCount} in the house
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="hidden min-w-0 items-center gap-2 md:flex">
-            {activeCharacters.slice(0, 5).map((character) => (
-              <button
-                key={character.id}
-                type="button"
-                onClick={() => canPassSpotlight ? handlePassTurn(character.userId) : undefined}
-                className={`flex min-h-9 items-center gap-2 rounded-full border px-2.5 transition-colors ${
-                  campaignSession?.activePlayerId === character.userId
-                    ? "border-amber/40 bg-amber/10 text-amber"
-                    : "border-border bg-subtle/20 text-text-secondary hover:border-border-active hover:text-paper"
-                } ${canPassSpotlight ? "cursor-pointer" : "cursor-default"}`}
-                title={canPassSpotlight ? `Pass spotlight to ${character.name}` : character.name}
-              >
-                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-elevated text-[10px]">
-                  {character.name.charAt(0).toUpperCase()}
-                </span>
-                <span className="hidden max-w-[90px] truncate text-[10px] lg:inline">{character.name}</span>
-              </button>
-            ))}
+          {/* The spotlight — one source of truth for whose turn. The Director is a seat,
+              lit when they hold the pen; tap a seat (GM) to pass it. */}
+          <div className="hidden shrink-0 items-center justify-center gap-1.5 md:flex" role="group" aria-label="Whose turn it is">
+            <button
+              type="button"
+              onClick={() => (canPassSpotlight ? setActivePlayer(story.userId) : undefined)}
+              title={canPassSpotlight ? "Return the pen to the Director" : "The Director"}
+              aria-label={`The Director${directorHolds ? " — holds the pen" : ""}`}
+              className={`flex min-h-9 items-center gap-2 rounded-full border px-2.5 transition-colors ${
+                directorHolds
+                  ? "border-amber/45 bg-amber/[0.12] text-amber shadow-[0_0_18px_-4px_rgba(216,178,90,0.6)]"
+                  : "border-border bg-subtle/20 text-text-secondary hover:border-border-active hover:text-paper"
+              } ${canPassSpotlight ? "cursor-pointer" : "cursor-default"}`}
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-amber/30 bg-elevated text-[10px]">✦</span>
+              <span className="hidden text-[10px] lg:inline">Director</span>
+            </button>
+            {activeCharacters.slice(0, 5).map((character) => {
+              const lit = campaignSession?.activePlayerId === character.userId;
+              return (
+                <button
+                  key={character.id}
+                  type="button"
+                  onClick={() => (canPassSpotlight ? handlePassTurn(character.userId) : undefined)}
+                  title={canPassSpotlight ? `Pass the pen to ${character.name}` : character.name}
+                  aria-label={`${character.name}${lit ? " — holds the pen" : ""}`}
+                  className={`flex min-h-9 items-center gap-2 rounded-full border px-2.5 transition-colors ${
+                    lit
+                      ? "border-amber/45 bg-amber/[0.12] text-amber shadow-[0_0_18px_-4px_rgba(216,178,90,0.6)]"
+                      : "border-border bg-subtle/20 text-text-secondary hover:border-border-active hover:text-paper"
+                  } ${canPassSpotlight ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-elevated text-[10px]">
+                    {character.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hidden max-w-[90px] truncate text-[10px] lg:inline">{character.name}</span>
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center justify-end gap-2">
             {isGM && (
               <button
                 type="button"
@@ -1008,74 +1106,23 @@ export default function SessionPlayPage() {
                 </svg>
               )}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowLogDrawer(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
-              aria-label="Canon Feed"
-              title="Canon Feed"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowContextDrawer(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
-              aria-label={isGM ? "Director Console" : "Character Engine"}
-              title={isGM ? "Director Console" : "Character Engine"}
-            >
-              {isGM ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <path d="M12 2 3 7l9 5 9-5-9-5Z" />
-                  <path d="m3 12 9 5 9-5" />
-                  <path d="m3 17 9 5 9-5" />
-                </svg>
-              ) : (
+            {/* Table talk (OOC chat) is reached from the bottom bar / composer's
+                "View chat", not a header icon. GM directs from the Director's
+                hand (the ✦ button); only players need the character drawer. */}
+            {!isGM && (
+              <button
+                type="button"
+                onClick={() => setShowContextDrawer(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+                aria-label="Your character"
+                title="Your character"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
                   <circle cx="12" cy="8" r="4" />
                   <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
                 </svg>
-              )}
-            </button>
-          </div>
-        </div>
-        <div className="border-t border-border-subtle px-3 py-3 sm:px-5">
-          <div className="grid gap-3 lg:grid-cols-[minmax(220px,0.9fr)_minmax(280px,1.35fr)_minmax(180px,0.7fr)]">
-            <div className="rounded-lg border border-amber/20 bg-amber/[0.04] px-4 py-3">
-              <p className="text-[9px] uppercase tracking-[0.18em] text-amber">{phaseLabel}</p>
-              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-text-secondary">{phaseHint}</p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-subtle/15 px-4 py-3">
-              <p className="text-[9px] uppercase tracking-[0.18em] text-text-ghost">Scene Texture</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {sceneTexture.slice(0, 5).map((aspect, index) => (
-                  <span
-                    key={`${aspect}-${index}`}
-                    className="rounded-full border border-border bg-elevated/60 px-3 py-1 text-[10px] text-text-secondary"
-                  >
-                    {aspect}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border bg-subtle/15 px-4 py-3">
-              <p className="text-[9px] uppercase tracking-[0.18em] text-text-ghost">Pressure</p>
-              <p className="mt-1 text-[12px] font-medium text-paper">{pressureLabel}</p>
-              {primaryClock && (
-                <div className="mt-2 flex gap-1">
-                  {Array.from({ length: primaryClock.segments }).map((_, index) => (
-                    <span
-                      key={index}
-                      className={`h-1.5 flex-1 rounded-full ${index < primaryClock.filled ? "bg-amber" : "bg-subtle"}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -1172,7 +1219,155 @@ export default function SessionPlayPage() {
           }
         }}
         showSessionChrome={false}
+        onViewChat={() => setShowLogDrawer(true)}
       />
+
+      {/* The Director's hand — GM-only floating summoner for stage-gestures.
+          The fan is the discoverable affordance; each gesture opens the
+          Director Console where its ritual lives. */}
+      {isGM && campaignSession?.status === "active" && !focusMode && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-44 z-30 px-3 sm:bottom-48 sm:px-6">
+          <div className="pointer-events-none mx-auto flex max-w-5xl flex-col items-end gap-2">
+          <AnimatePresence>
+            {handOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                transition={{ type: "spring", damping: 24, stiffness: 320 }}
+                className="pointer-events-auto flex w-60 flex-col items-stretch gap-2"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHandOpen(false);
+                    setFloorFormOpen(true);
+                  }}
+                  className="group flex items-center gap-3 rounded-2xl border border-amber/45 bg-gradient-to-b from-amber/[0.10] to-ink/95 px-4 py-2.5 text-left shadow-[0_10px_30px_-14px_rgba(0,0,0,0.8)] backdrop-blur-md transition-colors hover:border-amber/70"
+                >
+                  <span className="w-4 text-center text-sm text-amber">☍</span>
+                  <span className="leading-tight">
+                    <span className="block text-[12.5px] text-amber">Open the floor</span>
+                    <span className="block text-[9px] text-text-ghost">let the house decide</span>
+                  </span>
+                </button>
+                {([
+                  { label: "Story moment", hint: "a held, full-bleed beat", icon: "✦", focus: "story" },
+                  { label: "Scene break", hint: "cut, move time on", icon: "⁂", focus: "scene" },
+                  { label: "Raise the pressure", hint: "tick the scene clock", icon: "⛓", focus: "pressure" },
+                  { label: "Call a roll", hint: "let the dice decide", icon: "⚀", focus: "roll" },
+                  { label: "Offer a bargain", hint: "a price for a gain", icon: "⚖", focus: "bargain" },
+                  { label: "Illustration", hint: "drop an image into the page", icon: "▦", focus: "illustration" },
+                  { label: "Cast & clocks", hint: "the table & its pressure", icon: "☰", focus: null },
+                ] as const).map((m) => (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => {
+                      setHandOpen(false);
+                      setConsoleFocus(m.focus);
+                      setShowContextDrawer(true);
+                    }}
+                    className="group flex items-center gap-3 rounded-2xl border border-amber/20 bg-gradient-to-b from-elevated/95 to-ink/95 px-4 py-2.5 text-left shadow-[0_10px_30px_-14px_rgba(0,0,0,0.8)] backdrop-blur-md transition-colors hover:border-amber/50"
+                  >
+                    <span className="w-4 text-center text-sm text-amber">{m.icon}</span>
+                    <span className="leading-tight">
+                      <span className="block text-[12.5px] text-text transition-colors group-hover:text-amber">{m.label}</span>
+                      <span className="block text-[9px] text-text-ghost">{m.hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button
+            type="button"
+            onClick={() => setHandOpen((v) => !v)}
+            aria-label="The Director's hand — stage moves"
+            className="pointer-events-auto flex items-center gap-2.5 rounded-full border border-amber/55 bg-[radial-gradient(circle_at_50%_30%,rgba(255,230,171,0.18),rgba(216,178,90,0.10))] py-1.5 pl-4 pr-1.5 text-amber shadow-[0_12px_38px_-12px_rgba(216,178,90,0.7)] backdrop-blur-md transition-colors hover:border-amber/80"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em]">
+              {handOpen ? "Close" : "Direct"}
+            </span>
+            <span
+              className={`flex h-11 w-11 items-center justify-center rounded-full border border-amber/60 bg-[radial-gradient(circle_at_50%_32%,#ffe6ab,#d8b25a_72%)] text-[18px] text-[#241c08] shadow-[inset_0_0_14px_rgba(255,255,255,0.35)] transition-transform ${handOpen ? "rotate-45" : ""}`}
+            >
+              ✦
+            </span>
+          </button>
+          </div>
+        </div>
+      )}
+
+      {/* Open the floor — GM ritual */}
+      {floorFormOpen && isGM && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFloorFormOpen(false)} />
+          <div className="relative z-10 w-full max-w-[520px] rounded-t-3xl border border-amber/25 bg-gradient-to-b from-elevated to-ink p-6 shadow-[0_-30px_90px_-40px_rgba(216,178,90,0.5)] sm:rounded-3xl">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/80">Open the floor to the house</p>
+            <h3 className="mt-2 font-display text-[22px] text-paper">Hand the next beat to the gallery.</h3>
+            <p className="mt-1 text-[12px] text-text-ghost">
+              They vote; you narrate the result. {floorBinding ? "You've pledged to honour their choice." : "Their vote is advisory."}
+            </p>
+
+            <label className="mt-5 block font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">The question</label>
+            <input
+              value={floorPrompt}
+              onChange={(e) => setFloorPrompt(e.target.value)}
+              placeholder="Vael reaches the bottom step. What does she do?"
+              className="mt-1.5 w-full rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
+            />
+
+            <label className="mt-4 block font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">The options</label>
+            <div className="mt-1.5 space-y-2">
+              {floorOptions.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber/20 bg-amber/[0.05] font-mono text-[10px] text-amber/80">{i + 1}</span>
+                  <input
+                    value={opt}
+                    onChange={(e) => {
+                      const n = [...floorOptions];
+                      n[i] = e.target.value;
+                      setFloorOptions(n);
+                    }}
+                    placeholder={`Option ${i + 1}`}
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-ink/30 px-3 py-2 text-[14px] text-paper outline-none placeholder:text-text-ghost/45 focus:border-amber/35"
+                  />
+                  {floorOptions.length > 2 && (
+                    <button type="button" onClick={() => setFloorOptions(floorOptions.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-text-ghost hover:text-rose" aria-label="Remove option">
+                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l8 8M11 3l-8 8" /></svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+              {floorOptions.length < 4 && (
+                <button type="button" onClick={() => setFloorOptions([...floorOptions, ""])} className="rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-amber hover:bg-amber/10">
+                  Add an option
+                </button>
+              )}
+            </div>
+
+            <label className="mt-4 flex items-center gap-2 text-[12px] text-text-secondary">
+              <input type="checkbox" checked={floorBinding} onChange={(e) => setFloorBinding(e.target.checked)} className="accent-amber" />
+              Binding — I&apos;ll honour whatever the house chooses
+            </label>
+
+            <div className="mt-6 flex items-center gap-3 border-t border-border pt-5">
+              <button
+                type="button"
+                onClick={handleOpenFloor}
+                disabled={floorSubmitting || !floorPrompt.trim() || floorOptions.filter((o) => o.trim()).length < 2}
+                className="rounded-xl bg-amber px-5 py-2.5 text-[13px] font-bold text-void transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {floorSubmitting ? "Opening…" : "Open to the house"}
+              </button>
+              <button type="button" onClick={() => setFloorFormOpen(false)} className="px-3 py-2 text-[13px] text-text-ghost transition-colors hover:text-text-secondary">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {showLogDrawer && (
@@ -1212,6 +1407,8 @@ export default function SessionPlayPage() {
                 isGM={isGM}
                 onUpdateRollRequest={handleUpdateRollRequest}
                 fullWidth
+                view={logTab}
+                onChangeView={setLogTab}
               />
             </motion.div>
           </>
@@ -1226,7 +1423,10 @@ export default function SessionPlayPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-40 bg-black/35 backdrop-blur-sm"
-                onClick={() => setShowContextDrawer(false)}
+                onClick={() => {
+                  setShowContextDrawer(false);
+                  setConsoleFocus(null);
+                }}
               />
               <motion.div
                 initial={{ x: "100%" }}
@@ -1236,9 +1436,12 @@ export default function SessionPlayPage() {
                 className="fixed bottom-0 right-0 top-0 z-50 w-[min(390px,92vw)]"
               >
                 <button
-                  onClick={() => setShowContextDrawer(false)}
+                  onClick={() => {
+                    setShowContextDrawer(false);
+                    setConsoleFocus(null);
+                  }}
                   className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-void/80 text-text-secondary hover:text-paper"
-                  aria-label="Close engine"
+                  aria-label="Close"
                 >
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <line x1="4" y1="4" x2="12" y2="12" />
@@ -1264,6 +1467,12 @@ export default function SessionPlayPage() {
                   currentUserId={currentUserId}
                   onCreateMark={createMark}
                   onRemoveMark={removeMark}
+                  onOfferBargain={handleOfferBargain}
+                  focus={isGM ? consoleFocus : null}
+                  onClose={() => {
+                    setShowContextDrawer(false);
+                    setConsoleFocus(null);
+                  }}
                 />
               </motion.div>
             </>

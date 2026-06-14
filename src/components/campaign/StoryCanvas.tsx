@@ -110,6 +110,8 @@ interface StoryCanvasProps {
   amplifiedStoryMomentIds?: Set<string>;
   onAmplifyStoryMoment?: (turnId: string) => void;
   showSessionChrome?: boolean;
+  /** Opens the Table-talk (OOC chat) drawer — wired through to the bottom bar. */
+  onViewChat?: () => void;
 }
 
 // ── Reaction System ──────────────────────────────────────────
@@ -240,6 +242,7 @@ export default function StoryCanvas({
   amplifiedStoryMomentIds,
   onAmplifyStoryMoment,
   showSessionChrome = true,
+  onViewChat,
 }: StoryCanvasProps) {
   // Drop the activation-inserted opening turn whenever the dedicated
   // opening block renders sessionOpening, so the text appears once. If
@@ -259,6 +262,11 @@ export default function StoryCanvas({
 
   const isMyTurn = activePlayerId === currentUserId;
   const isActive = sessionStatus === "active";
+  // Turn-as-environment: the Director holds the pen when no active player is on
+  // the spotlight. Used to wash the page head in candlelight while they narrate.
+  const directorNarrating =
+    isActive && (!activePlayerId || !characters.some((c) => c.userId === activePlayerId && c.status === "active"));
+  const myTurnFocus = isActive && isMyTurn && !isGM;
   const [lastWordsContent, setLastWordsContent] = useState("");
   const [lastWordsSent, setLastWordsSent] = useState(false);
   // Lobby is a one-time threshold ritual. Suppress it if the session already
@@ -592,28 +600,40 @@ export default function StoryCanvas({
         )}
 
         {/* Story Content */}
-        <div className="w-full max-w-[650px] mb-8">
-          <div className="mb-8 sm:mb-12">
-            <h1 className="text-2xl font-display text-paper sm:text-4xl">{sessionTitle}</h1>
-            <div className="mt-4 mb-8 h-[1px] w-20 bg-gradient-to-r from-amber/40 to-transparent sm:mt-6 sm:mb-12 sm:w-24" />
+        {/* The page sheet — the same lit leaf as the editor, floating on the dark table.
+            Turn-as-environment: a gold veil washes its head while the Director narrates;
+            the page eases back a touch when it's your turn, throwing the light to the composer. */}
+        <div
+          className={`relative w-full max-w-[860px] mb-10 overflow-hidden rounded-2xl border border-border bg-ink/95 px-6 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition-all duration-700 sm:px-14 sm:py-14 ${
+            myTurnFocus ? "opacity-80 scale-[0.995]" : "opacity-100"
+          }`}
+        >
+          <div
+            className={`pointer-events-none absolute inset-x-0 top-0 h-32 rounded-t-2xl bg-gradient-to-b from-amber/[0.10] to-transparent transition-opacity duration-700 ${
+              directorNarrating ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <div className="mb-8 text-center sm:mb-12">
+            <h1 className="font-display text-2xl text-paper sm:text-4xl">{sessionTitle}</h1>
+            <div className="mx-auto mt-4 mb-8 h-[1px] w-20 bg-gradient-to-r from-transparent via-amber/40 to-transparent sm:mt-6 sm:mb-12 sm:w-24" />
           </div>
 
           {/* Opening narration */}
           {sessionOpening && (
-            <div className="mb-8 border-l-2 border-amber/20 pl-4 font-serif text-[16px] leading-[1.8] text-paper/60 italic sm:mb-10 sm:pl-6 sm:text-[19px] sm:leading-[2.1]">
+            <div className="mb-8 border-l-2 border-amber/20 pl-4 font-reading text-[16px] leading-[1.8] text-paper/60 italic sm:mb-10 sm:pl-6 sm:text-[19px] sm:leading-[2.1]">
               {sessionOpening}
             </div>
           )}
 
           {storyTurns.length === 0 && !sessionOpening ? (
             <div className="text-center py-20">
-              <p className="text-text-ghost text-sm font-serif italic">
+              <p className="text-text-ghost text-sm font-reading italic">
                 {isGM ? "Set the scene with your opening narration." : "Waiting for the GM to begin..."}
               </p>
             </div>
           ) : (
             <div
-              className="space-y-5 break-words font-serif text-[17px] leading-[1.85] sm:space-y-6 sm:text-[19px] sm:leading-[2.1]"
+              className="novel-reader space-y-5 break-words sm:space-y-6"
               aria-live="polite"
               aria-relevant="additions text"
               aria-atomic="false"
@@ -795,57 +815,58 @@ export default function StoryCanvas({
             onCreateFloorRound={onCreateFloorRound}
             hasActiveCrossroads={!!floorRound}
             bargainTargets={bargainTargets}
+            onViewChat={onViewChat}
           />
         )}
 
-        {/* Waiting state — replaces draft box when player is locked out */}
-        {!spectatorMode && !isGM && !isMyTurn && isActive && !isCharGone && (() => {
+        {/* The table's bottom bar for everyone NOT holding the pen — the GM
+            watching a player, and players between turns. Presence + react +
+            view chat, so no one is ever left without actions. */}
+        {!spectatorMode && !canShowComposer && isActive && !isCharGone && (() => {
           const isGMTurn =
             !activePlayerId || !characters.some((c) => c.userId === activePlayerId && c.status === "active");
           return (
             <div className="w-full max-w-[650px] mt-auto">
-              <div className="bg-ink border border-border rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
-                <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-text-tertiary">
-                  {isGMTurn ? "GM Narrating" : "Waiting"}
-                </div>
+              <div className="relative rounded-2xl border border-border bg-ink/85 px-4 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-md">
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="flex min-w-0 flex-1 items-center gap-2 font-serif text-[13px] italic text-text-tertiary">
+                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber/70 [animation:pulse_1.4s_ease-in-out_infinite]" />
+                    <span className="truncate">
+                      {isGMTurn ? "The Director is narrating…" : `${activePlayerName} is writing…`}
+                    </span>
+                  </p>
 
-                <div className="flex items-center justify-center gap-3 py-4">
-                  {isGMTurn ? (
-                    <div className="flex items-center gap-3 text-amber/50">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                      </svg>
-                      <p className="font-serif italic text-sm">The GM is setting the scene...</p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 text-text-tertiary">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-50">
-                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      </svg>
-                      <p className="font-serif italic text-sm">Waiting for {activePlayerName} to write...</p>
-                    </div>
-                  )}
-                </div>
+                  <div className="flex items-center gap-1.5">
+                    {REACTIONS.map((r) => (
+                      <motion.button
+                        key={r.key}
+                        type="button"
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleReactionClick(r.key)}
+                        disabled={reactionCooldown}
+                        title={r.label}
+                        className={`flex items-center gap-1 rounded-full border border-border bg-subtle/30 px-2.5 py-1.5 transition-all cursor-pointer ${
+                          reactionCooldown ? "opacity-30 cursor-not-allowed" : "hover:bg-subtle/50 hover:border-border-active"
+                        }`}
+                      >
+                        <span className="text-sm leading-none">{r.emoji}</span>
+                      </motion.button>
+                    ))}
+                  </div>
 
-                {/* Reaction buttons */}
-                <div className="flex items-center justify-center gap-2 pt-3 border-t border-border-subtle">
-                  {REACTIONS.map((r) => (
-                    <motion.button
-                      key={r.key}
+                  {onViewChat && (
+                    <button
                       type="button"
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleReactionClick(r.key)}
-                      disabled={reactionCooldown}
-                      className={`flex items-center gap-1.5 bg-subtle/30 border border-border rounded-full px-3 py-1.5 transition-all cursor-pointer ${
-                        reactionCooldown
-                          ? "opacity-30 cursor-not-allowed"
-                          : "hover:bg-subtle/50 hover:border-border-active"
-                      }`}
+                      onClick={onViewChat}
+                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-subtle/20 px-3 py-1.5 text-[11px] text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+                      title="Table talk — out-of-character chat"
                     >
-                      <span className="text-sm leading-none">{r.emoji}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-text-tertiary leading-none">{r.label}</span>
-                    </motion.button>
-                  ))}
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
+                      </svg>
+                      View chat
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

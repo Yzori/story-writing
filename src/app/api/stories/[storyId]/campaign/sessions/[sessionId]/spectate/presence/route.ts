@@ -10,6 +10,33 @@ type RouteParams = {
 };
 
 /**
+ * GET /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/presence
+ * Read-only live spectator count (last 45s). Used by the table (GM + players)
+ * to feel the audience without registering themselves as spectators.
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const rl = applyRateLimit(request, null, "read", { max: 120, windowSeconds: 60 });
+    if (rl) return rl;
+
+    const { sessionId } = await params;
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(spectatorPresence)
+      .where(
+        and(
+          eq(spectatorPresence.sessionId, sessionId),
+          gt(spectatorPresence.lastHeartbeat, sql`now() - interval '45 seconds'`),
+        ),
+      );
+    return NextResponse.json({ spectatorCount: Number(result?.count ?? 0) });
+  } catch (error) {
+    console.error("GET /api/.../spectate/presence error:", error);
+    return NextResponse.json({ spectatorCount: 0 });
+  }
+}
+
+/**
  * PUT /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/presence
  * Heartbeat endpoint for spectator presence. Public — no auth required.
  * Upserts a spectator record keyed by (sessionId, token).

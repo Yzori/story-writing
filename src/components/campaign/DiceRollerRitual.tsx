@@ -112,6 +112,7 @@ function Runestone({
   index: number;
 }) {
   const [display, setDisplay] = useState<number>(value ?? 1);
+  const reduceMotion = useReducedMotion() ?? false;
 
   useEffect(() => {
     if (phase === "casting") {
@@ -139,7 +140,7 @@ function Runestone({
             }
           : awake
             ? { y: [0, -10, 0], scale: [1, 1.08, 1] }
-            : phase === "idle"
+            : phase === "idle" && !reduceMotion
               ? { y: [0, -5, 0], rotateY: [0, index === 0 ? 10 : -10, 0], rotateX: [0, 4, 0] }
               : { y: 0, scale: 1 }
       }
@@ -148,7 +149,7 @@ function Runestone({
           ? { duration: MIN_CAST_MS / 1000, ease: [0.65, 0.05, 0.35, 1] }
           : awake
             ? { duration: 0.8, ease: [0.34, 1.56, 0.64, 1] }
-            : phase === "idle"
+            : phase === "idle" && !reduceMotion
               ? { duration: 4, repeat: Infinity, ease: "easeInOut", delay: index * 0.4 }
               : { duration: 0.3 }
       }
@@ -352,13 +353,11 @@ function ApproachSigil({
   approach,
   selected,
   locked,
-  mod,
   onSelect,
 }: {
   approach: Approach;
   selected: boolean;
   locked: boolean;
-  mod: number;
   onSelect: () => void;
 }) {
   const sigil: ReactNode = (() => {
@@ -416,13 +415,6 @@ function ApproachSigil({
     >
       <div className="transition-transform duration-300 group-hover:scale-110">{sigil}</div>
       <span className="font-display text-[10px] uppercase tracking-[0.22em]">{approach}</span>
-      <span
-        className={`font-display text-[10px] ${
-          mod > 0 ? "text-amber" : mod < 0 ? "text-rose-400" : "text-text-tertiary"
-        }`}
-      >
-        {mod >= 0 ? `+${mod}` : mod}
-      </span>
       {selected && (
         <motion.div
           className="pointer-events-none absolute inset-0 rounded-xl"
@@ -440,7 +432,7 @@ export default function DiceRollerRitual({
   visible,
   onClose,
   onRollSubmit,
-  approaches = { Bold: 0, Keen: 0, Subtle: 0 },
+  // approaches are accepted for back-compat but no longer modify the roll
   aspect = null,
   preSelectedAttribute = null,
   rollReason = null,
@@ -483,9 +475,10 @@ export default function DiceRollerRitual({
     }
   }, [preSelectedAttribute]);
 
-  const approachMod = selectedApproach ? approaches[selectedApproach] : 0;
+  // Approaches are a fiction/tone choice now — they don't modify the roll.
+  // Invoking the character's aspect is the only +1.
   const aspectMod = aspectInvoked && aspect ? 1 : 0;
-  const predictedMod = approachMod + aspectMod;
+  const predictedMod = aspectMod;
   const totalMod = serverResult?.modifier ?? predictedMod;
   const total = serverResult?.total ?? null;
   const displayedReason = rollContext?.reason ?? rollReason;
@@ -761,8 +754,8 @@ export default function DiceRollerRitual({
               {/* Fatal warning */}
               {displayedFatal && (
                 <motion.div
-                  animate={{ boxShadow: ["0 0 0 rgba(244,63,94,0)", "0 0 20px rgba(244,63,94,0.4)", "0 0 0 rgba(244,63,94,0)"] }}
-                  transition={{ duration: 2.6, repeat: Infinity }}
+                  animate={reduceMotion ? undefined : { boxShadow: ["0 0 0 rgba(244,63,94,0)", "0 0 20px rgba(244,63,94,0.4)", "0 0 0 rgba(244,63,94,0)"] }}
+                  transition={reduceMotion ? undefined : { duration: 2.6, repeat: Infinity }}
                   className="mb-5 rounded-lg border border-rose-500/40 bg-rose-500/5 px-3 py-2 text-center"
                 >
                   <p className="font-display text-[9px] uppercase tracking-[0.35em] text-rose-400">— fatal stakes —</p>
@@ -847,8 +840,11 @@ export default function DiceRollerRitual({
               {/* Approaches */}
               {phase === "idle" && (
                 <div className="mb-6">
-                  <p className="mb-3 text-center font-display text-[9px] uppercase tracking-[0.34em] text-amber/55">
+                  <p className="mb-1 text-center font-display text-[9px] uppercase tracking-[0.34em] text-amber/55">
                     How will you reach?
+                  </p>
+                  <p className="mb-3 text-center text-[9px] italic text-amber/35">
+                    Colours the telling, not the odds.
                   </p>
                   <div className="flex items-stretch justify-center gap-2">
                     {APPROACHES.map((a) => (
@@ -857,7 +853,6 @@ export default function DiceRollerRitual({
                         approach={a}
                         selected={selectedApproach === a}
                         locked={!!preSelectedAttribute}
-                        mod={approaches[a]}
                         onSelect={() => setSelectedApproach(selectedApproach === a ? null : a)}
                       />
                     ))}
@@ -865,11 +860,11 @@ export default function DiceRollerRitual({
                 </div>
               )}
 
-              {/* Modifier line */}
+              {/* Modifier line — the only bonus is the invoked aspect (+1).
+                  Approaches are tone, not maths, so they never appear here. */}
               {phase === "idle" && totalMod !== 0 && (
                 <p className="mb-2 text-center font-display text-[11px] italic text-amber/65">
                   ✦ {totalMod >= 0 ? `+${totalMod}` : totalMod}
-                  {selectedApproach && ` from your ${selectedApproach.toLowerCase()} hand`}
                   {aspectInvoked && " · the truth you spoke"}
                 </p>
               )}
@@ -895,8 +890,8 @@ export default function DiceRollerRitual({
                         height: `${90 + i * 60}px`,
                         transform: "translate(-50%, -50%)",
                       }}
-                      animate={{ opacity: [0.08, 0.38, 0.08] }}
-                      transition={{ duration: 4 + i, repeat: Infinity, delay: i * 0.7 }}
+                      animate={reduceMotion ? { opacity: 0.2 } : { opacity: [0.08, 0.38, 0.08] }}
+                      transition={reduceMotion ? undefined : { duration: 4 + i, repeat: Infinity, delay: i * 0.7 }}
                     />
                   ))}
 

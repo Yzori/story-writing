@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 interface SpeechRecognitionAlternative {
@@ -61,39 +61,67 @@ function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null 
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
+// Client-only support flag via useSyncExternalStore — returns false on the
+// server, the real value on the client, with no hydration mismatch and no
+// setState-in-effect. Browser speech support doesn't change at runtime, so the
+// subscription is a no-op.
+const subscribeSpeechSupport = () => () => {};
+const getSpeechSupportSnapshot = () => getSpeechRecognitionConstructor() !== null;
+const getSpeechSupportServerSnapshot = () => false;
+
+// Web Speech error codes that are part of normal operation, not failures:
+// `aborted` fires whenever we call stop(); `no-speech` fires after a silent
+// stretch. Neither should surface an error — onend decides whether to resume.
+const BENIGN_SPEECH_ERRORS = new Set(["aborted", "no-speech"]);
+
+function messageForSpeechError(code: string | undefined): string {
+  switch (code) {
+    case "not-allowed":
+    case "service-not-allowed":
+      return "Microphone access was blocked.";
+    case "audio-capture":
+      return "No microphone was found.";
+    case "network":
+      return "Voice dictation needs a connection.";
+    default:
+      return "Voice dictation stopped.";
+  }
+}
+
 export function useSpeechDraft({
   setDraftContent,
 }: UseSpeechDraftOptions): UseSpeechDraftResult {
   const [isListening, setIsListening] = useState(false);
-  const [hasSpeechSupport] = useState(() => getSpeechRecognitionConstructor() !== null);
+  const hasSpeechSupport = useSyncExternalStore(
+    subscribeSpeechSupport,
+    getSpeechSupportSnapshot,
+    getSpeechSupportServerSnapshot,
+  );
   const [interimTranscript, setInterimTranscript] = useState("");
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  // The user's intent. We auto-resume while this is true (browsers end the
+  // session on their own after a pause); a manual stop clears it.
+  const shouldListenRef = useRef(false);
 
   const stopListening = useCallback(() => {
+    shouldListenRef.current = false;
     recognitionRef.current?.stop();
     setIsListening(false);
     setInterimTranscript("");
   }, []);
 
-  const toggleListening = useCallback(() => {
-    if (isListening) {
-      stopListening();
-      return;
-    }
-
+  const startRecognition = useCallback(() => {
     const SpeechRecognitionAPI = getSpeechRecognitionConstructor();
     if (!SpeechRecognitionAPI) {
       setSpeechError("Voice dictation is not available in this browser.");
-      return;
+      return false;
     }
 
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
-    setSpeechError(null);
-    setInterimTranscript("");
 
     recognition.onresult = (event) => {
       let finalText = "";
@@ -118,32 +146,61 @@ export function useSpeechDraft({
     };
 
     recognition.onerror = (event) => {
-      setSpeechError(
-        event?.error === "not-allowed"
-          ? "Microphone access was blocked."
-          : "Voice dictation stopped.",
-      );
+      const code = event?.error;
+      if (code && BENIGN_SPEECH_ERRORS.has(code)) {
+        // Let onend decide whether to resume; don't alarm the user.
+        setInterimTranscript("");
+        return;
+      }
+      shouldListenRef.current = false;
+      setSpeechError(messageForSpeechError(code));
       setInterimTranscript("");
       setIsListening(false);
     };
 
     recognition.onend = () => {
       setInterimTranscript("");
+      // Browsers stop dictation on their own; resume if the user hasn't stopped.
+      if (shouldListenRef.current) {
+        try {
+          recognition.start();
+          return;
+        } catch {
+          shouldListenRef.current = false;
+        }
+      }
       setIsListening(false);
     };
 
     recognitionRef.current = recognition;
     try {
       recognition.start();
-      setIsListening(true);
+      return true;
     } catch {
       setSpeechError("Voice dictation could not start.");
-      setIsListening(false);
+      return false;
     }
-  }, [isListening, setDraftContent, stopListening]);
+  }, [setDraftContent]);
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+    setSpeechError(null);
+    setInterimTranscript("");
+    shouldListenRef.current = true;
+    if (startRecognition()) {
+      setIsListening(true);
+    } else {
+      shouldListenRef.current = false;
+    }
+  }, [isListening, startRecognition, stopListening]);
 
   useEffect(() => {
     return () => {
+      // Stop without auto-resuming after the component is gone.
+      shouldListenRef.current = false;
       recognitionRef.current?.stop();
     };
   }, []);

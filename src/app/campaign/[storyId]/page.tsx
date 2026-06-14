@@ -125,27 +125,65 @@ function getCampaignToneParts({
   ];
 }
 
-// Best-effort parser for poll-option labels like "Mon, 8:00 PM".
-// Returns the *next* occurrence of that weekday+time, or null if unparseable.
+// Pull a wall-clock time (hour 0–23 + minute) out of a label fragment.
+// Handles "8:00 PM", "8 pm", and 24-hour "20:00". Returns null if none found.
+function extractTimeOfDay(label: string): { hour: number; minute: number } | null {
+  const ampmMatch = label.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1], 10);
+    const minute = ampmMatch[2] ? parseInt(ampmMatch[2], 10) : 0;
+    const ampm = ampmMatch[3].toLowerCase();
+    if (ampm === "pm" && hour < 12) hour += 12;
+    if (ampm === "am" && hour === 12) hour = 0;
+    return { hour, minute };
+  }
+  const h24 = label.match(/\b(\d{1,2}):(\d{2})\b/);
+  if (h24) return { hour: parseInt(h24[1], 10), minute: parseInt(h24[2], 10) };
+  return null;
+}
+
+// Best-effort parser for poll-option labels into an absolute Date.
+// Handles, in order: ISO/standard dates, our explicit "Sat, Jun 20 · 8:00 PM"
+// format (month name + day), and legacy weekday-only "Mon, 8:00 PM" labels
+// (resolved to the next occurrence of that weekday). Returns null if unparseable.
 function parseRelativeDateLabel(label: string | null | undefined): Date | null {
   if (!label) return null;
+
+  // 1. Already a parseable absolute date (ISO, etc.) in the future-ish window.
   const direct = new Date(label);
   if (!Number.isNaN(direct.getTime()) && direct.getTime() > Date.now() - 86_400_000) {
     return direct;
   }
+
+  const time = extractTimeOfDay(label);
+  const now = new Date();
+  const hour = time?.hour ?? 20;
+  const minute = time?.minute ?? 0;
+
+  // 2. Explicit month + day ("Jun 20") — lossless, disambiguates across weeks.
+  const monthMap: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  };
+  const md = label.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/i);
+  if (md) {
+    const month = monthMap[md[1].toLowerCase()];
+    const day = parseInt(md[2], 10);
+    let out = new Date(now.getFullYear(), month, day, hour, minute, 0, 0);
+    // If the date already slipped well into the past, assume it's next year.
+    if (out.getTime() < Date.now() - 86_400_000) {
+      out = new Date(now.getFullYear() + 1, month, day, hour, minute, 0, 0);
+    }
+    return out;
+  }
+
+  // 3. Legacy weekday-only label — next occurrence of that weekday.
   const weekdayMap: Record<string, number> = {
     sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
   };
-  const m = label.match(/(\b[A-Za-z]{3})\w*[, ]\s*(\d{1,2}):?(\d{2})?\s*(am|pm|AM|PM)?/);
-  if (!m) return null;
-  const wd = weekdayMap[m[1].toLowerCase()];
-  if (wd === undefined) return null;
-  let hour = parseInt(m[2], 10);
-  const minute = m[3] ? parseInt(m[3], 10) : 0;
-  const ampm = (m[4] ?? "").toLowerCase();
-  if (ampm === "pm" && hour < 12) hour += 12;
-  if (ampm === "am" && hour === 12) hour = 0;
-  const now = new Date();
+  const wdMatch = label.match(/\b(sun|mon|tue|wed|thu|fri|sat)/i);
+  if (!wdMatch || !time) return null;
+  const wd = weekdayMap[wdMatch[1].toLowerCase()];
   const out = new Date(now);
   let daysAhead = (wd - now.getDay() + 7) % 7;
   if (daysAhead === 0) {
@@ -448,25 +486,33 @@ function ReadinessRow({ complete, label, caption }: { complete: boolean; label: 
   );
 }
 
+// Format a datetime-local input value (or any parseable date) into the
+// lossless option label, e.g. "Sat, Jun 20 · 8:00 PM". Keeping the month+day
+// in the label means two different Saturdays never collapse to the same string.
 function formatDateTimeOption(value: string) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
 
-  return new Intl.DateTimeFormat(undefined, {
+  const datePart = new Intl.DateTimeFormat(undefined, {
     weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+  return `${datePart} · ${timePart}`;
 }
 
+// Convert a stored option label back into a datetime-local input value so the
+// native picker reflects the current choice when re-opened. Routes through the
+// same robust parser used for the countdown.
 function toDateTimeLocalValue(value: string) {
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return "";
-
-  const date = new Date(parsed);
+  const date = parseRelativeDateLabel(value);
+  if (!date) return "";
   const pad = (part: number) => String(part).padStart(2, "0");
-
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
@@ -475,6 +521,123 @@ function createSchedulePreset(daysAhead: number, hour: number, minute = 0) {
   date.setDate(date.getDate() + daysAhead);
   date.setHours(hour, minute, 0, 0);
   return formatDateTimeOption(toDateTimeLocalValue(date.toISOString()));
+}
+
+// Shared candidate-night picker used by both the lobby and in-session poll
+// forms. Each row is a single themed control that opens the native date/time
+// picker (good wheels on mobile) and shows the chosen night with its full date.
+function ScheduleOptions({
+  options,
+  setOptions,
+  presets,
+}: {
+  options: string[];
+  setOptions: (next: string[]) => void;
+  presets: string[];
+}) {
+  const addPreset = (preset: string) => {
+    const next = [...options];
+    const emptyIndex = next.findIndex((o) => !o.trim());
+    const target = emptyIndex >= 0 ? emptyIndex : next.length;
+    if (target >= 5) return;
+    next[target] = preset;
+    setOptions(next);
+  };
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost/70">Quick add</span>
+        {presets.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => addPreset(preset)}
+            className="rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 text-[11px] text-amber transition-colors hover:bg-amber/10"
+          >
+            {preset}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        {options.map((opt, idx) => {
+          const filled = Boolean(opt.trim());
+          return (
+            <div key={idx} className="flex items-center gap-2">
+              <span className="flex h-9 w-7 shrink-0 items-center justify-center rounded-full border border-amber/20 bg-amber/[0.04] font-mono text-[11px] text-amber/80">
+                {idx + 1}
+              </span>
+              <label
+                className={`group relative flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors ${
+                  filled ? "border-amber/30 bg-amber/[0.05]" : "border-border bg-ink/20 hover:border-amber/30"
+                }`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  className={`shrink-0 ${filled ? "text-amber" : "text-text-ghost"}`}
+                >
+                  <path d="M4 2v2M12 2v2M2.5 6h11M3 3.5h10a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+                  <path d="M6 9h.01M8 9h.01M10 9h.01M6 11.5h.01M8 11.5h.01" />
+                </svg>
+                <span className={`min-w-0 flex-1 truncate text-[14px] ${filled ? "text-paper" : "text-text-ghost/55"}`}>
+                  {filled ? opt : "Pick a night…"}
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  className="shrink-0 text-text-ghost/55 transition-colors group-hover:text-amber/70"
+                >
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+                <input
+                  type="datetime-local"
+                  value={toDateTimeLocalValue(opt)}
+                  onChange={(e) => {
+                    const next = [...options];
+                    next[idx] = e.target.value ? formatDateTimeOption(e.target.value) : "";
+                    setOptions(next);
+                  }}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  aria-label={`Pick date and time for option ${idx + 1}`}
+                />
+              </label>
+              {options.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => setOptions(options.filter((_, i) => i !== idx))}
+                  className="rounded-md p-1.5 text-text-ghost opacity-70 transition-colors hover:text-rose"
+                  aria-label={`Remove option ${idx + 1}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 3l8 8M11 3l-8 8" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {options.length < 5 && (
+          <button
+            type="button"
+            onClick={() => setOptions([...options, ""])}
+            className="mt-1 rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-amber transition-colors hover:bg-amber/10"
+          >
+            Add another time
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Component ───────────────────────────────────────────────
@@ -513,7 +676,6 @@ export default function CampaignPage() {
   const [charBackstory, setCharBackstory] = useState("");
   const [charPortrait, setCharPortrait] = useState("");
   const [charAspect, setCharAspect] = useState("");
-  const [charApproach, setCharApproach] = useState<"Bold" | "Keen" | "Subtle" | null>(null);
   const [charSubmitting, setCharSubmitting] = useState(false);
 
   // New session form
@@ -544,7 +706,15 @@ export default function CampaignPage() {
   const hasSeatLit = characters.length > 0;
   const hasOpeningDraft = Boolean(firstDraftSession);
   const hasTimeAgreed = Boolean(latestClosedPoll?.confirmedOption);
-  const hasDoorAnswered = applications.length === 0;
+  // "At the door" = applications still awaiting a decision. Approved/declined
+  // ones are settled and must not keep counting as travellers waiting.
+  const openApplications = applications.filter(
+    (a) => a.status === "pending" || a.status === "voting"
+  );
+  const resolvedApplications = applications.filter(
+    (a) => a.status === "approved" || a.status === "declined"
+  );
+  const hasDoorAnswered = openApplications.length === 0;
   const readyToBegin = hasSeatLit && hasOpeningDraft && hasDoorAnswered;
   const nextLobbyStep: LobbyStep = !hasSeatLit
     ? "invite"
@@ -773,13 +943,9 @@ export default function CampaignPage() {
     if (!charName.trim() || charSubmitting) return;
     setCharSubmitting(true);
     try {
-      // Compute approach stats from the single choice: chosen = +2, next = 0, last = -1
-      const approachMap: Record<string, { Bold: number; Keen: number; Subtle: number }> = {
-        Bold:   { Bold: 2, Keen: 0, Subtle: -1 },
-        Keen:   { Bold: -1, Keen: 2, Subtle: 0 },
-        Subtle: { Bold: 0, Keen: -1, Subtle: 2 },
-      };
-      const approaches = charApproach ? approachMap[charApproach] : { Bold: 0, Keen: 0, Subtle: 0 };
+      // Approaches are a per-roll fiction/tone choice now, not a character
+      // stat — characters carry no numeric spread.
+      const approaches = { Bold: 0, Keen: 0, Subtle: 0 };
 
       const payload: Record<string, unknown> = {
         name: charName.trim(),
@@ -807,7 +973,6 @@ export default function CampaignPage() {
       setCharBackstory("");
       setCharPortrait("");
       setCharAspect("");
-      setCharApproach(null);
       setShowCreateChar(false);
       fetchData();
     } catch (err) {
@@ -916,15 +1081,19 @@ export default function CampaignPage() {
         const err = await res.json();
         throw new Error(err.error?.message ?? "Action failed");
       }
-      // Remove approved from list, update others in place
+      // Move the application to its new status in place — approved/declined
+      // drop into the "Resolved" group, voting stays actionable.
+      setApplications((prev) =>
+        prev.map((a) =>
+          a.id === applicationId
+            ? { ...a, status: action, ...(action === "voting" ? { votingDeadline: body.votingDeadline as string } : {}) }
+            : a
+        )
+      );
+      // Approval also lights a seat (a character is created server-side), so
+      // refresh to pull the new player in around the lantern.
       if (action === "approved") {
-        setApplications((prev) => prev.filter((a) => a.id !== applicationId));
-      } else {
-        setApplications((prev) =>
-          prev.map((a) =>
-            a.id === applicationId ? { ...a, status: action, ...(action === "voting" ? { votingDeadline: body.votingDeadline as string } : {}) } : a
-          )
-        );
+        fetchData();
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error");
@@ -1303,7 +1472,7 @@ export default function CampaignPage() {
                 })}
               </div>
 
-              {applications.length > 0 && (
+              {openApplications.length > 0 && (
                 <div className="relative mt-7 rounded-2xl border border-amber/20 bg-amber/[0.05] p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1311,7 +1480,7 @@ export default function CampaignPage() {
                         At the door
                       </p>
                       <p className="mt-1 font-display text-[18px] text-paper">
-                        {applications.length} traveller{applications.length === 1 ? "" : "s"} waiting to be welcomed.
+                        {openApplications.length} traveller{openApplications.length === 1 ? "" : "s"} waiting to be welcomed.
                       </p>
                     </div>
                     <span className="rounded-full border border-amber/25 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber/75">
@@ -1319,7 +1488,7 @@ export default function CampaignPage() {
                     </span>
                   </div>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    {applications.slice(0, 2).map((app) => (
+                    {openApplications.slice(0, 2).map((app) => (
                       <div key={app.id} className="rounded-xl border border-border bg-surface/60 p-4">
                         <p className="font-display text-[14px] text-paper">{app.user.displayName || "Anonymous"}</p>
                         {(app.characterName || app.characterArchetype) && (
@@ -1348,9 +1517,26 @@ export default function CampaignPage() {
                 {!(activePoll || latestClosedPoll?.confirmedOption) && (
                   <LobbyRitualCard title="Schedule session" subtitle="Let players vote on a time.">
                     {isGM ? (
-                      <p className="rounded-lg border border-border bg-ink/20 px-3 py-2 text-[12px] leading-5 text-text-ghost">
-                        No time poll yet. It will appear as the recommended next step once the table is ready for scheduling.
-                      </p>
+                      <div className="space-y-2.5">
+                        <p className="text-[12px] leading-5 text-text-ghost">
+                          Offer a few nights and let the table vote on when to begin.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewSession(false);
+                            setShowCreatePoll(true);
+                            window.requestAnimationFrame(() =>
+                              document
+                                .getElementById("lobby-poll-form")
+                                ?.scrollIntoView({ behavior: "smooth", block: "center" })
+                            );
+                          }}
+                          className="w-full rounded-lg border border-amber/25 bg-amber/[0.08] px-3 py-2 text-[12px] font-bold text-amber transition-colors hover:bg-amber/12"
+                        >
+                          {showCreatePoll ? "Scheduling below…" : "Schedule the first session"}
+                        </button>
+                      </div>
                     ) : (
                       <p className="text-[12px] text-text-ghost">The GM has not proposed a time yet.</p>
                     )}
@@ -1426,9 +1612,26 @@ export default function CampaignPage() {
                       </p>
                     </div>
                   ) : isGM ? (
-                    <p className="rounded-lg border border-border bg-ink/20 px-3 py-2 text-[12px] leading-5 text-text-ghost">
-                      Not drafted yet. Use the recommended step above when you are ready.
-                    </p>
+                    <div className="space-y-2.5">
+                      <p className="text-[12px] leading-5 text-text-ghost">
+                        Set the title and first words your players will read when the lantern lights.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreatePoll(false);
+                          setShowNewSession(true);
+                          window.requestAnimationFrame(() =>
+                            document
+                              .getElementById("lobby-opening-form")
+                              ?.scrollIntoView({ behavior: "smooth", block: "center" })
+                          );
+                        }}
+                        className="w-full rounded-lg border border-amber/25 bg-amber/[0.08] px-3 py-2 text-[12px] font-bold text-amber transition-colors hover:bg-amber/12"
+                      >
+                        {showNewSession ? "Drafting below…" : "Draft the opening scene"}
+                      </button>
+                    </div>
                   ) : (
                     <p className="text-[12px] text-text-ghost">The GM is preparing the opening.</p>
                   )}
@@ -1439,6 +1642,7 @@ export default function CampaignPage() {
                 {showCreatePoll && isGM && (
                   <motion.div
                     key="lobby-poll-form"
+                    id="lobby-poll-form"
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
@@ -1473,60 +1677,7 @@ export default function CampaignPage() {
 
                       <div className="space-y-2">
                         <label className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">Time options</label>
-                        <div className="flex flex-wrap gap-2 pb-1">
-                          {schedulePresets.map((preset) => (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => {
-                                const next = [...pollOptions];
-                                const emptyIndex = next.findIndex((option) => !option.trim());
-                                const targetIndex = emptyIndex >= 0 ? emptyIndex : next.length;
-                                if (targetIndex >= 5) return;
-                                next[targetIndex] = preset;
-                                setPollOptions(next);
-                              }}
-                              className="rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 text-[11px] text-amber transition-colors hover:bg-amber/10"
-                            >
-                              {preset}
-                            </button>
-                          ))}
-                        </div>
-                        {pollOptions.map((opt, idx) => (
-                          <div key={idx} className="group flex items-center gap-2 rounded-xl border border-border bg-ink/20 px-3 py-2 transition-colors focus-within:border-amber/35">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber/20 bg-amber/[0.04] font-mono text-[10px] text-amber/80">
-                              {idx + 1}
-                            </span>
-                            <input
-                              type="text"
-                              value={opt}
-                              onChange={(e) => {
-                                const next = [...pollOptions];
-                                next[idx] = e.target.value;
-                                setPollOptions(next);
-                              }}
-                              placeholder={idx === 0 ? "e.g. Saturday 8pm" : idx === 1 ? "e.g. Sunday afternoon" : `Option ${idx + 1}`}
-                              className="min-w-0 flex-1 bg-transparent py-1.5 text-[14px] text-paper outline-none placeholder:text-text-ghost/45"
-                            />
-                            <label className="relative shrink-0 rounded-md border border-border bg-elevated px-2.5 py-1.5 text-text-ghost transition-colors hover:border-amber/30 hover:text-amber">
-                              <input
-                                type="datetime-local"
-                                value={toDateTimeLocalValue(opt)}
-                                onChange={(e) => {
-                                  const next = [...pollOptions];
-                                  next[idx] = formatDateTimeOption(e.target.value);
-                                  setPollOptions(next);
-                                }}
-                                className="absolute inset-0 cursor-pointer opacity-0"
-                                aria-label={`Pick date and time for option ${idx + 1}`}
-                              />
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                                <path d="M4 2v2M12 2v2M2.5 6h11M3 3.5h10a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
-                                <path d="M6 9h.01M8 9h.01M10 9h.01M6 11.5h.01M8 11.5h.01" />
-                              </svg>
-                            </label>
-                          </div>
-                        ))}
+                        <ScheduleOptions options={pollOptions} setOptions={setPollOptions} presets={schedulePresets} />
                       </div>
                     </div>
 
@@ -1557,6 +1708,7 @@ export default function CampaignPage() {
                 {showNewSession && isGM && (
                   <motion.div
                     key="lobby-session-form"
+                    id="lobby-opening-form"
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
@@ -1675,7 +1827,7 @@ export default function CampaignPage() {
                       label="A session time is agreed"
                       caption={latestClosedPoll?.confirmedOption ?? (activePoll ? "Poll in progress" : "No time chosen yet")}
                     />
-                    <ReadinessRow complete={hasDoorAnswered} label="Applications are handled" caption={applications.length > 0 ? `${applications.length} applicant${applications.length === 1 ? "" : "s"} waiting` : "No pending applicants"} />
+                    <ReadinessRow complete={hasDoorAnswered} label="Applications are handled" caption={openApplications.length > 0 ? `${openApplications.length} applicant${openApplications.length === 1 ? "" : "s"} waiting` : "No pending applicants"} />
                   </div>
                 </div>
 
@@ -1981,32 +2133,6 @@ export default function CampaignPage() {
                         />
                       </div>
 
-                      {/* Approach — single choice, not point-buy */}
-                      <div className="space-y-2">
-                        <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">When things get dangerous, they tend to be... <span className="normal-case tracking-normal text-text-ghost/60">(optional)</span></label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {([
-                            ["Bold", "Direct, forceful, courageous — charges in head-first"],
-                            ["Keen", "Clever, perceptive, strategic — thinks before acting"],
-                            ["Subtle", "Graceful, quiet, precise — finds the hidden path"],
-                          ] as const).map(([approach, desc]) => (
-                            <button
-                              key={approach}
-                              type="button"
-                              onClick={() => setCharApproach(charApproach === approach ? null : approach)}
-                              className={`flex flex-col items-center gap-1.5 rounded-xl p-3 text-center transition-all cursor-pointer ${
-                                charApproach === approach
-                                  ? "bg-amber/10 border-2 border-amber/40 shadow-[0_0_12px_rgba(200,150,60,0.1)]"
-                                  : "bg-ink/50 border border-border hover:border-white/20"
-                              }`}
-                            >
-                              <span className={`text-xs font-semibold ${charApproach === approach ? "text-amber" : "text-paper/70"}`}>{approach}</span>
-                              <span className="text-[9px] text-text-ghost/50 leading-tight">{desc}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
                       <div className="flex items-center gap-3 pt-1">
                         <button
                           onClick={handleCreateCharacter}
@@ -2210,89 +2336,7 @@ export default function CampaignPage() {
 
                 <div className="mt-5 space-y-2">
                   <label className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">Time options</label>
-                  <div className="flex flex-wrap gap-2 pb-1">
-                    {schedulePresets.map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => {
-                          const next = [...pollOptions];
-                          const emptyIndex = next.findIndex((option) => !option.trim());
-                          const targetIndex = emptyIndex >= 0 ? emptyIndex : next.length;
-                          if (targetIndex >= 5) return;
-                          next[targetIndex] = preset;
-                          setPollOptions(next);
-                        }}
-                        className="rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 text-[11px] text-amber transition-colors hover:bg-amber/10"
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                  {pollOptions.map((opt, idx) => (
-                    <div key={idx} className="group flex items-center gap-2 rounded-xl border border-border bg-ink/20 px-3 py-2 transition-colors focus-within:border-amber/35">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber/20 bg-amber/[0.04] font-mono text-[10px] text-amber/80">
-                        {idx + 1}
-                      </span>
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={(e) => {
-                          const next = [...pollOptions];
-                          next[idx] = e.target.value;
-                          setPollOptions(next);
-                        }}
-                        placeholder={
-                          idx === 0
-                            ? "e.g. Saturday 8pm"
-                            : idx === 1
-                            ? "e.g. Sunday afternoon"
-                            : `Option ${idx + 1}`
-                        }
-                        className="min-w-0 flex-1 bg-transparent py-1.5 text-[14px] text-paper outline-none placeholder:text-text-ghost/45"
-                      />
-                      <label className="relative shrink-0 rounded-md border border-border bg-elevated px-2.5 py-1.5 text-text-ghost transition-colors hover:border-amber/30 hover:text-amber">
-                        <input
-                          type="datetime-local"
-                          value={toDateTimeLocalValue(opt)}
-                          onChange={(e) => {
-                            const next = [...pollOptions];
-                            next[idx] = formatDateTimeOption(e.target.value);
-                            setPollOptions(next);
-                          }}
-                          className="absolute inset-0 cursor-pointer opacity-0"
-                          aria-label={`Pick date and time for option ${idx + 1}`}
-                        />
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                          <path d="M4 2v2M12 2v2M2.5 6h11M3 3.5h10a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
-                          <path d="M6 9h.01M8 9h.01M10 9h.01M6 11.5h.01M8 11.5h.01" />
-                        </svg>
-                      </label>
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = pollOptions.filter((_, i) => i !== idx);
-                            setPollOptions(next);
-                          }}
-                          className="rounded-md p-1.5 text-text-ghost opacity-70 transition-colors hover:text-rose group-hover:opacity-100"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M3 3l8 8M11 3l-8 8" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {pollOptions.length < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setPollOptions([...pollOptions, ""])}
-                      className="mt-1 rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-amber transition-colors hover:bg-amber/10"
-                    >
-                      Add another time
-                    </button>
-                  )}
+                  <ScheduleOptions options={pollOptions} setOptions={setPollOptions} presets={schedulePresets} />
                 </div>
 
                 <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
@@ -2335,13 +2379,15 @@ export default function CampaignPage() {
                 Applicants
               </h2>
               <span className="text-[10px] text-text-ghost">
-                {applications.length} application{applications.length !== 1 ? "s" : ""}
+                {openApplications.length > 0
+                  ? `${openApplications.length} awaiting${resolvedApplications.length > 0 ? ` · ${resolvedApplications.length} resolved` : ""}`
+                  : `${applications.length} application${applications.length !== 1 ? "s" : ""}`}
               </span>
             </div>
 
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
-                {applications.map((app) => {
+                {openApplications.map((app) => {
                   const isPending = app.status === "pending";
                   const isVoting = app.status === "voting";
                   const isExpanded = expandedPitch === app.id;
@@ -2518,13 +2564,61 @@ export default function CampaignPage() {
                 })}
               </AnimatePresence>
 
-              {applications.length === 0 && (
+              {openApplications.length === 0 && resolvedApplications.length === 0 && (
                 <div className="bg-surface/50 border border-border/50 border-dashed rounded-2xl p-8 text-center">
                   <p className="text-text-ghost text-sm">No applications yet.</p>
                   <p className="text-text-ghost/60 text-xs mt-1">
                     Make sure your campaign is public so players can discover and apply.
                   </p>
                 </div>
+              )}
+
+              {openApplications.length === 0 && resolvedApplications.length > 0 && (
+                <div className="rounded-2xl border border-sage/20 bg-sage/[0.05] p-4 text-center">
+                  <p className="text-sage text-sm font-medium">The door is clear.</p>
+                  <p className="text-text-ghost/70 text-xs mt-1">
+                    Everyone who applied has been welcomed or turned away.
+                  </p>
+                </div>
+              )}
+
+              {resolvedApplications.length > 0 && (
+                <details className="group rounded-2xl border border-border/60 bg-surface/40">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost transition-colors hover:text-text-secondary [&::-webkit-details-marker]:hidden">
+                    <span>Resolved · {resolvedApplications.length}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" className="transition-transform group-open:rotate-180">
+                      <path d="M4 6l4 4 4-4" />
+                    </svg>
+                  </summary>
+                  <div className="space-y-2 px-3 pb-3">
+                    {resolvedApplications.map((app) => (
+                      <div key={app.id} className="flex items-center gap-3 rounded-xl border border-border/50 bg-ink/20 px-3 py-2">
+                        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-ink">
+                          {app.user.avatarUrl ? (
+                            <Image src={app.user.avatarUrl} alt={app.user.displayName || ""} fill sizes="32px" className="object-cover" unoptimized />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-[11px] font-display text-text-ghost">
+                              {(app.user.displayName || "?").charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <p className="min-w-0 flex-1 truncate text-[13px] text-text-secondary">
+                          {app.user.displayName || "Anonymous"}
+                          {app.characterName ? <span className="text-text-ghost"> · {app.characterName}</span> : null}
+                        </p>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] ${
+                            app.status === "approved"
+                              ? "border-sage/20 bg-sage/15 text-sage"
+                              : "border-rose/20 bg-rose/15 text-rose"
+                          }`}
+                        >
+                          {app.status === "approved" ? "Welcomed" : "Declined"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               )}
             </div>
           </motion.section>

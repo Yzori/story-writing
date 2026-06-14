@@ -41,7 +41,24 @@ interface ContextPanelProps {
     input: { kind: import("@/types/campaign").CharacterMarkKind; text: string },
   ) => Promise<unknown>;
   onRemoveMark?: (characterId: string, markId: string) => Promise<void>;
+  /** When set, the GM panel becomes a single focused ritual (one director move).
+   *  When null, it's character/clock management only. Players ignore this. */
+  focus?: "roll" | "scene" | "story" | "illustration" | "bargain" | "pressure" | null;
+  /** GM offers a bargain (a price for a gain) — the bargain ritual. */
+  onOfferBargain?: (body: { targetUserId: string; targetLabel: string; gain: string; price: string }) => Promise<void> | void;
+  /** Close the hosting drawer/ritual (called after a focused move is committed). */
+  onClose?: () => void;
 }
+
+// Titles + one-liners for each focused ritual (the Director's hand).
+const RITUAL_META: Record<string, { title: string; hint: string }> = {
+  roll: { title: "Call a roll", hint: "Put the moment in the hands of the dice." },
+  bargain: { title: "Offer a bargain", hint: "A price for a gain — let them choose." },
+  scene: { title: "Scene break", hint: "Cut, and move the story on." },
+  story: { title: "Story moment", hint: "A held, full-bleed beat over the table." },
+  illustration: { title: "Add an illustration", hint: "Drop an image into the page." },
+  pressure: { title: "The pressure", hint: "A clock the whole table can feel rising." },
+};
 
 export default function ContextPanel({
   isGM,
@@ -64,20 +81,30 @@ export default function ContextPanel({
   currentUserId = null,
   onCreateMark,
   onRemoveMark,
+  focus = null,
+  onOfferBargain,
+  onClose,
 }: ContextPanelProps) {
   const visibilityClass = forceVisible ? "flex w-full" : "hidden lg:flex w-[280px] xl:w-[300px]";
-  const [pushEventText, setPushEventText] = useState("");
-  const [showPushInput, setShowPushInput] = useState(false);
+
+  // Bargain ritual state
+  const [bargainTarget, setBargainTarget] = useState("everyone");
+  const [bargainGain, setBargainGain] = useState("");
+  const [bargainPrice, setBargainPrice] = useState("");
+  const [bargainBusy, setBargainBusy] = useState(false);
+
+  // Pressure ritual state
+  const [pressureName, setPressureName] = useState("");
+  const [pressureLine, setPressureLine] = useState("");
+  const [pressureSize, setPressureSize] = useState<4 | 6 | 8>(6);
 
   // Scene break form state
-  const [showSceneBreakForm, setShowSceneBreakForm] = useState(false);
   const [sceneBreakTitle, setSceneBreakTitle] = useState("");
   const [sceneBreakMood, setSceneBreakMood] = useState("ominous");
   const [sceneBreakAspects, setSceneBreakAspects] = useState<string[]>([]);
   const [sceneBreakAspectInput, setSceneBreakAspectInput] = useState("");
 
   // Story moment form state
-  const [showStoryMomentForm, setShowStoryMomentForm] = useState(false);
   const [storyMomentText, setStoryMomentText] = useState("");
   const [storyMomentSubtext, setStoryMomentSubtext] = useState("");
   const [storyMomentMood, setStoryMomentMood] = useState("ominous");
@@ -85,7 +112,6 @@ export default function ContextPanel({
   const [storyMomentLeavesMark, setStoryMomentLeavesMark] = useState(false);
 
   // Illustration form state
-  const [showIllustrationForm, setShowIllustrationForm] = useState(false);
   const [illustrationUrl, setIllustrationUrl] = useState("");
   const [illustrationCaption, setIllustrationCaption] = useState("");
 
@@ -160,64 +186,251 @@ export default function ContextPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.22)_transparent]">
-          {/* Tension Clocks */}
-          {(clocks.length > 0 || onClocksChange) && (
+          {/* Tension Clocks — management only */}
+          {!focus && (clocks.length > 0 || onClocksChange) && (
             <StakesTracker clocks={clocks} onClocksChange={onClocksChange} />
           )}
 
-          {/* Party Status */}
-          <CharacterSheetSection
-            characters={characters}
-            activePlayerId={activePlayerId}
-            onChangeCharacterStatus={onChangeCharacterStatus}
-            onInviteNewCharacter={onInviteNewCharacter}
-            roster={roster}
-            currentUserId={currentUserId}
-            isGM={isGM}
-            onCreateMark={onCreateMark}
-            onRemoveMark={onRemoveMark}
-          />
+          {/* Party Status — management only */}
+          {!focus && (
+            <CharacterSheetSection
+              characters={characters}
+              activePlayerId={activePlayerId}
+              onChangeCharacterStatus={onChangeCharacterStatus}
+              onInviteNewCharacter={onInviteNewCharacter}
+              roster={roster}
+              currentUserId={currentUserId}
+              isGM={isGM}
+              onCreateMark={onCreateMark}
+              onRemoveMark={onRemoveMark}
+            />
+          )}
 
-          {/* GM Actions */}
-          <div className="space-y-4">
-            <div className="border-b border-amber/20 pb-3">
-              <h3 className="flex items-center gap-2 text-[10px] uppercase font-display tracking-[0.2em] text-amber">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-                Director Moves
-              </h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-                Fast levers for pressure, pacing, and canon.
-              </p>
+          {/* GM Actions — a single focused ritual, summoned from the Director's hand */}
+          {focus && (
+          <div className="space-y-5">
+            <div className="border-b border-amber/15 pb-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-amber/70">The Director&apos;s hand</p>
+              <h3 className="mt-2 font-display text-[22px] leading-tight text-paper">{RITUAL_META[focus]?.title}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-text-ghost">{RITUAL_META[focus]?.hint}</p>
             </div>
-
             <div className="grid grid-cols-1 gap-3">
-              <RollRequestForm activeChars={activeChars} onRequestRoll={onRequestRoll} />
+              {focus === "roll" && <RollRequestForm activeChars={activeChars} onRequestRoll={onRequestRoll} />}
 
-              <p className="pt-1 text-[9px] uppercase tracking-[0.2em] text-text-secondary">Pacing</p>
+              {/* Pressure — one scene clock; raising it ticks the clock AND
+                  drops the escalation line into canon, so it never goes stale. */}
+              {focus === "pressure" && (() => {
+                const clock = clocks.length > 0 ? clocks[0] : null;
+                if (clock) {
+                  const full = clock.filled >= clock.segments;
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 rounded-xl border border-amber/20 bg-amber/[0.05] px-4 py-3">
+                        <span className="text-amber">⛓</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-display text-[15px] text-paper">{clock.name}</p>
+                          <div className="mt-1.5 flex gap-1">
+                            {Array.from({ length: clock.segments }).map((_, i) => (
+                              <span key={i} className={`h-1.5 flex-1 rounded-full ${i < clock.filled ? "bg-amber" : "bg-subtle"}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <span className="shrink-0 font-display text-[13px] tabular-nums text-amber">{clock.filled}/{clock.segments}</span>
+                      </div>
+
+                      {!full && (
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">
+                            What tightens? <span className="normal-case tracking-normal text-text-ghost/60">(one line for the page)</span>
+                          </label>
+                          <textarea
+                            value={pressureLine}
+                            onChange={(e) => setPressureLine(e.target.value)}
+                            rows={2}
+                            placeholder="The water reaches her knees…"
+                            className="mt-1.5 w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 pt-1">
+                        {full ? (
+                          <span className="text-[12px] italic text-amber/80">The clock is full — let it break.</span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              onClocksChange?.(
+                                clocks.map((c, i) => (i === 0 ? { ...c, filled: Math.min(c.filled + 1, c.segments) } : c)),
+                              );
+                              if (pressureLine.trim()) onPushEvent(pressureLine.trim());
+                              setPressureLine("");
+                              onClose?.();
+                            }}
+                            className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90"
+                          >
+                            Raise the pressure
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            onClocksChange?.(clocks.filter((_, i) => i !== 0));
+                            onClose?.();
+                          }}
+                          className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-rose"
+                        >
+                          {full ? "Clear it" : "The danger passed"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">Name the pressure</label>
+                      <input
+                        value={pressureName}
+                        onChange={(e) => setPressureName(e.target.value)}
+                        placeholder="The tide rises"
+                        autoFocus
+                        className="mt-1.5 w-full rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">How close to breaking?</label>
+                      <div className="mt-1.5 grid grid-cols-3 gap-2">
+                        {([4, 6, 8] as const).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setPressureSize(s)}
+                            className={`rounded-xl border px-3 py-2 text-[13px] transition-colors ${
+                              pressureSize === s ? "border-amber/45 bg-amber/[0.12] text-amber" : "border-border bg-ink/30 text-text-secondary hover:border-amber/30"
+                            }`}
+                          >
+                            {s} segments
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        disabled={!pressureName.trim()}
+                        onClick={() => {
+                          onClocksChange?.([
+                            ...clocks,
+                            { id: `clock-${Date.now()}`, name: pressureName.trim(), segments: pressureSize, filled: 0, type: "danger" },
+                          ]);
+                          setPressureName("");
+                          setPressureSize(6);
+                          onClose?.();
+                        }}
+                        className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                      >
+                        Start the clock
+                      </button>
+                      <button onClick={() => onClose?.()} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Bargain — a price for a gain */}
+              {focus === "bargain" && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">To</label>
+                    <div className="relative mt-1.5">
+                      <select
+                        value={bargainTarget}
+                        onChange={(e) => setBargainTarget(e.target.value)}
+                        className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-border bg-ink/40 pl-3 pr-10 text-[14px] text-paper outline-none transition-colors focus:border-amber/35"
+                      >
+                        <option value="everyone" className="bg-elevated text-paper">Whole table</option>
+                        {activeChars.map((c) => (
+                          <option key={c.userId} value={c.userId} className="bg-elevated text-paper">{c.name}</option>
+                        ))}
+                      </select>
+                      <svg
+                        width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-ghost"
+                      >
+                        <path d="M4 6l4 4 4-4" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">The gain</label>
+                    <textarea
+                      value={bargainGain}
+                      onChange={(e) => setBargainGain(e.target.value)}
+                      placeholder="What they get…"
+                      rows={2}
+                      className="mt-1.5 w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none transition-colors placeholder:text-text-ghost/50 focus:border-amber/35"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">The price</label>
+                    <textarea
+                      value={bargainPrice}
+                      onChange={(e) => setBargainPrice(e.target.value)}
+                      placeholder="What it costs them…"
+                      rows={2}
+                      className="mt-1.5 w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none transition-colors placeholder:text-text-ghost/50 focus:border-rose/40"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      onClick={async () => {
+                        if (!onOfferBargain || !bargainGain.trim() || !bargainPrice.trim()) return;
+                        setBargainBusy(true);
+                        try {
+                          const label =
+                            bargainTarget === "everyone"
+                              ? "Whole table"
+                              : activeChars.find((c) => c.userId === bargainTarget)?.name ?? "Someone";
+                          await onOfferBargain({ targetUserId: bargainTarget, targetLabel: label, gain: bargainGain.trim(), price: bargainPrice.trim() });
+                          setBargainGain("");
+                          setBargainPrice("");
+                          setBargainTarget("everyone");
+                          onClose?.();
+                        } finally {
+                          setBargainBusy(false);
+                        }
+                      }}
+                      disabled={!bargainGain.trim() || !bargainPrice.trim() || bargainBusy}
+                      className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                    >
+                      {bargainBusy ? "Offering…" : "Offer the bargain"}
+                    </button>
+                    <button onClick={() => onClose?.()} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Scene Break */}
-              {showSceneBreakForm ? (
-                <div className="bg-amber/5 border border-amber/20 rounded-lg p-3 space-y-3">
-                  <p className="text-[10px] uppercase tracking-widest text-amber font-bold">Scene Break</p>
-
+              {focus === "scene" ? (
+                <div className="space-y-4">
                   {/* Title */}
                   <div>
-                    <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Title (optional)</label>
+                    <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Title (optional)</label>
                     <input
                       type="text"
                       value={sceneBreakTitle}
                       onChange={(e) => setSceneBreakTitle(e.target.value)}
                       placeholder="The Descent Begins..."
-                      className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
+                      className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
                       autoFocus
                     />
                   </div>
 
                   {/* Mood pills */}
                   <div>
-                    <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Mood</label>
+                    <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Mood</label>
                     <div className="flex gap-1.5 mt-1 flex-wrap">
                       {(["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic"] as const).map((mood) => {
                         const moodColors: Record<string, string> = {
@@ -249,7 +462,7 @@ export default function ContextPanel({
 
                   {/* Aspect tags input */}
                   <div>
-                    <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Scene Aspects (optional)</label>
+                    <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Scene Aspects (optional)</label>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {sceneBreakAspects.map((aspect) => (
                         <span
@@ -273,7 +486,7 @@ export default function ContextPanel({
                       value={sceneBreakAspectInput}
                       onChange={(e) => setSceneBreakAspectInput(e.target.value)}
                       placeholder="e.g. Torrential Rain, No Escape..."
-                      className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
+                      className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === ",") {
                           e.preventDefault();
@@ -284,7 +497,7 @@ export default function ContextPanel({
                     <p className="text-[8px] text-text-ghost mt-0.5">Press Enter or comma to add</p>
                   </div>
 
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex items-center gap-3 pt-1">
                     <button
                       onClick={() => {
                         // Add any pending aspect text
@@ -297,53 +510,30 @@ export default function ContextPanel({
                         setSceneBreakMood("ominous");
                         setSceneBreakAspects([]);
                         setSceneBreakAspectInput("");
-                        setShowSceneBreakForm(false);
+                        onClose?.();
                       }}
-                      className="flex-1 bg-amber/20 hover:bg-amber/30 text-amber text-[10px] uppercase tracking-wider font-bold rounded py-1.5 cursor-pointer"
+                      className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90"
                     >
-                      Set Scene
+                      Cut the scene
                     </button>
-                    <button onClick={() => setShowSceneBreakForm(false)} className="px-3 text-[10px] text-text-tertiary hover:text-paper cursor-pointer">
+                    <button onClick={() => onClose?.()} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
                       Cancel
                     </button>
                   </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowSceneBreakForm(true)}
-                  className="min-h-16 bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
-                >
-                  <span className="text-sm text-amber/90 font-medium">Scene Break...</span>
-                  <span className="text-[10px] text-text-secondary mt-1">Mark a new scene or act in the story.</span>
-                </button>
-              )}
+              ) : null}
 
               {/* Story Moment */}
-              {showStoryMomentForm ? (
-                <div className="relative bg-black/60 border border-amber/30 rounded-lg p-3 space-y-3 shadow-[0_0_20px_rgba(200,150,60,0.08),inset_0_1px_0_rgba(200,150,60,0.1)]">
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-amber/5 to-rose/5 pointer-events-none" />
-                  <div className="relative space-y-3">
-                    <p className="text-[10px] uppercase tracking-widest font-bold flex items-center gap-2">
-                      <span className="bg-gradient-to-r from-amber to-rose bg-clip-text text-transparent">Story Moment</span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="url(#moment-grad)" strokeWidth="2">
-                        <defs>
-                          <linearGradient id="moment-grad" x1="0" y1="0" x2="24" y2="24">
-                            <stop offset="0%" stopColor="rgb(200,150,60)" />
-                            <stop offset="100%" stopColor="rgb(244,63,94)" />
-                          </linearGradient>
-                        </defs>
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                      </svg>
-                    </p>
-
+              {focus === "story" ? (
+                <div className="space-y-4">
                     {/* Text */}
                     <div>
-                      <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Text</label>
+                      <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Text</label>
                       <textarea
                         value={storyMomentText}
                         onChange={(e) => setStoryMomentText(e.target.value)}
                         placeholder="The temple crumbles around them..."
-                        className="w-full min-h-20 resize-none bg-black/30 border border-border rounded-lg px-3 py-2 text-xs leading-relaxed text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
+                        className="mt-1.5 w-full min-h-20 resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
                         autoFocus
                       />
                     </div>
@@ -380,19 +570,19 @@ export default function ContextPanel({
 
                     {/* Subtext */}
                     <div>
-                      <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Subtext (optional)</label>
+                      <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Subtext (optional)</label>
                       <input
                         type="text"
                         value={storyMomentSubtext}
                         onChange={(e) => setStoryMomentSubtext(e.target.value)}
                         placeholder="Optional secondary line..."
-                        className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
+                        className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
                       />
                     </div>
 
                     {/* Mood pills */}
                     <div>
-                      <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Mood</label>
+                      <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Mood</label>
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         {(["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic", "death", "betrayal"] as const).map((mood) => {
                           const moodColors: Record<string, string> = {
@@ -424,7 +614,7 @@ export default function ContextPanel({
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex items-center gap-3 pt-1">
                       <button
                         onClick={() => {
                           if (storyMomentText.trim()) {
@@ -442,57 +632,33 @@ export default function ContextPanel({
                             setStoryMomentMood("ominous");
                             setStoryMomentMajor(false);
                             setStoryMomentLeavesMark(false);
-                            setShowStoryMomentForm(false);
+                            onClose?.();
                           }
                         }}
                         disabled={!storyMomentText.trim()}
-                        className="flex-1 bg-gradient-to-r from-amber/30 to-rose/30 hover:from-amber/40 hover:to-rose/40 text-paper text-[10px] uppercase tracking-wider font-bold rounded py-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed border border-amber/20 shadow-[0_0_12px_rgba(200,150,60,0.15)]"
+                        className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                       >
-                        Play Moment
+                        Play the moment
                       </button>
-                      <button onClick={() => setShowStoryMomentForm(false)} className="px-3 text-[10px] text-text-tertiary hover:text-paper cursor-pointer">
+                      <button onClick={() => onClose?.()} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
                         Cancel
                       </button>
                     </div>
-                  </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowStoryMomentForm(true)}
-                  className="relative min-h-16 bg-black/40 hover:bg-black/60 border border-amber/15 hover:border-amber/30 rounded-lg p-3 text-left transition-all flex flex-col group cursor-pointer overflow-hidden shadow-[0_0_15px_rgba(200,150,60,0.05)]"
-                >
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-amber/5 to-rose/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                  <span className="relative text-sm font-medium flex items-center gap-2">
-                    <span className="bg-gradient-to-r from-amber to-rose bg-clip-text text-transparent">Story Moment...</span>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                  </span>
-                  <span className="relative text-[10px] text-text-secondary mt-1">Play a cinematic overlay moment.</span>
-                </button>
-              )}
+              ) : null}
 
               {/* Illustration */}
-              {showIllustrationForm ? (
-                <div className="relative bg-black/60 border border-amber/30 rounded-lg p-3 space-y-3 shadow-[0_0_20px_rgba(200,150,60,0.08),inset_0_1px_0_rgba(200,150,60,0.1)]">
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-amber/5 to-transparent pointer-events-none" />
-                  <div className="relative space-y-3">
-                    <p className="text-[10px] uppercase tracking-widest text-amber font-bold flex items-center gap-2">
-                      Set the Scene
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/60">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                      </svg>
-                    </p>
-
+              {focus === "illustration" ? (
+                <div className="space-y-4">
                     {/* Image URL */}
                     <div>
-                      <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Image URL</label>
+                      <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Image URL</label>
                       <input
                         type="text"
                         value={illustrationUrl}
                         onChange={(e) => setIllustrationUrl(e.target.value)}
                         placeholder="https://images.unsplash.com/..."
-                        className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30"
+                        className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
                         autoFocus
                       />
                       <p className="text-[9px] text-text-ghost mt-1">
@@ -519,101 +685,41 @@ export default function ContextPanel({
 
                     {/* Caption */}
                     <div>
-                      <label className="text-[9px] uppercase text-text-tertiary tracking-wider">Caption (optional)</label>
+                      <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Caption (optional)</label>
                       <textarea
                         value={illustrationCaption}
                         onChange={(e) => setIllustrationCaption(e.target.value)}
                         placeholder="What does the party see?"
-                        className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none mt-1 placeholder:text-text-ghost focus:border-amber/30 resize-none"
+                        className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30 resize-none"
                         rows={2}
                       />
                     </div>
 
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex items-center gap-3 pt-1">
                       <button
                         onClick={() => {
                           if (illustrationUrl.trim()) {
                             onAddIllustration?.(illustrationUrl.trim(), illustrationCaption.trim() || undefined);
                             setIllustrationUrl("");
                             setIllustrationCaption("");
-                            setShowIllustrationForm(false);
+                            onClose?.();
                           }
                         }}
                         disabled={!illustrationUrl.trim()}
-                        className="flex-1 bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[10px] uppercase tracking-wider font-bold rounded py-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                       >
-                        Place in Story
+                        Place in the story
                       </button>
-                      <button onClick={() => { setShowIllustrationForm(false); setIllustrationUrl(""); setIllustrationCaption(""); }} className="px-3 text-[10px] text-text-tertiary hover:text-paper cursor-pointer">
+                      <button onClick={() => onClose?.()} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
                         Cancel
                       </button>
                     </div>
-                  </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowIllustrationForm(true)}
-                  className="min-h-16 bg-amber/5 hover:bg-amber/10 border border-amber/20 rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
-                >
-                  <span className="text-sm text-amber/90 font-medium flex items-center gap-2">
-                    Set the Scene...
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                    </svg>
-                  </span>
-                  <span className="text-[10px] text-text-secondary mt-1">Drop an illustration into the story.</span>
-                </button>
-              )}
+              ) : null}
 
-              {/* Push Turn Event */}
-              {showPushInput ? (
-                <div className="bg-ink border border-border rounded-lg p-3 space-y-2">
-                  <input
-                    type="text"
-                    value={pushEventText}
-                    onChange={(e) => setPushEventText(e.target.value)}
-                    placeholder="e.g. A sudden tremor shakes the chamber..."
-                    className="w-full bg-black/30 border border-border rounded-lg px-3 py-2 text-xs text-paper outline-none focus:border-border-active placeholder:text-text-tertiary"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && pushEventText.trim()) {
-                        onPushEvent(pushEventText.trim());
-                        setPushEventText("");
-                        setShowPushInput(false);
-                      }
-                      if (e.key === "Escape") setShowPushInput(false);
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        if (pushEventText.trim()) {
-                          onPushEvent(pushEventText.trim());
-                          setPushEventText("");
-                          setShowPushInput(false);
-                        }
-                      }}
-                      disabled={!pushEventText.trim()}
-                      className="flex-1 bg-subtle/50 hover:bg-subtle/60 text-text text-[10px] uppercase tracking-wider font-bold rounded py-1.5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      Push
-                    </button>
-                    <button onClick={() => setShowPushInput(false)} className="px-3 text-[10px] text-text-tertiary hover:text-paper cursor-pointer">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowPushInput(true)}
-                  className="min-h-16 bg-ink hover:bg-subtle/30 border border-border rounded-lg p-3 text-left transition-colors flex flex-col group cursor-pointer"
-                >
-                  <span className="text-sm text-text shrink-0">Push Narrative Event</span>
-                  <span className="text-[10px] text-text-secondary mt-1">Drop an unexpected turn of events.</span>
-                </button>
-              )}
             </div>
           </div>
+          )}
 
         </div>
 
@@ -697,26 +803,6 @@ export default function ContextPanel({
                 </div>
               </div>
             )}
-
-            {/* Approaches */}
-            <div className="space-y-4 mb-8">
-              <h3 className="text-[10px] uppercase font-display tracking-[0.2em] text-text-tertiary border-b border-border pb-2">Approaches</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {Object.entries(stats.approaches).map(([key, val]) => {
-                  const isHighest = val === Math.max(...Object.values(stats.approaches));
-                  const descriptions: Record<string, string> = { Bold: "Force & courage", Keen: "Wit & cunning", Subtle: "Grace & finesse" };
-                  return (
-                    <div key={key} className={`rounded-lg p-3 flex flex-col items-center ${isHighest ? "bg-ink border border-amber/30 shadow-[inset_0_2px_10px_rgba(200,150,60,0.1)]" : "bg-ink border border-border"}`}>
-                      <span className={`text-[9px] uppercase ${isHighest ? "text-amber/60" : "text-text-tertiary"}`}>{key}</span>
-                      <span className={`text-2xl font-display mt-1 ${isHighest ? "text-amber" : val < 0 ? "text-red-400/60" : "text-paper"}`}>
-                        {val >= 0 ? `+${val}` : val}
-                      </span>
-                      <span className="text-[8px] text-text-ghost mt-1">{descriptions[key]}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
           </>
         ) : (

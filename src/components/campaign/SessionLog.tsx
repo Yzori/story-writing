@@ -19,6 +19,11 @@ interface SessionLogProps {
   isGM?: boolean;
   onUpdateRollRequest?: (turnId: string, status: "closed" | "cancelled") => void;
   fullWidth?: boolean;
+  /** Which slice of the log to show. "talk" = OOC chat only, "rolls" = dice &
+   *  checks only, "all" = everything (default; used by spectator/watch). */
+  view?: "all" | "talk" | "rolls";
+  /** When provided, renders a Talk | Rolls toggle in the header. */
+  onChangeView?: (view: "talk" | "rolls") => void;
 }
 
 export default function SessionLog({
@@ -35,8 +40,16 @@ export default function SessionLog({
   isGM = false,
   onUpdateRollRequest,
   fullWidth = false,
+  view = "all",
+  onChangeView,
 }: SessionLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const shown = useMemo(() => {
+    if (view === "talk") return turns.filter((t) => t.type === "ooc");
+    if (view === "rolls") return turns.filter((t) => t.type !== "ooc");
+    return turns;
+  }, [turns, view]);
 
   const userIds = useMemo(() => {
     return [...new Set(turns.map((t) => t.userId))];
@@ -46,7 +59,7 @@ export default function SessionLog({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [turns.length]);
+  }, [shown.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,7 +97,9 @@ export default function SessionLog({
       <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md pb-4 shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">Canon Feed</h2>
+            <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">
+              {view === "rolls" ? "Rolls & checks" : view === "talk" ? "Table talk" : "Canon Feed"}
+            </h2>
             <p className="text-text-tertiary text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
           </div>
           {onToggleCollapse && (
@@ -99,17 +114,37 @@ export default function SessionLog({
             </button>
           )}
         </div>
+
+        {/* Talk | Rolls toggle */}
+        {onChangeView && (view === "talk" || view === "rolls") && (
+          <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-border bg-ink/40 p-1">
+            {(["talk", "rolls"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onChangeView(v)}
+                className={`rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                  view === v ? "bg-elevated text-amber" : "text-text-ghost hover:text-text-secondary"
+                }`}
+              >
+                {v === "talk" ? "Table talk" : "Rolls"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Event Log */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.24)_transparent]">
-        {turns.length === 0 && (
+        {shown.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-text-ghost text-xs italic font-serif">No messages yet...</p>
+            <p className="text-text-ghost text-xs italic font-serif">
+              {view === "rolls" ? "No rolls yet..." : "No table talk yet..."}
+            </p>
           </div>
         )}
 
-        {turns.map((turn) => (
+        {shown.map((turn) => (
           <div key={turn.id} className="flex flex-col">
             {/* OOC Chat */}
             {turn.type === "ooc" && (
@@ -232,8 +267,9 @@ export default function SessionLog({
         <div className="mt-auto pt-4" />
       </div>
 
-      {/* Chat Input — OOC only, no dice button (hidden in read-only / spectator mode) */}
-      {!readOnly && (
+      {/* Chat Input — OOC only, no dice button (hidden in read-only / spectator
+          mode, and on the Rolls tab). */}
+      {!readOnly && view !== "rolls" && (
         <div className="p-4 border-t border-border-subtle bg-black/40 backdrop-blur-md shrink-0">
           <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <input

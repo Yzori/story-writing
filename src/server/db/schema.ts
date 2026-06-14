@@ -1521,10 +1521,20 @@ export const campaignFloorRounds = pgTable("campaign_floor_rounds", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   prompt: text("prompt").notNull(),
-  mode: text("mode").notNull().default("gm_pick"), // 'gm_pick' | 'vote'
+  mode: text("mode").notNull().default("gm_pick"), // 'gm_pick' | 'vote' | 'house_fork'
   status: text("status").notNull().default("open"), // 'open' | 'voting' | 'closed' | 'resolved' | 'cancelled'
   audiencePulseEnabled: boolean("audience_pulse_enabled").notNull().default(false),
   selectedSubmissionId: uuid("selected_submission_id"),
+  // ── house_fork mode: the GM opens the floor to the audience ──
+  // GM-authored options the house votes on (JSON array of { label }).
+  options: text("options"),
+  // who may vote: 'gallery' (audience) | 'table' (players) | 'both'
+  constituency: text("constituency").notNull().default("table"),
+  // advisory by default; when true the GM has pledged to honour the result.
+  binding: boolean("binding").notNull().default(false),
+  // index of the winning option once the GM closes a house_fork.
+  resolvedOption: integer("resolved_option"),
+  closesAt: timestamp("closes_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -1578,6 +1588,52 @@ export const campaignFloorAudienceSparks = pgTable("campaign_floor_audience_spar
   unique("campaign_floor_audience_sparks_round_token_unique").on(table.roundId, table.token),
   index("idx_campaign_floor_audience_sparks_round").on(table.roundId, table.status),
   index("idx_campaign_floor_audience_sparks_user").on(table.userId, table.createdAt),
+]);
+
+// ── The house votes on a GM-opened floor (house_fork) ──
+// One ballot per spectator token per round. Free votes weigh 1; patrons may
+// spend drops for extra weight (capped, computed server-side into `weight`).
+export const campaignFloorAudienceVotes = pgTable("campaign_floor_audience_votes", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  roundId: uuid("round_id")
+    .notNull()
+    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  optionIndex: integer("option_index").notNull(),
+  dropsSpent: integer("drops_spent").notNull().default(0),
+  weight: integer("weight").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  unique("campaign_floor_audience_votes_round_token_unique").on(table.roundId, table.token),
+  index("idx_campaign_floor_audience_votes_round").on(table.roundId),
+]);
+
+// ── Champion a character ──
+// An audience member backs a specific character; characters accrue followings.
+export const characterChampions = pgTable("character_champions", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  characterId: uuid("character_id")
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: "cascade" }),
+  storyId: uuid("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  unique("character_champions_user_character_unique").on(table.userId, table.characterId),
+  index("idx_character_champions_character").on(table.characterId),
 ]);
 
 export const campaignFloorVotes = pgTable("campaign_floor_votes", {

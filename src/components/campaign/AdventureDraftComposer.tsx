@@ -28,6 +28,8 @@ interface AdventureDraftComposerProps {
   onCreateFloorRound?: (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => Promise<void>;
   hasActiveCrossroads?: boolean;
   bargainTargets?: Array<{ userId: string; label: string }>;
+  /** Opens the Table-talk (OOC chat) drawer. */
+  onViewChat?: () => void;
 }
 
 type ComposerMode = "write" | "roll" | "scene" | "bargain" | "crossroads" | "answer";
@@ -69,6 +71,7 @@ export default function AdventureDraftComposer({
   onCreateFloorRound,
   hasActiveCrossroads = false,
   bargainTargets = [],
+  onViewChat,
 }: AdventureDraftComposerProps) {
   const [composerMode, setComposerMode] = useState<ComposerMode>("write");
   const [rollTargetUserId, setRollTargetUserId] = useState("everyone");
@@ -169,7 +172,10 @@ export default function AdventureDraftComposer({
 
   const seedDraft = (text: string, type = draftType) => {
     setDraftType(type);
-    setDraftContent(text);
+    // The quick-beat / quick-react chips are starters. Only drop the seed in
+    // when the draft is empty — clobbering in-progress writing on a stray tap
+    // is the kind of silent data loss that makes people stop trusting the box.
+    setDraftContent((current) => (current.trim() ? current : text));
     setComposerMode("write");
   };
 
@@ -234,9 +240,10 @@ export default function AdventureDraftComposer({
     }
   };
 
-  const availableModes: ComposerMode[] = isGM
-    ? ["write", "roll", "scene", "bargain", "crossroads", "answer"]
-    : ["write", "roll", "scene", "answer"];
+  // The composer is for WORDS. Mechanics (roll, scene, bargain, crossroads)
+  // live in the Director's hand now, so no mode tabs here — the GM narrates,
+  // players pick a beat type from the chip row below.
+  const availableModes: ComposerMode[] = isGM ? ["write"] : [];
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[45] border-t border-border bg-void/92 px-3 py-3 shadow-[0_-18px_48px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-6 sm:py-4">
@@ -246,23 +253,38 @@ export default function AdventureDraftComposer({
             <p className="text-[10px] uppercase tracking-[0.18em] text-amber">{composerTitle}</p>
             <p className="truncate text-[12px] text-text-tertiary">{composerHint}</p>
           </div>
-          <div className="hidden shrink-0 items-center gap-1 rounded-full border border-border bg-subtle/20 p-1 sm:flex">
-            {availableModes.map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => handleModeChange(mode)}
-                className={`min-h-8 rounded-full px-3 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
-                  composerMode === mode
-                    ? "bg-amber/15 text-amber"
-                    : "text-text-secondary hover:text-paper"
-                }`}
-              >
-                {mode === "answer" ? (isGM ? "Answer" : "React") : mode}
-                {mode === "write" && <span className="ml-1 text-amber/60">*</span>}
-              </button>
-            ))}
-          </div>
+          {onViewChat && (
+            <button
+              type="button"
+              onClick={onViewChat}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-subtle/20 px-3 py-1.5 text-[11px] text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
+              title="Table talk — out-of-character chat"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
+              </svg>
+              View chat
+            </button>
+          )}
+          {availableModes.length > 1 && (
+            <div className="hidden shrink-0 items-center gap-1 rounded-full border border-border bg-subtle/20 p-1 sm:flex">
+              {availableModes.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleModeChange(mode)}
+                  className={`min-h-8 rounded-full px-3 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                    composerMode === mode
+                      ? "bg-amber/15 text-amber"
+                      : "text-text-secondary hover:text-paper"
+                  }`}
+                >
+                  {mode === "answer" ? (isGM ? "Answer" : "React") : mode}
+                  {mode === "write" && <span className="ml-1 text-amber/60">*</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {!isGM && (
@@ -573,36 +595,45 @@ export default function AdventureDraftComposer({
                 </label>
               )}
             </div>
-            <div className="flex gap-2 sm:w-36 sm:flex-col">
-              {hasSpeechSupport && (
-                <button
-                  type="button"
-                  onClick={toggleListening}
-                  className={`min-h-10 flex-1 rounded-lg border px-4 text-[11px] font-bold uppercase tracking-[0.16em] transition-colors ${
-                    isListening
-                      ? "border-rose/40 bg-rose/20 text-rose"
-                      : "border-border bg-subtle/20 text-text-secondary hover:text-paper"
-                  }`}
-                >
-                  {isListening ? "Stop" : "Voice"}
-                </button>
-              )}
+            <div className="flex flex-col gap-2 sm:w-44">
+              {/* Primary commit */}
               <button
                 type="button"
                 onClick={handleCommit}
                 disabled={!draftContent.trim()}
-                className="min-h-10 flex-1 rounded-lg border border-amber/35 bg-amber/15 px-4 text-[11px] font-bold uppercase tracking-[0.16em] text-amber transition-colors hover:bg-amber/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 rounded-lg bg-amber px-4 text-[12px] font-bold uppercase tracking-[0.14em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               >
                 {isGM ? "Add to Canon" : "Submit Turn"}
               </button>
-              <button
-                type="button"
-                onClick={clearDraft}
-                disabled={!draftContent.trim()}
-                className="min-h-10 flex-1 rounded-lg border border-border bg-subtle/20 px-4 text-[11px] font-bold uppercase tracking-[0.16em] text-text-secondary transition-colors hover:text-paper disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Hold
-              </button>
+              {/* Secondary: dictate + discard */}
+              <div className="flex gap-2">
+                {hasSpeechSupport && (
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    title={isListening ? "Stop dictation" : "Dictate with your voice"}
+                    className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                      isListening
+                        ? "border-rose/40 bg-rose/20 text-rose"
+                        : "border-border bg-subtle/20 text-text-secondary hover:text-paper"
+                    }`}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4" />
+                    </svg>
+                    {isListening ? "Stop" : "Voice"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={clearDraft}
+                  disabled={!draftContent.trim()}
+                  className="min-h-9 flex-1 rounded-lg border border-border bg-subtle/20 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary transition-colors hover:text-paper disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Discard this draft (your work auto-saves until you post)"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
         )}
