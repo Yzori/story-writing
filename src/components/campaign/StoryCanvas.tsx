@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { FloorRound, FloorRoundMode, Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
+import type { FloorRound, Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
 // getPlayerColor is used by TurnRenderer
 import AdventureDraftComposer from "./AdventureDraftComposer";
 import FloorRoundPanel from "./FloorRoundPanel";
@@ -41,20 +41,6 @@ interface StoryCanvasProps {
   showDiceRoller: boolean;
   onCloseDiceRoller: () => void;
   onCommitDraft: (content: string, type: string, metadata?: string) => void | Promise<void>;
-  onRequestRoll?: (
-    targetUserId: string,
-    attribute: string,
-    reason: string,
-    onSuccess: string,
-    onFailure: string,
-    fatal?: boolean,
-  ) => void | Promise<void>;
-  onOfferBargain?: (body: {
-    targetUserId: string;
-    targetLabel: string;
-    gain: string;
-    price: string;
-  }) => Promise<void>;
   onResolveBargain?: (turnId: string, response: "accepted" | "refused") => void | Promise<void>;
   onPassTurn: (userId: string) => void;
   onEndSession: () => void;
@@ -91,7 +77,6 @@ interface StoryCanvasProps {
   onUpdateRoster?: (characterIds: string[]) => void;
   spectatorMode?: boolean;
   floorRound?: FloorRound | null;
-  onCreateFloorRound?: (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => Promise<void>;
   onSubmitFloorResponse?: (
     roundId: string,
     body: { characterId: string; type: string; content: string },
@@ -205,8 +190,6 @@ export default function StoryCanvas({
   showDiceRoller,
   onCloseDiceRoller,
   onCommitDraft,
-  onRequestRoll,
-  onOfferBargain,
   onResolveBargain,
   onPassTurn,
   onEndSession,
@@ -232,7 +215,6 @@ export default function StoryCanvas({
   onUpdateRoster,
   spectatorMode = false,
   floorRound = null,
-  onCreateFloorRound,
   onSubmitFloorResponse,
   onVoteFloorSubmission,
   onUpdateAudienceSpark,
@@ -435,18 +417,6 @@ export default function StoryCanvas({
 
   // Stable player color map
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
-  const bargainTargets = useMemo(() => {
-    const seen = new Set<string>();
-    return (rosterCharacters?.length ? rosterCharacters : characters)
-      .filter((character) => {
-        if (character.status !== "active" || seen.has(character.userId)) return false;
-        seen.add(character.userId);
-        return true;
-      })
-      .map((character) => {
-        return { userId: character.userId, label: character.name };
-      });
-  }, [characters, rosterCharacters]);
 
   // ── Mood & Aspects — derive from latest scene-break ──────────
   const { currentMood, currentSceneAspects } = getCurrentSceneState(storyTurns);
@@ -810,11 +780,6 @@ export default function StoryCanvas({
             isGM={isGM}
             myCharName={myCharName}
             onCommitDraft={onCommitDraft}
-            onRequestRoll={onRequestRoll}
-            onOfferBargain={onOfferBargain}
-            onCreateFloorRound={onCreateFloorRound}
-            hasActiveCrossroads={!!floorRound}
-            bargainTargets={bargainTargets}
             onViewChat={onViewChat}
           />
         )}

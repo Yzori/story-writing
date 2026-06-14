@@ -8,7 +8,7 @@ import { useCampaignSession } from "@/hooks/use-campaign-session";
 import SessionLog from "@/components/campaign/SessionLog";
 import StoryCanvas from "@/components/campaign/StoryCanvas";
 import ContextPanel from "@/components/campaign/ContextPanel";
-import type { FloorRoundMode, RollRequest } from "@/types/campaign";
+import type { RollRequest } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
 import {
@@ -52,7 +52,6 @@ export default function SessionPlayPage() {
     editTurn,
     updateRollRequest,
     updateBargain,
-    createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
     updateAudienceSpark,
@@ -329,23 +328,6 @@ export default function SessionPlayPage() {
       }
     },
     [setActivePlayer, showToast]
-  );
-
-  const handleCreateFloorRound = useCallback(
-    async (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => {
-      try {
-        await createFloorRound(prompt, mode, audiencePulseEnabled);
-        try {
-          await setActivePlayer(null);
-        } catch {
-          // The floor round itself controls submissions; spotlight sync can recover on the next GM action.
-        }
-        showToast(audiencePulseEnabled ? "Crossroads opened with Audience Pulse" : mode === "vote" ? "Crossroads opened for table voting" : "Crossroads opened for Director pick");
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Failed to open Crossroads");
-      }
-    },
-    [createFloorRound, setActivePlayer, showToast],
   );
 
   const handleSubmitFloorResponse = useCallback(
@@ -1190,10 +1172,7 @@ export default function SessionPlayPage() {
         showDiceRoller={showDiceRoller || !!pendingRollRequest}
         onCloseDiceRoller={() => setShowDiceRoller(false)}
         onCommitDraft={handleCommitDraft}
-        onRequestRoll={handleRequestRoll}
-        onOfferBargain={handleOfferBargain}
         onResolveBargain={handleResolveBargain}
-        onCreateFloorRound={handleCreateFloorRound}
         onSubmitFloorResponse={handleSubmitFloorResponse}
         onVoteFloorSubmission={handleVoteFloorSubmission}
         onUpdateAudienceSpark={handleUpdateAudienceSpark}

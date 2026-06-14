@@ -10,7 +10,6 @@ import { parseRollRequestMetadata } from "@/lib/campaign-turns";
 import { APPROACHES, parseStats } from "@/types/campaign";
 import type {
   FloorRound,
-  FloorRoundMode,
   PlayerCharacter,
   RollRequest,
   Turn,
@@ -458,33 +457,6 @@ export default function DemoAdventurePage() {
     [appendTurn],
   );
 
-  const handleCreateFloorRound = useCallback(
-    async (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => {
-      setFloorRound({
-        id: `fr-${Date.now()}`,
-        sessionId: SESSION_ID,
-        openedBy: GM_USER_ID,
-        prompt,
-        mode,
-        status: "open",
-        audiencePulseEnabled: !!(mode === "vote" && audiencePulseEnabled),
-        selectedSubmissionId: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        submissions: [],
-        audienceSparks: [],
-        myVoteSubmissionId: null,
-        voteCount: 0,
-        eligibleVoterCount: ACTIVE_PLAYER_USER_IDS.length,
-        allEligibleVotersVoted: false,
-        isVoteEligible: true,
-        audiencePulseCount: 0,
-        myAudiencePulseSubmissionId: null,
-      });
-    },
-    [],
-  );
-
   const handleSubmitFloorResponse = useCallback(
     async (roundId: string, body: { characterId: string; type: string; content: string }) => {
       if (!currentUserId) return;
@@ -671,7 +643,6 @@ export default function DemoAdventurePage() {
             onLastWords={() => {}}
             spectatorMode={isSpectator}
             floorRound={floorRound}
-            onCreateFloorRound={handleCreateFloorRound}
             onSubmitFloorResponse={handleSubmitFloorResponse}
             onVoteFloorSubmission={handleVoteFloorSubmission}
             onUpdateFloorRound={handleUpdateFloorRound}
