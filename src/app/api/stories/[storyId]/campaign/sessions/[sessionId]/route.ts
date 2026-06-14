@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, campaignTurns, stories, playerCharacters } from "@/server/db/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { campaignSessions, campaignTurns, playerCharacters } from "@/server/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
+import { verifySessionGmAccess } from "@/server/services/collaboration";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
@@ -28,31 +29,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId } = await params;
 
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-    if (!story) {
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
+    if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
       );
     }
-    if (story.userId !== session.user.id) {
+    if (check.error === "FORBIDDEN") {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can update sessions" } },
         { status: 403 }
       );
     }
-
-    const campaignSession = await db.query.campaignSessions.findFirst({
-      where: eq(campaignSessions.id, sessionId),
-    });
-    if (!campaignSession || campaignSession.storyId !== storyId) {
+    if (check.error) {
       return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Session not found" } },
-        { status: 404 }
+        { error: { code: "INTERNAL_ERROR", message: "Failed to update session" } },
+        { status: 500 }
       );
     }
+    const { story, session: campaignSession } = check;
 
     const body = await request.json();
     const parsed = updateCampaignSessionSchema.safeParse(body);

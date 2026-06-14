@@ -6,12 +6,12 @@ import {
   users,
   campaignSessions,
 } from "@/server/db/schema";
-import { eq, and, ne, inArray, notInArray } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateSessionRosterSchema } from "@/lib/validations";
 import {
   verifyCollaboratorAccess,
-  verifyStoryOwnership,
+  verifySessionGmAccess,
 } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
 
@@ -134,7 +134,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId } = await params;
 
-    const check = await verifyStoryOwnership(storyId, session.user.id);
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
     if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },

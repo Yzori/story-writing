@@ -3,14 +3,13 @@ import { db } from "@/server/db";
 import {
   campaignFloorRounds,
   campaignFloorAudienceVotes,
-  campaignSessions,
-  stories,
 } from "@/server/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { houseVoteSchema } from "@/lib/validations";
 import { transferDrops } from "@/server/services/ink-drops";
+import { getPublicStorySession } from "@/server/services/audience-input";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
@@ -68,8 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { storyId, sessionId } = await params;
   const token = request.nextUrl.searchParams.get("token");
 
-  const story = await db.query.stories.findFirst({ where: and(eq(stories.id, storyId), isNull(stories.deletedAt)) });
-  if (!story || !story.isPublic) {
+  if (!(await getPublicStorySession(storyId, sessionId))) {
     return NextResponse.json({ data: null });
   }
   const round = await liveHouseFork(sessionId);
@@ -101,14 +99,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { storyId, sessionId } = await params;
     const { token, optionIndex, dropsSpent } = houseVoteSchema.parse(await request.json());
 
-    const story = await db.query.stories.findFirst({ where: and(eq(stories.id, storyId), isNull(stories.deletedAt)) });
-    if (!story || !story.isPublic) {
-      return NextResponse.json({ error: { code: "NOT_FOUND", message: "Story not found" } }, { status: 404 });
-    }
-    const campaignSession = await db.query.campaignSessions.findFirst({ where: eq(campaignSessions.id, sessionId) });
-    if (!campaignSession || campaignSession.storyId !== storyId) {
+    const verified = await getPublicStorySession(storyId, sessionId);
+    if (!verified) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
     }
+    const { story } = verified;
     const round = await liveHouseFork(sessionId);
     if (!round) {
       return NextResponse.json({ error: { code: "CONFLICT", message: "The floor is not open" } }, { status: 409 });

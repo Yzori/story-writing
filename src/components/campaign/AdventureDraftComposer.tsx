@@ -15,16 +15,13 @@ interface AdventureDraftComposerProps {
 }
 
 // The composer is for WORDS. Mechanics (rolls, scene cuts, bargains,
-// Crossroads) live in the Director's hand / the right-hand console now, so
-// this surface only ever toggles between writing a beat ("write"/"scene")
-// and the player's quick-react starters ("answer").
-type ComposerMode = "write" | "scene" | "answer";
-
+// Crossroads) live in the Director's hand / the right-hand console.
+// Players choose between two intents only — write what their character does, or
+// speak. Action vs description vs reaction were near-identical text renders that
+// only added classification burden, so they're collapsed away (audit P1 #5).
 const PLAYER_TYPES = [
-  { key: "action", label: "Act" },
+  { key: "action", label: "Write" },
   { key: "dialogue", label: "Speak" },
-  { key: "reaction", label: "React" },
-  { key: "description", label: "Describe" },
 ] as const;
 
 const DRAFT_PLACEHOLDERS: Record<string, string> = {
@@ -54,7 +51,6 @@ export default function AdventureDraftComposer({
   onCommitDraft,
   onViewChat,
 }: AdventureDraftComposerProps) {
-  const [composerMode, setComposerMode] = useState<ComposerMode>("write");
   const {
     draftContent,
     setDraftContent,
@@ -105,15 +101,6 @@ export default function AdventureDraftComposer({
     setLeaveAMark(false);
   };
 
-  const seedDraft = (text: string, type = draftType) => {
-    setDraftType(type);
-    // The quick-beat / quick-react chips are starters. Only drop the seed in
-    // when the draft is empty — clobbering in-progress writing on a stray tap
-    // is the kind of silent data loss that makes people stop trusting the box.
-    setDraftContent((current) => (current.trim() ? current : text));
-    setComposerMode("write");
-  };
-
   return (
     <div className="fixed inset-x-0 bottom-0 z-[45] border-t border-border bg-void/92 px-3 py-3 shadow-[0_-18px_48px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-6 sm:py-4">
       <div className="mx-auto max-w-5xl">
@@ -143,10 +130,7 @@ export default function AdventureDraftComposer({
               <button
                 key={option.key}
                 type="button"
-                onClick={() => {
-                  setDraftType(option.key);
-                  setComposerMode(option.key === "reaction" ? "answer" : option.key === "description" ? "scene" : "write");
-                }}
+                onClick={() => setDraftType(option.key)}
                 className={`min-h-9 shrink-0 rounded-full border px-3 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
                   draftType === option.key
                     ? "border-amber/35 bg-amber/15 text-amber"
@@ -165,26 +149,12 @@ export default function AdventureDraftComposer({
           </div>
         )}
 
-        {composerMode === "answer" ? (
-          <div className="grid grid-cols-4 gap-2">
-            {(isGM ? ["Raise Pressure", "Reveal Cost", "Offer Turn", "Show Mercy"] : ["Dread", "Mercy", "Wonder", "Betrayal"]).map((reaction) => (
-              <button
-                key={reaction}
-                type="button"
-                onClick={() => seedDraft(`${reaction}: `, isGM ? "consequence" : "reaction")}
-                className="rounded-lg border border-border bg-elevated px-3 py-3 text-[11px] font-bold uppercase tracking-[0.13em] text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
-              >
-                {reaction}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="space-y-2">
               <textarea
                 value={draftContent}
                 onChange={(event) => setDraftContent(event.target.value)}
-                placeholder={composerMode === "scene" ? "Shift the scene..." : DRAFT_PLACEHOLDERS[draftType] ?? "Write..."}
+                placeholder={DRAFT_PLACEHOLDERS[draftType] ?? "Write..."}
                 className="min-h-[82px] w-full resize-none rounded-lg border border-border bg-elevated px-4 py-3 font-reading text-[16px] leading-relaxed text-paper outline-none transition-colors placeholder:text-text-ghost focus:border-amber/35"
               />
               {showLeaveAMarkToggle && (
@@ -243,7 +213,6 @@ export default function AdventureDraftComposer({
               </div>
             </div>
           </div>
-        )}
 
         <AnimatePresence>
           {(draftSaved && draftContent) || interimTranscript || speechError ? (

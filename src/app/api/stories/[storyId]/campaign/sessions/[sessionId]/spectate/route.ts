@@ -15,6 +15,15 @@ type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
 };
 
+// Cheap, stable string hash for building a weak ETag from the response body.
+function djb2(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) + hash + input.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36) + "-" + input.length.toString(36);
+}
+
 /**
  * GET /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate
  * Public endpoint for spectators to poll session turns.
@@ -128,7 +137,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     const spectatorCount = Number(spectatorResult?.count ?? 0);
 
-    return NextResponse.json({
+    const body = {
       data: turns,
       session: {
         id: campaignSession.id,
@@ -144,7 +153,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         id: story.id,
         title: story.title,
       },
-    });
+    };
+
+    // Weak ETag over the exact payload so repeat polls (typically empty
+    // incremental responses where nothing changed) can short-circuit with 304.
+    const serialized = JSON.stringify(body);
+    const etag = `W/"${djb2(serialized)}"`;
+    const cacheHeaders = {
+      "Cache-Control": "private, no-cache, max-age=0, must-revalidate",
+      ETag: etag,
+    };
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new NextResponse(null, { status: 304, headers: cacheHeaders });
+    }
+
+    return NextResponse.json(body, { headers: cacheHeaders });
   } catch (error) {
     console.error("GET /api/.../spectate error:", error);
     return NextResponse.json(

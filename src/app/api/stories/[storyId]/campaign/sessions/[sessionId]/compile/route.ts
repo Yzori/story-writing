@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import {
-  stories,
   chapters,
   campaignSessions,
   campaignTurns,
@@ -15,6 +14,7 @@ import { applyRateLimit } from "@/server/api-utils";
 import { compileSessionToHTML } from "@/server/services/compile-session";
 import { countWords } from "@/lib/utils";
 import { isStoryTurnType } from "@/lib/campaign-turns";
+import { verifySessionGmAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -39,17 +39,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId } = await params;
 
-    // Verify story exists and user is the owner (GM)
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-    if (!story) {
+    // Verify story exists and user is the running GM (acting GM or owner)
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
+    if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
       );
     }
-    if (story.userId !== session.user.id) {
+    if (check.error === "FORBIDDEN") {
       return NextResponse.json(
         {
           error: {
@@ -60,17 +58,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 403 }
       );
     }
-
-    // Verify session exists and belongs to this story
-    const campaignSession = await db.query.campaignSessions.findFirst({
-      where: eq(campaignSessions.id, sessionId),
-    });
-    if (!campaignSession || campaignSession.storyId !== storyId) {
+    if (check.error) {
       return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Session not found" } },
-        { status: 404 }
+        { error: { code: "INTERNAL_ERROR", message: "Failed to compile session" } },
+        { status: 500 }
       );
     }
+    const campaignSession = check.session;
 
     if (campaignSession.status !== "completed") {
       return NextResponse.json(

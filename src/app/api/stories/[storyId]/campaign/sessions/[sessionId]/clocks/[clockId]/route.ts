@@ -4,7 +4,7 @@ import { progressClocks, campaignSessions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateProgressClockSchema } from "@/lib/validations";
-import { verifyStoryOwnership } from "@/server/services/collaboration";
+import { verifySessionGmAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string; clockId: string }> };
@@ -28,7 +28,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId, clockId } = await params;
 
-    const check = await verifyStoryOwnership(storyId, session.user.id);
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
     if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
@@ -123,7 +123,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId, clockId } = await params;
 
-    const check = await verifyStoryOwnership(storyId, session.user.id);
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
     if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },

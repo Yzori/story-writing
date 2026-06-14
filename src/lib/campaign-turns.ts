@@ -34,10 +34,6 @@ export const STORY_TURN_TYPES = [
 export const PLAYER_STORY_TURN_TYPES = ["action", "dialogue", "reaction", "description"] as const satisfies readonly CampaignTurnType[];
 export const GM_ONLY_TURN_TYPES = ["narration", "consequence", "roll-request", "illustration", "scene-break", "story-moment"] as const satisfies readonly CampaignTurnType[];
 
-export function isCampaignTurnType(value: string): value is CampaignTurnType {
-  return (CAMPAIGN_TURN_TYPES as readonly string[]).includes(value);
-}
-
 export function isLogTurnType(type: string): type is (typeof LOG_TURN_TYPES)[number] {
   return (LOG_TURN_TYPES as readonly string[]).includes(type);
 }
@@ -95,6 +91,9 @@ export const rollMetadataSchema = z.object({
   // any fatal-flagged roll). The client uses it to surface a quiet
   // "Mark this moment?" prompt to the character's owner.
   markEligible: z.boolean().optional(),
+  // Server-set when the character spent their aspect to turn a miss into a
+  // foothold (failure→partial). Once per scene. See docs/adventure-audit.md (D1).
+  aspectSaved: z.boolean().optional(),
   rollRequestTurnId: z.string().optional(),
 });
 
@@ -152,13 +151,6 @@ export const bargainMetadataSchema = z.object({
   // Server-set when the bargain is accepted — a debt was taken on.
   markEligible: z.boolean().optional(),
 });
-
-export type RollRequestMetadata = z.infer<typeof rollRequestMetadataSchema>;
-export type RollMetadata = z.infer<typeof rollMetadataSchema>;
-export type SceneBreakMetadata = z.infer<typeof sceneBreakMetadataSchema>;
-export type StoryMomentMetadata = z.infer<typeof storyMomentMetadataSchema>;
-export type IllustrationMetadata = z.infer<typeof illustrationMetadataSchema>;
-export type BargainMetadata = z.infer<typeof bargainMetadataSchema>;
 
 function parseMetadata<T>(metadata: string | null | undefined, schema: z.ZodType<T>): T | null {
   if (!metadata) return null;

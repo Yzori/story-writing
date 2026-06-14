@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { db } from "@/server/db";
 import {
-  campaignSessions,
   campaignTurns,
-  stories,
   storyMomentAmplifications,
 } from "@/server/db/schema";
 import { isLegacyCinematicSceneBreak } from "@/lib/campaign-turns";
 import { storyMomentAmplificationSchema } from "@/lib/validations";
+import { getPublicStorySession } from "@/server/services/audience-input";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
 };
-
-async function verifyPublicSession(storyId: string, sessionId: string) {
-  const story = await db.query.stories.findFirst({
-    where: and(eq(stories.id, storyId), eq(stories.isPublic, true), isNull(stories.deletedAt)),
-  });
-  if (!story) return null;
-
-  const session = await db.query.campaignSessions.findFirst({
-    where: and(eq(campaignSessions.id, sessionId), eq(campaignSessions.storyId, storyId)),
-  });
-  return session ? { story, session } : null;
-}
 
 async function getMomentTurnIds(sessionId: string) {
   const turns = await db
@@ -88,7 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (rl) return rl;
 
     const { storyId, sessionId } = await params;
-    const verified = await verifyPublicSession(storyId, sessionId);
+    const verified = await getPublicStorySession(storyId, sessionId);
     if (!verified) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Session not found" } },
@@ -113,7 +100,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (rl) return rl;
 
     const { storyId, sessionId } = await params;
-    const verified = await verifyPublicSession(storyId, sessionId);
+    const verified = await getPublicStorySession(storyId, sessionId);
     if (!verified) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Session not found" } },

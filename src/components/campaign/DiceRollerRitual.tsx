@@ -18,8 +18,10 @@ interface DiceRollerRitualProps {
   visible: boolean;
   onClose: () => void;
   onRollSubmit: (intent: { attribute: string; aspectInvoked: boolean }) => Promise<RollResult>;
-  approaches?: Record<Approach, number>;
   aspect?: string | null;
+  /** Whether the character may still spend their aspect this scene (the trump
+   *  that turns a miss into a foothold). Once spent, the invoke is disabled. */
+  aspectAvailable?: boolean;
   preSelectedAttribute?: string | null;
   rollReason?: string | null;
   rollOnSuccess?: string | null;
@@ -432,8 +434,8 @@ export default function DiceRollerRitual({
   visible,
   onClose,
   onRollSubmit,
-  // approaches are accepted for back-compat but no longer modify the roll
   aspect = null,
+  aspectAvailable = true,
   preSelectedAttribute = null,
   rollReason = null,
   rollOnSuccess = null,
@@ -460,6 +462,27 @@ export default function DiceRollerRitual({
     visibleRef.current = visible;
   }, [visible]);
 
+  // First-roll primer: explain 2d6 tiers + the aspect trump once, at the point
+  // of use. Gated per-user so veterans never see it again. (P1 #6) The ritual is
+  // a client-only portal, so a lazy initializer reads storage safely (no SSR
+  // hydration mismatch, no setState-in-effect).
+  const [primerSeen, setPrimerSeen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return localStorage.getItem("quiloria.dice.primerSeen") === "1";
+    } catch {
+      return true;
+    }
+  });
+  const dismissPrimer = () => {
+    setPrimerSeen(true);
+    try {
+      localStorage.setItem("quiloria.dice.primerSeen", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   useEffect(() => {
     const timeoutId = setTimeout(() => setMounted(true), 0);
     return () => clearTimeout(timeoutId);
@@ -475,11 +498,8 @@ export default function DiceRollerRitual({
     }
   }, [preSelectedAttribute]);
 
-  // Approaches are a fiction/tone choice now — they don't modify the roll.
-  // Invoking the character's aspect is the only +1.
-  const aspectMod = aspectInvoked && aspect ? 1 : 0;
-  const predictedMod = aspectMod;
-  const totalMod = serverResult?.modifier ?? predictedMod;
+  // The dice are a flat 2d6 — no numeric modifier. The aspect is a once-per-scene
+  // trump that turns a miss into a foothold, not a bonus. See audit D1.
   const total = serverResult?.total ?? null;
   const displayedReason = rollContext?.reason ?? rollReason;
   const displayedOnSuccess = rollContext?.onSuccess ?? rollOnSuccess;
@@ -793,15 +813,41 @@ export default function DiceRollerRitual({
                 </div>
               )}
 
-              {/* Aspect */}
+              {/* First-roll primer (P1 #6) — explains the dice once */}
+              {phase === "idle" && !primerSeen && (
+                <div className="mb-5 rounded-lg border border-amber/25 bg-amber/[0.06] px-4 py-3">
+                  <p className="text-[12px] leading-relaxed text-text-secondary">
+                    Roll <strong className="text-paper">2d6</strong>:
+                    {" "}<strong className="text-amber">10+</strong> you take it clean ·
+                    {" "}<strong className="text-amber/80">7&ndash;9</strong> you get it at a cost ·
+                    {" "}<strong className="text-rose-300">6 or less</strong> it turns against you.
+                    {aspect && <> Invoking your <strong className="text-paper">truth</strong> saves one miss per scene.</>}
+                  </p>
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={dismissPrimer}
+                      className="rounded-full border border-amber/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber/80 transition-colors hover:text-amber"
+                    >
+                      Got it
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Aspect — a once-per-scene narrative trump, not a bonus.
+                  Invoking it before the cast means a miss becomes a foothold.
+                  It's only spent if it actually saves you. */}
               {aspect && (
                 <button
-                  onClick={() => phase === "idle" && setAspectInvoked(!aspectInvoked)}
-                  disabled={phase !== "idle"}
+                  onClick={() => phase === "idle" && aspectAvailable && setAspectInvoked(!aspectInvoked)}
+                  disabled={phase !== "idle" || !aspectAvailable}
                   className={`group relative mb-6 block w-full rounded-lg border px-4 py-3 text-left transition-all duration-500 disabled:cursor-default ${
                     aspectInvoked
                       ? "border-amber/55 bg-amber/8"
-                      : "border-border-subtle bg-subtle/10 hover:border-amber/30"
+                      : aspectAvailable
+                        ? "border-border-subtle bg-subtle/10 hover:border-amber/30"
+                        : "border-border-subtle bg-subtle/5 opacity-60"
                   }`}
                   style={
                     aspectInvoked
@@ -811,10 +857,14 @@ export default function DiceRollerRitual({
                 >
                   <div className="mb-1 flex items-center justify-between">
                     <span className="font-display text-[9px] uppercase tracking-[0.32em] text-amber/65">
-                      Your truth {aspectInvoked && "(+1)"}
+                      Your truth
                     </span>
                     <span className="font-display text-[10px] italic text-amber/55">
-                      {aspectInvoked ? "✦ invoked" : "tap to invoke"}
+                      {!aspectAvailable
+                        ? "spent this scene"
+                        : aspectInvoked
+                          ? "✦ will catch a miss"
+                          : "tap to invoke"}
                     </span>
                   </div>
                   <p
@@ -834,17 +884,23 @@ export default function DiceRollerRitual({
                   >
                     &ldquo;{aspect}&rdquo;
                   </p>
+                  {aspectAvailable && (
+                    <p className="mt-1.5 text-[10px] italic text-text-ghost">
+                      Spend it to turn a miss into a foothold. Vows grant more.
+                    </p>
+                  )}
                 </button>
               )}
 
-              {/* Approaches */}
+              {/* Approaches — fictional texture, not maths. They colour what the
+                  attempt looks like and what it costs, never the odds. */}
               {phase === "idle" && (
                 <div className="mb-6">
                   <p className="mb-1 text-center font-display text-[9px] uppercase tracking-[0.34em] text-amber/55">
                     How will you reach?
                   </p>
                   <p className="mb-3 text-center text-[9px] italic text-amber/35">
-                    Colours the telling, not the odds.
+                    Shapes what happens — not the odds.
                   </p>
                   <div className="flex items-stretch justify-center gap-2">
                     {APPROACHES.map((a) => (
@@ -858,15 +914,6 @@ export default function DiceRollerRitual({
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* Modifier line — the only bonus is the invoked aspect (+1).
-                  Approaches are tone, not maths, so they never appear here. */}
-              {phase === "idle" && totalMod !== 0 && (
-                <p className="mb-2 text-center font-display text-[11px] italic text-amber/65">
-                  ✦ {totalMod >= 0 ? `+${totalMod}` : totalMod}
-                  {aspectInvoked && " · the truth you spoke"}
-                </p>
               )}
 
               {/* The Well */}
@@ -978,15 +1025,14 @@ export default function DiceRollerRitual({
                     >
                       <CountUpTotal value={total} active={phase === "revealed"} />
                     </motion.div>
-                    {totalMod !== 0 && (
+                    {serverResult && (
                       <motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.5, duration: 0.5 }}
                         className="mb-3 font-display text-[10px] italic tracking-[0.15em] text-amber/60"
                       >
-                        ({serverResult?.dice[0]} + {serverResult?.dice[1]}
-                        {totalMod !== 0 && ` ${totalMod >= 0 ? "+" : ""}${totalMod}`})
+                        ({serverResult.dice[0]} + {serverResult.dice[1]})
                       </motion.p>
                     )}
                     <Inscribed

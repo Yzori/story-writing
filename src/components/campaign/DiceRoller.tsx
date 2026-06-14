@@ -18,6 +18,8 @@ interface DiceRollerProps {
   }>;
   characters: PlayerCharacter[];
   currentUserId: string | null;
+  /** Whether the current player may still spend their aspect this scene. */
+  aspectAvailable?: boolean;
   preSelectedAttribute?: string | null;
   rollReason?: string | null;
   rollOnSuccess?: string | null;
@@ -47,6 +49,7 @@ export default function DiceRoller({
   onRollSubmit,
   characters,
   currentUserId,
+  aspectAvailable = true,
   preSelectedAttribute,
   rollReason,
   rollOnSuccess,
@@ -61,8 +64,8 @@ export default function DiceRoller({
       visible={visible}
       onClose={onClose}
       onRollSubmit={onRollSubmit}
-      approaches={stats?.approaches ?? { Bold: 0, Keen: 0, Subtle: 0 }}
       aspect={stats?.aspect ?? null}
+      aspectAvailable={aspectAvailable}
       preSelectedAttribute={mapPreselectedApproach(preSelectedAttribute)}
       rollReason={rollReason}
       rollOnSuccess={rollOnSuccess}

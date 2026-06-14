@@ -12,7 +12,7 @@ import {
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { updateFloorRoundSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getVisibleFloorRound } from "@/server/services/floor-rounds";
 import { getPendingRollRequests } from "@/server/services/campaign-rolls";
 
@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (check.error === "NOT_FOUND") {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Story not found" } }, { status: 404 });
     }
-    if (check.error === "FORBIDDEN" || check.story?.userId !== session.user.id) {
+    if (check.error === "FORBIDDEN") {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only the GM can manage floor rounds" } }, { status: 403 });
     }
 
@@ -43,6 +43,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     ]);
     if (!campaignSession || campaignSession.storyId !== storyId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
+    }
+    if (!check.story || !isSessionGm(check.story, campaignSession, session.user.id)) {
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only the GM can manage floor rounds" } }, { status: 403 });
     }
     if (!round || round.sessionId !== sessionId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Floor round not found" } }, { status: 404 });

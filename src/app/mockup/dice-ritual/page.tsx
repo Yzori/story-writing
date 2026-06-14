@@ -203,7 +203,6 @@ export default function DiceRitualMockup() {
         visible={visible}
         onClose={() => setVisible(false)}
         onRollSubmit={handleRollSubmit}
-        approaches={{ Bold: 1, Keen: 2, Subtle: 0 }}
         aspect={showAspect ? aspect : null}
         rollReason={reason}
         rollOnSuccess={stakesOn ? onSuccess : null}

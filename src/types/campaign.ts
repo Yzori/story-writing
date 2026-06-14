@@ -29,6 +29,11 @@ export interface CampaignSession {
   cliffhanger: string | null;
   closingMood: string | null;
   activePlayerId: string | null;
+  // Session-scoped continuity (D2). actingGmId = the substitute currently
+  // running the session (null = owner). takeoverProposerId = a player who has
+  // offered to run while the GM is away, awaiting one other player's confirm.
+  actingGmId: string | null;
+  takeoverProposerId: string | null;
   status: string;
 }
 

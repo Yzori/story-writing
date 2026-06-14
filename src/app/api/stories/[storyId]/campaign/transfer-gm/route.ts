@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, playerCharacters, collaborators, campaignSessions, campaignTurns } from "@/server/db/schema";
-import { eq, and, isNull, or, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { transferGmSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification, createBulkNotifications } from "@/server/services/notifications";
+import { verifyStoryOwnership } from "@/server/services/collaboration";
 import { parseRollRequestMetadata } from "@/lib/campaign-turns";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
@@ -31,21 +32,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { storyId } = await params;
 
     // Verify story exists and current user is the GM
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-    if (!story) {
+    const ownership = await verifyStoryOwnership(storyId, session.user.id);
+    if (ownership.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
       );
     }
-    if (story.userId !== session.user.id) {
+    if (ownership.error || !ownership.story) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the current GM can transfer ownership" } },
         { status: 403 }
       );
     }
+    const story = ownership.story;
 
     const body = await request.json();
     const parsed = transferGmSchema.safeParse(body);

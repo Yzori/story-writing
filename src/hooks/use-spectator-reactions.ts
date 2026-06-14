@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { usePolledFetch } from "./use-polled-fetch";
 
 export interface SpectatorReaction {
   id: string;
@@ -23,22 +24,20 @@ export function useSpectatorReactions(
   const lastTimestampRef = useRef<string>(new Date().toISOString());
   const seenReactionIdsRef = useRef<Set<string>>(new Set());
 
-  // Poll for new reactions
-  useEffect(() => {
-    let active = true;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/reactions?after=${encodeURIComponent(lastTimestampRef.current)}`
-        );
-        if (!res.ok || !active) return;
-
-        const { data } = await res.json();
+  // Poll for new reactions. The cursor lives in a ref and advances every poll,
+  // so the URL is a function (not a dependency) to keep the loop from resetting.
+  usePolledFetch(
+    () =>
+      `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/reactions?after=${encodeURIComponent(lastTimestampRef.current)}`,
+    {
+      intervalMs: POLL_INTERVAL,
+      enabled: Boolean(storyId && sessionId),
+      onData: (json) => {
+        const { data } = (json ?? {}) as { data?: Array<{ id: string; type: string; displayName: string | null; createdAt: string }> };
         if (data && data.length > 0) {
           const newReactions: SpectatorReaction[] = data
-            .filter((r: { id: string }) => !seenReactionIdsRef.current.has(r.id))
-            .map((r: { id: string; type: string; displayName: string | null; createdAt: string }) => {
+            .filter((r) => !seenReactionIdsRef.current.has(r.id))
+            .map((r) => {
               seenReactionIdsRef.current.add(r.id);
               return {
                 id: r.id,
@@ -50,8 +49,7 @@ export function useSpectatorReactions(
             });
 
           // Update last timestamp to most recent
-          lastTimestampRef.current =
-            data[data.length - 1].createdAt;
+          lastTimestampRef.current = data[data.length - 1].createdAt;
 
           if (newReactions.length > 0) {
             setReactions((prev) => {
@@ -61,18 +59,9 @@ export function useSpectatorReactions(
             });
           }
         }
-      } catch {
-        // Silently ignore poll failures
-      }
-    };
-
-    void poll();
-    const interval = setInterval(poll, POLL_INTERVAL);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [storyId, sessionId]);
+      },
+    }
+  );
 
   // Keep enough history to name the Chorus Pulse while still pruning old rows
   // from local state. FloatingReactions filters to its own short visual window.

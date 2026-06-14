@@ -11,6 +11,10 @@ import ContextPanel from "@/components/campaign/ContextPanel";
 import type { RollRequest } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
+import ActingGmBar, { type ActingGmPlayer } from "@/components/campaign/ActingGmBar";
+import EndSessionModal from "@/components/campaign/EndSessionModal";
+import OpenFloorForm from "@/components/campaign/OpenFloorForm";
+import DirectorsHand from "@/components/campaign/DirectorsHand";
 import {
   isLogTurnType,
   isStoryTurnType,
@@ -48,6 +52,7 @@ export default function SessionPlayPage() {
     setActivePlayer,
     patchStory,
     updateSession,
+    updateActingGm,
     updateRoster,
     editTurn,
     updateRollRequest,
@@ -71,6 +76,47 @@ export default function SessionPlayPage() {
   const [logTab, setLogTab] = useState<"talk" | "rolls">("talk");
   const [showContextDrawer, setShowContextDrawer] = useState(false);
   const [handOpen, setHandOpen] = useState(false);
+  // First-run discoverability for the Director's hand: the fan holds every GM
+  // stage move (rolls, scenes, bargains, clocks) but it's a single glyph, so a
+  // first-time GM can miss it entirely. Show a labeled pulse until they open it
+  // once. Default true to avoid an SSR/first-paint flash; hydrate from storage.
+  const [directHintSeen, setDirectHintSeen] = useState(true);
+  useEffect(() => {
+    try {
+      setDirectHintSeen(localStorage.getItem("quiloria.gm.directHintSeen") === "1");
+    } catch {
+      /* storage blocked — just skip the hint */
+    }
+  }, []);
+  const openDirectorsHand = useCallback(() => {
+    setHandOpen((v) => !v);
+    if (!directHintSeen) {
+      setDirectHintSeen(true);
+      try {
+        localStorage.setItem("quiloria.gm.directHintSeen", "1");
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [directHintSeen]);
+  // First-run coaching for players: the turn protocol (you write when handed the
+  // pen; otherwise react or raise your hand) is enforced but never taught. P0 #3.
+  const [playerCoachSeen, setPlayerCoachSeen] = useState(true);
+  useEffect(() => {
+    try {
+      setPlayerCoachSeen(localStorage.getItem("quiloria.player.coachSeen") === "1");
+    } catch {
+      /* storage blocked — skip the coach */
+    }
+  }, []);
+  const dismissPlayerCoach = useCallback(() => {
+    setPlayerCoachSeen(true);
+    try {
+      localStorage.setItem("quiloria.player.coachSeen", "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [consoleFocus, setConsoleFocus] = useState<null | "roll" | "scene" | "story" | "illustration" | "bargain" | "pressure">(null);
   const [floorFormOpen, setFloorFormOpen] = useState(false);
   const [floorPrompt, setFloorPrompt] = useState("");
@@ -163,6 +209,51 @@ export default function SessionPlayPage() {
   const storyTurns = useMemo(() => turns.filter((t) =>
     isStoryTurnType(t.type)
   ), [turns]);
+  // Save-trump availability: a scene resets at each scene-break. Base one save
+  // (the aspect) + one per active vow the character carries (P1 #10). Mirrors
+  // the server check in turns/route.ts so the dice UI disables a spent invoke.
+  const myAspectAvailable = useMemo(() => {
+    if (!currentUserId) return true;
+    let sceneStart = -1;
+    for (const t of turns) {
+      if (t.type === "scene-break" && t.sortOrder > sceneStart) sceneStart = t.sortOrder;
+    }
+    const used = turns.filter(
+      (t) =>
+        t.type === "roll" &&
+        t.userId === currentUserId &&
+        t.sortOrder > sceneStart &&
+        parseRollMetadata(t.metadata)?.aspectSaved === true,
+    ).length;
+    const vowCount = (myCharacter?.marks ?? []).filter((m) => m.kind === "vow").length;
+    return used < 1 + vowCount;
+  }, [turns, currentUserId, myCharacter]);
+
+  // Acting-GM continuity (D2): the table of active players (handoff targets +
+  // name lookup), excluding the owner, and whether I'm one of them.
+  const ownerId = story?.userId ?? null;
+  const actingGmPlayers = useMemo<ActingGmPlayer[]>(() => {
+    const seen = new Set<string>();
+    const list: ActingGmPlayer[] = [];
+    for (const c of characters) {
+      if (c.status !== "active" || c.userId === ownerId || seen.has(c.userId)) continue;
+      seen.add(c.userId);
+      list.push({ userId: c.userId, name: c.name || c.user?.displayName || "A player" });
+    }
+    return list;
+  }, [characters, ownerId]);
+  const isActivePlayer = !!currentUserId && actingGmPlayers.some((p) => p.userId === currentUserId);
+
+  const handleActingGm = useCallback(
+    async (action: "handoff" | "reclaim" | "propose" | "confirm" | "cancel", targetUserId?: string) => {
+      try {
+        await updateActingGm(action, targetUserId);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Couldn't update the GM seat");
+      }
+    },
+    [updateActingGm, showToast],
+  );
   // OOC turns carrying an "Extend +3min" request — InitiativeBar applies
   // these to every client's countdown (see handleExtendTimer below).
   const extensionTurns = useMemo(
@@ -949,86 +1040,15 @@ export default function SessionPlayPage() {
       </AnimatePresence>
 
       {/* End Session Confirmation Modal */}
-      <AnimatePresence>
-        {showEndModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="end-session-title"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setShowEndModal(false);
-              }
-            }}
-            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm outline-none"
-            onClick={() => setShowEndModal(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-[#111] border border-amber/20 rounded-2xl p-6 max-w-md w-full mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span id="end-session-title" className="text-[11px] uppercase tracking-[0.2em] font-display text-amber">End Session</span>
-              </div>
-
-              <p className="text-sm text-white/60 mb-5">
-                This will close the session for all players. You can optionally leave a closing thought — a teaser, a reflection, or a &ldquo;to be continued...&rdquo;
-              </p>
-
-              <label className="mb-1 block font-display text-[9px] uppercase tracking-[0.18em] text-amber/60">Closing Thought</label>
-              <textarea
-                value={epilogueText}
-                onChange={(e) => setEpilogueText(e.target.value)}
-                placeholder="The road stretches on, and the shadows grow longer..."
-                aria-label="Closing thought (optional)"
-                autoFocus
-                className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
-                rows={3}
-                maxLength={5000}
-              />
-              <p className="text-[9px] text-white/20 mt-1 mb-4">Optional — the closing moment of this session</p>
-
-              <label className="mb-1 block font-display text-[9px] uppercase tracking-[0.18em] text-amber/60">Cliffhanger</label>
-              <textarea
-                value={cliffhangerText}
-                onChange={(e) => setCliffhangerText(e.target.value)}
-                placeholder="At dawn, the gates will open — and they are not ready…"
-                aria-label="Cliffhanger for next session (optional)"
-                className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
-                rows={2}
-                maxLength={280}
-              />
-              <p className="text-[9px] text-white/20 mt-1 mb-5">Optional — the hook that opens next session&apos;s &ldquo;Previously, on…&rdquo;</p>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleConfirmEndSession}
-                  className="flex-1 bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[11px] uppercase tracking-wider font-bold rounded-full py-2.5 cursor-pointer transition-colors"
-                >
-                  End Session
-                </button>
-                <button
-                  onClick={() => setShowEndModal(false)}
-                  className="px-5 text-[11px] text-white/40 hover:text-white cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <EndSessionModal
+        open={showEndModal}
+        epilogueText={epilogueText}
+        setEpilogueText={setEpilogueText}
+        cliffhangerText={cliffhangerText}
+        setCliffhangerText={setCliffhangerText}
+        onConfirm={handleConfirmEndSession}
+        onClose={() => setShowEndModal(false)}
+      />
 
       {/* Story Moment Overlay */}
       <AnimatePresence>
@@ -1079,8 +1099,10 @@ export default function SessionPlayPage() {
             )}
           </div>
 
-          {/* The spotlight — one source of truth for whose turn. The Director is a seat,
-              lit when they hold the pen; tap a seat (GM) to pass it. */}
+          {/* The spotlight — whose turn it is. The Director is a seat, lit when
+              they hold the pen; the GM taps a seat to pass it. (StoryCanvas's
+              InitiativeBar is disabled here via showSessionChrome=false, so this
+              header rail is the canonical control.) */}
           <div className="hidden shrink-0 items-center justify-center gap-1.5 md:flex" role="group" aria-label="Whose turn it is">
             <button
               type="button"
@@ -1173,6 +1195,22 @@ export default function SessionPlayPage() {
           </div>
         </div>
       </header>
+
+      {/* Live-play continuity (D2) — in-flow band directly under the header rail
+          so it never overlaps the turn/scene info above. Renders only when there's
+          something to show or do. */}
+      {campaignSession && (
+        <ActingGmBar
+          sessionStatus={campaignSession.status}
+          ownerId={ownerId}
+          actingGmId={campaignSession.actingGmId}
+          takeoverProposerId={campaignSession.takeoverProposerId}
+          currentUserId={currentUserId}
+          players={actingGmPlayers}
+          isActivePlayer={isActivePlayer}
+          onAction={handleActingGm}
+        />
+      )}
 
       <main className="relative min-h-0 flex-1">
         {/* Hand-raise queue — the Director sees who's asking for the pen and
@@ -1278,6 +1316,7 @@ export default function SessionPlayPage() {
         onExtendTimer={handleExtendTimer}
         extensionTurns={extensionTurns}
         onRollSubmit={handleRollSubmit}
+        aspectAvailable={myAspectAvailable}
         pendingRollRequest={pendingRollRequest}
         myCharacterStatus={myCharacter?.status ?? null}
         onLastWords={handleLastWords}
@@ -1299,151 +1338,73 @@ export default function SessionPlayPage() {
         onViewChat={() => setShowLogDrawer(true)}
       />
 
+
+      {/* First-run player coaching — teaches the turn protocol once (P0 #3) */}
+      <AnimatePresence>
+        {!focusMode && !isGM && currentUserId && myCharacter &&
+          campaignSession?.status === "active" && !playerCoachSeen && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="pointer-events-none fixed inset-x-0 bottom-44 z-40 flex justify-center px-3 sm:bottom-48"
+          >
+            <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-amber/35 bg-gradient-to-b from-amber/[0.10] to-ink/95 p-4 shadow-[0_18px_50px_-28px_rgba(216,178,90,0.7)] backdrop-blur-md">
+              <p className="text-[13px] font-semibold text-amber">You&rsquo;re at the table.</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
+                You&rsquo;ll write when the Director hands you the pen. Until then, react to the
+                story or <strong className="text-paper">raise your hand</strong> to ask for the
+                spotlight. When a roll is called, your <strong className="text-paper">aspect</strong>{" "}
+                can save a miss — once per scene.
+              </p>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={dismissPlayerCoach}
+                  className="rounded-full bg-amber px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-void transition-colors hover:bg-amber/90"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* The Director's hand — GM-only floating summoner for stage-gestures.
           The fan is the discoverable affordance; each gesture opens the
           Director Console where its ritual lives. */}
       {isGM && campaignSession?.status === "active" && !focusMode && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-44 z-30 px-3 sm:bottom-48 sm:px-6">
-          <div className="pointer-events-none mx-auto flex max-w-5xl flex-col items-end gap-2">
-          <AnimatePresence>
-            {handOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.96 }}
-                transition={{ type: "spring", damping: 24, stiffness: 320 }}
-                className="pointer-events-auto flex w-60 flex-col items-stretch gap-2"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHandOpen(false);
-                    setFloorFormOpen(true);
-                  }}
-                  className="group flex items-center gap-3 rounded-2xl border border-amber/45 bg-gradient-to-b from-amber/[0.10] to-ink/95 px-4 py-2.5 text-left shadow-[0_10px_30px_-14px_rgba(0,0,0,0.8)] backdrop-blur-md transition-colors hover:border-amber/70"
-                >
-                  <span className="w-4 text-center text-sm text-amber">☍</span>
-                  <span className="leading-tight">
-                    <span className="block text-[12.5px] text-amber">Open the floor</span>
-                    <span className="block text-[9px] text-text-ghost">let the house decide</span>
-                  </span>
-                </button>
-                {([
-                  { label: "Story moment", hint: "a held, full-bleed beat", icon: "✦", focus: "story" },
-                  { label: "Scene break", hint: "cut, move time on", icon: "⁂", focus: "scene" },
-                  { label: "Raise the pressure", hint: "tick the scene clock", icon: "⛓", focus: "pressure" },
-                  { label: "Call a roll", hint: "let the dice decide", icon: "⚀", focus: "roll" },
-                  { label: "Offer a bargain", hint: "a price for a gain", icon: "⚖", focus: "bargain" },
-                  { label: "Illustration", hint: "drop an image into the page", icon: "▦", focus: "illustration" },
-                  { label: "Cast & clocks", hint: "the table & its pressure", icon: "☰", focus: null },
-                ] as const).map((m) => (
-                  <button
-                    key={m.label}
-                    type="button"
-                    onClick={() => {
-                      setHandOpen(false);
-                      setConsoleFocus(m.focus);
-                      setShowContextDrawer(true);
-                    }}
-                    className="group flex items-center gap-3 rounded-2xl border border-amber/20 bg-gradient-to-b from-elevated/95 to-ink/95 px-4 py-2.5 text-left shadow-[0_10px_30px_-14px_rgba(0,0,0,0.8)] backdrop-blur-md transition-colors hover:border-amber/50"
-                  >
-                    <span className="w-4 text-center text-sm text-amber">{m.icon}</span>
-                    <span className="leading-tight">
-                      <span className="block text-[12.5px] text-text transition-colors group-hover:text-amber">{m.label}</span>
-                      <span className="block text-[9px] text-text-ghost">{m.hint}</span>
-                    </span>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <button
-            type="button"
-            onClick={() => setHandOpen((v) => !v)}
-            aria-label="The Director's hand — stage moves"
-            className="pointer-events-auto flex items-center gap-2.5 rounded-full border border-amber/55 bg-[radial-gradient(circle_at_50%_30%,rgba(255,230,171,0.18),rgba(216,178,90,0.10))] py-1.5 pl-4 pr-1.5 text-amber shadow-[0_12px_38px_-12px_rgba(216,178,90,0.7)] backdrop-blur-md transition-colors hover:border-amber/80"
-          >
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em]">
-              {handOpen ? "Close" : "Direct"}
-            </span>
-            <span
-              className={`flex h-11 w-11 items-center justify-center rounded-full border border-amber/60 bg-[radial-gradient(circle_at_50%_32%,#ffe6ab,#d8b25a_72%)] text-[18px] text-[#241c08] shadow-[inset_0_0_14px_rgba(255,255,255,0.35)] transition-transform ${handOpen ? "rotate-45" : ""}`}
-            >
-              ✦
-            </span>
-          </button>
-          </div>
-        </div>
+        <DirectorsHand
+          handOpen={handOpen}
+          directHintSeen={directHintSeen}
+          onToggle={openDirectorsHand}
+          onOpenFloor={() => {
+            setHandOpen(false);
+            setFloorFormOpen(true);
+          }}
+          onConsoleGesture={(focus) => {
+            setHandOpen(false);
+            setConsoleFocus(focus);
+            setShowContextDrawer(true);
+          }}
+        />
       )}
 
       {/* Open the floor — GM ritual */}
-      {floorFormOpen && isGM && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFloorFormOpen(false)} />
-          <div className="relative z-10 w-full max-w-[520px] rounded-t-3xl border border-amber/25 bg-gradient-to-b from-elevated to-ink p-6 shadow-[0_-30px_90px_-40px_rgba(216,178,90,0.5)] sm:rounded-3xl">
-            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/80">Open the floor to the house</p>
-            <h3 className="mt-2 font-display text-[22px] text-paper">Hand the next beat to the gallery.</h3>
-            <p className="mt-1 text-[12px] text-text-ghost">
-              They vote; you narrate the result. {floorBinding ? "You've pledged to honour their choice." : "Their vote is advisory."}
-            </p>
-
-            <label className="mt-5 block font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">The question</label>
-            <input
-              value={floorPrompt}
-              onChange={(e) => setFloorPrompt(e.target.value)}
-              placeholder="Vael reaches the bottom step. What does she do?"
-              className="mt-1.5 w-full rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
-            />
-
-            <label className="mt-4 block font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">The options</label>
-            <div className="mt-1.5 space-y-2">
-              {floorOptions.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber/20 bg-amber/[0.05] font-mono text-[10px] text-amber/80">{i + 1}</span>
-                  <input
-                    value={opt}
-                    onChange={(e) => {
-                      const n = [...floorOptions];
-                      n[i] = e.target.value;
-                      setFloorOptions(n);
-                    }}
-                    placeholder={`Option ${i + 1}`}
-                    className="min-w-0 flex-1 rounded-lg border border-border bg-ink/30 px-3 py-2 text-[14px] text-paper outline-none placeholder:text-text-ghost/45 focus:border-amber/35"
-                  />
-                  {floorOptions.length > 2 && (
-                    <button type="button" onClick={() => setFloorOptions(floorOptions.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-text-ghost hover:text-rose" aria-label="Remove option">
-                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l8 8M11 3l-8 8" /></svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-              {floorOptions.length < 4 && (
-                <button type="button" onClick={() => setFloorOptions([...floorOptions, ""])} className="rounded-full border border-amber/20 bg-amber/[0.04] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-amber hover:bg-amber/10">
-                  Add an option
-                </button>
-              )}
-            </div>
-
-            <label className="mt-4 flex items-center gap-2 text-[12px] text-text-secondary">
-              <input type="checkbox" checked={floorBinding} onChange={(e) => setFloorBinding(e.target.checked)} className="accent-amber" />
-              Binding — I&apos;ll honour whatever the house chooses
-            </label>
-
-            <div className="mt-6 flex items-center gap-3 border-t border-border pt-5">
-              <button
-                type="button"
-                onClick={handleOpenFloor}
-                disabled={floorSubmitting || !floorPrompt.trim() || floorOptions.filter((o) => o.trim()).length < 2}
-                className="rounded-xl bg-amber px-5 py-2.5 text-[13px] font-bold text-void transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {floorSubmitting ? "Opening…" : "Open to the house"}
-              </button>
-              <button type="button" onClick={() => setFloorFormOpen(false)} className="px-3 py-2 text-[13px] text-text-ghost transition-colors hover:text-text-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+      {isGM && (
+        <OpenFloorForm
+          open={floorFormOpen}
+          prompt={floorPrompt}
+          setPrompt={setFloorPrompt}
+          options={floorOptions}
+          setOptions={setFloorOptions}
+          binding={floorBinding}
+          setBinding={setFloorBinding}
+          submitting={floorSubmitting}
+          onSubmit={handleOpenFloor}
+          onClose={() => setFloorFormOpen(false)}
+        />
       )}
 
       <AnimatePresence>

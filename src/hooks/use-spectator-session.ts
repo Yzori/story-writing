@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Turn } from "@/types/campaign";
+import { usePolledFetch } from "./use-polled-fetch";
 
 export interface SpectatorCharacter {
   id: string;
@@ -40,7 +41,49 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
   const [storyTitle, setStoryTitle] = useState<string | null>(null);
 
   const maxSortRef = useRef(-1);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // When the SSE stream is live we pause polling; if it errors or EventSource is
+  // unavailable we fall back to the poll path. Starts paused until bootstrap done.
+  const [sseConnected, setSseConnected] = useState(false);
+
+  // Merge an incremental update (from either the SSE stream or a poll). Both
+  // sources deliver the same shape: { data: Turn[], session, spectatorCount }.
+  const applyUpdate = useCallback(
+    (json: { data?: Turn[]; session?: SpectatorSession | null; spectatorCount?: unknown }) => {
+      const newTurns: Turn[] = json.data ?? [];
+
+      if (newTurns.length > 0) {
+        setTurns((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const unique = newTurns.filter((t) => !existingIds.has(t.id));
+          if (unique.length === 0) return prev;
+          return [...prev, ...unique];
+        });
+        maxSortRef.current = Math.max(
+          maxSortRef.current,
+          ...newTurns.map((t) => t.sortOrder)
+        );
+      }
+
+      if (json.session) {
+        const incoming = json.session;
+        setCampaignSession((prev) => {
+          if (!prev) return incoming;
+          if (
+            prev.status === incoming.status &&
+            prev.activePlayerId === incoming.activePlayerId &&
+            prev.title === incoming.title &&
+            prev.epilogue === incoming.epilogue
+          ) return prev;
+          return incoming;
+        });
+      }
+
+      if (typeof json.spectatorCount === "number") {
+        setSpectatorCount(json.spectatorCount);
+      }
+    },
+    []
+  );
 
   // Initial fetch — load everything needed to render the spectator view
   useEffect(() => {
@@ -91,65 +134,65 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
     fetchInitial();
   }, [storyId, sessionId]);
 
-  // Poll for new turns every 5 seconds using the spectate endpoint
+  // Live turns via Server-Sent Events. Pushes new turns as they happen; on any
+  // error (or when EventSource isn't available) we silently fall back to the
+  // poll path below. maxSortRef is read fresh so the stream resumes from the
+  // turns we already loaded during bootstrap.
   useEffect(() => {
     if (!storyId || !sessionId || loading) return;
+    if (typeof window === "undefined" || typeof EventSource === "undefined") {
+      return; // No SSE support → polling fallback stays active.
+    }
 
-    const controller = new AbortController();
+    let source: EventSource | null = null;
+    let cancelled = false;
 
-    pollIntervalRef.current = setInterval(async () => {
+    try {
+      source = new EventSource(
+        `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/stream?afterSort=${maxSortRef.current}`
+      );
+    } catch {
+      return; // Construction failed → keep polling.
+    }
+
+    source.onopen = () => {
+      if (!cancelled) setSseConnected(true);
+    };
+
+    source.onmessage = (event) => {
+      if (cancelled) return;
       try {
-        const res = await fetch(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate?afterSort=${maxSortRef.current}`,
-          { signal: controller.signal }
-        );
-        if (!res.ok) return;
-
-        const json = await res.json();
-        const newTurns: Turn[] = json.data ?? [];
-
-        if (newTurns.length > 0) {
-          setTurns((prev) => {
-            const existingIds = new Set(prev.map((t) => t.id));
-            const unique = newTurns.filter((t) => !existingIds.has(t.id));
-            if (unique.length === 0) return prev;
-            return [...prev, ...unique];
-          });
-          maxSortRef.current = Math.max(
-            maxSortRef.current,
-            ...newTurns.map((t) => t.sortOrder)
-          );
-        }
-
-        // Update session state from poll response
-        if (json.session) {
-          setCampaignSession((prev) => {
-            if (!prev) return json.session;
-            const next = json.session;
-            if (
-              prev.status === next.status &&
-              prev.activePlayerId === next.activePlayerId &&
-              prev.title === next.title &&
-              prev.epilogue === next.epilogue
-            ) return prev;
-            return next;
-          });
-        }
-
-        // Update spectator count from poll response
-        if (typeof json.spectatorCount === "number") {
-          setSpectatorCount(json.spectatorCount);
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        applyUpdate(JSON.parse(event.data));
+      } catch {
+        // Ignore malformed frames (e.g. heartbeat comments never reach here).
       }
-    }, 5000);
+    };
+
+    source.onerror = () => {
+      // Stream dropped — stop trusting it and resume polling as fallback.
+      if (!cancelled) setSseConnected(false);
+      source?.close();
+    };
 
     return () => {
-      controller.abort();
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      cancelled = true;
+      setSseConnected(false);
+      source?.close();
     };
-  }, [storyId, sessionId, loading]);
+  }, [storyId, sessionId, loading, applyUpdate]);
+
+  // Poll for new turns every 5 seconds — the fallback whenever SSE isn't live.
+  // The cursor advances each poll, so the url is a function (kept out of deps).
+  usePolledFetch(
+    () =>
+      `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate?afterSort=${maxSortRef.current}`,
+    {
+      intervalMs: 5000,
+      enabled: Boolean(storyId && sessionId) && !loading && !sseConnected,
+      immediate: false,
+      onData: (json) => applyUpdate(json as Parameters<typeof applyUpdate>[0]),
+    }
+  );
 
   return {
     loading,

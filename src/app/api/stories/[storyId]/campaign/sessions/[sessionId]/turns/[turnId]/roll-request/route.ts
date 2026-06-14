@@ -5,7 +5,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { campaignSessions, campaignTurns, playerCharacters, users } from "@/server/db/schema";
 import { applyRateLimit } from "@/server/api-utils";
-import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { parseRollRequestMetadata } from "@/lib/campaign-turns";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string; turnId: string }> };
@@ -38,13 +38,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (check.story?.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only the GM can update roll requests" } },
-        { status: 403 },
-      );
-    }
-
     const campaignSession = await db.query.campaignSessions.findFirst({
       where: eq(campaignSessions.id, sessionId),
     });
@@ -52,6 +45,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Session not found" } },
         { status: 404 },
+      );
+    }
+
+    if (!check.story || !isSessionGm(check.story, campaignSession, session.user.id)) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only the GM can update roll requests" } },
+        { status: 403 },
       );
     }
 

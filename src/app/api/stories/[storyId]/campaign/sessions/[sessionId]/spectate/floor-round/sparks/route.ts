@@ -1,13 +1,13 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
-import { campaignFloorAudienceSparks, campaignFloorRounds, campaignSessions, stories } from "@/server/db/schema";
+import { campaignFloorAudienceSparks, campaignFloorRounds } from "@/server/db/schema";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createFloorAudienceSparkSchema } from "@/lib/validations";
 import { transferDrops } from "@/server/services/ink-drops";
 import { getOpenAudienceSparkFloorRound } from "@/server/services/floor-rounds";
+import { deriveAudienceKey, getPublicStorySession } from "@/server/services/audience-input";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
@@ -18,30 +18,6 @@ class InsufficientBalanceError extends Error {
   constructor(public balance: number) {
     super("INSUFFICIENT_BALANCE");
   }
-}
-
-function deriveSparkKey(request: NextRequest, rawToken: string): string {
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "0.0.0.0";
-  const ua = request.headers.get("user-agent") ?? "";
-  return createHash("sha256")
-    .update(`${rawToken.trim()}|${ip}|${ua}`)
-    .digest("hex");
-}
-
-async function getPublicStorySession(storyId: string, sessionId: string) {
-  const story = await db.query.stories.findFirst({
-    where: and(eq(stories.id, storyId), eq(stories.isPublic, true), isNull(stories.deletedAt)),
-  });
-  if (!story) return null;
-
-  const campaignSession = await db.query.campaignSessions.findFirst({
-    where: and(eq(campaignSessions.id, sessionId), eq(campaignSessions.storyId, storyId)),
-  });
-  if (!campaignSession) return null;
-  return { story, campaignSession };
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -101,7 +77,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Audience Sparks are only open while vote options are being collected" } }, { status: 403 });
     }
 
-    const sparkKey = deriveSparkKey(request, parsed.data.token);
+    const sparkKey = deriveAudienceKey(request, parsed.data.token);
     let result: { duplicate: true } | { success: true; newBalance: number };
     try {
       result = await db.transaction(async (tx) => {

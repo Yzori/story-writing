@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { FloorRound } from "@/types/campaign";
+import { usePolledFetch } from "./use-polled-fetch";
 
 const POLL_INTERVAL = 5_000;
 
@@ -24,27 +25,21 @@ export function useSpectatorFloorRound(storyId: string, sessionId: string, token
     return next;
   }, [floorRoundUrl, sparksUrl, token]);
 
-  useEffect(() => {
-    if (!storyId || !sessionId || !token) return;
-
-    let active = true;
-    const poll = async () => {
-      try {
-        const next = await refreshFloorRound();
-        if (!active) return;
-        setFloorRound(next);
-      } catch {
-        // Audience pulse is non-critical for watching the session.
-      }
-    };
-
-    poll();
-    const interval = setInterval(poll, POLL_INTERVAL);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [storyId, sessionId, token, refreshFloorRound]);
+  // Poll the audience pulse + sparks together (mirrors refreshFloorRound). The
+  // floor-round endpoint is the polled url; sparks is fetched alongside in onData.
+  usePolledFetch(`${floorRoundUrl}?token=${encodeURIComponent(token)}`, {
+    intervalMs: POLL_INTERVAL,
+    enabled: Boolean(storyId && sessionId && token),
+    onData: async (pulseJson, signal) => {
+      const sparkRes = await fetch(sparksUrl, { signal }).catch(() => null);
+      const sparkJson = sparkRes && sparkRes.ok ? await sparkRes.json() : { data: null };
+      const next =
+        (pulseJson as { data?: FloorRound | null })?.data ??
+        (sparkJson as { data?: FloorRound | null })?.data ??
+        null;
+      setFloorRound(next);
+    },
+  });
 
   const sendPulse = useCallback(
     async (submissionId: string) => {

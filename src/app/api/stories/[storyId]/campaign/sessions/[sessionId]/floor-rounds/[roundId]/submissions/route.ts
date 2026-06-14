@@ -5,7 +5,7 @@ import { campaignFloorRounds, campaignFloorSubmissions, campaignSessions, player
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createFloorSubmissionSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getVisibleFloorRound } from "@/server/services/floor-rounds";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string; roundId: string }> };
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-    const isGM = check.story?.userId === session.user.id;
+    const isGM = !!check.story && isSessionGm(check.story, campaignSession, session.user.id);
     return NextResponse.json({
       data: await getVisibleFloorRound(sessionId, session.user.id, isGM),
     });

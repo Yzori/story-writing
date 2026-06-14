@@ -5,7 +5,7 @@ import { campaignFloorRounds, campaignFloorSubmissions, campaignFloorVotes, camp
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createFloorVoteSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getEligibleFloorVoterIds, getVisibleFloorRound } from "@/server/services/floor-rounds";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string; roundId: string }> };
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (round.mode !== "vote" || round.status !== "voting") {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Voting is not open" } }, { status: 403 });
     }
-    if (check.story?.userId === session.user.id) {
+    if (check.story && isSessionGm(check.story, campaignSession, session.user.id)) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "The GM closes voting and canonizes instead of voting" } }, { status: 403 });
     }
     const eligibleVoterIds = await getEligibleFloorVoterIds(sessionId);
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         set: { submissionId: parsed.data.submissionId },
       });
 
-    const isGM = check.story?.userId === session.user.id;
+    const isGM = !!check.story && isSessionGm(check.story, campaignSession, session.user.id);
     return NextResponse.json({
       data: await getVisibleFloorRound(sessionId, session.user.id, isGM),
     });

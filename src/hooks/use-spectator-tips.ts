@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { usePolledFetch } from "./use-polled-fetch";
 
 export interface SpectatorTip {
   id: string;
@@ -34,25 +35,21 @@ export function useSpectatorTips(storyId: string, sessionId: string) {
     fetchBalance();
   }, []);
 
-  // Poll for new tips in session
-  useEffect(() => {
-    let active = true;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/tips?after=${encodeURIComponent(lastTimestampRef.current)}`
-        );
-        if (!res.ok || !active) return;
-
-        const { data } = await res.json();
+  // Poll for new tips in session. Cursor advances each poll, so use a function
+  // url (kept out of the dependency array) to avoid restarting the loop.
+  usePolledFetch(
+    () =>
+      `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/tips?after=${encodeURIComponent(lastTimestampRef.current)}`,
+    {
+      intervalMs: POLL_INTERVAL,
+      enabled: Boolean(storyId && sessionId),
+      onData: (json) => {
+        const { data } = (json ?? {}) as { data?: SpectatorTip[] };
         if (data && data.length > 0) {
           lastTimestampRef.current = data[data.length - 1].createdAt;
           // Overlapping polls share the same `after` cursor — filter out
           // tips we've already appended (mirrors useSpectatorReactions).
-          const newTips = (data as SpectatorTip[]).filter(
-            (tip) => !seenTipIdsRef.current.has(tip.id)
-          );
+          const newTips = data.filter((tip) => !seenTipIdsRef.current.has(tip.id));
           for (const tip of newTips) {
             seenTipIdsRef.current.add(tip.id);
           }
@@ -60,18 +57,9 @@ export function useSpectatorTips(storyId: string, sessionId: string) {
             setTips((prev) => [...prev, ...newTips]);
           }
         }
-      } catch {
-        // Silently ignore poll failures
-      }
-    };
-
-    const interval = setInterval(poll, POLL_INTERVAL);
-    poll(); // Initial fetch
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [storyId, sessionId]);
+      },
+    }
+  );
 
   const sendTip = useCallback(
     async (recipientUserId: string, amount: number, message?: string) => {

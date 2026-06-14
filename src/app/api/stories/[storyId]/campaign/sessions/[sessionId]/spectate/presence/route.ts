@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { spectatorPresence } from "@/server/db/schema";
-import { eq, and, gt, sql } from "drizzle-orm";
+import { spectatorPresence, stories, campaignSessions } from "@/server/db/schema";
+import { eq, and, gt, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 
@@ -19,7 +19,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const rl = applyRateLimit(request, null, "read", { max: 120, windowSeconds: 60 });
     if (rl) return rl;
 
-    const { sessionId } = await params;
+    const { storyId, sessionId } = await params;
+
+    // Verify story exists, is public, and not deleted
+    const story = await db.query.stories.findFirst({
+      where: and(
+        eq(stories.id, storyId),
+        eq(stories.isPublic, true),
+        isNull(stories.deletedAt)
+      ),
+    });
+    if (!story) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+
+    // Verify session belongs to this story
+    const campaignSession = await db.query.campaignSessions.findFirst({
+      where: eq(campaignSessions.id, sessionId),
+    });
+    if (!campaignSession || campaignSession.storyId !== storyId) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Session not found" } },
+        { status: 404 }
+      );
+    }
+
     const [result] = await db
       .select({ count: sql<number>`count(*)` })
       .from(spectatorPresence)
@@ -43,13 +70,39 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const rl = applyRateLimit(request, null, "read", {
+    const rl = applyRateLimit(request, null, "write", {
       max: 120,
       windowSeconds: 60,
     });
     if (rl) return rl;
 
-    const { sessionId } = await params;
+    const { storyId, sessionId } = await params;
+
+    // Verify story exists, is public, and not deleted
+    const story = await db.query.stories.findFirst({
+      where: and(
+        eq(stories.id, storyId),
+        eq(stories.isPublic, true),
+        isNull(stories.deletedAt)
+      ),
+    });
+    if (!story) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+
+    // Verify session belongs to this story
+    const campaignSession = await db.query.campaignSessions.findFirst({
+      where: eq(campaignSessions.id, sessionId),
+    });
+    if (!campaignSession || campaignSession.storyId !== storyId) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Session not found" } },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const { token } = body;
@@ -109,7 +162,39 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { sessionId } = await params;
+    const rl = applyRateLimit(request, null, "write", {
+      max: 120,
+      windowSeconds: 60,
+    });
+    if (rl) return rl;
+
+    const { storyId, sessionId } = await params;
+
+    // Verify story exists, is public, and not deleted
+    const story = await db.query.stories.findFirst({
+      where: and(
+        eq(stories.id, storyId),
+        eq(stories.isPublic, true),
+        isNull(stories.deletedAt)
+      ),
+    });
+    if (!story) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Story not found" } },
+        { status: 404 }
+      );
+    }
+
+    // Verify session belongs to this story
+    const campaignSession = await db.query.campaignSessions.findFirst({
+      where: eq(campaignSessions.id, sessionId),
+    });
+    if (!campaignSession || campaignSession.storyId !== storyId) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Session not found" } },
+        { status: 404 }
+      );
+    }
 
     const body = await request.json();
     const { token } = body;

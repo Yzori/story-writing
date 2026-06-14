@@ -1,20 +1,70 @@
 import { randomInt } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignRollResponses, campaignTurns, campaignSessions, places, playerCharacters, sessionRoster, users } from "@/server/db/schema";
-import { eq, and, asc, sql } from "drizzle-orm";
+import { campaignRollResponses, campaignTurns, campaignSessions, characterMarks, playerCharacters, users } from "@/server/db/schema";
+import { eq, and, asc, desc, gt, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { verifyCollaboratorAccess, resolveSessionGmId, isSessionGm } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
-import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollRequestMetadata, parseSceneBreakMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
+import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollMetadata, parseRollRequestMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
 import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
-import { getActiveSessionPlayerIds } from "@/server/services/campaign-rolls";
+import { getActiveSessionPlayerIds, resolveRoll, rollTierFor } from "@/server/services/campaign-rolls";
+import {
+  applyRollRequestResolution,
+  normalizeStoryMomentMetadata,
+  resolveRollRequestTargets,
+  resolveSceneBreakMetadata,
+} from "@/server/services/campaign-turn-write";
 import { APPROACHES, parseStats } from "@/types/campaign";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 const DUPLICATE_ROLL_RESPONSE = "DUPLICATE_ROLL_RESPONSE";
 const TURN_ORDER_CONFLICT = "TURN_ORDER_CONFLICT";
+
+/**
+ * Whether the character may still spend a save this scene (turn a miss into a
+ * foothold). A scene starts at session open and resets at each scene-break.
+ * Base allowance is one save (the aspect); each active **vow** the character
+ * carries grants one more — promises give grit (D1 / audit P1 #10).
+ */
+async function aspectSaveAvailable(
+  sessionId: string,
+  userId: string,
+  characterId: string | null,
+): Promise<boolean> {
+  const [lastSceneBreak] = await db
+    .select({ sortOrder: campaignTurns.sortOrder })
+    .from(campaignTurns)
+    .where(and(eq(campaignTurns.sessionId, sessionId), eq(campaignTurns.type, "scene-break")))
+    .orderBy(desc(campaignTurns.sortOrder))
+    .limit(1);
+  const sceneStart = lastSceneBreak?.sortOrder ?? -1;
+
+  const priorRolls = await db
+    .select({ metadata: campaignTurns.metadata })
+    .from(campaignTurns)
+    .where(
+      and(
+        eq(campaignTurns.sessionId, sessionId),
+        eq(campaignTurns.type, "roll"),
+        eq(campaignTurns.userId, userId),
+        gt(campaignTurns.sortOrder, sceneStart),
+      ),
+    );
+  const used = priorRolls.filter((t) => parseRollMetadata(t.metadata)?.aspectSaved === true).length;
+
+  let allowed = 1;
+  if (characterId) {
+    const vows = await db
+      .select({ id: characterMarks.id })
+      .from(characterMarks)
+      .where(and(eq(characterMarks.characterId, characterId), eq(characterMarks.kind, "vow")));
+    allowed += vows.length;
+  }
+
+  return used < allowed;
+}
 
 function parseJsonObject(metadata: string | null | undefined): Record<string, unknown> | null {
   if (!metadata) return null;
@@ -172,6 +222,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Auto-reclaim (D2): if the true owner returns and acts while a substitute
+    // is running, they take the chair back. Mutate the in-memory row so the
+    // running-GM checks below see the owner as the GM again.
+    if (
+      session.user.id === check.story!.userId &&
+      (campaignSession.actingGmId || campaignSession.takeoverProposerId)
+    ) {
+      await db
+        .update(campaignSessions)
+        .set({ actingGmId: null, takeoverProposerId: null, updatedAt: new Date() })
+        .where(eq(campaignSessions.id, sessionId));
+      campaignSession.actingGmId = null;
+      campaignSession.takeoverProposerId = null;
+    }
+
     const body = await request.json();
     const parsed = createCampaignTurnSchema.safeParse(body);
 
@@ -189,8 +254,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Only GM (story owner) can post narration and consequence
-    const isStoryOwner = check.story?.userId === session.user.id;
-    if (isGmOnlyTurnType(parsed.data.type) && !isStoryOwner) {
+    // The "GM" for this session is the acting GM if one is set, else the owner.
+    // Session-running powers (narration, spotlight, handover) follow this.
+    const isRunningGm = isSessionGm(check.story!, campaignSession, session.user.id);
+    if (isGmOnlyTurnType(parsed.data.type) && !isRunningGm) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can narrate" } },
         { status: 403 }
@@ -236,7 +303,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const isPlayerStoryTurn = isPlayerStoryTurnType(parsed.data.type);
     if (isPlayerStoryTurn) {
       const permission = canPostDirectStoryTurn({
-        isGM: isStoryOwner,
+        isGM: isRunningGm,
         activePlayerId: campaignSession.activePlayerId,
         currentUserId: session.user.id,
         isLastWords,
@@ -279,11 +346,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       const activePlayerIds = await getActiveSessionPlayerIds(sessionId, storyId);
-      const requiredUserIds = rollRequestMeta.targetUserId === "everyone"
-        ? activePlayerIds
-        : activePlayerIds.includes(rollRequestMeta.targetUserId)
-          ? [rollRequestMeta.targetUserId]
-          : [];
+      const requiredUserIds = resolveRollRequestTargets(rollRequestMeta, activePlayerIds);
 
       if (requiredUserIds.length === 0) {
         return NextResponse.json(
@@ -316,12 +379,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      metadataToStore = JSON.stringify({
-        mood: storyMomentMeta.mood ?? "ominous",
-        ...(storyMomentMeta.subtext ? { subtext: storyMomentMeta.subtext } : {}),
-        importance: storyMomentMeta.importance ?? "normal",
-        ...(storyMomentMeta.startsScene ? { startsScene: true } : {}),
-      });
+      metadataToStore = normalizeStoryMomentMetadata(storyMomentMeta);
     }
 
     // Auto-link scene-breaks to a place. If the GM supplies a locationId we
@@ -330,61 +388,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // populates without any GM busywork. The unique index on (storyId,
     // nameKey) makes "different scenes with the same title" idempotent.
     if (parsed.data.type === "scene-break") {
-      const sceneMeta = parseSceneBreakMetadata(metadataToStore) ?? {};
-      let resolvedLocationId: string | null = sceneMeta.locationId ?? null;
-
-      if (sceneMeta.cinematic) {
-        metadataToStore = JSON.stringify(sceneMeta);
-      } else {
-        if (resolvedLocationId) {
-          const existing = await db.query.places.findFirst({
-            where: and(
-              eq(places.id, resolvedLocationId),
-              eq(places.storyId, storyId),
-            ),
-          });
-          if (!existing) {
-            // Don't 400 — just drop the bad id and fall through to the
-            // title-based path so the scene still lands.
-            resolvedLocationId = null;
-          }
-        }
-
-        if (!resolvedLocationId && sceneMeta.title?.trim()) {
-          const name = sceneMeta.title.trim();
-          const nameKey = name.toLowerCase();
-          const [inserted] = await db
-            .insert(places)
-            .values({
-              storyId,
-              name,
-              nameKey,
-              mood: sceneMeta.mood ?? null,
-              autoCreated: true,
-            })
-            .onConflictDoNothing({
-              target: [places.storyId, places.nameKey],
-            })
-            .returning({ id: places.id });
-          if (inserted) {
-            resolvedLocationId = inserted.id;
-          } else {
-            const [existing] = await db
-              .select({ id: places.id })
-              .from(places)
-              .where(and(eq(places.storyId, storyId), eq(places.nameKey, nameKey)))
-              .limit(1);
-            resolvedLocationId = existing?.id ?? null;
-          }
-        }
-
-        if (resolvedLocationId) {
-          metadataToStore = JSON.stringify({
-            ...sceneMeta,
-            locationId: resolvedLocationId,
-          });
-        }
-      }
+      metadataToStore = await resolveSceneBreakMetadata(storyId, metadataToStore);
     }
 
     // For a roll turn, we trust only the client's *intent* (which attribute
@@ -477,10 +481,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // ── Server-authoritative roll resolution ─────────────────────────────
-    // Client posts intent (attribute + aspect-invoked flag). Server rolls
-    // 2d6 with crypto, computes modifier from the character's actual stats,
-    // and rebuilds content/metadata. This is the only way to prevent a
-    // player from forging a favorable tier or dodging a fatal failure.
+    // Client posts intent (which approach, whether the aspect is invoked).
+    // Server rolls a flat 2d6 with crypto — the odds are a shared dramatic
+    // device, identical for every character (no numeric modifiers; see audit
+    // D1). The approach is fictional texture only. The one lever is the aspect:
+    // a once-per-scene trump that turns a miss into a foothold. Rebuilding
+    // content/tier here is the only way to stop a player forging a favorable
+    // tier or dodging a fatal failure.
     let contentToStore: string = parsed.data.type === "story-moment"
       ? parsed.data.content.trim()
       : parsed.data.content;
@@ -493,50 +500,50 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
       const stats = turnCharacter ? parseStats(turnCharacter.stats) : null;
       const aspect = stats?.aspect ?? "";
-      // Approaches (Bold/Keen/Subtle) are a fiction & tone choice now, not a
-      // stat — they no longer modify the roll. Invoking the character's aspect
-      // is the one deliberate +1 lever a player can spend.
-      const aspectMod = rollIntent.aspectInvoked && aspect ? 1 : 0;
-      const modifier = aspectMod;
 
       const r1 = randomInt(1, 7);
       const r2 = randomInt(1, 7);
-      const total = r1 + r2 + modifier;
-      const tier: "success" | "partial" | "failure" =
-        total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
-      serverRollTier = tier;
+      // Only hit the DB for scene-availability when an aspect save could even
+      // apply (invoked + has an aspect + the raw roll actually missed).
+      const couldSave =
+        !!rollIntent.aspectInvoked && !!aspect && rollTierFor(r1 + r2) === "failure";
+      const aspectAvailable = couldSave
+        ? await aspectSaveAvailable(sessionId, session.user.id, turnCharacter?.id ?? null)
+        : false;
 
-      const tierLabel =
-        tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
-      const approachTag = matchedApproach ? ` · ${matchedApproach.toLowerCase()}` : "";
-      contentToStore = modifier !== 0
-        ? `Rolled 2d6+${modifier} = ${total} — ${tierLabel}${approachTag}`
-        : `Rolled 2d6 = ${total} — ${tierLabel}${approachTag}`;
-
-      // markEligible: the resolved roll is worth marking if it cost the
-      // character something — partial or worse, OR a fatal-flagged roll
-      // (even on success, "I survived this" is worth marking).
-      const fatal = rollRequestMeta?.fatal === true && tier === "failure";
-      const markEligible = fatal || tier !== "success" || rollRequestMeta?.fatal === true;
+      const roll = resolveRoll({
+        d1: r1,
+        d2: r2,
+        approach: matchedApproach ?? null,
+        aspect,
+        aspectInvoked: !!rollIntent.aspectInvoked,
+        aspectAvailable,
+        fatalRequested: rollRequestMeta?.fatal === true,
+      });
+      serverRollTier = roll.tier;
+      contentToStore = roll.content;
 
       metadataToStore = JSON.stringify({
-        dice: [r1, r2],
-        total,
-        modifier,
+        dice: roll.dice,
+        total: roll.total,
+        modifier: 0,
         attribute: matchedApproach ?? rawAttribute,
-        tier,
+        tier: roll.tier,
         die: "2d6",
-        fatal,
-        markEligible,
+        fatal: roll.fatal,
+        markEligible: roll.markEligible,
+        ...(roll.aspectSaved ? { aspectSaved: true } : {}),
         ...(rollRequestTurnId ? { rollRequestTurnId } : {}),
       });
     }
 
-    // Hand the spotlight back to the GM after an assigned player posts a
+    // Hand the spotlight back to the running GM after an assigned player posts a
     // story turn. Without this, assigned-player turns get stuck on the player
     // because the client cannot reassign (the active-player endpoint is
-    // GM-only). Skip when the GM themselves posted.
-    const posterIsPlayer = session.user.id !== check.story!.userId;
+    // GM-only). The running GM may be an acting GM, not the owner — return the
+    // spotlight to whoever is actually running tonight. Skip when the GM posted.
+    const runningGmId = resolveSessionGmId(check.story!, campaignSession);
+    const posterIsPlayer = !isRunningGm;
     let nextActivePlayerId: string | null = campaignSession.activePlayerId ?? null;
     const created = await db.transaction(async (tx) => {
       // Lock the session row for the duration of the insert. Two purposes:
@@ -559,7 +566,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // land a second canon turn on a spotlight grant that has already moved.
       if (isPlayerStoryTurn) {
         const lockedPermission = canPostDirectStoryTurn({
-          isGM: isStoryOwner,
+          isGM: isRunningGm,
           activePlayerId: currentActivePlayerId,
           currentUserId: session.user.id,
           isLastWords,
@@ -584,7 +591,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .returning();
 
       if (posterIsPlayer && playerCedesAssignedTurn && isPlayerStoryTurnType(parsed.data.type)) {
-        nextActivePlayerId = check.story!.userId;
+        nextActivePlayerId = runningGmId;
         await tx
           .update(campaignSessions)
           .set({ activePlayerId: nextActivePlayerId })
@@ -611,53 +618,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       if (parsed.data.type === "roll" && rollRequestMeta && rollRequestTurn) {
-        const tier = serverRollTier ?? "";
-        const fatalFailure = rollRequestMeta.fatal === true && tier === "failure";
-
-        if (rollRequestMeta.targetUserId !== "everyone") {
-          const genericOutcomes: Record<string, string> = {
-            success: rollRequestMeta.fatal ? "Against all odds, fate is kind. They survive." : "The attempt succeeds.",
-            partial: rollRequestMeta.fatal ? "They cling to life - but barely. The cost is terrible." : "A partial success - but not without cost.",
-            failure: rollRequestMeta.fatal ? "The dice have spoken. There is no escape from this fate." : "The attempt fails.",
-          };
-          const outcomeText = tier === "failure"
-            ? (rollRequestMeta.onFailure || genericOutcomes.failure)
-            : tier === "success"
-              ? (rollRequestMeta.onSuccess || genericOutcomes.success)
-              : rollRequestMeta.onSuccess && rollRequestMeta.onFailure
-                ? `${rollRequestMeta.onSuccess} - but ${rollRequestMeta.onFailure.charAt(0).toLowerCase()}${rollRequestMeta.onFailure.slice(1)}`
-                : genericOutcomes.partial;
-
-          if (outcomeText) {
-            await tx
-              .insert(campaignTurns)
-              .values({
-                sessionId,
-                userId: check.story!.userId,
-                characterId: null,
-                type: "consequence",
-                content: outcomeText,
-                metadata: JSON.stringify({ rollRequestTurnId: rollRequestTurn.id, rollTurnId: newTurn.id, generated: true }),
-                sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
-              });
-          }
-        }
-
-        if (fatalFailure && parsed.data.characterId) {
-          await tx
-            .update(playerCharacters)
-            .set({ status: "dead", updatedAt: new Date() })
-            .where(eq(playerCharacters.id, parsed.data.characterId));
-          await tx
-            .update(sessionRoster)
-            .set({ status: "spectating" })
-            .where(
-              and(
-                eq(sessionRoster.sessionId, sessionId),
-                eq(sessionRoster.characterId, parsed.data.characterId),
-              ),
-            );
-        }
+        await applyRollRequestResolution(tx, {
+          sessionId,
+          runningGmId,
+          serverRollTier,
+          rollRequestMeta,
+          rollRequestTurnId: rollRequestTurn.id,
+          rollTurnId: newTurn.id,
+          characterId: parsed.data.characterId ?? null,
+        });
       }
 
       return newTurn;

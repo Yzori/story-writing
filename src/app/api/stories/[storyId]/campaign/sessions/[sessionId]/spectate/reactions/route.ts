@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import {
-  stories,
-  campaignSessions,
   spectatorReactions,
   users,
 } from "@/server/db/schema";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
 import { spectatorReactionSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { cleanupStaleReactionsIfDue } from "@/server/services/cleanup";
+import { verifyPublicSession } from "@/server/services/audience-input";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -32,24 +31,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { token, type } = spectatorReactionSchema.parse(body);
 
-    // Verify story is public and session exists
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-    if (!story || !story.isPublic) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Story not found" } },
-        { status: 404 }
-      );
-    }
-
-    const session = await db.query.campaignSessions.findFirst({
-      where: and(
-        eq(campaignSessions.id, sessionId),
-        eq(campaignSessions.storyId, storyId)
-      ),
-    });
-    if (!session) {
+    // Verify story is public and session belongs to it.
+    if (!(await verifyPublicSession(storyId, sessionId))) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Session not found" } },
         { status: 404 }
@@ -93,23 +76,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Verify story is public and session belongs to it — mirrors the POST
     // handler and the other spectate GET endpoints.
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-    if (!story || !story.isPublic) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Story not found" } },
-        { status: 404 }
-      );
-    }
-
-    const session = await db.query.campaignSessions.findFirst({
-      where: and(
-        eq(campaignSessions.id, sessionId),
-        eq(campaignSessions.storyId, storyId)
-      ),
-    });
-    if (!session) {
+    if (!(await verifyPublicSession(storyId, sessionId))) {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Session not found" } },
         { status: 404 }

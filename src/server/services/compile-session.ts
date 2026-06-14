@@ -35,7 +35,6 @@ export interface CompileOptions {
 
 // ── Dialogue verb cycle ──────────────────────────────────────
 
-const DIALOGUE_VERBS = ["said", "replied", "called out", "murmured", "whispered"];
 
 // ── Merge logic (mirrors StoryCanvas.shouldMerge) ────────────
 
@@ -115,8 +114,7 @@ function esc(text: string): string {
 function renderTurn(
   turn: CompileTurn,
   idx: number,
-  group: CompileTurn[],
-  globalIdx: number
+  group: CompileTurn[]
 ): string {
   const charName = turn.characterName ?? "Someone";
 
@@ -131,23 +129,18 @@ function renderTurn(
   );
   const useFullName = lastNamedSameChar === -1 || idx - lastNamedSameChar > 2;
 
-  const dialogueVerb = DIALOGUE_VERBS[globalIdx % DIALOGUE_VERBS.length];
-
   switch (turn.type) {
     case "narration":
     case "consequence":
       return `${esc(turn.content)} `;
 
     case "dialogue":
-      if (globalIdx % 3 === 0 && useFullName) {
-        // "Content," CharName verb.
-        return `\u201c${esc(turn.content)},\u201d <strong>${esc(charName)}</strong> ${dialogueVerb}. `;
-      }
+      // Deterministic attribution with the neutral "said" (audit P2): never
+      // mis-tones a line, and identical input always compiles the same way.
       if (!useFullName) {
         return `\u201c${esc(turn.content)}\u201d `;
       }
-      // CharName verb, "Content"
-      return `<strong>${esc(charName)}</strong> ${dialogueVerb}, \u201c${esc(turn.content)}\u201d `;
+      return `<strong>${esc(charName)}</strong> said, \u201c${esc(turn.content)}\u201d `;
 
     case "reaction":
       if (!useFullName) {
@@ -213,7 +206,6 @@ export function compileSessionToHTML(options: CompileOptions): string {
 
   const paragraphs = groupIntoParagraphs(storyTurns);
 
-  let globalIdx = 0;
   for (const group of paragraphs) {
     // Scene-break turns render as an HR with optional title
     if (group[0].type === "scene-break") {
@@ -225,7 +217,6 @@ export function compileSessionToHTML(options: CompileOptions): string {
         if (text) {
           parts.push(`<p style="text-align:center"><em>${esc(text)}</em></p>`);
         }
-        globalIdx += group.length;
         continue;
       }
 
@@ -236,7 +227,6 @@ export function compileSessionToHTML(options: CompileOptions): string {
       } else {
         parts.push("<hr>");
       }
-      globalIdx += group.length;
       continue;
     }
 
@@ -252,7 +242,6 @@ export function compileSessionToHTML(options: CompileOptions): string {
       parts.push(
         `<div class="story-moment" data-story-moment="true" data-mood="${esc(meta?.mood ?? "ominous")}"><p style="text-align:center; ${majorStyle}"><em>${esc(group[0].content)}</em></p>${subtext ? `<p style="text-align:center"><span style="font-size:0.88em"><em>${esc(subtext)}</em></span></p>` : ""}${chorusLine}</div>`
       );
-      globalIdx += group.length;
       continue;
     }
 
@@ -270,19 +259,17 @@ export function compileSessionToHTML(options: CompileOptions): string {
           `<figure><img src="${esc(imageUrl)}" alt="${esc(caption || "Illustration")}" style="max-width:100%;border-radius:12px" />${figcaption}</figure>`
         );
       }
-      globalIdx += group.length;
       continue;
     }
 
     // Normal paragraph: assemble turn fragments
     let html = "<p>";
     for (let ti = 0; ti < group.length; ti++) {
-      html += renderTurn(group[ti], ti, group, globalIdx + ti);
+      html += renderTurn(group[ti], ti, group);
     }
     html = html.trimEnd() + "</p>";
     parts.push(html);
 
-    globalIdx += group.length;
   }
 
   const coda = renderMarksCoda(marks);

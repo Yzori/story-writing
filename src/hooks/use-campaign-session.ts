@@ -219,6 +219,8 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             if (
               prev.status === next.status &&
               prev.activePlayerId === next.activePlayerId &&
+              prev.actingGmId === next.actingGmId &&
+              prev.takeoverProposerId === next.takeoverProposerId &&
               prev.title === next.title &&
               prev.epilogue === next.epilogue
             ) return prev;
@@ -426,6 +428,28 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       );
       if (json.data) setCampaignSession(json.data);
       return json.data as CampaignSession;
+    },
+    [storyId, sessionId]
+  );
+
+  // ── Acting GM: planned handoff / reclaim / table-consent takeover (D2) ──
+  const updateActingGm = useCallback(
+    async (action: "handoff" | "reclaim" | "propose" | "confirm" | "cancel", targetUserId?: string) => {
+      const json = await campaignJsonRequest<{ actingGmId: string | null; takeoverProposerId: string | null }>(
+        `/api/stories/${storyId}/campaign/sessions/${sessionId}/acting-gm`,
+        {
+          method: "POST",
+          body: targetUserId ? { action, targetUserId } : { action },
+          fallbackError: "Failed to update acting GM",
+        },
+      );
+      // Reflect immediately; the poll keeps every client in sync after.
+      if (json.data) {
+        setCampaignSession((prev) =>
+          prev ? { ...prev, actingGmId: json.data!.actingGmId, takeoverProposerId: json.data!.takeoverProposerId } : prev,
+        );
+      }
+      return json.data;
     },
     [storyId, sessionId]
   );
@@ -667,6 +691,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     setActivePlayer,
     patchStory,
     updateSession,
+    updateActingGm,
     updateRoster,
     editTurn,
     updateRollRequest,

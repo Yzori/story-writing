@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { usePolledFetch } from "./use-polled-fetch";
 
 interface AmplificationState {
   counts: Record<string, number>;
@@ -26,15 +27,16 @@ export function useSpectatorStoryMoments(storyId: string, sessionId: string, tok
     applyState(json.data);
   }, [applyState, sessionId, storyId, token]);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => void refresh(), 0);
-    const interval = setInterval(refresh, 10_000);
-
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
-    };
-  }, [refresh]);
+  usePolledFetch(
+    `/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/story-moments?token=${encodeURIComponent(token)}`,
+    {
+      intervalMs: 10_000,
+      enabled: Boolean(storyId && sessionId && token),
+      onData: (json) => {
+        applyState((json as { data?: AmplificationState | null })?.data);
+      },
+    }
+  );
 
   const amplify = useCallback(
     async (turnId: string) => {

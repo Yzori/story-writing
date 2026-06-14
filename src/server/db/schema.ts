@@ -206,7 +206,7 @@ export const chapters = pgTable("chapters", {
   authorNoteAfter: text("author_note_after").default(""),
   outline: text("outline").default(""),
   version: integer("version").notNull().default(1),
-  sessionId: uuid("session_id").references(() => campaignSessions.id, { onDelete: "set null" }),
+  sessionId: uuid("session_id").references((): AnyPgColumn => campaignSessions.id, { onDelete: "set null" }),
   gatingTier: text("gating_tier").notNull().default("free"), // 'free' | 'standard' (15) | 'extended' (30) | 'premium' (50)
   earlyAccessDays: integer("early_access_days").notNull().default(0), // 0 = no early access, 3/5/7
   earlyAccessUntil: timestamp("early_access_until", { withTimezone: true }), // null = no early access gate
@@ -1319,8 +1319,19 @@ export const campaignSessions = pgTable("campaign_sessions", {
   // (closing thought). Drives the "Previously, on…" card next time.
   cliffhanger: text("cliffhanger"),
   closingMood: text("closing_mood"),
-  chapterId: uuid("chapter_id"),
+  chapterId: uuid("chapter_id").references((): AnyPgColumn => chapters.id, { onDelete: "set null" }),
   activePlayerId: uuid("active_player_id").references(() => users.id, { onDelete: "set null" }),
+  // Session-scoped caretaker GM for live-play continuity. Null = the story
+  // owner is running it. When set (planned handoff or a table-consented
+  // takeover), this player can RUN the session — narrate, assign the spotlight,
+  // call rolls, manage clocks/scene, open the floor, end & compile — but never
+  // touches campaign ownership (transfer, applications, charter stay owner-only).
+  // The owner auto-reclaims on return. See docs/adventure-audit.md (D2).
+  actingGmId: uuid("acting_gm_id").references(() => users.id, { onDelete: "set null" }),
+  // Pending table-consent takeover: a present player who has offered to run the
+  // session while the GM is away. A *different* present player confirming
+  // promotes them to actingGmId. Cleared on confirm/cancel/handoff. (D2)
+  takeoverProposerId: uuid("takeover_proposer_id").references(() => users.id, { onDelete: "set null" }),
   sortOrder: integer("sort_order").notNull().default(0),
   status: text("status").notNull().default("active"), // 'draft' | 'active' | 'completed' | 'archived'
   createdAt: timestamp("created_at", { withTimezone: true })

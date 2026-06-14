@@ -17,6 +17,91 @@ export interface PendingRollRequestInfo {
   pendingUserIds: string[];
 }
 
+export type RollTier = "success" | "partial" | "failure";
+
+/** PbtA-style 2d6 tiers: 10+ full, 7-9 partial, 6- miss. */
+export function rollTierFor(total: number): RollTier {
+  return total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
+}
+
+export interface RollResolutionInput {
+  /** The two crypto-rolled dice (1-6 each). Injected so this stays pure/testable. */
+  d1: number;
+  d2: number;
+  /** Matched approach display name (fictional texture only), or null. */
+  approach: string | null;
+  /** The character's aspect text ("" if none). */
+  aspect: string;
+  aspectInvoked: boolean;
+  /** Whether the aspect trump is still available this scene (caller computes). */
+  aspectAvailable: boolean;
+  /** Whether the roll-request flagged this as fatal. */
+  fatalRequested: boolean;
+}
+
+export interface RollResolution {
+  dice: [number, number];
+  total: number;
+  tier: RollTier;
+  /** True when the aspect trump converted a miss into a foothold. */
+  aspectSaved: boolean;
+  /** True only when a fatal roll actually ended in failure. */
+  fatal: boolean;
+  markEligible: boolean;
+  content: string;
+}
+
+/**
+ * Resolve a flat 2d6 roll (no numeric modifiers — the dice are a shared dramatic
+ * device; see docs/adventure-audit.md D1). The one lever is the aspect trump:
+ * invoking your truth turns a miss into a foothold once per scene, and only when
+ * it actually saves the roll. Pure — caller supplies the dice + scene availability.
+ */
+export function resolveRoll(input: RollResolutionInput): RollResolution {
+  const { d1, d2, approach, aspect, aspectInvoked, aspectAvailable, fatalRequested } = input;
+  const total = d1 + d2;
+  let tier = rollTierFor(total);
+
+  let aspectSaved = false;
+  if (aspectInvoked && aspect && aspectAvailable && tier === "failure") {
+    tier = "partial";
+    aspectSaved = true;
+  }
+
+  const tierLabel = tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
+  const approachTag = approach ? ` · ${approach.toLowerCase()}` : "";
+  const truthTag = aspectSaved ? " · truth invoked" : "";
+  const content = `Rolled 2d6 = ${total} — ${tierLabel}${approachTag}${truthTag}`;
+
+  // markEligible: worth marking when it cost something — partial or worse, or
+  // any fatal-flagged roll (even a survived one: "I lived through this").
+  const fatal = fatalRequested && tier === "failure";
+  const markEligible = fatal || tier !== "success" || fatalRequested;
+
+  return { dice: [d1, d2], total, tier, aspectSaved, fatal, markEligible, content };
+}
+
+/**
+ * The GM-narrated consequence prose for a resolved roll. Uses the GM's
+ * pre-written onSuccess/onFailure when present; otherwise a fail-forward generic
+ * that escalates a miss instead of dead-ending it (see audit P0 #4).
+ */
+export function buildRollConsequenceText(
+  tier: RollTier,
+  meta: { fatal?: boolean; onSuccess?: string; onFailure?: string },
+): string {
+  const generic: Record<RollTier, string> = {
+    success: meta.fatal ? "Against all odds, fate is kind. They survive." : "The way opens — what they reached for, they take.",
+    partial: meta.fatal ? "They cling to life - but barely. The cost is terrible." : "They get it — but the ground shifts. Something is owed.",
+    failure: meta.fatal ? "The dice have spoken. There is no escape from this fate." : "It slips — and the moment turns against them. The table waits on what that costs.",
+  };
+  if (tier === "failure") return meta.onFailure || generic.failure;
+  if (tier === "success") return meta.onSuccess || generic.success;
+  return meta.onSuccess && meta.onFailure
+    ? `${meta.onSuccess} - but ${meta.onFailure.charAt(0).toLowerCase()}${meta.onFailure.slice(1)}`
+    : generic.partial;
+}
+
 export async function getActiveSessionPlayerIds(sessionId: string, storyId: string): Promise<string[]> {
   const rosterRows = await db
     .select({ userId: sessionRoster.userId })

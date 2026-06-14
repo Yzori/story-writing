@@ -7,7 +7,7 @@ import { getPlayerColor } from "@/types/campaign";
 
 // ── Lobby Theme Data ────────────────────────────────────────────
 
-export const LOBBY_THEMES = [
+const LOBBY_THEMES = [
   { key: "campfire", label: "Campfire", description: "A small fire at the edge of the known road", image: "/lobby/campfire.png", particles: true },
   { key: "tavern", label: "Tavern", description: "A warm inn where every whisper has a second meaning", image: "/lobby/tavern.png", particles: false },
   { key: "ruins", label: "Ruins", description: "Old stone remembering names no one says aloud", image: "/lobby/ruins.png", particles: false },
@@ -16,8 +16,6 @@ export const LOBBY_THEMES = [
   { key: "ship", label: "Ship Deck", description: "Salt spray and creaking timber", image: "/lobby/ship.png", particles: false },
   { key: "last-launch", label: "Last Launch", description: "The last bright window before the unknown", image: "/lobby/last-launch.png", particles: true },
 ] as const;
-
-export type LobbyThemeKey = (typeof LOBBY_THEMES)[number]["key"];
 
 // ── Props ───────────────────────────────────────────────────────
 

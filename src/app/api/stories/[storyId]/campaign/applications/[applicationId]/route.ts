@@ -4,13 +4,13 @@ import {
   campaignApplications,
   collaborators,
   playerCharacters,
-  stories,
 } from "@/server/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { updateApplicationSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
+import { verifyStoryOwnership } from "@/server/services/collaboration";
 
 type RouteParams = {
   params: Promise<{ storyId: string; applicationId: string }>;
@@ -36,23 +36,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { storyId, applicationId } = await params;
 
     // Verify story exists and GM ownership
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-
-    if (!story) {
+    const ownership = await verifyStoryOwnership(storyId, session.user.id);
+    if (ownership.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
       );
     }
-
-    if (story.userId !== session.user.id) {
+    if (ownership.error || !ownership.story) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can update applications" } },
         { status: 403 }
       );
     }
+    const story = ownership.story;
 
     // Find the application
     const application = await db.query.campaignApplications.findFirst({

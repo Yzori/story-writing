@@ -4,7 +4,7 @@ import { progressClocks, campaignSessions } from "@/server/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createProgressClockSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/server/services/collaboration";
+import { verifyCollaboratorAccess, verifySessionGmAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId } = await params;
 
-    const check = await verifyStoryOwnership(storyId, session.user.id);
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
     if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, stories, playerCharacters, sessionRoster } from "@/server/db/schema";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { campaignSessions, playerCharacters, sessionRoster } from "@/server/db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { resolveSessionGmId, verifySessionGmAccess } from "@/server/services/collaboration";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
@@ -26,33 +27,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { storyId, sessionId } = await params;
 
-    // Verify story exists and caller is GM (story owner)
-    const story = await db.query.stories.findFirst({
-      where: and(eq(stories.id, storyId), isNull(stories.deletedAt)),
-    });
-    if (!story) {
+    // Verify story exists and caller is the running GM (acting GM or owner)
+    const check = await verifySessionGmAccess(storyId, sessionId, session.user.id);
+    if (check.error === "NOT_FOUND") {
       return NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Story not found" } },
         { status: 404 }
       );
     }
-    if (story.userId !== session.user.id) {
+    if (check.error === "FORBIDDEN") {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Only the GM can change the active player" } },
         { status: 403 }
       );
     }
-
-    // Verify session belongs to this story
-    const campaignSession = await db.query.campaignSessions.findFirst({
-      where: eq(campaignSessions.id, sessionId),
-    });
-    if (!campaignSession || campaignSession.storyId !== storyId) {
+    if (check.error) {
       return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Session not found" } },
-        { status: 404 }
+        { error: { code: "INTERNAL_ERROR", message: "Failed to update active player" } },
+        { status: 500 }
       );
     }
+    const { story, session: sess } = check;
 
     const body = await request.json();
     const activePlayerId = body.activePlayerId ?? null; // null = free-form mode
@@ -61,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // AND is actually engaged in *this* session's roster (not just a campaign
     // member who hasn't joined the session, and not someone whose character
     // has been retired/killed since the session started).
-    if (activePlayerId !== null && activePlayerId !== story.userId) {
+    if (activePlayerId !== null && activePlayerId !== resolveSessionGmId(story, sess)) {
       const char = await db.query.playerCharacters.findFirst({
         where: and(
           eq(playerCharacters.storyId, storyId),

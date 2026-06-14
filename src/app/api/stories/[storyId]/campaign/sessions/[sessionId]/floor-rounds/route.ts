@@ -5,7 +5,7 @@ import { campaignFloorRounds, campaignSessions } from "@/server/db/schema";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createFloorRoundSchema } from "@/lib/validations";
-import { verifyCollaboratorAccess } from "@/server/services/collaboration";
+import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getVisibleFloorRound } from "@/server/services/floor-rounds";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
@@ -33,7 +33,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
     }
 
-    const isGM = check.story?.userId === session.user.id;
+    const isGM = !!check.story && isSessionGm(check.story, campaignSession, session.user.id);
     return NextResponse.json({
       data: await getVisibleFloorRound(sessionId, session.user.id, isGM),
     });
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (check.error === "NOT_FOUND") {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Story not found" } }, { status: 404 });
     }
-    if (check.error === "FORBIDDEN" || check.story?.userId !== session.user.id) {
+    if (check.error === "FORBIDDEN") {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only the GM can open the floor" } }, { status: 403 });
     }
 
@@ -67,6 +67,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
     if (!campaignSession || campaignSession.storyId !== storyId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
+    }
+    if (!check.story || !isSessionGm(check.story, campaignSession, session.user.id)) {
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only the GM can open the floor" } }, { status: 403 });
     }
     if (campaignSession.status !== "active") {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Session is not active" } }, { status: 403 });

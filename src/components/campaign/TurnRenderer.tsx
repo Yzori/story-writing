@@ -1,13 +1,11 @@
 import type { Turn } from "@/types/campaign";
 import { getPlayerColor } from "@/types/campaign";
 import { parseBargainMetadata } from "@/lib/campaign-turns";
-import { DIALOGUE_VERBS } from "./ProseAssembler";
 
 interface TurnRendererProps {
   turn: Turn;
   idx: number;
   group: Turn[];
-  globalIdx: number;
   playerUserIds: string[];
   currentUserId?: string | null;
   isGM?: boolean;
@@ -18,7 +16,6 @@ export default function TurnRenderer({
   turn,
   idx,
   group,
-  globalIdx,
   playerUserIds,
   currentUserId,
   isGM = false,
@@ -98,9 +95,6 @@ export default function TurnRenderer({
   );
   const useFullName = lastNamedSameChar === -1 || idx - lastNamedSameChar > 2;
 
-  // Pick dialogue verb based on position for variety
-  const dialogueVerb = DIALOGUE_VERBS[globalIdx % DIALOGUE_VERBS.length];
-
   switch (turn.type) {
     case "scene-break":
       // Scene breaks are rendered at the paragraph level, not inline
@@ -119,23 +113,17 @@ export default function TurnRenderer({
       return <span key={turn.id} className="text-paper/80">{turn.content} </span>;
 
     case "dialogue":
-      // Vary dialogue format
-      if (globalIdx % 3 === 0 && useFullName) {
-        return (
-          <span key={turn.id}>
-            <span className="text-paper/80">&ldquo;{turn.content},&rdquo; </span>
-            <span className={nameColor}>{charName}</span>
-            <span className="text-paper/80"> {dialogueVerb}. </span>
-          </span>
-        );
-      }
+      // Deterministic attribution with the neutral "said" — invisible in prose
+      // and never contradicts the line's tone. (The old position-based verb
+      // cycling + format switch could render a shouted threat as "murmured" and
+      // changed unrelated lines when a turn was inserted upstream. Audit P2.)
       if (!useFullName) {
         return <span key={turn.id} className="text-paper/80">&ldquo;{turn.content}&rdquo; </span>;
       }
       return (
         <span key={turn.id}>
           <span className={nameColor}>{charName}</span>
-          <span className="text-paper/80"> {dialogueVerb}, &ldquo;{turn.content}&rdquo; </span>
+          <span className="text-paper/80"> said, &ldquo;{turn.content}&rdquo; </span>
         </span>
       );
 

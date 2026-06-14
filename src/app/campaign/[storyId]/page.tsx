@@ -943,8 +943,8 @@ export default function CampaignPage() {
     if (!charName.trim() || charSubmitting) return;
     setCharSubmitting(true);
     try {
-      // Approaches are a per-roll fiction/tone choice now, not a character
-      // stat — characters carry no numeric spread.
+      // Approaches are a per-roll fictional "how", not a character stat — the
+      // character carries no numeric spread. See docs/adventure-audit.md (D1).
       const approaches = { Bold: 0, Keen: 0, Subtle: 0 };
 
       const payload: Record<string, unknown> = {
@@ -2131,6 +2131,9 @@ export default function CampaignPage() {
                           placeholder="e.g. Believes every problem has a chemical solution"
                           className="w-full px-3 py-2 bg-ink border border-border rounded-xl text-paper text-sm placeholder:text-text-ghost/50 focus:outline-none focus:border-violet/40 transition-colors"
                         />
+                        <p className="text-[10px] text-text-ghost/70 leading-relaxed">
+                          In play, you can invoke this <span className="text-amber/80">once per scene</span> to turn a failed roll into a foothold.
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-3 pt-1">

@@ -44,6 +44,8 @@ interface StoryCanvasProps {
   sessionCliffhanger?: string | null;
   showDiceRoller: boolean;
   onCloseDiceRoller: () => void;
+  /** Whether the current player may still spend their aspect this scene. */
+  aspectAvailable?: boolean;
   onCommitDraft: (content: string, type: string, metadata?: string) => void | Promise<void>;
   onResolveBargain?: (turnId: string, response: "accepted" | "refused") => void | Promise<void>;
   onPassTurn: (userId: string) => void;
@@ -203,6 +205,7 @@ export default function StoryCanvas({
   sessionCliffhanger = null,
   showDiceRoller,
   onCloseDiceRoller,
+  aspectAvailable = true,
   onCommitDraft,
   onResolveBargain,
   onPassTurn,
@@ -663,11 +666,7 @@ export default function StoryCanvas({
                 </div>
               )}
               {(() => {
-                let runningIdx = visibleStartIndex;
                 return paragraphs.map((group, pi) => {
-                const globalIdx = runningIdx;
-                runningIdx += group.length;
-
                 // Scene-break turns render as ornamental dividers
                 if (group[0].type === "scene-break") {
                   if (isLegacyCinematicSceneBreak(group[0].type, group[0].metadata)) {
@@ -715,7 +714,6 @@ export default function StoryCanvas({
                           turn={turn}
                           idx={ti}
                           group={group}
-                          globalIdx={globalIdx + ti}
                           playerUserIds={playerUserIds}
                           currentUserId={currentUserId}
                           isGM={isGM}
@@ -981,6 +979,7 @@ export default function StoryCanvas({
         onRollSubmit={onRollSubmit}
         characters={characters}
         currentUserId={currentUserId}
+        aspectAvailable={aspectAvailable}
         preSelectedAttribute={pendingRollRequest?.attribute ?? null}
         rollReason={pendingRollRequest?.reason ?? null}
         rollOnSuccess={pendingRollRequest?.onSuccess ?? null}

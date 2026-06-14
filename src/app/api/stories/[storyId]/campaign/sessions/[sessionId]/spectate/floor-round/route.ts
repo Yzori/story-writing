@@ -1,50 +1,18 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   campaignFloorAudiencePulses,
   campaignFloorRounds,
   campaignFloorSubmissions,
-  campaignSessions,
-  stories,
 } from "@/server/db/schema";
 import { applyRateLimit } from "@/server/api-utils";
 import { createFloorAudiencePulseSchema } from "@/lib/validations";
 import { getAudiencePulseFloorRound } from "@/server/services/floor-rounds";
+import { deriveAudienceKey, verifyPublicSession } from "@/server/services/audience-input";
 import { auth } from "@/server/auth";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
-
-// Audience-pulse spectators are anonymous, so the only thing distinguishing
-// one viewer from another is the token they generated in localStorage.
-// Clearing localStorage was enough to vote again. Mixing the request's IP +
-// UA into a hash keeps the client-side UX (token persists their "I voted")
-// while binding the conflict key to network identity, so a determined
-// re-voter has to change network or browser, not just clear storage. Behind
-// NAT this is best-effort, not bulletproof — adequate for an opinion poll.
-function derivePulseKey(request: NextRequest, rawToken: string): string {
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "0.0.0.0";
-  const ua = request.headers.get("user-agent") ?? "";
-  return createHash("sha256")
-    .update(`${rawToken.trim()}|${ip}|${ua}`)
-    .digest("hex");
-}
-
-async function verifyPublicSession(storyId: string, sessionId: string) {
-  const story = await db.query.stories.findFirst({
-    where: and(eq(stories.id, storyId), eq(stories.isPublic, true), isNull(stories.deletedAt)),
-  });
-  if (!story) return false;
-
-  const campaignSession = await db.query.campaignSessions.findFirst({
-    where: and(eq(campaignSessions.id, sessionId), eq(campaignSessions.storyId, storyId)),
-  });
-  return Boolean(campaignSession);
-}
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -59,7 +27,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const token = request.nextUrl.searchParams.get("token") ?? "";
     return NextResponse.json({
       data: token.trim()
-        ? await getAudiencePulseFloorRound(sessionId, derivePulseKey(request, token))
+        ? await getAudiencePulseFloorRound(sessionId, deriveAudienceKey(request, token))
         : null,
     });
   } catch (error) {
@@ -109,7 +77,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const session = await auth();
-    const pulseKey = derivePulseKey(request, parsed.data.token);
+    const pulseKey = deriveAudienceKey(request, parsed.data.token);
     await db
       .insert(campaignFloorAudiencePulses)
       .values({
