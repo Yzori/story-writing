@@ -152,6 +152,12 @@ export const bargainMetadataSchema = z.object({
   markEligible: z.boolean().optional(),
 });
 
+export type RollRequestMetadata = z.infer<typeof rollRequestMetadataSchema>;
+export type RollMetadata = z.infer<typeof rollMetadataSchema>;
+export type BargainMetadata = z.infer<typeof bargainMetadataSchema>;
+export type SceneBreakMetadata = z.infer<typeof sceneBreakMetadataSchema>;
+export type StoryMomentMetadata = z.infer<typeof storyMomentMetadataSchema>;
+
 function parseMetadata<T>(metadata: string | null | undefined, schema: z.ZodType<T>): T | null {
   if (!metadata) return null;
   try {
