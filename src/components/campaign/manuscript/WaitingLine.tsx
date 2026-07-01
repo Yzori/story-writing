@@ -2,7 +2,16 @@
 
 import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
-import { REACTIONS } from "@/components/campaign/play/WaitingBar";
+
+// The table's five whispers — keys match REACTION_EMOJI_MAP in TableWhispers
+// and the reactions API's accepted types.
+const REACTIONS = [
+  { emoji: "⚔️", label: "Tension", key: "tension" },
+  { emoji: "😮", label: "Gasp", key: "gasp" },
+  { emoji: "👏", label: "Bravo", key: "bravo" },
+  { emoji: "😂", label: "Haha", key: "laugh" },
+  { emoji: "💀", label: "Oh no", key: "dread" },
+] as const;
 
 /**
  * The end of the page when the pen is elsewhere: a hand-written line saying
