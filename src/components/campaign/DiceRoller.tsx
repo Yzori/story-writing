@@ -25,6 +25,7 @@ interface DiceRollerProps {
   rollOnSuccess?: string | null;
   rollOnFailure?: string | null;
   rollFatal?: boolean;
+  surface?: "cosmic" | "page";
 }
 
 function mapPreselectedApproach(attribute?: string | null) {
@@ -55,6 +56,7 @@ export default function DiceRoller({
   rollOnSuccess,
   rollOnFailure,
   rollFatal,
+  surface,
 }: DiceRollerProps) {
   const myChar = characters.find((character) => character.userId === currentUserId);
   const stats = myChar ? parseStats(myChar.stats) : null;
@@ -71,6 +73,7 @@ export default function DiceRoller({
       rollOnSuccess={rollOnSuccess}
       rollOnFailure={rollOnFailure}
       rollFatal={rollFatal}
+      surface={surface}
     />
   );
 }

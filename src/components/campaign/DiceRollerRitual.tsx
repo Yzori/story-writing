@@ -27,6 +27,9 @@ interface DiceRollerRitualProps {
   rollOnSuccess?: string | null;
   rollOnFailure?: string | null;
   rollFatal?: boolean;
+  /** "cosmic" = the void opens (default). "page" = candlelight pulls to the
+   *  center and the dice land on warm paper — the manuscript surface. */
+  surface?: "cosmic" | "page";
 }
 
 type Phase = "idle" | "casting" | "settling" | "revealed";
@@ -441,6 +444,7 @@ export default function DiceRollerRitual({
   rollOnSuccess = null,
   rollOnFailure = null,
   rollFatal = false,
+  surface = "cosmic",
 }: DiceRollerRitualProps) {
   const [mounted, setMounted] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -675,12 +679,14 @@ export default function DiceRollerRitual({
           transition={{ duration: reduceMotion ? 0 : 0.6 }}
           className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto px-4 py-6 outline-none sm:items-center"
         >
-          {/* Cosmic backdrop */}
+          {/* Backdrop — cosmic void, or candlelight pulled onto the page */}
           <div
             className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(20,12,8,0.94) 0%, rgba(8,5,3,0.98) 55%, rgba(0,0,0,1) 100%)",
+                surface === "page"
+                  ? "radial-gradient(ellipse at center, rgba(46,34,16,0.86) 0%, rgba(14,10,6,0.95) 55%, rgba(5,4,2,0.99) 100%)"
+                  : "radial-gradient(ellipse at center, rgba(20,12,8,0.94) 0%, rgba(8,5,3,0.98) 55%, rgba(0,0,0,1) 100%)",
             }}
           />
 
