@@ -33,7 +33,7 @@ export default function PageProse({
   currentUserId,
   isGM,
   onResolveBargain,
-  bargainInMargin = false,
+  marginActive = false,
   editing,
   showInkCaret,
   renderAfterParagraph,
@@ -43,8 +43,10 @@ export default function PageProse({
   currentUserId: string | null;
   isGM: boolean;
   onResolveBargain?: (turnId: string, response: "accepted" | "refused") => void | Promise<void>;
-  /** When true, bargain turns render as plain prose — the margin owns the interaction. */
-  bargainInMargin?: boolean;
+  /** When true the margin owns the affordances: bargain turns render as plain
+   *  prose and the inline edit pencil yields to the margin's EditNote (the
+   *  quick-edit box still opens here when the note is clicked). */
+  marginActive?: boolean;
   editing?: ProseEditingState;
   /** Pulse a faint caret after the last paragraph (the page awaits more ink). */
   showInkCaret?: boolean;
@@ -107,7 +109,7 @@ export default function PageProse({
                   playerUserIds={playerUserIds}
                   currentUserId={currentUserId}
                   isGM={isGM}
-                  onResolveBargain={bargainInMargin ? undefined : onResolveBargain}
+                  onResolveBargain={marginActive ? undefined : onResolveBargain}
                 />
               ))}
               {pi === paragraphs.length - 1 && !groupHasEditable && showInkCaret && (
@@ -116,7 +118,7 @@ export default function PageProse({
                   className="ml-1 inline-block h-5 w-1.5 animate-pulse bg-amber/40 align-middle"
                 />
               )}
-              {groupHasEditable && editing && editingTurnId !== editableTurn!.id && (
+              {groupHasEditable && editing && !marginActive && editingTurnId !== editableTurn!.id && (
                 <button
                   onClick={() => editing.handleEditClick(editableTurn!)}
                   className="ml-2 inline-flex cursor-pointer items-center gap-1 align-middle opacity-70 transition-opacity group-hover/para:opacity-100"

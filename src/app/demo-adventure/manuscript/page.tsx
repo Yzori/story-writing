@@ -5,11 +5,14 @@ import ManuscriptRoom from "@/components/campaign/manuscript/ManuscriptRoom";
 import ManuscriptPage from "@/components/campaign/manuscript/ManuscriptPage";
 import InlineQuill from "@/components/campaign/manuscript/InlineQuill";
 import WaitingLine from "@/components/campaign/manuscript/WaitingLine";
+import DiceRoller from "@/components/campaign/DiceRoller";
+import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { isLogTurnType } from "@/lib/campaign-turns";
 import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
 import { resolveQuillState } from "@/lib/manuscript-quill-state";
-import { getPlayerInk, type Turn } from "@/types/campaign";
+import { derivePendingRollRequest } from "@/lib/campaign-play-derive";
+import { getPlayerInk, parseStats, type CharacterMark, type Turn } from "@/types/campaign";
 import {
   ACTIVE_PLAYER_USER_IDS,
   CHARACTERS,
@@ -28,17 +31,99 @@ import {
  * pages cut over. Fixture-only; the legacy demo at /demo-adventure keeps the
  * old shell until step 11 re-points it.
  */
+// Extra fixture beats so every margin annotation kind is exercised here:
+// a scene-break (clock anchor), a mark-eligible roll for Lyra (stamp +
+// prompt), and an open bargain for Kaelen.
+const HARNESS_EXTRA_TURNS: Turn[] = [
+  {
+    ...GM_TURN_BASE,
+    id: "hx-scene",
+    sessionId: SESSION_ID,
+    type: "scene-break",
+    content: "",
+    metadata: JSON.stringify({ title: "The Altar Wakes", mood: "ominous" }),
+    sortOrder: 4,
+    createdAt: "2026-05-15T20:04:00Z",
+  },
+  {
+    ...GM_TURN_BASE,
+    id: "hx-narration",
+    sessionId: SESSION_ID,
+    type: "narration",
+    content:
+      "The runes flare white-hot under Lyra's fingers. Something beneath the altar draws its first breath in three hundred years.",
+    metadata: null,
+    sortOrder: 5,
+    createdAt: "2026-05-15T20:04:30Z",
+  },
+  {
+    id: "hx-roll",
+    sessionId: SESSION_ID,
+    userId: "user-lyra",
+    characterId: "char-lyra",
+    type: "roll",
+    content: "Lyra rolled Keen — partial.",
+    metadata: JSON.stringify({
+      total: 8,
+      modifier: 2,
+      attribute: "Keen",
+      tier: "partial",
+      die: "2d6",
+      dice: [3, 3],
+      fatal: false,
+      markEligible: true,
+      aspectSaved: false,
+    }),
+    sortOrder: 6,
+    createdAt: "2026-05-15T20:05:00Z",
+    user: { id: "user-lyra", displayName: "Sarah", avatarUrl: null },
+    characterName: "Lyra",
+    characterPortrait: null,
+  },
+  {
+    ...GM_TURN_BASE,
+    id: "hx-bargain",
+    sessionId: SESSION_ID,
+    type: "consequence",
+    content:
+      "The altar offers Kaelen a way through — but old magic never gives without taking.",
+    metadata: JSON.stringify({
+      kind: "bargain",
+      targetUserId: "user-kaelen",
+      targetLabel: "Kaelen",
+      gain: "The seal breaks quietly",
+      price: "The blade remembers your name",
+      status: "open",
+    }),
+    sortOrder: 7,
+    createdAt: "2026-05-15T20:05:30Z",
+  },
+];
+
+const HARNESS_TURNS = [...INITIAL_TURNS, ...HARNESS_EXTRA_TURNS];
+
 export default function ManuscriptHarnessPage() {
   const [viewAs, setViewAs] = useState<ViewAs>("gm");
-  const [turns, setTurns] = useState<Turn[]>(INITIAL_TURNS);
+  const [turns, setTurns] = useState<Turn[]>(HARNESS_TURNS);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [clocks, setClocks] = useState<ProgressClockData[]>([
+    { id: "clock-garrison", name: "The garrison wakes", segments: 6, filled: 2, type: "danger" },
+  ]);
+  const [showDiceRoller, setShowDiceRoller] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
-  const nextSortRef = useRef(INITIAL_TURNS.length);
+  const nextSortRef = useRef(HARNESS_TURNS.length + 10);
 
   const currentUserId = viewAsToUserId(viewAs);
   const isGM = viewAs === "gm";
   const spectator = viewAs === "spectator";
-  const myCharacter = CHARACTERS.find((c) => c.userId === currentUserId) ?? null;
+
+  // Marks created in the harness live in state, merged onto the fixture cast.
+  const [marksByCharacter, setMarksByCharacter] = useState<Record<string, CharacterMark[]>>({});
+  const characters = useMemo(
+    () => CHARACTERS.map((c) => ({ ...c, marks: marksByCharacter[c.id] ?? [] })),
+    [marksByCharacter],
+  );
+  const myCharacter = characters.find((c) => c.userId === currentUserId) ?? null;
 
   const storyTurns = useMemo(() => turns.filter((t) => !isLogTurnType(t.type)), [turns]);
   const logTurns = useMemo(() => turns.filter((t) => isLogTurnType(t.type)), [turns]);
@@ -89,6 +174,125 @@ export default function ManuscriptHarnessPage() {
     setTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, content: newContent } : t)));
   };
 
+  // ── Dice (fixture "server": local 2d6, same metadata shape) ──
+  const pendingRollRequest = useMemo(
+    () => derivePendingRollRequest(turns, currentUserId, isGM, myCharacter?.status ?? null),
+    [turns, currentUserId, isGM, myCharacter?.status],
+  );
+
+  const handleRollSubmit = useCallback(
+    async (intent: { attribute: string; aspectInvoked: boolean }) => {
+      const dice: [number, number] = [
+        1 + Math.floor(Math.random() * 6),
+        1 + Math.floor(Math.random() * 6),
+      ];
+      const stats = myCharacter ? parseStats(myCharacter.stats) : null;
+      const modifier =
+        (stats?.approaches[intent.attribute as keyof typeof stats.approaches] ?? 0) +
+        (intent.aspectInvoked ? 1 : 0);
+      const total = dice[0] + dice[1] + modifier;
+      const tier: "success" | "partial" | "failure" =
+        total >= 10 ? "success" : total >= 7 ? "partial" : "failure";
+      appendTurn({
+        type: "roll",
+        content: `${myCharacter?.name.split(" ")[0] ?? "Someone"} rolled ${intent.attribute} — ${tier}.`,
+        metadata: JSON.stringify({
+          total,
+          modifier,
+          attribute: intent.attribute,
+          tier,
+          die: "2d6",
+          dice,
+          fatal: pendingRollRequest?.fatal ?? false,
+          markEligible: tier !== "success",
+          aspectSaved: false,
+          rollRequestTurnId: pendingRollRequest?.turnId,
+        }),
+        ...(myCharacter
+          ? {
+              userId: myCharacter.userId,
+              characterId: myCharacter.id,
+              user: myCharacter.user ?? { id: myCharacter.userId, displayName: null, avatarUrl: null },
+              characterName: myCharacter.name.split(" ")[0],
+            }
+          : {}),
+      });
+      return { dice, modifier, total, tier };
+    },
+    [appendTurn, myCharacter, pendingRollRequest],
+  );
+
+  // ── Margin actions (fixture-backed) ────────────────────────
+  const handleUpdateRollRequest = useCallback((turnId: string, status: "closed" | "cancelled") => {
+    setTurns((prev) =>
+      prev.map((t) => {
+        if (t.id !== turnId || !t.metadata) return t;
+        try {
+          return { ...t, metadata: JSON.stringify({ ...JSON.parse(t.metadata), status }) };
+        } catch {
+          return t;
+        }
+      }),
+    );
+  }, []);
+
+  const handleResolveBargain = useCallback(
+    (turnId: string, response: "accepted" | "refused") => {
+      setTurns((prev) =>
+        prev.map((t) => {
+          if (t.id !== turnId || !t.metadata) return t;
+          try {
+            return {
+              ...t,
+              metadata: JSON.stringify({
+                ...JSON.parse(t.metadata),
+                status: response,
+                responseUserId: currentUserId,
+                responseLabel: myCharacter?.name.split(" ")[0],
+                markEligible: response === "accepted",
+              }),
+            };
+          } catch {
+            return t;
+          }
+        }),
+      );
+    },
+    [currentUserId, myCharacter],
+  );
+
+  const handleCreateMark = useCallback(
+    async (characterId: string, input: { kind: CharacterMark["kind"]; text: string; sourceTurnId?: string }) => {
+      setMarksByCharacter((prev) => ({
+        ...prev,
+        [characterId]: [
+          ...(prev[characterId] ?? []),
+          {
+            id: `mark-${Date.now()}`,
+            characterId,
+            storyId: STORY_ID,
+            sessionId: SESSION_ID,
+            sourceTurnId: input.sourceTurnId ?? null,
+            kind: input.kind,
+            text: input.text,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      }));
+    },
+    [],
+  );
+
+  const handleToggleClockSegment = useCallback((clockId: string, segmentIndex: number) => {
+    setClocks((prev) =>
+      prev.map((c) =>
+        c.id === clockId
+          ? { ...c, filled: segmentIndex < c.filled ? segmentIndex : segmentIndex + 1 }
+          : c,
+      ),
+    );
+  }, []);
+
   // ── End-of-page state (the ActionDock replacement) ─────────
   const interaction = getSessionInteractionState({
     sessionStatus: "active",
@@ -106,7 +310,7 @@ export default function ManuscriptHarnessPage() {
         mode: interaction.mode,
         isGM,
         myCharacterStatus: myCharacter?.status ?? null,
-        hasPendingRollRequest: false,
+        hasPendingRollRequest: !!pendingRollRequest,
         lastWordsSent: false,
         directorWriting,
       });
@@ -146,6 +350,14 @@ export default function ManuscriptHarnessPage() {
         onRaiseHand={() => {}}
         onLowerHand={() => {}}
       />
+    ) : quillState.kind === "roll-pending" ? (
+      <WaitingLine
+        rollPending
+        rollAttribute={pendingRollRequest?.attribute ?? null}
+        rollReason={pendingRollRequest?.reason ?? null}
+        rollFatal={pendingRollRequest?.fatal ?? false}
+        onOpenDiceRoller={() => setShowDiceRoller(true)}
+      />
     ) : quillState.kind === "gone" ? (
       <WaitingLine goneNotice={quillState.dead ? "dead" : "retired"} />
     ) : null;
@@ -160,7 +372,7 @@ export default function ManuscriptHarnessPage() {
           storyId={STORY_ID}
           storyTurns={storyTurns}
           logTurns={logTurns}
-          characters={CHARACTERS}
+          characters={characters}
           activePlayerId={activePlayerId}
           currentUserId={currentUserId}
           isGM={isGM}
@@ -169,11 +381,44 @@ export default function ManuscriptHarnessPage() {
           sessionOpening={OPENING_NARRATION}
           storyTitle="The Shattered City"
           onEditTurn={handleEditTurn}
+          onResolveBargain={handleResolveBargain}
           spectatorMode={spectator}
           endOfPage={endOfPage}
+          margin={
+            spectator
+              ? undefined
+              : {
+                  isDesktop,
+                  clocks,
+                  myCharacter,
+                  actions: {
+                    onOpenDiceRoller: () => setShowDiceRoller(true),
+                    onUpdateRollRequest: handleUpdateRollRequest,
+                    onResolveBargain: handleResolveBargain,
+                    onCreateMark: handleCreateMark,
+                    onToggleClockSegment: isGM ? handleToggleClockSegment : undefined,
+                  },
+                }
+          }
         />
       }
     >
+      {/* Dice ritual — opens from the margin's cast seal or auto on request. */}
+      {!spectator && (
+        <DiceRoller
+          visible={showDiceRoller || !!pendingRollRequest}
+          onClose={() => setShowDiceRoller(false)}
+          onRollSubmit={handleRollSubmit}
+          characters={characters}
+          currentUserId={currentUserId}
+          aspectAvailable
+          preSelectedAttribute={pendingRollRequest?.attribute ?? null}
+          rollReason={pendingRollRequest?.reason ?? null}
+          rollOnSuccess={pendingRollRequest?.onSuccess ?? null}
+          rollOnFailure={pendingRollRequest?.onFailure ?? null}
+          rollFatal={pendingRollRequest?.fatal ?? false}
+        />
+      )}
       {/* Harness controls — dev-only role + pen switches, not part of the design. */}
       <div className="absolute bottom-4 left-1/2 z-[70] flex -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-full border border-border bg-black/70 px-2 py-1 backdrop-blur-md">
         {VIEW_AS_OPTIONS.map((option) => (

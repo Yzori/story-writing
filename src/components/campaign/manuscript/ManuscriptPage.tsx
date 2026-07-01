@@ -3,11 +3,16 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { PlayerCharacter, SessionRosterEntry, Turn } from "@/types/campaign";
+import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import SessionLobby from "@/components/campaign/SessionLobby";
 import SessionEndedBlock from "@/components/campaign/SessionEndedBlock";
 import PreviouslyOn from "@/components/campaign/PreviouslyOn";
 import MapOverlay from "@/components/campaign/MapOverlay";
 import PageProse from "./PageProse";
+import MarginRail from "./MarginRail";
+import InlineNoteFold from "./InlineNoteFold";
+import type { MarginActions } from "./annotations/AnnotationBody";
+import { deriveAnnotations, groupAnnotationsByAnchor } from "@/lib/manuscript-annotations";
 import { parseSceneBreakMetadata } from "@/lib/campaign-turns";
 import { useTurnEditing } from "@/hooks/use-turn-editing";
 import {
@@ -87,17 +92,18 @@ export interface ManuscriptPageProps {
   spectatorMode?: boolean;
   /** The living end of the page: InlineQuill / WaitingLine / PageFork. */
   endOfPage?: ReactNode;
-  /** Desktop margin engine — rendered inside the sheet's gutter (lg+). */
-  gutter?: (context: {
-    stageRef: React.RefObject<HTMLDivElement | null>;
-    visibleTurns: Turn[];
-  }) => ReactNode;
-  /** Mobile note-folds tucked under their anchor paragraph. */
-  renderAfterParagraph?: (anchorTurnId: string) => ReactNode;
-  /** Bargain interaction moved to the margin? (desktop true, mobile false) */
-  bargainInMargin?: boolean;
-  /** Surfaces editing state upward (edit-window annotation derivation). */
-  onEditableTurnChange?: (turn: Turn | null) => void;
+  /**
+   * The margin: one annotation stream (roll questions, stamps, clocks, marks,
+   * bargains, the edit pencil) rendered as a gutter rail on desktop and as
+   * folded slips under their anchor paragraphs on mobile.
+   */
+  margin?: {
+    /** JS-gated at page level; picks rail vs folds (never both mounted). */
+    isDesktop: boolean;
+    clocks: ProgressClockData[];
+    myCharacter: PlayerCharacter | null;
+    actions: Omit<MarginActions, "isGM" | "onEditClick" | "onDismissMarkPrompt">;
+  };
 }
 
 export default function ManuscriptPage({
@@ -129,10 +135,7 @@ export default function ManuscriptPage({
   onUpdateRoster,
   spectatorMode = false,
   endOfPage,
-  gutter,
-  renderAfterParagraph,
-  bargainInMargin = false,
-  onEditableTurnChange,
+  margin,
 }: ManuscriptPageProps) {
   const storyTurns = useMemo(
     () => (sessionOpening ? allStoryTurns.filter((turn) => !isOpeningTurn(turn)) : allStoryTurns),
@@ -161,10 +164,6 @@ export default function ManuscriptPage({
     activePlayerId,
     onEditTurn,
   });
-
-  useEffect(() => {
-    onEditableTurnChange?.(editingState.editableTurn);
-  }, [editingState.editableTurn, onEditableTurnChange]);
 
   // ── Scroll stickiness: follow the live edge only when already there ──
   const [showNewInkHint, setShowNewInkHint] = useState(false);
@@ -245,6 +244,57 @@ export default function ManuscriptPage({
     () => storyTurns.filter((t) => t.type === "scene-break").length,
     [storyTurns],
   );
+
+  // ── The margin: one derived annotation stream ──────────────
+  const [dismissedMarkTurnIds, setDismissedMarkTurnIds] = useState<Set<string>>(new Set());
+  const dismissMarkPrompt = useCallback((turnId: string) => {
+    setDismissedMarkTurnIds((prev) => new Set(prev).add(turnId));
+  }, []);
+
+  const annotations = useMemo(
+    () =>
+      margin
+        ? deriveAnnotations({
+            storyTurns: visibleTurns,
+            logTurns,
+            clocks: margin.clocks,
+            characters,
+            myCharacter: margin.myCharacter,
+            currentUserId,
+            dismissedMarkTurnIds,
+            editableTurn: editingState.editableTurn,
+          })
+        : [],
+    [margin, visibleTurns, logTurns, characters, currentUserId, dismissedMarkTurnIds, editingState.editableTurn],
+  );
+
+  const marginActions = useMemo<MarginActions | null>(
+    () =>
+      margin
+        ? {
+            ...margin.actions,
+            isGM,
+            onEditClick: editingState.handleEditClick,
+            onDismissMarkPrompt: dismissMarkPrompt,
+          }
+        : null,
+    [margin, isGM, editingState.handleEditClick, dismissMarkPrompt],
+  );
+
+  const foldGroups = useMemo(
+    () => (margin && !margin.isDesktop ? groupAnnotationsByAnchor(annotations) : null),
+    [margin, annotations],
+  );
+
+  const renderAfterParagraph = useMemo(() => {
+    if (!foldGroups || !marginActions) return undefined;
+    const render = (anchorTurnId: string) => {
+      const group = foldGroups.get(anchorTurnId);
+      if (!group?.length) return null;
+      return <InlineNoteFold annotations={group} actions={marginActions} />;
+    };
+    return render;
+  }, [foldGroups, marginActions]);
 
   return (
     <div className="relative h-full">
@@ -351,13 +401,17 @@ export default function ManuscriptPage({
                     </button>
                   </div>
                 )}
+                {/* Head-pinned notes (no scene yet) fold above the prose on mobile. */}
+                {foldGroups && marginActions && foldGroups.get(null)?.length ? (
+                  <InlineNoteFold annotations={foldGroups.get(null)!} actions={marginActions} />
+                ) : null}
                 <PageProse
                   paragraphs={paragraphs}
                   playerUserIds={playerUserIds}
                   currentUserId={currentUserId}
                   isGM={isGM}
                   onResolveBargain={onResolveBargain}
-                  bargainInMargin={bargainInMargin}
+                  marginActive={!!margin}
                   editing={spectatorMode ? undefined : editingState}
                   showInkCaret={isActive}
                   renderAfterParagraph={renderAfterParagraph}
@@ -369,9 +423,9 @@ export default function ManuscriptPage({
             {endOfPage && <div className="relative mt-6">{endOfPage}</div>}
 
             {/* The margin — notes written beside the passages (lg+). */}
-            {gutter && (
+            {margin?.isDesktop && marginActions && (
               <div className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-[200px] lg:block xl:w-[260px]">
-                {gutter({ stageRef: scrollRef, visibleTurns })}
+                <MarginRail annotations={annotations} actions={marginActions} />
               </div>
             )}
           </motion.div>
