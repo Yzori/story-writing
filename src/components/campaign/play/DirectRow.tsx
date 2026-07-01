@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { PlayerCharacter } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
-import DirectorRituals, { type RitualFocus } from "./DirectorRituals";
+import DirectorRituals, { type RitualFocus } from "@/components/campaign/manuscript/DirectorMoves";
 
 const MOVES: ReadonlyArray<{ label: string; hint: string; icon: string; focus: RitualFocus }> = [
   { label: "Story moment", hint: "a held, full-bleed beat", icon: "✦", focus: "story" },

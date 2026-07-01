@@ -3,7 +3,7 @@
 import type { CharacterMarkKind, PlayerCharacter, SessionRosterEntry } from "@/types/campaign";
 import CharacterSheetSection from "@/components/campaign/CharacterSheetSection";
 
-interface PartyStatusPanelProps {
+interface PartyLedgerProps {
   characters: PlayerCharacter[];
   activePlayerId: string | null;
   onChangeCharacterStatus: (characterId: string, status: "active" | "retired" | "dead") => void;
@@ -21,7 +21,7 @@ interface PartyStatusPanelProps {
  * The Director's party view in the rail — status (depart / fall / revive),
  * marks, invites. A thin frame around the kept CharacterSheetSection.
  */
-export default function PartyStatusPanel(props: PartyStatusPanelProps) {
+export default function PartyLedger(props: PartyLedgerProps) {
   return (
     <section aria-label="Party status" className="px-1">
       <CharacterSheetSection {...props} isGM />

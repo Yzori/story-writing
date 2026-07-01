@@ -17,7 +17,7 @@ export const RITUAL_META: Record<RitualFocus, { title: string; hint: string }> =
   pressure: { title: "The pressure", hint: "A clock the whole table can feel rising." },
 };
 
-interface DirectorRitualsProps {
+interface DirectorMovesProps {
   focus: RitualFocus;
   onClose: () => void;
   activeChars: PlayerCharacter[];
@@ -40,7 +40,7 @@ interface DirectorRitualsProps {
  * One focused Director ritual — the forms lifted from the old right-rail
  * console, re-homed as a popover above the Director's row in the dock.
  */
-export default function DirectorRituals({
+export default function DirectorMoves({
   focus,
   onClose,
   activeChars,
@@ -52,7 +52,7 @@ export default function DirectorRituals({
   onOfferBargain,
   clocks = [],
   onClocksChange,
-}: DirectorRitualsProps) {
+}: DirectorMovesProps) {
   // Bargain ritual state
   const [bargainTarget, setBargainTarget] = useState("everyone");
   const [bargainGain, setBargainGain] = useState("");

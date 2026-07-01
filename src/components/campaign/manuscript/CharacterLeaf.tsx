@@ -12,7 +12,7 @@ const MARK_GLYPHS: Record<CharacterMarkKind, { glyph: string; cls: string; label
   memory: { glyph: "✦", cls: "text-sage", label: "Memory" },
 };
 
-interface CharacterSheetPanelProps {
+interface CharacterLeafProps {
   myCharacter: PlayerCharacter | null;
   onCreateMark?: (
     characterId: string,
@@ -26,11 +26,11 @@ interface CharacterSheetPanelProps {
  * they carry (aspect), what defines them (traits), and everything the story
  * has done to them (marks).
  */
-export default function CharacterSheetPanel({
+export default function CharacterLeaf({
   myCharacter,
   onCreateMark,
   onRemoveMark,
-}: CharacterSheetPanelProps) {
+}: CharacterLeafProps) {
   const [addingMark, setAddingMark] = useState(false);
 
   if (!myCharacter) {

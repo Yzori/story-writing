@@ -7,6 +7,11 @@ import InlineQuill from "@/components/campaign/manuscript/InlineQuill";
 import WaitingLine from "@/components/campaign/manuscript/WaitingLine";
 import TableSeats from "@/components/campaign/manuscript/TableSeats";
 import CandleTimer from "@/components/campaign/manuscript/CandleTimer";
+import QuillStation from "@/components/campaign/manuscript/QuillStation";
+import TableTalkDrawer from "@/components/campaign/manuscript/TableTalkDrawer";
+import PartyLedger from "@/components/campaign/manuscript/PartyLedger";
+import { CoachSlip, useCoachSlip } from "@/components/campaign/manuscript/CoachSlips";
+import StakesTracker from "@/components/campaign/StakesTracker";
 import DiceRoller from "@/components/campaign/DiceRoller";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -361,6 +366,106 @@ export default function ManuscriptHarnessPage() {
     });
   }, [extendLocally, appendTurn, myCharacter]);
 
+  // ── The Director's moves (fixture-backed sendTurn equivalents) ──
+  const [showChat, setShowChat] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [statuses, setStatuses] = useState<Record<string, string>>({});
+  const charactersWithStatus = useMemo(
+    () => characters.map((c) => ({ ...c, status: statuses[c.id] ?? c.status })),
+    [characters, statuses],
+  );
+  const playerCoach = useCoachSlip("player");
+  const gmCoach = useCoachSlip("gm");
+
+  const handleRequestRoll = useCallback(
+    (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => {
+      const required =
+        targetUserId === "everyone"
+          ? charactersWithStatus.filter((c) => c.status === "active").map((c) => c.userId)
+          : [targetUserId];
+      appendTurn({
+        type: "roll-request",
+        content: `The Director calls for a ${attribute.toUpperCase()} check — ${reason}`,
+        metadata: JSON.stringify({
+          targetUserId,
+          attribute,
+          reason,
+          onSuccess,
+          onFailure,
+          fatal: fatal === true,
+          status: "open",
+          requiredUserIds: required,
+        }),
+      });
+    },
+    [appendTurn, charactersWithStatus],
+  );
+
+  const handleSceneBreak = useCallback(
+    (title: string, mood: string, aspects?: string[]) => {
+      appendTurn({
+        type: "scene-break",
+        content: "",
+        metadata: JSON.stringify({ title: title || undefined, mood, aspects }),
+      });
+    },
+    [appendTurn],
+  );
+
+  const handleStoryMoment = useCallback(
+    (text: string, mood: string, subtext?: string, options?: { importance?: "normal" | "major"; leavesMark?: boolean }) => {
+      appendTurn({
+        type: "story-moment",
+        content: text,
+        metadata: JSON.stringify({
+          mood,
+          subtext,
+          importance: options?.importance ?? "normal",
+          markEligible: options?.leavesMark || undefined,
+        }),
+      });
+    },
+    [appendTurn],
+  );
+
+  const handleAddIllustration = useCallback(
+    (imageUrl: string, caption?: string) => {
+      appendTurn({ type: "illustration", content: caption ?? "", metadata: JSON.stringify({ imageUrl, caption }) });
+    },
+    [appendTurn],
+  );
+
+  const handleOfferBargain = useCallback(
+    (body: { targetUserId: string; targetLabel: string; gain: string; price: string }) => {
+      appendTurn({
+        type: "consequence",
+        content: `The Director offers ${body.targetLabel} a bargain.`,
+        metadata: JSON.stringify({ kind: "bargain", ...body, status: "open" }),
+      });
+    },
+    [appendTurn],
+  );
+
+  const handleSendChat = useCallback(
+    (message: string) => {
+      if (!message.trim()) return;
+      appendTurn({
+        type: "ooc",
+        content: message.trim(),
+        ...(myCharacter
+          ? {
+              userId: myCharacter.userId,
+              characterId: myCharacter.id,
+              user: myCharacter.user ?? { id: myCharacter.userId, displayName: null, avatarUrl: null },
+              characterName: myCharacter.name.split(" ")[0],
+            }
+          : {}),
+      });
+      setChatInput("");
+    },
+    [appendTurn, myCharacter],
+  );
+
   // ── End-of-page state (the ActionDock replacement) ─────────
   const interaction = getSessionInteractionState({
     sessionStatus: "active",
@@ -445,7 +550,7 @@ export default function ManuscriptHarnessPage() {
   const seats = (
     <TableSeats
       layout={isDesktop ? "rim" : "strip"}
-      characters={characters}
+      characters={charactersWithStatus}
       ownerId={GM_USER_ID}
       activePlayerId={activePlayerId}
       currentUserId={currentUserId}
@@ -457,19 +562,59 @@ export default function ManuscriptHarnessPage() {
     />
   );
 
+  const station = isGM ? (
+    <QuillStation
+      isDesktop={isDesktop}
+      activeChars={charactersWithStatus.filter((c) => c.status === "active")}
+      clocks={clocks}
+      onClocksChange={setClocks}
+      onRequestRoll={handleRequestRoll}
+      onPushEvent={(content) => appendTurn({ type: "narration", content })}
+      onSceneBreak={handleSceneBreak}
+      onStoryMoment={handleStoryMoment}
+      onAddIllustration={handleAddIllustration}
+      onOfferBargain={handleOfferBargain}
+      floorRound={null}
+      onOpenCrossroads={() => {}}
+      onUpdateFloorRound={() => {}}
+      ledger={
+        <div className="space-y-4">
+          <PartyLedger
+            characters={charactersWithStatus}
+            activePlayerId={activePlayerId}
+            onChangeCharacterStatus={(characterId, status) =>
+              setStatuses((prev) => ({ ...prev, [characterId]: status }))
+            }
+            currentUserId={currentUserId}
+            onCreateMark={handleCreateMark}
+          />
+          <StakesTracker clocks={clocks} onClocksChange={setClocks} />
+        </div>
+      }
+      onEndSession={() => {}}
+      coachSlip={
+        <CoachSlip show={gmCoach.show} onDismiss={gmCoach.dismiss} title="Your moves live here.">
+          Pass the pen from a seat to hand a player the next paragraph; everything you do writes
+          itself into the margin.
+        </CoachSlip>
+      }
+    />
+  ) : undefined;
+
   return (
     <ManuscriptRoom
       leaveHref="/demo-adventure"
       isDesktop={isDesktop}
       seats={seats}
       candle={isDesktop ? candle : undefined}
+      station={station}
       page={
         <ManuscriptPage
           sessionId={SESSION_ID}
           storyId={STORY_ID}
           storyTurns={storyTurns}
           logTurns={logTurns}
-          characters={characters}
+          characters={charactersWithStatus}
           activePlayerId={activePlayerId}
           currentUserId={currentUserId}
           isGM={isGM}
@@ -480,7 +625,22 @@ export default function ManuscriptHarnessPage() {
           onEditTurn={handleEditTurn}
           onResolveBargain={handleResolveBargain}
           spectatorMode={spectator}
-          endOfPage={endOfPage}
+          endOfPage={
+            <>
+              {!isGM && !spectator && myCharacter && (
+                <CoachSlip
+                  show={playerCoach.show}
+                  onDismiss={playerCoach.dismiss}
+                  title="You're at the table."
+                >
+                  You&rsquo;ll write when the pen reaches you. Until then, whisper a reaction or
+                  reach for the page. When the dice call, your aspect can save a miss — once per
+                  scene.
+                </CoachSlip>
+              )}
+              {endOfPage}
+            </>
+          }
           margin={
             spectator
               ? undefined
@@ -506,7 +666,7 @@ export default function ManuscriptHarnessPage() {
           visible={showDiceRoller || !!pendingRollRequest}
           onClose={() => setShowDiceRoller(false)}
           onRollSubmit={handleRollSubmit}
-          characters={characters}
+          characters={charactersWithStatus}
           currentUserId={currentUserId}
           aspectAvailable
           preSelectedAttribute={pendingRollRequest?.attribute ?? null}
@@ -516,6 +676,29 @@ export default function ManuscriptHarnessPage() {
           rollFatal={pendingRollRequest?.fatal ?? false}
         />
       )}
+      {/* Table talk — the voices under the table. */}
+      <button
+        type="button"
+        onClick={() => setShowChat(true)}
+        className="hand-note fixed bottom-5 left-4 z-30 cursor-pointer text-base opacity-60 transition-opacity hover:opacity-100"
+      >
+        under the table ☾
+      </button>
+      <TableTalkDrawer
+        open={showChat}
+        onClose={() => setShowChat(false)}
+        turns={logTurns}
+        currentUserId={currentUserId}
+        sessionTitle="The Obsidian Crown"
+        storyTitle="The Shattered City"
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        onSendChat={handleSendChat}
+        readOnly={spectator}
+        isGM={isGM}
+        onUpdateRollRequest={handleUpdateRollRequest}
+      />
+
       {/* Harness controls — dev-only role + pen switches, not part of the design. */}
       <div className="absolute bottom-4 left-1/2 z-[70] flex -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-full border border-border bg-black/70 px-2 py-1 backdrop-blur-md">
         {VIEW_AS_OPTIONS.map((option) => (
