@@ -94,30 +94,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: { code: "CONFLICT", message: "A floor round is already active" } }, { status: 409 });
     }
 
-    const isHouseFork = parsed.data.mode === "house_fork";
-    await db
-      .insert(campaignFloorRounds)
-      .values({
-        sessionId,
-        openedBy: session.user.id,
-        prompt: parsed.data.prompt.trim(),
-        mode: parsed.data.mode,
-        audiencePulseEnabled: parsed.data.audiencePulseEnabled,
-        ...(isHouseFork
-          ? {
-              // house_fork opens straight to voting on GM-authored options
-              status: "voting" as const,
-              options: JSON.stringify(
-                (parsed.data.options ?? []).map((o) => ({ label: o.label.trim() })),
-              ),
-              constituency: parsed.data.constituency,
-              binding: parsed.data.binding,
-              closesAt: parsed.data.closesInSeconds
-                ? new Date(Date.now() + parsed.data.closesInSeconds * 1000)
-                : null,
-            }
-          : {}),
-      });
+    // One Crossroads shape: players write competing responses ("open"), the
+    // table votes, the GM canonizes. Opens in the collection phase.
+    await db.insert(campaignFloorRounds).values({
+      sessionId,
+      openedBy: session.user.id,
+      prompt: parsed.data.prompt.trim(),
+      mode: "vote",
+      audiencePulseEnabled: parsed.data.audiencePulseEnabled,
+    });
 
     return NextResponse.json({
       data: await getVisibleFloorRound(sessionId, session.user.id, true),

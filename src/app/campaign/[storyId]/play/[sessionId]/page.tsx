@@ -6,24 +6,34 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useCampaignSession } from "@/hooks/use-campaign-session";
 import SessionLog from "@/components/campaign/SessionLog";
-import StoryCanvas from "@/components/campaign/StoryCanvas";
-import ContextPanel from "@/components/campaign/ContextPanel";
-import type { RollRequest } from "@/types/campaign";
+import StoryStage from "@/components/campaign/play/StoryStage";
+import ActionDock from "@/components/campaign/play/ActionDock";
+import CharacterSheetPanel from "@/components/campaign/play/CharacterSheetPanel";
+import PartyStatusPanel from "@/components/campaign/play/PartyStatusPanel";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
-import ActingGmBar, { type ActingGmPlayer } from "@/components/campaign/ActingGmBar";
+import ActingGmBar from "@/components/campaign/ActingGmBar";
 import EndSessionModal from "@/components/campaign/EndSessionModal";
 import OpenFloorForm from "@/components/campaign/OpenFloorForm";
-import DirectorsHand from "@/components/campaign/DirectorsHand";
+import DirectRow from "@/components/campaign/play/DirectRow";
+import PlaySessionShell from "@/components/campaign/play/PlaySessionShell";
+import PlayHeader from "@/components/campaign/play/PlayHeader";
+import PhaseBanner from "@/components/campaign/play/PhaseBanner";
+import TableRail from "@/components/campaign/play/TableRail";
+import CastRail from "@/components/campaign/play/CastRail";
+import ClocksSection from "@/components/campaign/play/ClocksSection";
+import ChatPeek from "@/components/campaign/play/ChatPeek";
 import {
-  isLogTurnType,
-  isStoryTurnType,
   parseRollMetadata,
-  parseRollRequestMetadata,
   parseSceneBreakMetadata,
   parseStoryMomentMetadata,
 } from "@/lib/campaign-turns";
 import { campaignJsonRequest } from "@/lib/campaign-api";
+import { usePlayDerived } from "@/hooks/use-play-derived";
+import { useTurnTimer } from "@/hooks/use-turn-timer";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import CastStrip from "@/components/campaign/play/CastStrip";
+import DeckSheet, { type DeckSegment } from "@/components/campaign/play/DeckSheet";
 
 export default function SessionPlayPage() {
   const params = useParams();
@@ -59,7 +69,6 @@ export default function SessionPlayPage() {
     updateBargain,
     submitFloorResponse,
     voteFloorSubmission,
-    updateAudienceSpark,
     updateFloorRound,
     clocks,
     setClocks,
@@ -74,54 +83,25 @@ export default function SessionPlayPage() {
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
   const [logTab, setLogTab] = useState<"talk" | "rolls">("talk");
-  const [showContextDrawer, setShowContextDrawer] = useState(false);
-  const [handOpen, setHandOpen] = useState(false);
-  // First-run discoverability for the Director's hand: the fan holds every GM
-  // stage move (rolls, scenes, bargains, clocks) but it's a single glyph, so a
-  // first-time GM can miss it entirely. Show a labeled pulse until they open it
-  // once. Default true to avoid an SSR/first-paint flash; hydrate from storage.
-  const [directHintSeen, setDirectHintSeen] = useState(true);
-  useEffect(() => {
-    try {
-      setDirectHintSeen(localStorage.getItem("quiloria.gm.directHintSeen") === "1");
-    } catch {
-      /* storage blocked — just skip the hint */
+  // Below lg the rail and chat drawer give way to the deck sheet. JS-gated
+  // (not CSS-hidden) so the composer's draft state only ever mounts once.
+  const isDesktop = useMediaQuery("(min-width: 1024px)", true);
+  const [deckOpen, setDeckOpen] = useState(false);
+  const [deckSegment, setDeckSegment] = useState<DeckSegment>("you");
+  const openDeck = useCallback((segment: DeckSegment) => {
+    setDeckSegment(segment);
+    setDeckOpen(true);
+  }, []);
+  const openChat = useCallback(() => {
+    if (window.matchMedia("(min-width: 1024px)").matches) setShowLogDrawer(true);
+    else {
+      setDeckSegment("talk");
+      setDeckOpen(true);
     }
   }, []);
-  const openDirectorsHand = useCallback(() => {
-    setHandOpen((v) => !v);
-    if (!directHintSeen) {
-      setDirectHintSeen(true);
-      try {
-        localStorage.setItem("quiloria.gm.directHintSeen", "1");
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [directHintSeen]);
-  // First-run coaching for players: the turn protocol (you write when handed the
-  // pen; otherwise react or raise your hand) is enforced but never taught. P0 #3.
-  const [playerCoachSeen, setPlayerCoachSeen] = useState(true);
-  useEffect(() => {
-    try {
-      setPlayerCoachSeen(localStorage.getItem("quiloria.player.coachSeen") === "1");
-    } catch {
-      /* storage blocked — skip the coach */
-    }
-  }, []);
-  const dismissPlayerCoach = useCallback(() => {
-    setPlayerCoachSeen(true);
-    try {
-      localStorage.setItem("quiloria.player.coachSeen", "1");
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  const [consoleFocus, setConsoleFocus] = useState<null | "roll" | "scene" | "story" | "illustration" | "bargain" | "pressure">(null);
   const [floorFormOpen, setFloorFormOpen] = useState(false);
   const [floorPrompt, setFloorPrompt] = useState("");
-  const [floorOptions, setFloorOptions] = useState<string[]>(["", ""]);
-  const [floorBinding, setFloorBinding] = useState(false);
+  const [floorPulse, setFloorPulse] = useState(false);
   const [floorSubmitting, setFloorSubmitting] = useState(false);
   const [houseCount, setHouseCount] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
@@ -200,49 +180,32 @@ export default function SessionPlayPage() {
     prevSessionStatusRef.current = next;
   }, [campaignSession?.status, campaignSession?.opening, campaignSession?.epilogue, campaignSession?.closingMood, campaignSession?.title, isGM]);
 
-  // ── Turn routing ──────────────────────────────────────────
-  // Left pillar: only meta/mechanical stuff (chat, dice, roll requests)
-  const logTurns = useMemo(() => turns.filter((t) =>
-    isLogTurnType(t.type)
-  ), [turns]);
-  // Center stage: all narrative content (no mechanical turns)
-  const storyTurns = useMemo(() => turns.filter((t) =>
-    isStoryTurnType(t.type)
-  ), [turns]);
-  // Save-trump availability: a scene resets at each scene-break. Base one save
-  // (the aspect) + one per active vow the character carries (P1 #10). Mirrors
-  // the server check in turns/route.ts so the dice UI disables a spent invoke.
-  const myAspectAvailable = useMemo(() => {
-    if (!currentUserId) return true;
-    let sceneStart = -1;
-    for (const t of turns) {
-      if (t.type === "scene-break" && t.sortOrder > sceneStart) sceneStart = t.sortOrder;
-    }
-    const used = turns.filter(
-      (t) =>
-        t.type === "roll" &&
-        t.userId === currentUserId &&
-        t.sortOrder > sceneStart &&
-        parseRollMetadata(t.metadata)?.aspectSaved === true,
-    ).length;
-    const vowCount = (myCharacter?.marks ?? []).filter((m) => m.kind === "vow").length;
-    return used < 1 + vowCount;
-  }, [turns, currentUserId, myCharacter]);
-
-  // Acting-GM continuity (D2): the table of active players (handoff targets +
-  // name lookup), excluding the owner, and whether I'm one of them.
+  // ── Derived play state (see use-play-derived / campaign-play-derive) ──
   const ownerId = story?.userId ?? null;
-  const actingGmPlayers = useMemo<ActingGmPlayer[]>(() => {
-    const seen = new Set<string>();
-    const list: ActingGmPlayer[] = [];
-    for (const c of characters) {
-      if (c.status !== "active" || c.userId === ownerId || seen.has(c.userId)) continue;
-      seen.add(c.userId);
-      list.push({ userId: c.userId, name: c.name || c.user?.displayName || "A player" });
-    }
-    return list;
-  }, [characters, ownerId]);
-  const isActivePlayer = !!currentUserId && actingGmPlayers.some((p) => p.userId === currentUserId);
+  const {
+    logTurns,
+    storyTurns,
+    extensionTurns,
+    spotlightQueue,
+    myHandRaised,
+    pendingRollRequest,
+    myAspectAvailable,
+    actingGmPlayers,
+    isActivePlayer,
+    incomingReactions,
+    currentScene,
+    phase,
+  } = usePlayDerived({
+    turns,
+    characters,
+    ownerId,
+    campaignSession,
+    floorRound,
+    currentUserId,
+    isGM,
+    myCharacter,
+    tableReactions,
+  });
 
   const handleActingGm = useCallback(
     async (action: "handoff" | "reclaim" | "propose" | "confirm" | "cancel", targetUserId?: string) => {
@@ -253,53 +216,6 @@ export default function SessionPlayPage() {
       }
     },
     [updateActingGm, showToast],
-  );
-  // OOC turns carrying an "Extend +3min" request — InitiativeBar applies
-  // these to every client's countdown (see handleExtendTimer below).
-  const extensionTurns = useMemo(
-    () => logTurns.filter((t) => t.type === "ooc" && !!t.metadata?.includes("timerExtension")),
-    [logTurns],
-  );
-
-  // ── Spotlight queue (hand-raises) ─────────────────────────
-  // Derived from the OOC turn stream: a player's latest {spotlightRequest} is
-  // "open" until they cancel it, post a story beat, or get handed the pen.
-  const spotlightQueue = useMemo(() => {
-    const latestRequest = new Map<string, number>();
-    const latestCancel = new Map<string, number>();
-    const latestStoryBy = new Map<string, number>();
-    for (const t of turns) {
-      if (!t.userId) continue;
-      if (t.type === "ooc" && t.metadata) {
-        let meta: { spotlightRequest?: boolean; spotlightCancel?: boolean } | null = null;
-        try { meta = JSON.parse(t.metadata); } catch { meta = null; }
-        if (meta?.spotlightRequest) {
-          latestRequest.set(t.userId, Math.max(latestRequest.get(t.userId) ?? -1, t.sortOrder));
-        } else if (meta?.spotlightCancel) {
-          latestCancel.set(t.userId, Math.max(latestCancel.get(t.userId) ?? -1, t.sortOrder));
-        }
-      } else if (isStoryTurnType(t.type)) {
-        latestStoryBy.set(t.userId, Math.max(latestStoryBy.get(t.userId) ?? -1, t.sortOrder));
-      }
-    }
-    const out: Array<{ userId: string; characterName: string; sortOrder: number }> = [];
-    for (const [userId, reqSort] of latestRequest) {
-      if (userId === story?.userId) continue; // the Director doesn't queue
-      if ((latestCancel.get(userId) ?? -1) > reqSort) continue;
-      if ((latestStoryBy.get(userId) ?? -1) > reqSort) continue;
-      if (campaignSession?.activePlayerId === userId) continue; // already holds the pen
-      const char = characters.find((c) => c.userId === userId);
-      out.push({ userId, characterName: char?.name ?? "A player", sortOrder: reqSort });
-    }
-    return out.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [turns, characters, story?.userId, campaignSession?.activePlayerId]);
-
-  const myHandRaised = !!currentUserId && spotlightQueue.some((q) => q.userId === currentUserId);
-
-  // Reactions from everyone but me — my own clicks already float locally.
-  const incomingReactions = useMemo(
-    () => tableReactions.filter((r) => r.userId !== currentUserId).map((r) => ({ id: r.id, type: r.type })),
-    [tableReactions, currentUserId],
   );
 
   useEffect(() => {
@@ -325,49 +241,6 @@ export default function SessionPlayPage() {
       subtext: meta?.subtext,
     });
   }, [loading, storyTurns]);
-
-  // ── Pending roll request for the current player ───────────
-  const pendingRollRequest = ((): RollRequest | null => {
-    if (!currentUserId || isGM) return null;
-    // A roll needs a living character. If this player's character died or
-    // retired after the request was issued, don't force the ritual open —
-    // the server rejects every attempt and the modal cannot be dismissed.
-    if (myCharacter?.status !== "active") return null;
-    // Find the most recent roll-request targeting this player (or "everyone")
-    for (let i = turns.length - 1; i >= 0; i--) {
-      const t = turns[i];
-      if (t.type !== "roll-request" || !t.metadata) continue;
-      const meta = parseRollRequestMetadata(t.metadata);
-      if (!meta) continue;
-      if ((meta.status ?? "open") !== "open") continue;
-      const requiredUserIds: string[] = meta.requiredUserIds?.length
-        ? meta.requiredUserIds
-        : meta.targetUserId === "everyone"
-          ? [currentUserId]
-          : [meta.targetUserId];
-      if (!requiredUserIds.includes(currentUserId)) continue;
-      const hasResponded = turns.some(
-        (r) =>
-          r.type === "roll" &&
-          r.userId === currentUserId &&
-          parseRollMetadata(r.metadata)?.rollRequestTurnId === t.id
-      );
-      if (hasResponded) continue;
-      return {
-        targetUserId: meta.targetUserId,
-        attribute: meta.attribute,
-        reason: meta.reason,
-        onSuccess: meta.onSuccess ?? "",
-        onFailure: meta.onFailure ?? "",
-        fatal: meta.fatal === true,
-        status: meta.status ?? "open",
-        requiredUserIds,
-        turnId: t.id,
-        sortOrder: t.sortOrder,
-      };
-    }
-    return null;
-  })();
 
   // ── Handlers ──────────────────────────────────────────────
 
@@ -488,18 +361,6 @@ export default function SessionPlayPage() {
     [voteFloorSubmission, showToast],
   );
 
-  const handleUpdateAudienceSpark = useCallback(
-    async (roundId: string, sparkId: string, action: "promote" | "reject") => {
-      try {
-        await updateAudienceSpark(roundId, sparkId, action);
-        showToast(action === "promote" ? "Audience Spark promoted to vote options" : "Audience Spark passed");
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Failed to update Audience Spark");
-      }
-    },
-    [updateAudienceSpark, showToast],
-  );
-
   const handleUpdateFloorRound = useCallback(
     async (
       roundId: string,
@@ -573,10 +434,10 @@ export default function SessionPlayPage() {
     }
   }, [story, setActivePlayer, showToast]);
 
-  // Open the floor to the house — a GM-authored vote the gallery decides.
+  // Open the floor — players write competing responses, the table votes,
+  // the GM canonizes. (One Crossroads shape since the 2026-07 feature kills.)
   const handleOpenFloor = async () => {
-    const opts = floorOptions.map((o) => o.trim()).filter(Boolean);
-    if (!floorPrompt.trim() || opts.length < 2 || floorSubmitting) return;
+    if (!floorPrompt.trim() || floorSubmitting) return;
     setFloorSubmitting(true);
     try {
       const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/floor-rounds`, {
@@ -584,20 +445,15 @@ export default function SessionPlayPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: floorPrompt.trim(),
-          mode: "house_fork",
-          constituency: "gallery",
-          binding: floorBinding,
-          options: opts.map((label) => ({ label })),
-          closesInSeconds: 120,
+          audiencePulseEnabled: floorPulse,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message ?? "Failed to open the floor");
       setFloorFormOpen(false);
       setFloorPrompt("");
-      setFloorOptions(["", ""]);
-      setFloorBinding(false);
-      showToast("The floor is open to the house");
+      setFloorPulse(false);
+      showToast("The floor is open — the table writes the next beat");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to open the floor");
     } finally {
@@ -623,6 +479,41 @@ export default function SessionPlayPage() {
       // Non-critical — don't show error for OOC message
     }
   }, [showToast, myCharacter, sendTurn]);
+
+  // ── The turn countdown — ONE per client ────────────────────
+  // Lives at the page level (not in a rail/strip) so switching between the
+  // desktop rail and the mobile strip can never double-mount it — a second
+  // instance would double-fire the GM's auto-expiry.
+  const timerActivePlayerId = campaignSession?.activePlayerId ?? null;
+  const isSessionActive = campaignSession?.status === "active";
+  const isPlayerTurnForTimer =
+    timerActivePlayerId !== null &&
+    characters.some((c) => c.userId === timerActivePlayerId && c.status === "active");
+  const {
+    progress: timerProgress,
+    timeStr: timerTimeStr,
+    urgency: timerUrgency,
+    extendLocally,
+    showExtendButton,
+  } = useTurnTimer({
+    activePlayerId: timerActivePlayerId,
+    isPlayerTurn: isPlayerTurnForTimer,
+    isActive: isSessionActive,
+    isGM,
+    currentUserId,
+    extensionTurns,
+    onTurnExpired: handleTurnExpired,
+  });
+  const seatTimer =
+    isPlayerTurnForTimer && isSessionActive
+      ? { progress: timerProgress, timeStr: timerTimeStr, urgency: timerUrgency }
+      : null;
+  // The seat owner's +3 min: bump this client instantly, then broadcast the
+  // OOC {timerExtension} turn so every other countdown follows.
+  const handleSeatExtend = useCallback(() => {
+    extendLocally();
+    void handleExtendTimer();
+  }, [extendLocally, handleExtendTimer]);
 
   // GM changes character status (kill / retire / revive)
   const handleChangeCharacterStatus = useCallback(
@@ -733,12 +624,22 @@ export default function SessionPlayPage() {
   );
 
   // Player sends an ephemeral reaction while waiting \u2014 broadcast to the whole
-  // table (and floated locally by the canvas), no longer a self-only toast.
+  // table AND floated locally over the stage (the dock has no room to float).
+  // Capped so the guard set / array can't grow without bound in long sessions.
+  const [localFloats, setLocalFloats] = useState<Array<{ id: string; type: string }>>([]);
   const handleReaction = useCallback(
     (reactionKey: string) => {
       void sendReaction(reactionKey);
+      setLocalFloats((prev) => [
+        ...prev.slice(-19),
+        { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type: reactionKey },
+      ]);
     },
     [sendReaction]
+  );
+  const reactionFloats = useMemo(
+    () => [...incomingReactions, ...localFloats],
+    [incomingReactions, localFloats],
   );
 
   // \u2500\u2500 Hand-raise (spotlight bid) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -968,63 +869,214 @@ export default function SessionPlayPage() {
     );
   }
 
-  const activePlayerCharacter = characters.find((c) => c.userId === campaignSession?.activePlayerId);
-  const spotlightLabel = activePlayerCharacter?.name
-    ?? (campaignSession?.activePlayerId ? "Player joining…" : "Director");
-  const activeCharacters = rosterCharacters.length > 0
-    ? rosterCharacters.filter((c) => c.status === "active")
-    : characters.filter((c) => c.status === "active");
   const canPassSpotlight = isGM && campaignSession?.status === "active" && !floorRound;
-  // The Director is a first-class seat: holds the pen when no player is on the spotlight.
-  const directorHolds = !campaignSession?.activePlayerId || campaignSession?.activePlayerId === story?.userId;
-  const currentScene = (() => {
-    for (let i = storyTurns.length - 1; i >= 0; i--) {
-      const turn = storyTurns[i];
-      if (turn.type === "scene-break" && turn.metadata) {
-        const meta = parseSceneBreakMetadata(turn.metadata);
-        if (meta?.cinematic) continue;
-        return {
-          title: meta?.title || campaignSession?.title || "Current Scene",
-          mood: meta?.mood ?? "live",
-          aspects: meta?.aspects ?? [],
-        };
-      }
-    }
-    return {
-      title: campaignSession?.title ?? "Current Scene",
-      mood: campaignSession?.status ?? "live",
-      aspects: [] as string[],
-    };
-  })();
-  const phaseLabel = floorRound
-    ? floorRound.status === "open"
-      ? "Crossroads Open"
-      : floorRound.status === "voting"
-        ? "Table Vote"
-        : floorRound.status === "closed"
-          ? "Director Resolving"
-          : "Crossroads"
-    : pendingRollRequest
-      ? "Check Pending"
-      : campaignSession?.activePlayerId
-        ? "Spotlight"
-        : "Director Beat";
-  const phaseHint = floorRound
-    ? floorRound.prompt
-    : pendingRollRequest
-      ? pendingRollRequest.reason
-      : campaignSession?.activePlayerId
-        ? `${spotlightLabel} is writing the next beat.`
-        : isGM
-          ? "Frame the scene, call a check, or pass the spotlight."
-          : "Waiting for the Director to frame the next beat.";
 
   return (
-    <div className={`adventure-mode flex w-screen flex-col overflow-hidden bg-void text-paper selection:bg-amber/30 ${
-      focusMode
-        ? "fixed inset-0 z-[80] h-screen"
-        : "mt-14 h-[calc(100vh-3.5rem)]"
-    }`}>
+    <PlaySessionShell
+      focusMode={focusMode}
+      header={
+        <PlayHeader
+          storyTitle={story.title}
+          sceneTitle={currentScene.title}
+          sessionStatus={campaignSession?.status ?? "draft"}
+          houseCount={houseCount}
+          firstClock={clocks[0] ?? null}
+          isGM={isGM}
+          focusMode={focusMode}
+          onToggleFocus={() => setFocusMode((value) => !value)}
+          onEndSession={handleEndSession}
+          onOpenCharacter={!isGM && !isDesktop ? () => openDeck("you") : undefined}
+        />
+      }
+      banner={
+        campaignSession ? (
+          <PhaseBanner
+            phase={phase}
+            sceneMood={currentScene.mood}
+            sceneAspects={currentScene.aspects}
+            actingGmSlot={
+              <ActingGmBar
+                inline
+                sessionStatus={campaignSession.status}
+                ownerId={ownerId}
+                actingGmId={campaignSession.actingGmId}
+                takeoverProposerId={campaignSession.takeoverProposerId}
+                currentUserId={currentUserId}
+                players={actingGmPlayers}
+                isActivePlayer={isActivePlayer}
+                onAction={handleActingGm}
+              />
+            }
+          />
+        ) : undefined
+      }
+      rail={
+        isDesktop ? (
+          <TableRail>
+            <CastRail
+              characters={rosterCharacters.length > 0 ? rosterCharacters : characters}
+              ownerId={ownerId}
+              activePlayerId={campaignSession?.activePlayerId ?? null}
+              currentUserId={currentUserId}
+              isGM={isGM}
+              sessionStatus={campaignSession?.status ?? "draft"}
+              canPassSpotlight={canPassSpotlight}
+              onPassTurn={handlePassTurn}
+              spotlightQueue={spotlightQueue}
+              seatTimer={seatTimer}
+              showExtendButton={showExtendButton}
+              onExtend={handleSeatExtend}
+            />
+            <ClocksSection clocks={clocks} isGM={isGM} onClocksChange={handleClocksChange} />
+            {isGM ? (
+              <PartyStatusPanel
+                characters={characters}
+                activePlayerId={campaignSession?.activePlayerId ?? null}
+                onChangeCharacterStatus={handleChangeCharacterStatus}
+                onInviteNewCharacter={handleInviteNewCharacter}
+                roster={roster}
+                currentUserId={currentUserId}
+                onCreateMark={createMark}
+                onRemoveMark={removeMark}
+              />
+            ) : (
+              <CharacterSheetPanel
+                myCharacter={myCharacter ?? null}
+                onCreateMark={createMark}
+                onRemoveMark={removeMark}
+              />
+            )}
+            <ChatPeek logTurns={logTurns} onOpenChat={openChat} />
+          </TableRail>
+        ) : undefined
+      }
+      stage={
+        <StoryStage
+          sessionId={sessionId}
+          storyId={storyId}
+          storyTurns={storyTurns}
+          logTurns={logTurns}
+          characters={characters}
+          rosterCharacters={rosterCharacters}
+          allCharacters={characters}
+          roster={roster}
+          onUpdateRoster={updateRoster}
+          activePlayerId={campaignSession?.activePlayerId ?? null}
+          currentUserId={currentUserId}
+          isGM={isGM}
+          myCharacter={myCharacter}
+          floorRound={floorRound}
+          sessionTitle={campaignSession?.title ?? "Session"}
+          sessionStatus={campaignSession?.status ?? "draft"}
+          sessionOpening={campaignSession?.opening ?? null}
+          storyTitle={story.title}
+          sessionEpilogue={campaignSession?.epilogue ?? null}
+          sessionCliffhanger={campaignSession?.cliffhanger ?? null}
+          lobbyTheme="campfire"
+          previousEpilogue={previousEpilogue}
+          previousMood={previousMood}
+          onBeginSession={async () => {
+            try {
+              await updateSession({ status: "active" });
+              const opening = campaignSession?.opening;
+              if (opening) {
+                // Play opening narration as a cinematic moment
+                setActiveStoryMoment({
+                  mood: "calm",
+                  text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
+                  subtext: campaignSession?.title ?? "The story begins.",
+                });
+              } else {
+                showToast("The story begins!");
+              }
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : "Failed to begin session");
+            }
+          }}
+          showDiceRoller={showDiceRoller || !!pendingRollRequest}
+          onCloseDiceRoller={() => setShowDiceRoller(false)}
+          onResolveBargain={handleResolveBargain}
+          onSubmitFloorResponse={handleSubmitFloorResponse}
+          onVoteFloorSubmission={handleVoteFloorSubmission}
+          onUpdateFloorRound={handleUpdateFloorRound}
+          onCreateMark={createMark}
+          onRollSubmit={handleRollSubmit}
+          aspectAvailable={myAspectAvailable}
+          pendingRollRequest={pendingRollRequest}
+          reactionFloats={reactionFloats}
+          onEditTurn={handleEditTurn}
+          mapImageUrl={story?.mapImageUrl ?? null}
+          onUpdateMapImage={async (url) => {
+            try {
+              await patchStory({ mapImageUrl: url });
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : "Failed to update map");
+            }
+          }}
+        />
+      }
+      dock={
+        <>
+        {!isDesktop && (
+          <CastStrip
+            characters={rosterCharacters.length > 0 ? rosterCharacters : characters}
+            ownerId={ownerId}
+            activePlayerId={campaignSession?.activePlayerId ?? null}
+            currentUserId={currentUserId}
+            isGM={isGM}
+            sessionStatus={campaignSession?.status ?? "draft"}
+            canPassSpotlight={canPassSpotlight}
+            onPassTurn={handlePassTurn}
+            spotlightQueue={spotlightQueue}
+            seatTimer={seatTimer}
+            onOpenSheet={() => openDeck(isGM ? "cast" : "you")}
+            onOpenChat={openChat}
+          />
+        )}
+        <ActionDock
+          sessionId={sessionId}
+          sessionStatus={campaignSession?.status ?? "draft"}
+          activePlayerId={campaignSession?.activePlayerId ?? null}
+          currentUserId={currentUserId}
+          isGM={isGM}
+          myCharacter={myCharacter ?? null}
+          characters={characters}
+          floorRound={floorRound}
+          pendingRollRequest={pendingRollRequest}
+          onCommitDraft={handleCommitDraft}
+          onViewChat={openChat}
+          onReaction={handleReaction}
+          myHandRaised={myHandRaised}
+          onRaiseHand={handleRaiseHand}
+          onLowerHand={handleLowerHand}
+          onLastWords={handleLastWords}
+          onOpenDiceRoller={() => setShowDiceRoller(true)}
+          onUpdateFloorRound={handleUpdateFloorRound}
+          penHolderName={
+            characters.find((c) => c.userId === campaignSession?.activePlayerId)?.name ?? null
+          }
+          onReclaimPen={() => (story ? handlePassTurn(story.userId) : undefined)}
+          directSlot={
+            isGM ? (
+              <DirectRow
+                activeChars={characters.filter((c) => c.status === "active")}
+                onRequestRoll={handleRequestRoll}
+                onPushEvent={handlePushEvent}
+                onSceneBreak={handleSceneBreak}
+                onStoryMoment={handleStoryMoment}
+                onAddIllustration={handleAddIllustration}
+                onOfferBargain={handleOfferBargain}
+                clocks={clocks}
+                onClocksChange={handleClocksChange}
+                onOpenFloor={() => setFloorFormOpen(true)}
+                onOpenCast={isDesktop ? undefined : () => openDeck("cast")}
+              />
+            ) : undefined
+          }
+        />
+        </>
+      }
+    >
       {/* Toast */}
       <AnimatePresence>
         {toast && (
@@ -1032,7 +1084,7 @@ export default function SessionPlayPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-rose/90 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-rose/90 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md"
           >
             {toast}
           </motion.div>
@@ -1063,344 +1115,14 @@ export default function SessionPlayPage() {
         )}
       </AnimatePresence>
 
-      <header className="z-30 shrink-0 border-b border-border bg-void/92 backdrop-blur-xl">
-        <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate font-display text-[17px] text-paper sm:text-[22px]">{story.title}</h1>
-              <span className="hidden rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-amber sm:inline-flex">
-                Live Canon
-              </span>
-            </div>
-            <p className="truncate text-[11px] text-text-tertiary" aria-live="polite">
-              {currentScene.title} · <span className="text-amber/75">{phaseLabel}</span> — {phaseHint}
-            </p>
-            {(clocks.length > 0 || houseCount > 0) && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                {clocks.length > 0 && (
-                  <span className="flex items-center gap-2" title={`${clocks[0].name} — ${clocks[0].filled}/${clocks[0].segments}`}>
-                    <span className="text-[11px] leading-none text-amber/80">⛓</span>
-                    <span className="max-w-[180px] truncate text-[11px] text-text-secondary">{clocks[0].name}</span>
-                    <span className="flex items-center gap-0.5">
-                      {Array.from({ length: clocks[0].segments }).map((_, i) => (
-                        <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < clocks[0].filled ? "bg-amber" : "bg-subtle"}`} />
-                      ))}
-                    </span>
-                    <span className="font-mono text-[10px] tabular-nums text-amber/70">{clocks[0].filled}/{clocks[0].segments}</span>
-                  </span>
-                )}
-                {houseCount > 0 && (
-                  <span className="flex items-center gap-1.5 text-[11px] text-text-secondary" title={`${houseCount} watching`}>
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet [animation:pulse_1.8s_ease-in-out_infinite]" />
-                    {houseCount} in the house
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* The spotlight — whose turn it is. The Director is a seat, lit when
-              they hold the pen; the GM taps a seat to pass it. (StoryCanvas's
-              InitiativeBar is disabled here via showSessionChrome=false, so this
-              header rail is the canonical control.) */}
-          <div className="hidden shrink-0 items-center justify-center gap-1.5 md:flex" role="group" aria-label="Whose turn it is">
-            <button
-              type="button"
-              onClick={() => (canPassSpotlight ? setActivePlayer(story.userId) : undefined)}
-              title={canPassSpotlight ? "Return the pen to the Director" : "The Director"}
-              aria-label={`The Director${directorHolds ? " — holds the pen" : ""}`}
-              className={`flex min-h-9 items-center gap-2 rounded-full border px-2.5 transition-colors ${
-                directorHolds
-                  ? "border-amber/45 bg-amber/[0.12] text-amber shadow-[0_0_18px_-4px_rgba(216,178,90,0.6)]"
-                  : "border-border bg-subtle/20 text-text-secondary hover:border-border-active hover:text-paper"
-              } ${canPassSpotlight ? "cursor-pointer" : "cursor-default"}`}
-            >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-amber/30 bg-elevated text-[10px]">✦</span>
-              <span className="hidden text-[10px] lg:inline">Director</span>
-            </button>
-            {activeCharacters.slice(0, 5).map((character) => {
-              const lit = campaignSession?.activePlayerId === character.userId;
-              return (
-                <button
-                  key={character.id}
-                  type="button"
-                  onClick={() => (canPassSpotlight ? handlePassTurn(character.userId) : undefined)}
-                  title={canPassSpotlight ? `Pass the pen to ${character.name}` : character.name}
-                  aria-label={`${character.name}${lit ? " — holds the pen" : ""}`}
-                  className={`flex min-h-9 items-center gap-2 rounded-full border px-2.5 transition-colors ${
-                    lit
-                      ? "border-amber/45 bg-amber/[0.12] text-amber shadow-[0_0_18px_-4px_rgba(216,178,90,0.6)]"
-                      : "border-border bg-subtle/20 text-text-secondary hover:border-border-active hover:text-paper"
-                  } ${canPassSpotlight ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-elevated text-[10px]">
-                    {character.name.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="hidden max-w-[90px] truncate text-[10px] lg:inline">{character.name}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-1 items-center justify-end gap-2">
-            {isGM && (
-              <button
-                type="button"
-                onClick={handleEndSession}
-                className="hidden min-h-10 rounded-full border border-border bg-subtle/20 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary transition-colors hover:border-rose/30 hover:text-rose sm:inline-flex sm:items-center"
-              >
-                End Session
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setFocusMode((value) => !value)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
-              aria-label={focusMode ? "Show platform navigation" : "Enter focus mode"}
-              title={focusMode ? "Show platform navigation" : "Enter focus mode"}
-            >
-              {focusMode ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <path d="M8 3v5H3" />
-                  <path d="M16 3v5h5" />
-                  <path d="M8 21v-5H3" />
-                  <path d="M16 21v-5h5" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <path d="M3 9V3h6" />
-                  <path d="M21 9V3h-6" />
-                  <path d="M3 15v6h6" />
-                  <path d="M21 15v6h-6" />
-                </svg>
-              )}
-            </button>
-            {/* Table talk (OOC chat) is reached from the bottom bar / composer's
-                "View chat", not a header icon. GM directs from the Director's
-                hand (the ✦ button); only players need the character drawer. */}
-            {!isGM && (
-              <button
-                type="button"
-                onClick={() => setShowContextDrawer(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-subtle/20 text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
-                aria-label="Your character"
-                title="Your character"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Live-play continuity (D2) — in-flow band directly under the header rail
-          so it never overlaps the turn/scene info above. Renders only when there's
-          something to show or do. */}
-      {campaignSession && (
-        <ActingGmBar
-          sessionStatus={campaignSession.status}
-          ownerId={ownerId}
-          actingGmId={campaignSession.actingGmId}
-          takeoverProposerId={campaignSession.takeoverProposerId}
-          currentUserId={currentUserId}
-          players={actingGmPlayers}
-          isActivePlayer={isActivePlayer}
-          onAction={handleActingGm}
-        />
-      )}
-
-      <main className="relative min-h-0 flex-1">
-        {/* Hand-raise queue — the Director sees who's asking for the pen and
-            grants it with a tap. Players bid from the waiting bar below. */}
-        {isGM && campaignSession?.status === "active" && spotlightQueue.length > 0 && (
-          <div className="pointer-events-none absolute left-4 top-4 z-20 w-[250px] space-y-2">
-            <p className="flex items-center gap-1.5 px-1 text-[9px] font-bold uppercase tracking-[0.16em] text-amber">
-              <span>✋</span> Asking for the spotlight
-            </p>
-            {spotlightQueue.map((req) => (
-              <div
-                key={req.userId}
-                className="pointer-events-auto flex items-center justify-between gap-2 rounded-lg border border-amber/25 bg-void/80 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.3)] backdrop-blur-md"
-              >
-                <span className="min-w-0 flex-1 truncate text-[12px] text-paper">{req.characterName}</span>
-                <button
-                  type="button"
-                  onClick={() => handlePassTurn(req.userId)}
-                  disabled={!canPassSpotlight}
-                  className="shrink-0 rounded-full border border-amber/40 bg-amber/15 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-amber transition-colors hover:bg-amber/25 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Give the pen
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!showLogDrawer && !showContextDrawer && logTurns.length > 0 && (
-          <div className="pointer-events-none absolute right-4 top-4 z-20 hidden w-[270px] space-y-2 xl:block">
-            {logTurns.slice(-2).reverse().map((turn) => (
-              <button
-                key={turn.id}
-                type="button"
-                onClick={() => setShowLogDrawer(true)}
-                className="pointer-events-auto w-full rounded-lg border border-border bg-void/70 px-3 py-2 text-left shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-md transition-colors hover:border-amber/30"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-amber">
-                    {turn.type === "roll-request" ? "Check Pending" : turn.type === "roll" ? "Roll" : "Table Whisper"}
-                  </span>
-                  <span className="text-[9px] uppercase tracking-[0.12em] text-text-ghost">{turn.characterName ?? turn.user?.displayName ?? "Table"}</span>
-                </div>
-                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-text-secondary">{turn.content}</p>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <StoryCanvas
-        sessionId={sessionId}
-        storyId={storyId}
-        storyTurns={storyTurns}
-        characters={characters}
-        rosterCharacters={rosterCharacters}
-        allCharacters={characters}
-        roster={roster}
-        onUpdateRoster={updateRoster}
-        activePlayerId={campaignSession?.activePlayerId ?? null}
-        currentUserId={currentUserId}
-        isGM={isGM}
-        myCharacter={myCharacter}
-        floorRound={floorRound}
-        sessionTitle={campaignSession?.title ?? "Session"}
-        sessionStatus={campaignSession?.status ?? "draft"}
-        sessionOpening={campaignSession?.opening ?? null}
-        storyTitle={story.title}
-        sessionEpilogue={campaignSession?.epilogue ?? null}
-        sessionCliffhanger={campaignSession?.cliffhanger ?? null}
-        lobbyTheme="campfire"
-        previousEpilogue={previousEpilogue}
-        previousMood={previousMood}
-        onBeginSession={async () => {
-          try {
-            await updateSession({ status: "active" });
-            const opening = campaignSession?.opening;
-            if (opening) {
-              // Play opening narration as a cinematic moment
-              setActiveStoryMoment({
-                mood: "calm",
-                text: opening.length > 120 ? opening.slice(0, 120).trimEnd() + "..." : opening,
-                subtext: campaignSession?.title ?? "The story begins.",
-              });
-            } else {
-              showToast("The story begins!");
-            }
-          } catch (err) {
-            showToast(err instanceof Error ? err.message : "Failed to begin session");
-          }
-        }}
-        showDiceRoller={showDiceRoller || !!pendingRollRequest}
-        onCloseDiceRoller={() => setShowDiceRoller(false)}
-        onCommitDraft={handleCommitDraft}
-        onResolveBargain={handleResolveBargain}
-        onSubmitFloorResponse={handleSubmitFloorResponse}
-        onVoteFloorSubmission={handleVoteFloorSubmission}
-        onUpdateAudienceSpark={handleUpdateAudienceSpark}
-        onUpdateFloorRound={handleUpdateFloorRound}
-        onCreateMark={createMark}
-        onPassTurn={handlePassTurn}
-        onEndSession={handleEndSession}
-        onTurnExpired={handleTurnExpired}
-        onExtendTimer={handleExtendTimer}
-        extensionTurns={extensionTurns}
-        onRollSubmit={handleRollSubmit}
-        aspectAvailable={myAspectAvailable}
-        pendingRollRequest={pendingRollRequest}
-        myCharacterStatus={myCharacter?.status ?? null}
-        onLastWords={handleLastWords}
-        onReaction={handleReaction}
-        incomingReactions={incomingReactions}
-        myHandRaised={myHandRaised}
-        onRaiseHand={handleRaiseHand}
-        onLowerHand={handleLowerHand}
-        onEditTurn={handleEditTurn}
-        mapImageUrl={story?.mapImageUrl ?? null}
-        onUpdateMapImage={async (url) => {
-          try {
-            await patchStory({ mapImageUrl: url });
-          } catch (err) {
-            showToast(err instanceof Error ? err.message : "Failed to update map");
-          }
-        }}
-        showSessionChrome={false}
-        onViewChat={() => setShowLogDrawer(true)}
-      />
-
-
-      {/* First-run player coaching — teaches the turn protocol once (P0 #3) */}
-      <AnimatePresence>
-        {!focusMode && !isGM && currentUserId && myCharacter &&
-          campaignSession?.status === "active" && !playerCoachSeen && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            className="pointer-events-none fixed inset-x-0 bottom-44 z-40 flex justify-center px-3 sm:bottom-48"
-          >
-            <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-amber/35 bg-gradient-to-b from-amber/[0.10] to-ink/95 p-4 shadow-[0_18px_50px_-28px_rgba(216,178,90,0.7)] backdrop-blur-md">
-              <p className="text-[13px] font-semibold text-amber">You&rsquo;re at the table.</p>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
-                You&rsquo;ll write when the Director hands you the pen. Until then, react to the
-                story or <strong className="text-paper">raise your hand</strong> to ask for the
-                spotlight. When a roll is called, your <strong className="text-paper">aspect</strong>{" "}
-                can save a miss — once per scene.
-              </p>
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={dismissPlayerCoach}
-                  className="rounded-full bg-amber px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-void transition-colors hover:bg-amber/90"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* The Director's hand — GM-only floating summoner for stage-gestures.
-          The fan is the discoverable affordance; each gesture opens the
-          Director Console where its ritual lives. */}
-      {isGM && campaignSession?.status === "active" && !focusMode && (
-        <DirectorsHand
-          handOpen={handOpen}
-          directHintSeen={directHintSeen}
-          onToggle={openDirectorsHand}
-          onOpenFloor={() => {
-            setHandOpen(false);
-            setFloorFormOpen(true);
-          }}
-          onConsoleGesture={(focus) => {
-            setHandOpen(false);
-            setConsoleFocus(focus);
-            setShowContextDrawer(true);
-          }}
-        />
-      )}
-
       {/* Open the floor — GM ritual */}
       {isGM && (
         <OpenFloorForm
           open={floorFormOpen}
           prompt={floorPrompt}
           setPrompt={setFloorPrompt}
-          options={floorOptions}
-          setOptions={setFloorOptions}
-          binding={floorBinding}
-          setBinding={setFloorBinding}
+          audiencePulse={floorPulse}
+          setAudiencePulse={setFloorPulse}
           submitting={floorSubmitting}
           onSubmit={handleOpenFloor}
           onClose={() => setFloorFormOpen(false)}
@@ -1418,11 +1140,11 @@ export default function SessionPlayPage() {
               onClick={() => setShowLogDrawer(false)}
             />
             <motion.div
-              initial={{ x: "-100%" }}
+              initial={{ x: "100%" }}
               animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
+              exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 top-0 z-50 w-[min(390px,92vw)]"
+              className="fixed bottom-0 right-0 top-0 z-40 w-[min(390px,92vw)] border-l border-border"
             >
               <button
                 onClick={() => setShowLogDrawer(false)}
@@ -1453,70 +1175,83 @@ export default function SessionPlayPage() {
         )}
       </AnimatePresence>
 
-        <AnimatePresence>
-          {showContextDrawer && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-40 bg-black/35 backdrop-blur-sm"
-                onClick={() => {
-                  setShowContextDrawer(false);
-                  setConsoleFocus(null);
-                }}
-              />
-              <motion.div
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="fixed bottom-0 right-0 top-0 z-50 w-[min(390px,92vw)]"
-              >
-                <button
-                  onClick={() => {
-                    setShowContextDrawer(false);
-                    setConsoleFocus(null);
-                  }}
-                  className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-void/80 text-text-secondary hover:text-paper"
-                  aria-label="Close"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <line x1="4" y1="4" x2="12" y2="12" />
-                    <line x1="12" y1="4" x2="4" y2="12" />
-                  </svg>
-                </button>
-                <ContextPanel
-                  forceVisible
-                  isGM={isGM}
-                  myCharacter={myCharacter}
-                  characters={characters}
-                  activePlayerId={campaignSession?.activePlayerId ?? null}
-                  onRequestRoll={handleRequestRoll}
-                  onPushEvent={handlePushEvent}
-                  onSceneBreak={handleSceneBreak}
-                  onChangeCharacterStatus={handleChangeCharacterStatus}
-                  onStoryMoment={handleStoryMoment}
-                  onAddIllustration={handleAddIllustration}
-                  roster={roster}
-                  onInviteNewCharacter={handleInviteNewCharacter}
-                  clocks={clocks}
-                  onClocksChange={handleClocksChange}
-                  currentUserId={currentUserId}
-                  onCreateMark={createMark}
-                  onRemoveMark={removeMark}
-                  onOfferBargain={handleOfferBargain}
-                  focus={isGM ? consoleFocus : null}
-                  onClose={() => {
-                    setShowContextDrawer(false);
-                    setConsoleFocus(null);
-                  }}
-                />
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </main>
-    </div>
+        {/* The deck sheet — mobile home for character / table talk / cast.
+            Desktop gets the same panels in the always-on rail instead. */}
+        {!isDesktop && (
+          <DeckSheet
+            open={deckOpen}
+            segment={deckSegment}
+            onChangeSegment={setDeckSegment}
+            onClose={() => setDeckOpen(false)}
+            youLabel={isGM ? "Party" : "You"}
+            renderSegment={(segment) => {
+              if (segment === "talk") {
+                return (
+                  <div className="h-full">
+                    <SessionLog
+                      turns={logTurns}
+                      currentUserId={currentUserId}
+                      sessionTitle={campaignSession?.title ?? "Session"}
+                      storyTitle={story.title}
+                      onSendChat={handleSendChat}
+                      chatInput={chatInput}
+                      setChatInput={setChatInput}
+                      isGM={isGM}
+                      onUpdateRollRequest={handleUpdateRollRequest}
+                      fullWidth
+                      view={logTab}
+                      onChangeView={setLogTab}
+                    />
+                  </div>
+                );
+              }
+              if (segment === "cast") {
+                return (
+                  <div className="space-y-6 px-3 py-4">
+                    <CastRail
+                      characters={rosterCharacters.length > 0 ? rosterCharacters : characters}
+                      ownerId={ownerId}
+                      activePlayerId={campaignSession?.activePlayerId ?? null}
+                      currentUserId={currentUserId}
+                      isGM={isGM}
+                      sessionStatus={campaignSession?.status ?? "draft"}
+                      canPassSpotlight={canPassSpotlight}
+                      onPassTurn={handlePassTurn}
+                      spotlightQueue={spotlightQueue}
+                      seatTimer={seatTimer}
+                      showExtendButton={showExtendButton}
+                      onExtend={handleSeatExtend}
+                    />
+                    <ClocksSection clocks={clocks} isGM={isGM} onClocksChange={handleClocksChange} />
+                  </div>
+                );
+              }
+              return (
+                <div className="space-y-6 px-4 py-4">
+                  {isGM ? (
+                    <PartyStatusPanel
+                      characters={characters}
+                      activePlayerId={campaignSession?.activePlayerId ?? null}
+                      onChangeCharacterStatus={handleChangeCharacterStatus}
+                      onInviteNewCharacter={handleInviteNewCharacter}
+                      roster={roster}
+                      currentUserId={currentUserId}
+                      onCreateMark={createMark}
+                      onRemoveMark={removeMark}
+                    />
+                  ) : (
+                    <CharacterSheetPanel
+                      myCharacter={myCharacter ?? null}
+                      onCreateMark={createMark}
+                      onRemoveMark={removeMark}
+                    />
+                  )}
+                  <ClocksSection clocks={clocks} isGM={isGM} onClocksChange={handleClocksChange} />
+                </div>
+              );
+            }}
+          />
+        )}
+    </PlaySessionShell>
   );
 }

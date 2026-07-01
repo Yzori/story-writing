@@ -6,7 +6,6 @@ import {
   campaignTurns,
   characterMarks,
   playerCharacters,
-  storyMomentAmplifications,
 } from "@/server/db/schema";
 import { eq, and, asc, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -138,26 +137,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(and(eq(characterMarks.sessionId, sessionId), eq(characterMarks.storyId, storyId)))
       .orderBy(asc(characterMarks.createdAt));
 
-    const amplificationRows = await db
-      .select({
-        turnId: storyMomentAmplifications.turnId,
-        count: sql<number>`count(*)`,
-      })
-      .from(storyMomentAmplifications)
-      .where(eq(storyMomentAmplifications.sessionId, sessionId))
-      .groupBy(storyMomentAmplifications.turnId);
-    const amplificationCounts = new Map(
-      amplificationRows.map((row) => [row.turnId, Number(row.count ?? 0)]),
-    );
-
     // Compile turns to HTML
     const compiledHTML = compileSessionToHTML({
       sessionTitle: campaignSession.title,
       sessionOpening: campaignSession.opening,
-      turns: turns.map((turn) => ({
-        ...turn,
-        audienceAmplificationCount: amplificationCounts.get(turn.id) ?? 0,
-      })),
+      turns,
       marks: sessionMarks
         .filter((m): m is { kind: string; text: string; characterName: string } =>
           !!m.characterName && ["scar", "vow", "debt", "memory"].includes(m.kind),

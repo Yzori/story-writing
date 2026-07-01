@@ -382,36 +382,13 @@ export const createCampaignTurnSchema = z
     { message: "Content is required", path: ["content"] },
   );
 
-export const createFloorRoundSchema = z
-  .object({
-    prompt: z.string().min(1, "Prompt is required").max(1000),
-    mode: z.enum(["gm_pick", "vote", "house_fork"]).default("gm_pick"),
-    audiencePulseEnabled: z.boolean().optional().default(false),
-    // house_fork: GM-authored options the house votes on
-    options: z
-      .array(z.object({ label: z.string().min(1).max(200) }))
-      .min(2)
-      .max(4)
-      .optional(),
-    constituency: z.enum(["gallery", "table", "both"]).optional().default("gallery"),
-    binding: z.boolean().optional().default(false),
-    closesInSeconds: z.number().int().min(15).max(86_400).optional(),
-  })
-  .refine((data) => !data.audiencePulseEnabled || data.mode === "vote", {
-    message: "Audience Pulse requires vote mode",
-    path: ["audiencePulseEnabled"],
-  })
-  .refine((data) => data.mode !== "house_fork" || (data.options?.length ?? 0) >= 2, {
-    message: "Opening the floor needs at least two options",
-    path: ["options"],
-  });
-
-// A spectator casts a ballot on a house_fork round. dropsSpent (optional,
-// logged-in only) buys capped extra weight.
-export const houseVoteSchema = z.object({
-  token: z.string().min(8).max(120),
-  optionIndex: z.number().int().min(0).max(3),
-  dropsSpent: z.number().int().min(0).max(500).optional().default(0),
+// Crossroads has ONE shape: players write competing responses, the table
+// votes, the GM canonizes. (The house_fork/gm_pick modes, GM-authored
+// options, constituency, binding pledge, and drops-weighted audience ballots
+// were killed 2026-07-01 — see docs/adventure-audit.md.)
+export const createFloorRoundSchema = z.object({
+  prompt: z.string().min(1, "Prompt is required").max(1000),
+  audiencePulseEnabled: z.boolean().optional().default(false),
 });
 
 export const updateFloorRoundSchema = z.object({
@@ -432,16 +409,6 @@ export const createFloorVoteSchema = z.object({
 export const createFloorAudiencePulseSchema = z.object({
   token: z.string().min(1).max(200),
   submissionId: z.string().uuid(),
-});
-
-export const createFloorAudienceSparkSchema = z.object({
-  token: z.string().min(1).max(200),
-  content: z.string().min(1, "Spark is required").max(500),
-  amount: z.number().int().min(25).max(500).default(25),
-});
-
-export const updateFloorAudienceSparkSchema = z.object({
-  action: z.enum(["promote", "reject"]),
 });
 
 // ── Character Marks ─────────────────────────────────────────
@@ -571,11 +538,6 @@ export const spectatorReactionSchema = z.object({
     "inspired",
     "terrified",
   ]),
-});
-
-export const storyMomentAmplificationSchema = z.object({
-  token: z.string().min(1).max(100),
-  turnId: z.string().uuid(),
 });
 
 // Reactions sent by people AT the table (GM + players), as opposed to the

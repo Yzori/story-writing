@@ -4,7 +4,6 @@ import {
   campaignSessions,
   campaignFloorRounds,
   campaignFloorAudiencePulses,
-  campaignFloorAudienceSparks,
   campaignFloorSubmissions,
   campaignFloorVotes,
   playerCharacters,
@@ -140,26 +139,6 @@ export async function getVisibleFloorRound(
   const audiencePulseCount = pulseCountRow?.count ?? 0;
 
   const shouldRevealAll = isGM || round.status !== "open";
-  const audienceSparks = await db
-    .select({
-      id: campaignFloorAudienceSparks.id,
-      roundId: campaignFloorAudienceSparks.roundId,
-      userId: campaignFloorAudienceSparks.userId,
-      content: campaignFloorAudienceSparks.content,
-      amount: campaignFloorAudienceSparks.amount,
-      status: campaignFloorAudienceSparks.status,
-      promotedSubmissionId: campaignFloorAudienceSparks.promotedSubmissionId,
-      createdAt: campaignFloorAudienceSparks.createdAt,
-      user: {
-        id: users.id,
-        displayName: users.displayName,
-        avatarUrl: users.avatarUrl,
-      },
-    })
-    .from(campaignFloorAudienceSparks)
-    .leftJoin(users, eq(campaignFloorAudienceSparks.userId, users.id))
-    .where(eq(campaignFloorAudienceSparks.roundId, round.id))
-    .orderBy(asc(campaignFloorAudienceSparks.createdAt));
 
   return {
     id: round.id,
@@ -191,19 +170,6 @@ export async function getVisibleFloorRound(
         voteCount: Number(submission.voteCount ?? 0),
         audiencePulseCount: Number(submission.audiencePulseCount ?? 0),
         isMine: submission.userId === currentUserId,
-      })),
-    audienceSparks: audienceSparks
-      .filter((spark) => isGM || spark.userId === currentUserId)
-      .map((spark) => ({
-        ...spark,
-        status: spark.status as FloorRound["audienceSparks"][number]["status"],
-        createdAt: spark.createdAt.toISOString(),
-        user: {
-          id: spark.user?.id ?? spark.userId,
-          displayName: spark.user?.displayName ?? null,
-          avatarUrl: spark.user?.avatarUrl ?? null,
-        },
-        isMine: spark.userId === currentUserId,
       })),
     voteCount,
     eligibleVoterCount: eligibleVoterIds.size,
@@ -248,17 +214,3 @@ export async function getAudiencePulseFloorRound(
   };
 }
 
-export async function getOpenAudienceSparkFloorRound(
-  sessionId: string,
-  currentUserId: string,
-): Promise<FloorRound | null> {
-  const round = await db.query.campaignFloorRounds.findFirst({
-    where: and(
-      eq(campaignFloorRounds.sessionId, sessionId),
-      eq(campaignFloorRounds.mode, "vote"),
-      eq(campaignFloorRounds.status, "open"),
-    ),
-  });
-  if (!round) return null;
-  return getVisibleFloorRound(sessionId, currentUserId, false);
-}

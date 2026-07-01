@@ -1532,20 +1532,15 @@ export const campaignFloorRounds = pgTable("campaign_floor_rounds", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   prompt: text("prompt").notNull(),
-  mode: text("mode").notNull().default("gm_pick"), // 'gm_pick' | 'vote' | 'house_fork'
+  // Always 'vote' since 2026-07-01 (killed 'gm_pick' + 'house_fork'; legacy
+  // rows may still carry them). The dropped house-fork columns — options,
+  // constituency, binding, resolved_option, closes_at (migration 0048) — and
+  // the campaign_floor_audience_votes table still exist in the DB, unmapped
+  // here; drop them in a future cleanup migration.
+  mode: text("mode").notNull().default("vote"),
   status: text("status").notNull().default("open"), // 'open' | 'voting' | 'closed' | 'resolved' | 'cancelled'
   audiencePulseEnabled: boolean("audience_pulse_enabled").notNull().default(false),
   selectedSubmissionId: uuid("selected_submission_id"),
-  // ── house_fork mode: the GM opens the floor to the audience ──
-  // GM-authored options the house votes on (JSON array of { label }).
-  options: text("options"),
-  // who may vote: 'gallery' (audience) | 'table' (players) | 'both'
-  constituency: text("constituency").notNull().default("table"),
-  // advisory by default; when true the GM has pledged to honour the result.
-  binding: boolean("binding").notNull().default(false),
-  // index of the winning option once the GM closes a house_fork.
-  resolvedOption: integer("resolved_option"),
-  closesAt: timestamp("closes_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -1579,50 +1574,9 @@ export const campaignFloorSubmissions = pgTable("campaign_floor_submissions", {
   index("idx_campaign_floor_submissions_round").on(table.roundId),
 ]);
 
-export const campaignFloorAudienceSparks = pgTable("campaign_floor_audience_sparks", {
-  id: uuid("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  roundId: uuid("round_id")
-    .notNull()
-    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
-  token: text("token").notNull(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-  content: text("content").notNull(),
-  amount: integer("amount").notNull().default(25),
-  status: text("status").notNull().default("pending"), // 'pending' | 'promoted' | 'rejected'
-  promotedSubmissionId: uuid("promoted_submission_id"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (table) => [
-  unique("campaign_floor_audience_sparks_round_token_unique").on(table.roundId, table.token),
-  index("idx_campaign_floor_audience_sparks_round").on(table.roundId, table.status),
-  index("idx_campaign_floor_audience_sparks_user").on(table.userId, table.createdAt),
-]);
-
-// ── The house votes on a GM-opened floor (house_fork) ──
-// One ballot per spectator token per round. Free votes weigh 1; patrons may
-// spend drops for extra weight (capped, computed server-side into `weight`).
-export const campaignFloorAudienceVotes = pgTable("campaign_floor_audience_votes", {
-  id: uuid("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  roundId: uuid("round_id")
-    .notNull()
-    .references(() => campaignFloorRounds.id, { onDelete: "cascade" }),
-  token: text("token").notNull(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-  optionIndex: integer("option_index").notNull(),
-  dropsSpent: integer("drops_spent").notNull().default(0),
-  weight: integer("weight").notNull().default(1),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (table) => [
-  unique("campaign_floor_audience_votes_round_token_unique").on(table.roundId, table.token),
-  index("idx_campaign_floor_audience_votes_round").on(table.roundId),
-]);
+// (campaign_floor_audience_sparks — paid audience suggestions — was killed
+// 2026-07-01. Table remains in the DB, unmapped, until a cleanup migration;
+// promoted sparks live on as regular submissions with source='audience_spark'.)
 
 // ── Champion a character ──
 // An audience member backs a specific character; characters accrue followings.
@@ -1700,7 +1654,6 @@ export const campaignFloorRoundsRelations = relations(campaignFloorRounds, ({ on
   submissions: many(campaignFloorSubmissions),
   votes: many(campaignFloorVotes),
   audiencePulses: many(campaignFloorAudiencePulses),
-  audienceSparks: many(campaignFloorAudienceSparks),
 }));
 
 export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissions, ({ one, many }) => ({
@@ -1718,21 +1671,6 @@ export const campaignFloorSubmissionsRelations = relations(campaignFloorSubmissi
   }),
   votes: many(campaignFloorVotes),
   audiencePulses: many(campaignFloorAudiencePulses),
-}));
-
-export const campaignFloorAudienceSparksRelations = relations(campaignFloorAudienceSparks, ({ one }) => ({
-  round: one(campaignFloorRounds, {
-    fields: [campaignFloorAudienceSparks.roundId],
-    references: [campaignFloorRounds.id],
-  }),
-  user: one(users, {
-    fields: [campaignFloorAudienceSparks.userId],
-    references: [users.id],
-  }),
-  promotedSubmission: one(campaignFloorSubmissions, {
-    fields: [campaignFloorAudienceSparks.promotedSubmissionId],
-    references: [campaignFloorSubmissions.id],
-  }),
 }));
 
 export const campaignFloorVotesRelations = relations(campaignFloorVotes, ({ one }) => ({
@@ -2173,49 +2111,9 @@ export const spectatorReactionsRelations = relations(spectatorReactions, ({ one 
   }),
 }));
 
-// ── Story Moment Amplifications ─────────────────────────────
-// Audience-held story moments. These do not steer the plot; they mark what
-// the Chorus felt should be remembered.
-
-export const storyMomentAmplifications = pgTable(
-  "story_moment_amplifications",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => campaignSessions.id, { onDelete: "cascade" }),
-    turnId: uuid("turn_id")
-      .notNull()
-      .references(() => campaignTurns.id, { onDelete: "cascade" }),
-    token: text("token").notNull(),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    unique("story_moment_amplifications_turn_token_unique").on(table.turnId, table.token),
-    index("idx_story_moment_amplifications_session").on(table.sessionId, table.createdAt),
-    index("idx_story_moment_amplifications_turn").on(table.turnId),
-  ],
-);
-
-export const storyMomentAmplificationsRelations = relations(storyMomentAmplifications, ({ one }) => ({
-  session: one(campaignSessions, {
-    fields: [storyMomentAmplifications.sessionId],
-    references: [campaignSessions.id],
-  }),
-  turn: one(campaignTurns, {
-    fields: [storyMomentAmplifications.turnId],
-    references: [campaignTurns.id],
-  }),
-  user: one(users, {
-    fields: [storyMomentAmplifications.userId],
-    references: [users.id],
-  }),
-}));
+// (story_moment_amplifications — spectator "hold this moment" — was killed
+// 2026-07-01; the reactions channel covers audience appreciation. Table
+// remains in the DB, unmapped, until a cleanup migration.)
 
 // ── Ink Drop Transactions ──────────────────────────────────
 

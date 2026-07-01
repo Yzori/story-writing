@@ -21,6 +21,9 @@ interface ActingGmBarProps {
   /** Whether the current user is an active player (can offer/confirm a takeover). */
   isActivePlayer: boolean;
   onAction: (action: ActingGmAction, targetUserId?: string) => void | Promise<void>;
+  /** Compact pill for the PhaseBanner tail: no full-width band, and the
+   *  handoff picker drops down as an anchored popover instead of in-flow. */
+  inline?: boolean;
 }
 
 /**
@@ -37,6 +40,7 @@ export default function ActingGmBar({
   players,
   isActivePlayer,
   onAction,
+  inline = false,
 }: ActingGmBarProps) {
   const [busy, setBusy] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -109,6 +113,50 @@ export default function ActingGmBar({
   const toneRing =
     tone === "rose" ? "border-rose/40 bg-rose/[0.08]" : tone === "amber" ? "border-amber/40 bg-amber/[0.08]" : "border-border bg-ink/70";
 
+  const picker = (
+    <AnimatePresence>
+      {pickerOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          className={`overflow-hidden rounded-2xl border border-amber/25 bg-gradient-to-b from-elevated to-ink p-2 shadow-[0_18px_50px_-30px_rgba(216,178,90,0.6)] ${
+            inline ? "absolute right-0 top-full z-40 mt-2 w-64" : "mx-auto mt-2 w-full max-w-sm"
+          }`}
+        >
+          <p className="px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-ghost">Hand tonight&rsquo;s session to</p>
+          {players.map((p) => (
+            <button
+              key={p.userId}
+              type="button"
+              onClick={run("handoff", p.userId)}
+              disabled={busy}
+              className="block w-full rounded-xl px-3 py-2 text-left text-[13px] text-text transition-colors hover:bg-amber/10 hover:text-amber disabled:opacity-40"
+            >
+              {p.name}
+            </button>
+          ))}
+          <p className="px-2 py-1.5 text-[10px] leading-snug text-text-ghost">
+            They run this session only. You reclaim it the moment you act again.
+          </p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  if (inline) {
+    // Compact pill for the PhaseBanner tail.
+    return (
+      <div className="relative">
+        <div className={`flex items-center gap-2.5 rounded-full border px-3 py-1 ${toneRing}`}>
+          <span className="min-w-0 max-w-[220px] truncate text-[11.5px] text-text-secondary">{message}</span>
+          <div className="flex shrink-0 items-center gap-1.5">{actions}</div>
+        </div>
+        {picker}
+      </div>
+    );
+  }
+
   return (
     // In-flow band that sits directly under the session header (the turn rail),
     // so it never overlaps it. Renders nothing when there's nothing to show.
@@ -118,33 +166,7 @@ export default function ActingGmBar({
           <span className="min-w-0 truncate text-[12.5px] text-text-secondary">{message}</span>
           <div className="flex shrink-0 items-center gap-2">{actions}</div>
         </div>
-
-        <AnimatePresence>
-          {pickerOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="mx-auto mt-2 w-full max-w-sm overflow-hidden rounded-2xl border border-amber/25 bg-gradient-to-b from-elevated to-ink p-2 shadow-[0_18px_50px_-30px_rgba(216,178,90,0.6)]"
-            >
-              <p className="px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-ghost">Hand tonight&rsquo;s session to</p>
-              {players.map((p) => (
-                <button
-                  key={p.userId}
-                  type="button"
-                  onClick={run("handoff", p.userId)}
-                  disabled={busy}
-                  className="block w-full rounded-xl px-3 py-2 text-left text-[13px] text-text transition-colors hover:bg-amber/10 hover:text-amber disabled:opacity-40"
-                >
-                  {p.name}
-                </button>
-              ))}
-              <p className="px-2 py-1.5 text-[10px] leading-snug text-text-ghost">
-                They run this session only. You reclaim it the moment you act again.
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {picker}
       </div>
     </div>
   );

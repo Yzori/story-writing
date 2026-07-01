@@ -92,12 +92,16 @@ export default function SessionLog({
   }
 
   return (
-    <div className={`${fullWidth ? "w-full max-w-none" : "w-[88vw] max-w-[380px] sm:w-[320px] lg:w-[380px]"} h-full flex flex-col border-r border-border-subtle bg-void shadow-[20px_0_50px_rgba(0,0,0,0.5)] z-20 shrink-0`}>
+    <div className={`${
+      fullWidth
+        ? "w-full max-w-none"
+        : "w-[88vw] max-w-[380px] border-r border-border-subtle shadow-[20px_0_50px_rgba(0,0,0,0.5)] sm:w-[320px] lg:w-[380px]"
+    } h-full flex flex-col bg-void z-20 shrink-0`}>
       {/* Header */}
-      <div className="p-6 border-b border-border-subtle bg-black/40 backdrop-blur-md pb-4 shrink-0">
+      <div className="shrink-0 border-b border-border bg-gradient-to-b from-ink/70 to-transparent px-5 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[10px] uppercase font-display tracking-[0.2em] text-amber mb-1">
+            <h2 className="mb-1 font-mono text-[10px] uppercase tracking-[0.26em] text-amber/70">
               {view === "rolls" ? "Rolls & checks" : view === "talk" ? "Table talk" : "Canon Feed"}
             </h2>
             <p className="text-text-tertiary text-xs font-serif italic">{storyTitle} — {sessionTitle}</p>
@@ -135,7 +139,7 @@ export default function SessionLog({
       </div>
 
       {/* Event Log */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.24)_transparent]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-6 flex flex-col [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.24)_transparent]">
         {shown.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-text-ghost text-xs italic font-serif">
@@ -270,7 +274,7 @@ export default function SessionLog({
       {/* Chat Input — OOC only, no dice button (hidden in read-only / spectator
           mode, and on the Rolls tab). */}
       {!readOnly && view !== "rolls" && (
-        <div className="p-4 border-t border-border-subtle bg-black/40 backdrop-blur-md shrink-0">
+        <div className="shrink-0 border-t border-border bg-gradient-to-t from-ink/70 to-transparent p-4">
           <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <input
               type="text"

@@ -3,9 +3,6 @@ import { parseSceneBreakMetadata, parseStoryMomentMetadata } from "@/lib/campaig
 
 interface StoryMomentRendererProps {
   turn: Turn;
-  amplificationCount?: number;
-  amplifiedByMe?: boolean;
-  onAmplify?: (turnId: string) => void;
 }
 
 const MOOD_CLASSES: Record<string, { line: string; label: string; text: string }> = {
@@ -41,12 +38,7 @@ function getMomentData(turn: Turn) {
   };
 }
 
-export default function StoryMomentRenderer({
-  turn,
-  amplificationCount = 0,
-  amplifiedByMe = false,
-  onAmplify,
-}: StoryMomentRendererProps) {
+export default function StoryMomentRenderer({ turn }: StoryMomentRendererProps) {
   const { text, mood, subtext, importance } = getMomentData(turn);
   const classes = MOOD_CLASSES[mood] ?? MOOD_CLASSES.ominous;
   const isMajor = importance === "major";
@@ -71,29 +63,6 @@ export default function StoryMomentRenderer({
         <p className="mx-auto mt-3 max-w-[520px] font-reading text-[13px] italic leading-relaxed text-text-tertiary sm:text-[14px]">
           {subtext}
         </p>
-      )}
-      {(onAmplify || amplificationCount > 0) && (
-        <div className="mt-5 flex items-center justify-center gap-2">
-          {onAmplify && (
-            <button
-              type="button"
-              onClick={() => onAmplify(turn.id)}
-              disabled={amplifiedByMe}
-              className={`min-h-9 rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors ${
-                amplifiedByMe
-                  ? "cursor-default border-amber/25 bg-amber/10 text-amber/70"
-                  : "border-amber/30 bg-black/30 text-amber hover:bg-amber/15"
-              }`}
-            >
-              {amplifiedByMe ? "Held by you" : "Hold this moment"}
-            </button>
-          )}
-          {amplificationCount > 0 && (
-            <span className="rounded-full border border-border bg-subtle/20 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-text-tertiary">
-              Held by the Chorus · {amplificationCount}
-            </span>
-          )}
-        </div>
       )}
     </div>
   );

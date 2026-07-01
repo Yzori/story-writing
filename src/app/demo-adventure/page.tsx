@@ -2,10 +2,17 @@
 
 import { useCallback, useMemo, useState } from "react";
 import SessionLog from "@/components/campaign/SessionLog";
-import StoryCanvas from "@/components/campaign/StoryCanvas";
-import ContextPanel from "@/components/campaign/ContextPanel";
+import StoryStage from "@/components/campaign/play/StoryStage";
+import ActionDock from "@/components/campaign/play/ActionDock";
+import DirectRow from "@/components/campaign/play/DirectRow";
+import TableRail from "@/components/campaign/play/TableRail";
+import CastRail from "@/components/campaign/play/CastRail";
+import ClocksSection from "@/components/campaign/play/ClocksSection";
+import CharacterSheetPanel from "@/components/campaign/play/CharacterSheetPanel";
+import PartyStatusPanel from "@/components/campaign/play/PartyStatusPanel";
 import AudiencePulsePanel from "@/components/campaign/spectator/AudiencePulsePanel";
 import ThemeToggle from "@/components/editor/ThemeToggle";
+import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { parseRollRequestMetadata } from "@/lib/campaign-turns";
 import { APPROACHES, parseStats } from "@/types/campaign";
 import type {
@@ -193,7 +200,6 @@ const INITIAL_FLOOR_ROUND: FloorRound = {
       isMine: false,
     },
   ],
-  audienceSparks: [],
   myVoteSubmissionId: null,
   voteCount: 1,
   eligibleVoterCount: 3,
@@ -206,6 +212,14 @@ const INITIAL_FLOOR_ROUND: FloorRound = {
 // Map fixtures lived here under the old client-only MapPin model. The
 // real map view now talks to /api/.../campaign/places — demo-adventure
 // is a fixture-only sandbox so the map overlay just renders empty here.
+
+const GM_TURN_BASE = {
+  userId: GM_USER_ID,
+  characterId: null,
+  user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
+  characterName: null,
+  characterPortrait: null,
+} as const;
 
 type ViewAs = "gm" | "lyra" | "kaelen" | "elara" | "spectator";
 
@@ -551,8 +565,70 @@ export default function DemoAdventurePage() {
 
   const handlePassTurn = useCallback((userId: string) => {
     if (!isGM || floorRound) return;
-    setActivePlayerId(userId);
+    setActivePlayerId(userId === GM_USER_ID ? null : userId);
   }, [floorRound, isGM]);
+
+  // ── New-shell demo wiring (Director row, clocks, reactions) ──
+
+  const [demoClocks, setDemoClocks] = useState<ProgressClockData[]>([]);
+  const [demoFloats, setDemoFloats] = useState<Array<{ id: string; type: string }>>([]);
+
+  const handlePushEvent = useCallback((content: string) => {
+    appendTurn({ ...GM_TURN_BASE, type: "narration", content, metadata: null });
+  }, [appendTurn]);
+
+  const handleSceneBreak = useCallback((title: string, mood: string, aspects?: string[]) => {
+    appendTurn({
+      ...GM_TURN_BASE,
+      type: "scene-break",
+      content: "",
+      metadata: JSON.stringify({ title, mood, ...(aspects?.length ? { aspects } : {}) }),
+    });
+  }, [appendTurn]);
+
+  const handleStoryMoment = useCallback(
+    (text: string, mood: string, subtext?: string, options?: { importance?: "normal" | "major" }) => {
+      appendTurn({
+        ...GM_TURN_BASE,
+        type: "story-moment",
+        content: text,
+        metadata: JSON.stringify({ mood, ...(subtext ? { subtext } : {}), importance: options?.importance ?? "normal" }),
+      });
+    },
+    [appendTurn],
+  );
+
+  const handleAddIllustration = useCallback((imageUrl: string, caption?: string) => {
+    appendTurn({
+      ...GM_TURN_BASE,
+      type: "illustration",
+      content: caption ?? "",
+      metadata: JSON.stringify({ imageUrl, caption: caption || undefined }),
+    });
+  }, [appendTurn]);
+
+  const handleOfferBargain = useCallback(
+    (body: { targetUserId: string; targetLabel: string; gain: string; price: string }) => {
+      appendTurn({
+        ...GM_TURN_BASE,
+        type: "consequence",
+        content: `The Director offers ${body.targetLabel} a bargain: ${body.gain} The price: ${body.price}`,
+        metadata: JSON.stringify({ kind: "bargain", ...body, status: "open" }),
+      });
+    },
+    [appendTurn],
+  );
+
+  const handleReopenFloor = useCallback(() => {
+    setFloorRound((prev) => prev ?? { ...INITIAL_FLOOR_ROUND, id: `fr-${Date.now()}` });
+  }, []);
+
+  const handleDemoReaction = useCallback((key: string) => {
+    setDemoFloats((prev) => [
+      ...prev.slice(-19),
+      { id: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type: key },
+    ]);
+  }, []);
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -617,66 +693,107 @@ export default function DemoAdventurePage() {
           />
         </div>
 
-        {/* Center: Story Canvas */}
-        <div className="flex-1 min-w-0 relative">
-          <StoryCanvas
-            sessionId={SESSION_ID}
-            storyId={STORY_ID}
-            storyTurns={storyTurns}
-            characters={CHARACTERS}
-            activePlayerId={activePlayerId}
-            currentUserId={currentUserId}
-            isGM={isGM}
-            myCharacter={myCharacter}
-            sessionTitle="The Obsidian Crown — Session I"
-            sessionStatus="active"
-            sessionOpening={OPENING_NARRATION}
-            showDiceRoller={showDiceRoller || !!pendingRollRequest}
-            onCloseDiceRoller={() => setShowDiceRoller(false)}
-            onCommitDraft={handleCommitDraft}
-            onPassTurn={handlePassTurn}
-            onEndSession={() => {}}
-            onTurnExpired={() => {}}
-            onRollSubmit={handleRollSubmit}
-            pendingRollRequest={pendingRollRequest}
-            myCharacterStatus={myCharacter?.status ?? null}
-            onLastWords={() => {}}
-            spectatorMode={isSpectator}
-            floorRound={floorRound}
-            onSubmitFloorResponse={handleSubmitFloorResponse}
-            onVoteFloorSubmission={handleVoteFloorSubmission}
-            onUpdateFloorRound={handleUpdateFloorRound}
-          />
+        {/* Center: story stage over the action dock — the new play shell */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <StoryStage
+              sessionId={SESSION_ID}
+              storyId={STORY_ID}
+              storyTurns={storyTurns}
+              logTurns={logTurns}
+              characters={CHARACTERS}
+              activePlayerId={activePlayerId}
+              currentUserId={currentUserId}
+              isGM={isGM}
+              myCharacter={myCharacter}
+              sessionTitle="The Obsidian Crown — Session I"
+              sessionStatus="active"
+              sessionOpening={OPENING_NARRATION}
+              showDiceRoller={showDiceRoller || !!pendingRollRequest}
+              onCloseDiceRoller={() => setShowDiceRoller(false)}
+              onRollSubmit={handleRollSubmit}
+              pendingRollRequest={pendingRollRequest}
+              reactionFloats={demoFloats}
+              spectatorMode={isSpectator}
+              floorRound={floorRound}
+              onSubmitFloorResponse={handleSubmitFloorResponse}
+              onVoteFloorSubmission={handleVoteFloorSubmission}
+              onUpdateFloorRound={handleUpdateFloorRound}
+            />
 
-          {isSpectator && (
-            <AudiencePulsePanel floorRound={floorRound} onPulse={handleSpectatorPulse} />
+            {isSpectator && (
+              <AudiencePulsePanel floorRound={floorRound} onPulse={handleSpectatorPulse} />
+            )}
+          </div>
+
+          {!isSpectator && (
+            <ActionDock
+              sessionId={SESSION_ID}
+              sessionStatus="active"
+              activePlayerId={activePlayerId}
+              currentUserId={currentUserId}
+              isGM={isGM}
+              myCharacter={myCharacter}
+              characters={CHARACTERS}
+              floorRound={floorRound}
+              pendingRollRequest={pendingRollRequest}
+              onCommitDraft={handleCommitDraft}
+              onViewChat={() => setMobilePanel("log")}
+              onReaction={handleDemoReaction}
+              onLastWords={() => {}}
+              onOpenDiceRoller={() => setShowDiceRoller(true)}
+              onUpdateFloorRound={handleUpdateFloorRound}
+              penHolderName={CHARACTERS.find((c) => c.userId === activePlayerId)?.name ?? null}
+              onReclaimPen={() => setActivePlayerId(null)}
+              directSlot={
+                isGM ? (
+                  <DirectRow
+                    activeChars={CHARACTERS}
+                    onRequestRoll={handleRequestRoll}
+                    onPushEvent={handlePushEvent}
+                    onSceneBreak={handleSceneBreak}
+                    onStoryMoment={handleStoryMoment}
+                    onAddIllustration={handleAddIllustration}
+                    onOfferBargain={handleOfferBargain}
+                    clocks={demoClocks}
+                    onClocksChange={setDemoClocks}
+                    onOpenFloor={handleReopenFloor}
+                  />
+                ) : undefined
+              }
+            />
           )}
         </div>
 
-        {/* Right: Context Panel (GM tools or character sheet) */}
+        {/* Right: the Table rail (desktop) */}
         {!isSpectator && (
-          <ContextPanel
-            isGM={isGM}
-            myCharacter={myCharacter}
-            characters={CHARACTERS}
-            activePlayerId={activePlayerId}
-            onRequestRoll={handleRequestRoll}
-            onPushEvent={(content) => {
-              appendTurn({
-                userId: GM_USER_ID,
-                characterId: null,
-                type: "narration",
-                content,
-                metadata: null,
-                user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
-                characterName: null,
-                characterPortrait: null,
-              });
-            }}
-            onChangeCharacterStatus={() => {}}
-            clocks={[]}
-            onClocksChange={() => {}}
-          />
+          <div className="hidden w-[300px] shrink-0 lg:block xl:w-[332px]">
+            <TableRail>
+              <CastRail
+                characters={CHARACTERS}
+                ownerId={GM_USER_ID}
+                activePlayerId={activePlayerId}
+                currentUserId={currentUserId}
+                isGM={isGM}
+                sessionStatus="active"
+                canPassSpotlight={isGM && !floorRound}
+                onPassTurn={handlePassTurn}
+                spotlightQueue={[]}
+                seatTimer={null}
+              />
+              <ClocksSection clocks={demoClocks} isGM={isGM} onClocksChange={setDemoClocks} />
+              {isGM ? (
+                <PartyStatusPanel
+                  characters={CHARACTERS}
+                  activePlayerId={activePlayerId}
+                  onChangeCharacterStatus={() => {}}
+                  currentUserId={currentUserId}
+                />
+              ) : (
+                <CharacterSheetPanel myCharacter={myCharacter} />
+              )}
+            </TableRail>
+          </div>
         )}
       </div>
 
@@ -739,29 +856,31 @@ export default function DemoAdventurePage() {
                 fullWidth
               />
             ) : (
-              <ContextPanel
-                isGM={isGM}
-                myCharacter={myCharacter}
-                characters={CHARACTERS}
-                activePlayerId={activePlayerId}
-                onRequestRoll={handleRequestRoll}
-                onPushEvent={(content) => {
-                  appendTurn({
-                    userId: GM_USER_ID,
-                    characterId: null,
-                    type: "narration",
-                    content,
-                    metadata: null,
-                    user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
-                    characterName: null,
-                    characterPortrait: null,
-                  });
-                }}
-                onChangeCharacterStatus={() => {}}
-                clocks={[]}
-                onClocksChange={() => {}}
-                forceVisible
-              />
+              <div className="h-full space-y-6 overflow-y-auto bg-void px-4 py-5 pt-14 [scrollbar-color:rgba(224,169,62,0.22)_transparent] [scrollbar-width:thin]">
+                <CastRail
+                  characters={CHARACTERS}
+                  ownerId={GM_USER_ID}
+                  activePlayerId={activePlayerId}
+                  currentUserId={currentUserId}
+                  isGM={isGM}
+                  sessionStatus="active"
+                  canPassSpotlight={isGM && !floorRound}
+                  onPassTurn={handlePassTurn}
+                  spotlightQueue={[]}
+                  seatTimer={null}
+                />
+                <ClocksSection clocks={demoClocks} isGM={isGM} onClocksChange={setDemoClocks} />
+                {isGM ? (
+                  <PartyStatusPanel
+                    characters={CHARACTERS}
+                    activePlayerId={activePlayerId}
+                    onChangeCharacterStatus={() => {}}
+                    currentUserId={currentUserId}
+                  />
+                ) : (
+                  <CharacterSheetPanel myCharacter={myCharacter} />
+                )}
+              </div>
             )}
           </div>
         </div>

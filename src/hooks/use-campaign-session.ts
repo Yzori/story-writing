@@ -588,19 +588,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     return json.data ?? null;
   }, [floorRoundsUrl]);
 
-  const updateAudienceSpark = useCallback(async (roundId: string, sparkId: string, action: "promote" | "reject") => {
-    const json = await campaignJsonRequest<FloorRound>(
-      `${floorRoundsUrl}/${roundId}/sparks/${sparkId}`,
-      {
-        method: "PATCH",
-        body: { action },
-        fallbackError: "Failed to update Audience Spark",
-      },
-    );
-    setFloorRound(json.data ?? null);
-    return json.data ?? null;
-  }, [floorRoundsUrl]);
-
   // ── Character marks (scars / vows / debts / memories) ────────
   const createMark = useCallback(
     async (
@@ -700,7 +687,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
-    updateAudienceSpark,
     updateFloorRound,
     clocks,
     setClocks,

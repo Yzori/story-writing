@@ -88,7 +88,9 @@ export interface SessionRosterEntry {
   status: "present" | "absent" | "introduced" | "spectating";
 }
 
-export type FloorRoundMode = "gm_pick" | "vote";
+// One Crossroads shape since 2026-07-01: players submit, the table votes,
+// the GM canonizes. (Legacy rows may carry "gm_pick"/"house_fork" modes.)
+export type FloorRoundMode = "vote";
 export type FloorRoundStatus = "open" | "voting" | "closed" | "resolved" | "cancelled";
 
 export interface FloorSubmission {
@@ -114,23 +116,6 @@ export interface FloorSubmission {
   isMine: boolean;
 }
 
-export interface FloorAudienceSpark {
-  id: string;
-  roundId: string;
-  userId: string | null;
-  content: string;
-  amount: number;
-  status: "pending" | "promoted" | "rejected";
-  promotedSubmissionId: string | null;
-  createdAt: string;
-  user: {
-    id: string | null;
-    displayName: string | null;
-    avatarUrl: string | null;
-  };
-  isMine: boolean;
-}
-
 export interface FloorRound {
   id: string;
   sessionId: string;
@@ -143,7 +128,6 @@ export interface FloorRound {
   createdAt: string;
   updatedAt: string;
   submissions: FloorSubmission[];
-  audienceSparks: FloorAudienceSpark[];
   myVoteSubmissionId: string | null;
   voteCount: number;
   eligibleVoterCount: number;

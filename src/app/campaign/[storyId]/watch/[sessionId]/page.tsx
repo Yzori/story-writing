@@ -9,10 +9,10 @@ import { useSpectatorSession } from "@/hooks/use-spectator-session";
 import { useSpectatorPresence } from "@/hooks/use-spectator-presence";
 import { useSpectatorFloorRound } from "@/hooks/use-spectator-floor-round";
 import { useSpectatorReactions } from "@/hooks/use-spectator-reactions";
-import { useSpectatorStoryMoments } from "@/hooks/use-spectator-story-moments";
 import { useSpectatorTips } from "@/hooks/use-spectator-tips";
 import SessionLog from "@/components/campaign/SessionLog";
-import StoryCanvas from "@/components/campaign/StoryCanvas";
+import StoryStage from "@/components/campaign/play/StoryStage";
+import CastStrip from "@/components/campaign/play/CastStrip";
 import LiveBadge from "@/components/shared/LiveBadge";
 import ReactionPicker from "@/components/campaign/spectator/ReactionPicker";
 import FloatingReactions from "@/components/campaign/spectator/FloatingReactions";
@@ -40,18 +40,13 @@ export default function WatchSessionPage() {
   } = useSpectatorSession(storyId, sessionId);
 
   const { spectatorCount: presenceCount, token } = useSpectatorPresence(storyId, sessionId);
-  const { floorRound, sendPulse, sendSpark } = useSpectatorFloorRound(storyId, sessionId, token);
+  const { floorRound, sendPulse } = useSpectatorFloorRound(storyId, sessionId, token);
 
   // Use whichever count is fresher (presence heartbeat updates less frequently)
   const spectatorCount = Math.max(pollSpectatorCount, presenceCount);
 
   // Reactions & tips
   const { reactions, sendReaction } = useSpectatorReactions(storyId, sessionId, token);
-  const {
-    counts: storyMomentAmplificationCounts,
-    amplifiedTurnIds,
-    amplify,
-  } = useSpectatorStoryMoments(storyId, sessionId, token);
   const { tips, balance, sendTip } = useSpectatorTips(storyId, sessionId);
 
   const [logCollapsed, setLogCollapsed] = useState(false);
@@ -231,9 +226,22 @@ export default function WatchSessionPage() {
           readOnly
         />
 
-        {/* Story Canvas — spectator mode, no interactive controls */}
-        <div className="flex-1 min-w-0 relative">
-          <StoryCanvas
+        {/* Story stage — spectator mode, no interactive controls */}
+        <div className="flex-1 min-w-0 relative flex flex-col">
+          {/* The table, read-only — spectators see whose turn it is too. */}
+          <CastStrip
+            characters={canvasCharacters}
+            ownerId={null}
+            activePlayerId={campaignSession?.activePlayerId ?? null}
+            currentUserId={null}
+            isGM={false}
+            sessionStatus={campaignSession?.status ?? "active"}
+            canPassSpotlight={false}
+            readOnly
+            edge="top"
+          />
+          <div className="relative min-h-0 flex-1">
+          <StoryStage
             sessionId={sessionId}
             storyId={storyId}
             storyTurns={storyTurns}
@@ -246,27 +254,19 @@ export default function WatchSessionPage() {
             sessionOpening={campaignSession?.opening ?? null}
             showDiceRoller={false}
             onCloseDiceRoller={() => {}}
-            onCommitDraft={() => {}}
-            onPassTurn={() => {}}
-            onEndSession={() => {}}
-            onTurnExpired={() => {}}
             onRollSubmit={async () => {
               throw new Error("Spectators cannot roll");
             }}
             pendingRollRequest={null}
-            myCharacterStatus={null}
-            onLastWords={() => {}}
             spectatorMode
-            storyMomentAmplificationCounts={storyMomentAmplificationCounts}
-            amplifiedStoryMomentIds={amplifiedTurnIds}
-            onAmplifyStoryMoment={amplify}
           />
+          </div>
 
           {/* Floating reactions overlay */}
           <FloatingReactions reactions={reactions} />
           <ChorusPulsePanel reactions={reactions} />
 
-          <AudiencePulsePanel floorRound={floorRound} onPulse={sendPulse} onSpark={sendSpark} balance={balance} />
+          <AudiencePulsePanel floorRound={floorRound} onPulse={sendPulse} />
 
           {/* Tips feed — bottom-left of canvas */}
           {tips.length > 0 && !floorRound && (

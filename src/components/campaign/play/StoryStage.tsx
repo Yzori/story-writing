@@ -3,128 +3,39 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FloorRound, Turn, PlayerCharacter, RollRequest, SessionRosterEntry } from "@/types/campaign";
-// getPlayerColor is used by TurnRenderer
-import AdventureDraftComposer from "./AdventureDraftComposer";
-import FloorRoundPanel from "./FloorRoundPanel";
-import IllustrationTurn from "./IllustrationTurn";
-import InitiativeBar from "./InitiativeBar";
-import DiceRoller from "./DiceRoller";
-import SessionLobby from "./SessionLobby";
-import MapOverlay from "./MapOverlay";
-import SceneBreakRenderer from "./SceneBreakRenderer";
-import StoryMomentRenderer from "./StoryMomentRenderer";
-import SessionEndedBlock from "./SessionEndedBlock";
-import TurnRenderer from "./TurnRenderer";
-import MarkPromptRail from "./MarkPromptRail";
-import PreviouslyOn from "./PreviouslyOn";
+import FloorRoundPanel from "@/components/campaign/FloorRoundPanel";
+import IllustrationTurn from "@/components/campaign/IllustrationTurn";
+import DiceRoller from "@/components/campaign/DiceRoller";
+import SessionLobby from "@/components/campaign/SessionLobby";
+import MapOverlay from "@/components/campaign/MapOverlay";
+import SceneBreakRenderer from "@/components/campaign/SceneBreakRenderer";
+import StoryMomentRenderer from "@/components/campaign/StoryMomentRenderer";
+import SessionEndedBlock from "@/components/campaign/SessionEndedBlock";
+import TurnRenderer from "@/components/campaign/TurnRenderer";
+import MarkPromptRail from "@/components/campaign/MarkPromptRail";
+import PreviouslyOn from "@/components/campaign/PreviouslyOn";
 import { isLegacyCinematicSceneBreak, parseSceneBreakMetadata } from "@/lib/campaign-turns";
-import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
 import { useTurnEditing } from "@/hooks/use-turn-editing";
 import {
   groupIntoParagraphs,
   MOOD_TINT_COLORS,
   MOOD_VIGNETTE_COLORS,
-} from "./ProseAssembler";
+} from "@/components/campaign/ProseAssembler";
 
-interface StoryCanvasProps {
-  sessionId: string;
-  storyId?: string;
-  storyTurns: Turn[];
-  characters: PlayerCharacter[];
-  activePlayerId: string | null;
-  currentUserId: string | null;
-  isGM: boolean;
-  myCharacter?: PlayerCharacter | null;
-  sessionTitle: string;
-  sessionStatus: string;
-  sessionOpening: string | null;
-  /** Story title + closing thoughts — for the end-of-session Episode Card. */
-  storyTitle?: string;
-  sessionEpilogue?: string | null;
-  sessionCliffhanger?: string | null;
-  showDiceRoller: boolean;
-  onCloseDiceRoller: () => void;
-  /** Whether the current player may still spend their aspect this scene. */
-  aspectAvailable?: boolean;
-  onCommitDraft: (content: string, type: string, metadata?: string) => void | Promise<void>;
-  onResolveBargain?: (turnId: string, response: "accepted" | "refused") => void | Promise<void>;
-  onPassTurn: (userId: string) => void;
-  onEndSession: () => void;
-  onTurnExpired: () => void;
-  onExtendTimer?: () => void;
-  /** OOC turns carrying {timerExtension} metadata — lets the GM's countdown
-   *  honor a player's "Extend +3min" instead of expiring independently. */
-  extensionTurns?: Turn[];
-  onRollSubmit: (intent: { attribute: string; aspectInvoked: boolean }) => Promise<{
-    dice: [number, number];
-    modifier: number;
-    total: number;
-    tier: "success" | "partial" | "failure";
-  }>;
-  pendingRollRequest: RollRequest | null;
-  myCharacterStatus: string | null;
-  onLastWords: (content: string) => void;
-  onReaction?: (reactionKey: string) => void;
-  /** Reactions from OTHER people at the table (the current user's own clicks
-   *  float locally), to animate into the stage as they arrive. */
-  incomingReactions?: Array<{ id: string; type: string }>;
-  /** A waiting player can bid for the spotlight; the Director sees the queue. */
-  myHandRaised?: boolean;
-  onRaiseHand?: () => void;
-  onLowerHand?: () => void;
-  onEditTurn?: (turnId: string, newContent: string) => void;
-  lobbyTheme?: string;
-  previousEpilogue?: string | null;
-  previousMood?: string | null;
-  onBeginSession?: () => void;
-  /** Campaign map background URL (story.mapImageUrl). The MapOverlay renders
-   *  it as the SpatialMap canvas. Null until the GM sets one. */
-  mapImageUrl?: string | null;
-  /** PATCHes story.mapImageUrl. GM-only on the server; null clears the
-   *  background. The overlay only invokes this when isGM is true. */
-  onUpdateMapImage?: (url: string | null) => Promise<void> | void;
-  logTurns?: Turn[];
-  roster?: SessionRosterEntry[];
-  rosterCharacters?: PlayerCharacter[];
-  allCharacters?: PlayerCharacter[];
-  onUpdateRoster?: (characterIds: string[]) => void;
-  spectatorMode?: boolean;
-  floorRound?: FloorRound | null;
-  onSubmitFloorResponse?: (
-    roundId: string,
-    body: { characterId: string; type: string; content: string },
-  ) => Promise<void>;
-  onVoteFloorSubmission?: (roundId: string, submissionId: string) => Promise<void>;
-  onUpdateAudienceSpark?: (roundId: string, sparkId: string, action: "promote" | "reject") => Promise<void>;
-  onUpdateFloorRound?: (
-    roundId: string,
-    body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
-  ) => Promise<void>;
-  onCreateMark?: (
-    characterId: string,
-    input: { kind: import("@/types/campaign").CharacterMarkKind; text: string; sourceTurnId?: string },
-  ) => Promise<unknown>;
-  storyMomentAmplificationCounts?: Record<string, number>;
-  amplifiedStoryMomentIds?: Set<string>;
-  onAmplifyStoryMoment?: (turnId: string) => void;
-  showSessionChrome?: boolean;
-  /** Opens the Table-talk (OOC chat) drawer — wired through to the bottom bar. */
-  onViewChat?: () => void;
-}
+/**
+ * The story stage — StoryCanvas reborn as PURE STAGE. It renders the page
+ * (prose, lobby, ended block, floor round, map, dice) and nothing else: no
+ * composer, no waiting bar, no turn rail — those live in the shell's ActionDock
+ * and Table rail now. z-scale: backdrop 0 · content 10 · floaters 20.
+ */
 
-// ── Reaction System ──────────────────────────────────────────
-
-const REACTIONS = [
-  { emoji: "\u2694\uFE0F", label: "Tension", key: "tension" },
-  { emoji: "\uD83D\uDE2E", label: "Gasp", key: "gasp" },
-  { emoji: "\uD83D\uDC4F", label: "Bravo", key: "bravo" },
-  { emoji: "\uD83D\uDE02", label: "Haha", key: "laugh" },
-  { emoji: "\uD83D\uDC80", label: "Oh no", key: "dread" },
-];
-
-const REACTION_EMOJI_MAP: Record<string, string> = Object.fromEntries(
-  REACTIONS.map((r) => [r.key, r.emoji])
-);
+export const REACTION_EMOJI_MAP: Record<string, string> = {
+  tension: "⚔️",
+  gasp: "😮",
+  bravo: "👏",
+  laugh: "😂",
+  dread: "💀",
+};
 
 // Session activation inserts the opening narration as a turn with
 // metadata {"opening": true} (sessions/[sessionId]/route.ts) while the
@@ -142,26 +53,17 @@ function isOpeningTurn(turn: Turn): boolean {
   }
 }
 
-interface CurrentSceneState {
-  currentMood: string | null;
-  currentSceneAspects: string[];
-}
-
-function getCurrentSceneState(storyTurns: Turn[]): CurrentSceneState {
+function getCurrentMood(storyTurns: Turn[]): string | null {
   for (let i = storyTurns.length - 1; i >= 0; i--) {
     const turn = storyTurns[i];
     if (turn?.type === "scene-break" && turn.metadata) {
       const meta = parseSceneBreakMetadata(turn.metadata);
       if (!meta) continue;
       if (meta.cinematic) continue;
-      return {
-        currentMood: meta.mood ?? null,
-        currentSceneAspects: meta.aspects ?? [],
-      };
+      return meta.mood ?? null;
     }
   }
-
-  return { currentMood: null, currentSceneAspects: [] };
+  return null;
 }
 
 function FloatingReaction({
@@ -180,7 +82,7 @@ function FloatingReaction({
       exit={{ opacity: 0 }}
       transition={{ duration: 2, ease: "easeOut" }}
       onAnimationComplete={onComplete}
-      className="absolute top-2 pointer-events-none z-50 text-3xl select-none"
+      className="absolute top-2 pointer-events-none z-20 text-3xl select-none"
       style={{ left: `${x}%` }}
     >
       {emoji}
@@ -188,10 +90,75 @@ function FloatingReaction({
   );
 }
 
-export default function StoryCanvas({
+interface StoryStageProps {
+  sessionId: string;
+  storyId?: string;
+  storyTurns: Turn[];
+  /** Log turns (rolls/ooc) — merged into MarkPromptRail's stream so roll
+   *  moments can be marked. */
+  logTurns?: Turn[];
+  characters: PlayerCharacter[];
+  activePlayerId: string | null;
+  currentUserId: string | null;
+  isGM: boolean;
+  myCharacter?: PlayerCharacter | null;
+  sessionTitle: string;
+  sessionStatus: string;
+  sessionOpening: string | null;
+  /** Story title + closing thoughts — for the end-of-session Episode Card. */
+  storyTitle?: string;
+  sessionEpilogue?: string | null;
+  sessionCliffhanger?: string | null;
+  showDiceRoller: boolean;
+  onCloseDiceRoller: () => void;
+  /** Whether the current player may still spend their aspect this scene. */
+  aspectAvailable?: boolean;
+  onResolveBargain?: (turnId: string, response: "accepted" | "refused") => void | Promise<void>;
+  onRollSubmit: (intent: { attribute: string; aspectInvoked: boolean }) => Promise<{
+    dice: [number, number];
+    modifier: number;
+    total: number;
+    tier: "success" | "partial" | "failure";
+  }>;
+  pendingRollRequest: RollRequest | null;
+  /** Every reaction to float over the stage — the table's incoming ones plus
+   *  the current user's own clicks (the dock pipes them here). Each id floats
+   *  exactly once. */
+  reactionFloats?: Array<{ id: string; type: string }>;
+  onEditTurn?: (turnId: string, newContent: string) => void;
+  lobbyTheme?: string;
+  previousEpilogue?: string | null;
+  previousMood?: string | null;
+  onBeginSession?: () => void;
+  /** Campaign map background URL (story.mapImageUrl). */
+  mapImageUrl?: string | null;
+  onUpdateMapImage?: (url: string | null) => Promise<void> | void;
+  roster?: SessionRosterEntry[];
+  rosterCharacters?: PlayerCharacter[];
+  allCharacters?: PlayerCharacter[];
+  onUpdateRoster?: (characterIds: string[]) => void;
+  spectatorMode?: boolean;
+  floorRound?: FloorRound | null;
+  onSubmitFloorResponse?: (
+    roundId: string,
+    body: { characterId: string; type: string; content: string },
+  ) => Promise<void>;
+  onVoteFloorSubmission?: (roundId: string, submissionId: string) => Promise<void>;
+  onUpdateFloorRound?: (
+    roundId: string,
+    body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
+  ) => Promise<void>;
+  onCreateMark?: (
+    characterId: string,
+    input: { kind: import("@/types/campaign").CharacterMarkKind; text: string; sourceTurnId?: string },
+  ) => Promise<unknown>;
+}
+
+export default function StoryStage({
   sessionId,
   storyId,
   storyTurns: allStoryTurns,
+  logTurns = [],
   characters,
   activePlayerId,
   currentUserId,
@@ -206,22 +173,10 @@ export default function StoryCanvas({
   showDiceRoller,
   onCloseDiceRoller,
   aspectAvailable = true,
-  onCommitDraft,
   onResolveBargain,
-  onPassTurn,
-  onEndSession,
-  onTurnExpired,
-  onExtendTimer,
-  extensionTurns,
   onRollSubmit,
   pendingRollRequest,
-  myCharacterStatus,
-  onLastWords,
-  onReaction,
-  incomingReactions,
-  myHandRaised = false,
-  onRaiseHand,
-  onLowerHand,
+  reactionFloats,
   onEditTurn,
   lobbyTheme,
   previousEpilogue,
@@ -229,7 +184,6 @@ export default function StoryCanvas({
   onBeginSession,
   mapImageUrl,
   onUpdateMapImage,
-  logTurns = [],
   roster,
   rosterCharacters,
   allCharacters,
@@ -238,19 +192,11 @@ export default function StoryCanvas({
   floorRound = null,
   onSubmitFloorResponse,
   onVoteFloorSubmission,
-  onUpdateAudienceSpark,
   onUpdateFloorRound,
   onCreateMark,
-  storyMomentAmplificationCounts = {},
-  amplifiedStoryMomentIds,
-  onAmplifyStoryMoment,
-  showSessionChrome = true,
-  onViewChat,
-}: StoryCanvasProps) {
+}: StoryStageProps) {
   // Drop the activation-inserted opening turn whenever the dedicated
-  // opening block renders sessionOpening, so the text appears once. If
-  // the session's opening column was cleared after activation, keep the
-  // turn so the text still shows.
+  // opening block renders sessionOpening, so the text appears once.
   const storyTurns = useMemo(
     () => (sessionOpening ? allStoryTurns.filter((turn) => !isOpeningTurn(turn)) : allStoryTurns),
     [allStoryTurns, sessionOpening],
@@ -270,74 +216,38 @@ export default function StoryCanvas({
   const directorNarrating =
     isActive && (!activePlayerId || !characters.some((c) => c.userId === activePlayerId && c.status === "active"));
   const myTurnFocus = isActive && isMyTurn && !isGM;
-  const [lastWordsContent, setLastWordsContent] = useState("");
-  const [lastWordsSent, setLastWordsSent] = useState(false);
   // Lobby is a one-time threshold ritual. Suppress it if the session already
   // has turns — applies to sessions that started before the lobby existed,
   // or any future case where status drifts back to "draft" with play history.
   const isDraft = sessionStatus === "draft" && storyTurns.length === 0;
-  const isCharDead = myCharacterStatus === "dead";
-  const isCharRetired = myCharacterStatus === "retired";
-  const isCharGone = isCharDead || isCharRetired;
 
-  // Reset lastWordsSent when character is revived (status changes from dead/retired to active)
-  useEffect(() => {
-    if (!isCharGone) {
-      const timeoutId = setTimeout(() => setLastWordsSent(false), 0);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isCharGone]);
-
-  // ── Reaction state ──────────────────────────────────────
+  // ── Reaction floats — every id floats exactly once ────────
   const [floatingReactions, setFloatingReactions] = useState<Array<{
     id: string;
     emoji: string;
     x: number;
-    timestamp: number;
   }>>([]);
-  const [reactionCooldown, setReactionCooldown] = useState(false);
-
-  const handleReactionClick = useCallback((reactionKey: string) => {
-    if (reactionCooldown) return;
-
-    // Fire the callback
-    onReaction?.(reactionKey);
-
-    // Add floating reaction at a semi-random horizontal position (30-70%)
-    const x = 30 + Math.random() * 40;
-    const id = `reaction-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const emoji = REACTION_EMOJI_MAP[reactionKey] ?? reactionKey;
-    setFloatingReactions((prev) => [...prev, { id, emoji, x, timestamp: Date.now() }]);
-
-    // Cooldown
-    setReactionCooldown(true);
-    setTimeout(() => setReactionCooldown(false), 2000);
-  }, [reactionCooldown, onReaction]);
-
-  const removeFloatingReaction = useCallback((id: string) => {
-    setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
-  }, []);
-
-  // Float reactions arriving from other people at the table. Each id floats
-  // once — the ref guards against re-animating on every poll merge.
   const floatedReactionIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!incomingReactions?.length) return;
-    const fresh = incomingReactions.filter((r) => !floatedReactionIdsRef.current.has(r.id));
+    if (!reactionFloats?.length) return;
+    const fresh = reactionFloats.filter((r) => !floatedReactionIdsRef.current.has(r.id));
     if (fresh.length === 0) return;
     setFloatingReactions((prev) => [
       ...prev,
       ...fresh.map((r) => {
         floatedReactionIdsRef.current.add(r.id);
         return {
-          id: `incoming-${r.id}`,
+          id: `float-${r.id}`,
           emoji: REACTION_EMOJI_MAP[r.type] ?? "✨",
           x: 30 + Math.random() * 40,
-          timestamp: Date.now(),
         };
       }),
     ]);
-  }, [incomingReactions]);
+  }, [reactionFloats]);
+
+  const removeFloatingReaction = useCallback((id: string) => {
+    setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
+  }, []);
 
   const {
     editableTurn,
@@ -353,26 +263,6 @@ export default function StoryCanvas({
     activePlayerId,
     onEditTurn,
   });
-
-  const interactionState = getSessionInteractionState({
-    sessionStatus,
-    activePlayerId,
-    currentUserId,
-    isGM,
-    myCharacterStatus,
-    floorRound,
-  });
-  const canWrite = interactionState.canWriteDirect;
-  // Gate the composer on the interaction state machine: locked-out players
-  // (another player's assigned turn, Crossroads, etc.) get the waiting
-  // panel / FloorRoundPanel instead of a Submit button the server rejects.
-  const canShowComposer = !spectatorMode && canWrite;
-
-  // Find who's currently writing for the lock screen
-  const activeChar = characters.find((c) => c.userId === activePlayerId);
-  const activePlayerName = activeChar
-    ? `${activeChar.user?.displayName ?? "Someone"} (${activeChar.name})`
-    : "another player";
 
   // Auto-scroll on new turns — but only if the reader is already near the
   // bottom. If they scrolled up to re-read earlier prose, leave them there.
@@ -441,9 +331,6 @@ export default function StoryCanvas({
     });
   }, []);
 
-  // Find the current player's character name for the preview
-  const myCharName = characters.find((c) => c.userId === currentUserId)?.name ?? null;
-
   // ── Prose Assembly (imported from ProseAssembler.tsx) ──────
 
   // Slice to only the visible turns (paginated from the end)
@@ -460,25 +347,25 @@ export default function StoryCanvas({
   // Stable player color map
   const playerUserIds = useMemo(() => characters.filter((c) => c.status === "active").map((c) => c.userId), [characters]);
 
-  // ── Mood & Aspects — derive from latest scene-break ──────────
-  const { currentMood, currentSceneAspects } = getCurrentSceneState(storyTurns);
-
+  // ── Mood — derive from latest scene-break ──────────────────
+  const currentMood = getCurrentMood(storyTurns);
   const moodTint = currentMood ? MOOD_TINT_COLORS[currentMood] ?? null : null;
   const moodVignette = currentMood ? MOOD_VIGNETTE_COLORS[currentMood] ?? null : null;
 
   // Count scene-break turns. The MapOverlay refreshes its places list
-  // whenever this changes, so server-auto-created places (those upserted
-  // behind a freshly-posted scene-break) appear without manual refresh.
+  // whenever this changes, so server-auto-created places appear without
+  // manual refresh.
   const sceneBreakCount = useMemo(
     () => storyTurns.filter((t) => t.type === "scene-break").length,
     [storyTurns],
   );
 
   return (
-    <div className="flex-1 h-full flex flex-col relative bg-void">
-      {/* Places / Map toggle */}
-      {showSessionChrome && !showMap && (
-        <div className="absolute right-3 top-3 z-50 flex max-w-[calc(100%-2rem)] flex-col items-end gap-2 sm:right-4 sm:top-28">
+    <div className="relative flex h-full flex-1 flex-col bg-void">
+      {/* Places / Map toggle — always reachable (the old chrome gate kept it
+          off the play page entirely; the stage owns it now). */}
+      {!showMap && storyId && (
+        <div className="absolute right-3 top-3 z-20">
           <button
             onClick={() => setShowMap(true)}
             className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-border bg-black/45 px-3 py-2 text-xs text-text-secondary backdrop-blur-md transition-colors hover:bg-subtle/50 hover:text-paper sm:min-h-10 sm:bg-subtle/30 sm:px-4"
@@ -517,65 +404,8 @@ export default function StoryCanvas({
         )}
       </div>
 
-      {/* Initiative Bar */}
-      {showSessionChrome && (
-        <InitiativeBar
-          characters={characters}
-          rosterCharacters={rosterCharacters}
-          activePlayerId={activePlayerId}
-          currentUserId={currentUserId}
-          isGM={isGM}
-          sessionTitle={sessionTitle}
-          sessionStatus={sessionStatus}
-          onPassTurn={onPassTurn}
-          onEndSession={onEndSession}
-          onTurnExpired={onTurnExpired}
-          onExtendTimer={onExtendTimer}
-          extensionTurns={extensionTurns}
-          floorRound={floorRound}
-        />
-      )}
-
-      {/* Scene Aspect Tags — floating pills below initiative bar */}
-      <AnimatePresence>
-        {showSessionChrome && currentSceneAspects.length > 0 && sessionStatus === "active" && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="w-full flex items-center justify-center gap-2 px-8 py-2 z-20 shrink-0"
-          >
-            {currentSceneAspects.map((aspect, i) => {
-              const moodBorderColors: Record<string, string> = {
-                tense: "border-rose/30 text-rose/50",
-                calm: "border-sage/30 text-sage/50",
-                ominous: "border-violet/30 text-violet/50",
-                triumphant: "border-amber/30 text-amber/50",
-                melancholy: "border-indigo-400/30 text-indigo-400/50",
-                chaotic: "border-orange-400/30 text-orange-400/50",
-                mysterious: "border-cyan-400/30 text-cyan-400/50",
-                romantic: "border-pink-400/30 text-pink-400/50",
-              };
-              const colors = moodBorderColors[currentMood ?? ""] ?? "border-border-active text-text-tertiary";
-              return (
-                <motion.span
-                  key={aspect}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.08 }}
-                  className={`px-3 py-1 rounded-full border bg-black/30 backdrop-blur-sm text-[10px] font-serif italic ${colors}`}
-                >
-                  {aspect}
-                </motion.span>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Story Canvas */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto pt-10 pb-72 px-4 sm:px-8 lg:px-12 flex flex-col items-center z-10 relative scroll-smooth sm:pt-16 sm:pb-80 [scrollbar-width:thin] [scrollbar-color:rgba(224,169,62,0.22)_transparent]">
+      <div ref={scrollRef} className="relative z-10 flex flex-1 flex-col items-center overflow-y-auto scroll-smooth px-4 pb-10 pt-8 [scrollbar-color:rgba(224,169,62,0.22)_transparent] [scrollbar-width:thin] sm:px-8 sm:pt-12 lg:px-12">
 
         {/* Floating reaction bubbles — positioned above story content */}
         <AnimatePresence>
@@ -665,8 +495,7 @@ export default function StoryCanvas({
                   </button>
                 </div>
               )}
-              {(() => {
-                return paragraphs.map((group, pi) => {
+              {paragraphs.map((group, pi) => {
                 // Scene-break turns render as ornamental dividers
                 if (group[0].type === "scene-break") {
                   if (isLegacyCinematicSceneBreak(group[0].type, group[0].metadata)) {
@@ -674,9 +503,6 @@ export default function StoryCanvas({
                       <StoryMomentRenderer
                         key={group[0].id}
                         turn={group[0]}
-                        amplificationCount={storyMomentAmplificationCounts[group[0].id] ?? 0}
-                        amplifiedByMe={amplifiedStoryMomentIds?.has(group[0].id) ?? false}
-                        onAmplify={onAmplifyStoryMoment}
                       />
                     );
                   }
@@ -688,9 +514,6 @@ export default function StoryCanvas({
                     <StoryMomentRenderer
                       key={group[0].id}
                       turn={group[0]}
-                      amplificationCount={storyMomentAmplificationCounts[group[0].id] ?? 0}
-                      amplifiedByMe={amplifiedStoryMomentIds?.has(group[0].id) ?? false}
-                      onAmplify={onAmplifyStoryMoment}
                     />
                   );
                 }
@@ -779,8 +602,7 @@ export default function StoryCanvas({
                     </AnimatePresence>
                   </div>
                 );
-              });
-              })()}
+              })}
             </div>
           )}
         </div>
@@ -793,7 +615,6 @@ export default function StoryCanvas({
             isActive={isActive}
             onSubmitResponse={onSubmitFloorResponse ?? (async () => {})}
             onVoteSubmission={onVoteFloorSubmission ?? (async () => {})}
-            onUpdateAudienceSpark={onUpdateAudienceSpark ?? (async () => {})}
             onUpdateRound={onUpdateFloorRound ?? (async () => {})}
           />
         )}
@@ -808,138 +629,6 @@ export default function StoryCanvas({
             currentUserId={currentUserId}
             onCreateMark={onCreateMark}
           />
-        )}
-
-        {/* Draft Box */}
-        {canShowComposer && (
-          <AdventureDraftComposer
-            sessionId={sessionId}
-            isGM={isGM}
-            myCharName={myCharName}
-            onCommitDraft={onCommitDraft}
-            onViewChat={onViewChat}
-          />
-        )}
-
-        {/* The table's bottom bar for everyone NOT holding the pen — the GM
-            watching a player, and players between turns. Presence + react +
-            view chat, so no one is ever left without actions. */}
-        {!spectatorMode && !canShowComposer && isActive && !isCharGone && (() => {
-          const isGMTurn =
-            !activePlayerId || !characters.some((c) => c.userId === activePlayerId && c.status === "active");
-          return (
-            <div className="w-full max-w-[650px] mt-auto">
-              <div className="relative rounded-2xl border border-border bg-ink/85 px-4 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-md">
-                <div className="flex flex-wrap items-center gap-3">
-                  <p className="flex min-w-0 flex-1 items-center gap-2 font-serif text-[13px] italic text-text-tertiary">
-                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber/70 [animation:pulse_1.4s_ease-in-out_infinite]" />
-                    <span className="truncate">
-                      {isGMTurn ? "The Director is narrating…" : `${activePlayerName} is writing…`}
-                    </span>
-                  </p>
-
-                  <div className="flex items-center gap-1.5">
-                    {REACTIONS.map((r) => (
-                      <motion.button
-                        key={r.key}
-                        type="button"
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleReactionClick(r.key)}
-                        disabled={reactionCooldown}
-                        title={r.label}
-                        className={`flex items-center gap-1 rounded-full border border-border bg-subtle/30 px-2.5 py-1.5 transition-all cursor-pointer ${
-                          reactionCooldown ? "opacity-30 cursor-not-allowed" : "hover:bg-subtle/50 hover:border-border-active"
-                        }`}
-                      >
-                        <span className="text-sm leading-none">{r.emoji}</span>
-                      </motion.button>
-                    ))}
-                  </div>
-
-                  {!isGM && onRaiseHand && (
-                    <button
-                      type="button"
-                      onClick={() => (myHandRaised ? onLowerHand?.() : onRaiseHand())}
-                      title={myHandRaised ? "Lower your hand" : "Ask the Director for the spotlight"}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                        myHandRaised
-                          ? "border-amber/45 bg-amber/15 text-amber"
-                          : "border-border bg-subtle/20 text-text-secondary hover:border-amber/30 hover:text-amber"
-                      }`}
-                    >
-                      <span className="text-sm leading-none">✋</span>
-                      {myHandRaised ? "Hand raised" : "Raise hand"}
-                    </button>
-                  )}
-
-                  {onViewChat && (
-                    <button
-                      type="button"
-                      onClick={onViewChat}
-                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-subtle/20 px-3 py-1.5 text-[11px] text-text-secondary transition-colors hover:border-amber/30 hover:text-amber"
-                      title="Table talk — out-of-character chat"
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z" />
-                      </svg>
-                      View chat
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Last Words — when character has died */}
-        {!isGM && isCharDead && !lastWordsSent && isActive && (
-          <div className="w-full max-w-[650px] mt-auto">
-            <div className="bg-ink border border-rose/20 rounded-2xl p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative">
-              <div className="absolute top-0 left-6 -translate-y-1/2 bg-black px-2 text-[10px] uppercase font-display tracking-[0.2em] text-rose">
-                Your character has fallen
-              </div>
-
-              <p className="text-xs text-text-tertiary font-serif italic mb-4">
-                Write your final moment — a last breath, a whispered name, a defiant gaze. This is your character&apos;s goodbye.
-              </p>
-
-              <textarea
-                className="w-full bg-transparent text-[17px] leading-[1.9] text-paper/90 outline-none font-serif resize-none min-h-[80px] placeholder:text-text-ghost"
-                placeholder="Their final words, their last thought..."
-                value={lastWordsContent}
-                onChange={(e) => setLastWordsContent(e.target.value)}
-              />
-
-              <div className="flex items-center justify-end mt-4 pt-4 border-t border-rose/10">
-                <button
-                  onClick={() => {
-                    if (lastWordsContent.trim()) {
-                      onLastWords(lastWordsContent.trim());
-                      setLastWordsSent(true);
-                    }
-                  }}
-                  disabled={!lastWordsContent.trim()}
-                  className="bg-rose/10 hover:bg-rose border border-rose/20 text-rose hover:text-paper transition-all rounded-full px-6 py-2 text-[11px] font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  Final Words
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Spectator mode — after death/retirement */}
-        {!isGM && isCharGone && (lastWordsSent || isCharRetired) && isActive && (
-          <div className="w-full max-w-[650px] mt-8">
-            <div className="text-center py-8 border border-border-subtle rounded-2xl bg-subtle/20">
-              <p className="text-text-tertiary text-sm font-serif italic">
-                {isCharDead
-                  ? "Your character has passed. You are now a spectator."
-                  : "Your character has retired from this adventure."}
-              </p>
-              <p className="text-text-ghost text-xs mt-2">You can still chat in the session log.</p>
-            </div>
-          </div>
         )}
 
         {/* Session ended — with compile-to-chapter option */}
@@ -966,7 +655,7 @@ export default function StoryCanvas({
           type="button"
           onClick={scrollToBottom}
           aria-label="Scroll to newest turn"
-          className="absolute bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-full border border-amber/35 bg-black/80 px-4 py-2 text-[11px] font-display uppercase tracking-[0.18em] text-amber shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md transition-colors hover:bg-amber/15 sm:bottom-32"
+          className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full border border-amber/35 bg-black/80 px-4 py-2 text-[11px] font-display uppercase tracking-[0.18em] text-amber shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md transition-colors hover:bg-amber/15"
         >
           ↓ New turn
         </button>

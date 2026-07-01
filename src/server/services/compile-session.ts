@@ -16,7 +16,6 @@ interface CompileTurn {
   type: string;
   content: string;
   metadata: string | null;
-  audienceAmplificationCount?: number;
 }
 
 export interface CompileMark {
@@ -236,11 +235,8 @@ export function compileSessionToHTML(options: CompileOptions): string {
       const majorStyle = meta?.importance === "major"
         ? "font-size:1.15em; font-weight:600"
         : "";
-      const chorusLine = group[0].audienceAmplificationCount
-        ? `<p style="text-align:center"><span style="font-size:0.78em"><em>Held by the Chorus · ${group[0].audienceAmplificationCount}</em></span></p>`
-        : "";
       parts.push(
-        `<div class="story-moment" data-story-moment="true" data-mood="${esc(meta?.mood ?? "ominous")}"><p style="text-align:center; ${majorStyle}"><em>${esc(group[0].content)}</em></p>${subtext ? `<p style="text-align:center"><span style="font-size:0.88em"><em>${esc(subtext)}</em></span></p>` : ""}${chorusLine}</div>`
+        `<div class="story-moment" data-story-moment="true" data-mood="${esc(meta?.mood ?? "ominous")}"><p style="text-align:center; ${majorStyle}"><em>${esc(group[0].content)}</em></p>${subtext ? `<p style="text-align:center"><span style="font-size:0.88em"><em>${esc(subtext)}</em></span></p>` : ""}</div>`
       );
       continue;
     }
