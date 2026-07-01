@@ -808,7 +808,6 @@ export default function ManuscriptHarnessPage() {
           rollOnSuccess={pendingRollRequest?.onSuccess ?? null}
           rollOnFailure={pendingRollRequest?.onFailure ?? null}
           rollFatal={pendingRollRequest?.fatal ?? false}
-          surface="page"
         />
       )}
       {/* Table talk — the voices under the table. */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import DiceRollerRitual from "@/components/campaign/DiceRollerRitual";
+import DiceRollerRitual from "@/components/campaign/manuscript/DiceCast";
 
 type ForceOutcome = "random" | "success" | "partial" | "failure";
 

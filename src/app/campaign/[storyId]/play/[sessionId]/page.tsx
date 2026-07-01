@@ -1173,7 +1173,6 @@ export default function SessionPlayPage() {
           rollOnSuccess={pendingRollRequest?.onSuccess ?? null}
           rollOnFailure={pendingRollRequest?.onFailure ?? null}
           rollFatal={pendingRollRequest?.fatal ?? false}
-          surface="page"
         />
       )}
 
