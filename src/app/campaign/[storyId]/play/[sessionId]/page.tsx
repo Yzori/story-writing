@@ -5,35 +5,37 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useCampaignSession } from "@/hooks/use-campaign-session";
-import SessionLog from "@/components/campaign/SessionLog";
-import StoryStage from "@/components/campaign/play/StoryStage";
-import ActionDock from "@/components/campaign/play/ActionDock";
+import ManuscriptRoom from "@/components/campaign/manuscript/ManuscriptRoom";
+import ManuscriptPage from "@/components/campaign/manuscript/ManuscriptPage";
+import InlineQuill from "@/components/campaign/manuscript/InlineQuill";
+import WaitingLine from "@/components/campaign/manuscript/WaitingLine";
+import TableSeats from "@/components/campaign/manuscript/TableSeats";
+import CandleTimer from "@/components/campaign/manuscript/CandleTimer";
+import QuillStation from "@/components/campaign/manuscript/QuillStation";
+import TableTalkDrawer from "@/components/campaign/manuscript/TableTalkDrawer";
+import PageFork from "@/components/campaign/manuscript/PageFork";
+import TableWhispers from "@/components/campaign/manuscript/TableWhispers";
+import { CoachSlip, useCoachSlip } from "@/components/campaign/manuscript/CoachSlips";
 import CharacterSheetPanel from "@/components/campaign/manuscript/CharacterLeaf";
 import PartyStatusPanel from "@/components/campaign/manuscript/PartyLedger";
+import StakesTracker from "@/components/campaign/StakesTracker";
+import DiceRoller from "@/components/campaign/DiceRoller";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import StoryMoment from "@/components/campaign/StoryMoment";
 import ActingGmBar from "@/components/campaign/ActingGmBar";
 import EndSessionModal from "@/components/campaign/EndSessionModal";
-import OpenFloorForm from "@/components/campaign/OpenFloorForm";
-import DirectRow from "@/components/campaign/play/DirectRow";
-import PlaySessionShell from "@/components/campaign/play/PlaySessionShell";
-import PlayHeader from "@/components/campaign/play/PlayHeader";
-import PhaseBanner from "@/components/campaign/play/PhaseBanner";
-import TableRail from "@/components/campaign/play/TableRail";
-import CastRail from "@/components/campaign/play/CastRail";
-import ClocksSection from "@/components/campaign/play/ClocksSection";
-import ChatPeek from "@/components/campaign/play/ChatPeek";
 import {
   parseRollMetadata,
   parseSceneBreakMetadata,
   parseStoryMomentMetadata,
 } from "@/lib/campaign-turns";
 import { campaignJsonRequest } from "@/lib/campaign-api";
+import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
+import { resolveQuillState } from "@/lib/manuscript-quill-state";
+import { getPlayerInk } from "@/types/campaign";
 import { usePlayDerived } from "@/hooks/use-play-derived";
 import { useTurnTimer } from "@/hooks/use-turn-timer";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import CastStrip from "@/components/campaign/play/CastStrip";
-import DeckSheet, { type DeckSegment } from "@/components/campaign/play/DeckSheet";
 
 export default function SessionPlayPage() {
   const params = useParams();
@@ -67,6 +69,7 @@ export default function SessionPlayPage() {
     editTurn,
     updateRollRequest,
     updateBargain,
+    createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
     updateFloorRound,
@@ -83,29 +86,18 @@ export default function SessionPlayPage() {
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
   const [logTab, setLogTab] = useState<"talk" | "rolls">("talk");
-  // Below lg the rail and chat drawer give way to the deck sheet. JS-gated
-  // (not CSS-hidden) so the composer's draft state only ever mounts once.
+  // The manuscript is one surface for all breakpoints; useMediaQuery gates
+  // PRESENTATION only (seat rim vs strip, margin rail vs inline folds). The
+  // quill and the timer mount exactly once regardless.
   const isDesktop = useMediaQuery("(min-width: 1024px)", true);
-  const [deckOpen, setDeckOpen] = useState(false);
-  const [deckSegment, setDeckSegment] = useState<DeckSegment>("you");
-  const openDeck = useCallback((segment: DeckSegment) => {
-    setDeckSegment(segment);
-    setDeckOpen(true);
-  }, []);
-  const openChat = useCallback(() => {
-    if (window.matchMedia("(min-width: 1024px)").matches) setShowLogDrawer(true);
-    else {
-      setDeckSegment("talk");
-      setDeckOpen(true);
-    }
-  }, []);
-  const [floorFormOpen, setFloorFormOpen] = useState(false);
-  const [floorPrompt, setFloorPrompt] = useState("");
-  const [floorPulse, setFloorPulse] = useState(false);
-  const [floorSubmitting, setFloorSubmitting] = useState(false);
+  const openChat = useCallback(() => setShowLogDrawer(true), []);
   const [houseCount, setHouseCount] = useState(0);
-  const [focusMode, setFocusMode] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
+  // Last words are a one-shot: sent → the page falls silent; reset on revive.
+  const [lastWordsSent, setLastWordsSent] = useState(false);
+  const playerCoach = useCoachSlip("player");
+  const gmCoach = useCoachSlip("gm");
   const [epilogueText, setEpilogueText] = useState("");
   const [cliffhangerText, setCliffhangerText] = useState("");
   const [activeStoryMoment, setActiveStoryMoment] = useState<{
@@ -193,8 +185,6 @@ export default function SessionPlayPage() {
     actingGmPlayers,
     isActivePlayer,
     incomingReactions,
-    currentScene,
-    phase,
   } = usePlayDerived({
     turns,
     characters,
@@ -434,32 +424,21 @@ export default function SessionPlayPage() {
     }
   }, [story, setActivePlayer, showToast]);
 
-  // Open the floor — players write competing responses, the table votes,
-  // the GM canonizes. (One Crossroads shape since the 2026-07 feature kills.)
-  const handleOpenFloor = async () => {
-    if (!floorPrompt.trim() || floorSubmitting) return;
-    setFloorSubmitting(true);
-    try {
-      const res = await fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/floor-rounds`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: floorPrompt.trim(),
-          audiencePulseEnabled: floorPulse,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message ?? "Failed to open the floor");
-      setFloorFormOpen(false);
-      setFloorPrompt("");
-      setFloorPulse(false);
-      showToast("The floor is open — the table writes the next beat");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to open the floor");
-    } finally {
-      setFloorSubmitting(false);
-    }
-  };
+  // Open a crossroads — players write competing responses, the table votes,
+  // the GM canonizes. Goes through the hook's createFloorRound (the old page
+  // raw-fetched this endpoint, leaving the hook function dead).
+  const handleOpenCrossroads = useCallback(
+    async (prompt: string, audiencePulseEnabled: boolean) => {
+      try {
+        await createFloorRound(prompt, "vote", audiencePulseEnabled);
+        showToast("The ink divides — the table writes the next beat");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to open the crossroads");
+        throw err;
+      }
+    },
+    [createFloorRound, showToast],
+  );
 
   // Player extends their turn timer. The {timerExtension} metadata rides
   // along on the OOC turn so the GM's InitiativeBar countdown — the one
@@ -504,10 +483,6 @@ export default function SessionPlayPage() {
     extensionTurns,
     onTurnExpired: handleTurnExpired,
   });
-  const seatTimer =
-    isPlayerTurnForTimer && isSessionActive
-      ? { progress: timerProgress, timeStr: timerTimeStr, urgency: timerUrgency }
-      : null;
   // The seat owner's +3 min: bump this client instantly, then broadcast the
   // OOC {timerExtension} turn so every other countdown follows.
   const handleSeatExtend = useCallback(() => {
@@ -611,17 +586,8 @@ export default function SessionPlayPage() {
     [sendTurn, characters, showToast]
   );
 
-  // Player writes last words after character death
-  const handleLastWords = useCallback(
-    async (content: string) => {
-      try {
-        await sendTurn("description", content, myCharacter?.id, JSON.stringify({ lastWords: true }));
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Failed to send last words");
-      }
-    },
-    [sendTurn, myCharacter, showToast]
-  );
+  // Last words ride the quill's commit path: InlineQuill's last-words variant
+  // sends a `description` turn with {lastWords:true} via handleCommitDraft.
 
   // Player sends an ephemeral reaction while waiting \u2014 broadcast to the whole
   // table AND floated locally over the stage (the dock has no room to float).
@@ -838,6 +804,29 @@ export default function SessionPlayPage() {
     [storyId, sessionId, clocks, setClocks, showToast, refreshClocks]
   );
 
+  // Margin clock tick — click a segment to fill up to it (or back off).
+  const handleToggleClockSegment = useCallback(
+    (clockId: string, segmentIndex: number) => {
+      void handleClocksChange(
+        clocks.map((c) =>
+          c.id === clockId
+            ? { ...c, filled: segmentIndex < c.filled ? segmentIndex : Math.min(segmentIndex + 1, c.segments) }
+            : c,
+        ),
+      );
+    },
+    [clocks, handleClocksChange],
+  );
+
+  // Reset the last-words one-shot when the character comes back.
+  const isCharGone = myCharacter?.status === "dead" || myCharacter?.status === "retired";
+  useEffect(() => {
+    if (!isCharGone) {
+      const timeoutId = setTimeout(() => setLastWordsSent(false), 0);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isCharGone]);
+
   // ── Loading / Error ────────────────────────────────────────
 
   if (loading) {
@@ -870,108 +859,219 @@ export default function SessionPlayPage() {
   }
 
   const canPassSpotlight = isGM && campaignSession?.status === "active" && !floorRound;
+  const sessionStatusNow = campaignSession?.status ?? "draft";
+  const activePlayerIdNow = campaignSession?.activePlayerId ?? null;
+  const seatCharacters = rosterCharacters.length > 0 ? rosterCharacters : characters;
+
+  // ── The end of the page — one switch, the ActionDock's heir ──
+  const interaction = getSessionInteractionState({
+    sessionStatus: sessionStatusNow,
+    activePlayerId: activePlayerIdNow,
+    currentUserId,
+    isGM,
+    myCharacterStatus: myCharacter?.status ?? null,
+    floorRound,
+  });
+  const directorWriting =
+    !activePlayerIdNow ||
+    !characters.some((c) => c.userId === activePlayerIdNow && c.status === "active");
+  const quillState = resolveQuillState({
+    mode: interaction.mode,
+    isGM,
+    myCharacterStatus: myCharacter?.status ?? null,
+    hasPendingRollRequest: !!pendingRollRequest,
+    lastWordsSent,
+    directorWriting,
+  });
+  const activePlayerUserIds = characters
+    .filter((c) => c.status === "active")
+    .map((c) => c.userId);
+  const myInk = isGM
+    ? "var(--ink-gm)"
+    : currentUserId
+      ? getPlayerInk(currentUserId, activePlayerUserIds)
+      : "var(--ink-faded)";
+  const penHolderChar = characters.find((c) => c.userId === activePlayerIdNow) ?? null;
+  const myCharFirstName = myCharacter ? myCharacter.name.split(" ")[0] : null;
+
+  const endOfPage =
+    quillState.kind === "quill" ? (
+      <>
+        {!isGM && (
+          <CoachSlip show={playerCoach.show} onDismiss={playerCoach.dismiss} title="You're at the table.">
+            You&rsquo;ll write when the pen reaches you. Until then, whisper a reaction or reach
+            for the page. When the dice call, your aspect can save a miss — once per scene.
+          </CoachSlip>
+        )}
+        <InlineQuill
+          sessionId={sessionId}
+          isGM={quillState.gm}
+          myCharName={myCharFirstName}
+          inkColor={myInk}
+          onCommitDraft={handleCommitDraft}
+        />
+      </>
+    ) : quillState.kind === "last-words" ? (
+      <InlineQuill
+        sessionId={sessionId}
+        isGM={false}
+        myCharName={myCharFirstName}
+        inkColor={myInk}
+        lastWords
+        onCommitDraft={handleCommitDraft}
+        onLastWordsSent={() => setLastWordsSent(true)}
+      />
+    ) : quillState.kind === "roll-pending" ? (
+      <WaitingLine
+        rollPending
+        rollAttribute={pendingRollRequest?.attribute ?? null}
+        rollReason={pendingRollRequest?.reason ?? null}
+        rollFatal={pendingRollRequest?.fatal ?? false}
+        onOpenDiceRoller={() => setShowDiceRoller(true)}
+      />
+    ) : quillState.kind === "fork" && floorRound ? (
+      <PageFork
+        floorRound={floorRound}
+        isGM={isGM}
+        myCharacter={myCharacter}
+        playerUserIds={activePlayerUserIds}
+        onSubmitResponse={handleSubmitFloorResponse}
+        onVoteSubmission={handleVoteFloorSubmission}
+        onUpdateRound={handleUpdateFloorRound}
+      />
+    ) : quillState.kind === "waiting" ? (
+      <>
+        {!!myCharacter && (
+          <CoachSlip show={playerCoach.show} onDismiss={playerCoach.dismiss} title="You're at the table.">
+            You&rsquo;ll write when the pen reaches you. Until then, whisper a reaction or reach
+            for the page. When the dice call, your aspect can save a miss — once per scene.
+          </CoachSlip>
+        )}
+        <WaitingLine
+          penHolderName={penHolderChar ? penHolderChar.name.split(" ")[0] : null}
+          directorWriting={quillState.directorWriting}
+          onReaction={handleReaction}
+          showHandRaise={!!myCharacter}
+          myHandRaised={myHandRaised}
+          onRaiseHand={handleRaiseHand}
+          onLowerHand={handleLowerHand}
+        />
+      </>
+    ) : quillState.kind === "gone" ? (
+      <WaitingLine goneNotice={quillState.dead ? "dead" : "retired"} />
+    ) : null;
+
+  // ── The table's furniture ──────────────────────────────────
+  const candle = (
+    <CandleTimer
+      progress={timerProgress}
+      timeStr={timerTimeStr}
+      urgency={timerUrgency}
+      lit={sessionStatusNow !== "completed"}
+      burning={isPlayerTurnForTimer && isSessionActive}
+      showExtend={showExtendButton}
+      onExtend={handleSeatExtend}
+      compact={!isDesktop}
+    />
+  );
+
+  const directorSlip = campaignSession ? (
+    <ActingGmBar
+      inline
+      sessionStatus={campaignSession.status}
+      ownerId={ownerId}
+      actingGmId={campaignSession.actingGmId}
+      takeoverProposerId={campaignSession.takeoverProposerId}
+      currentUserId={currentUserId}
+      players={actingGmPlayers}
+      isActivePlayer={isActivePlayer}
+      onAction={handleActingGm}
+    />
+  ) : undefined;
+
+  const seats = (
+    <TableSeats
+      layout={isDesktop ? "rim" : "strip"}
+      characters={seatCharacters}
+      ownerId={ownerId}
+      activePlayerId={activePlayerIdNow}
+      currentUserId={currentUserId}
+      isGM={isGM}
+      canPassSpotlight={canPassSpotlight}
+      onPassTurn={handlePassTurn}
+      spotlightQueue={spotlightQueue}
+      actingGmId={campaignSession?.actingGmId ?? null}
+      directorSlip={directorSlip}
+      strip={!isDesktop ? { candle, leaveHref: `/campaign/${storyId}` } : undefined}
+    />
+  );
+
+  const station = isGM ? (
+    <QuillStation
+      isDesktop={isDesktop}
+      activeChars={characters.filter((c) => c.status === "active")}
+      clocks={clocks}
+      onClocksChange={handleClocksChange}
+      onRequestRoll={handleRequestRoll}
+      onPushEvent={handlePushEvent}
+      onSceneBreak={handleSceneBreak}
+      onStoryMoment={handleStoryMoment}
+      onAddIllustration={handleAddIllustration}
+      onOfferBargain={handleOfferBargain}
+      floorRound={floorRound}
+      onOpenCrossroads={handleOpenCrossroads}
+      onUpdateFloorRound={handleUpdateFloorRound}
+      ledger={
+        <div className="space-y-4">
+          <PartyStatusPanel
+            characters={characters}
+            activePlayerId={activePlayerIdNow}
+            onChangeCharacterStatus={handleChangeCharacterStatus}
+            onInviteNewCharacter={handleInviteNewCharacter}
+            roster={roster}
+            currentUserId={currentUserId}
+            onCreateMark={createMark}
+            onRemoveMark={removeMark}
+          />
+          <StakesTracker clocks={clocks} onClocksChange={handleClocksChange} />
+        </div>
+      }
+      onEndSession={sessionStatusNow === "active" ? handleEndSession : undefined}
+      coachSlip={
+        <CoachSlip show={gmCoach.show} onDismiss={gmCoach.dismiss} title="Your moves live here.">
+          Pass the pen from a seat to hand a player the next paragraph; everything you do writes
+          itself into the margin.
+        </CoachSlip>
+      }
+    />
+  ) : undefined;
 
   return (
-    <PlaySessionShell
-      focusMode={focusMode}
-      header={
-        <PlayHeader
-          storyTitle={story.title}
-          sceneTitle={currentScene.title}
-          sessionStatus={campaignSession?.status ?? "draft"}
-          houseCount={houseCount}
-          firstClock={clocks[0] ?? null}
-          isGM={isGM}
-          focusMode={focusMode}
-          onToggleFocus={() => setFocusMode((value) => !value)}
-          onEndSession={handleEndSession}
-          onOpenCharacter={!isGM && !isDesktop ? () => openDeck("you") : undefined}
-        />
-      }
-      banner={
-        campaignSession ? (
-          <PhaseBanner
-            phase={phase}
-            sceneMood={currentScene.mood}
-            sceneAspects={currentScene.aspects}
-            actingGmSlot={
-              <ActingGmBar
-                inline
-                sessionStatus={campaignSession.status}
-                ownerId={ownerId}
-                actingGmId={campaignSession.actingGmId}
-                takeoverProposerId={campaignSession.takeoverProposerId}
-                currentUserId={currentUserId}
-                players={actingGmPlayers}
-                isActivePlayer={isActivePlayer}
-                onAction={handleActingGm}
-              />
-            }
-          />
-        ) : undefined
-      }
-      rail={
-        isDesktop ? (
-          <TableRail>
-            <CastRail
-              characters={rosterCharacters.length > 0 ? rosterCharacters : characters}
-              ownerId={ownerId}
-              activePlayerId={campaignSession?.activePlayerId ?? null}
-              currentUserId={currentUserId}
-              isGM={isGM}
-              sessionStatus={campaignSession?.status ?? "draft"}
-              canPassSpotlight={canPassSpotlight}
-              onPassTurn={handlePassTurn}
-              spotlightQueue={spotlightQueue}
-              seatTimer={seatTimer}
-              showExtendButton={showExtendButton}
-              onExtend={handleSeatExtend}
-            />
-            <ClocksSection clocks={clocks} isGM={isGM} onClocksChange={handleClocksChange} />
-            {isGM ? (
-              <PartyStatusPanel
-                characters={characters}
-                activePlayerId={campaignSession?.activePlayerId ?? null}
-                onChangeCharacterStatus={handleChangeCharacterStatus}
-                onInviteNewCharacter={handleInviteNewCharacter}
-                roster={roster}
-                currentUserId={currentUserId}
-                onCreateMark={createMark}
-                onRemoveMark={removeMark}
-              />
-            ) : (
-              <CharacterSheetPanel
-                myCharacter={myCharacter ?? null}
-                onCreateMark={createMark}
-                onRemoveMark={removeMark}
-              />
-            )}
-            <ChatPeek logTurns={logTurns} onOpenChat={openChat} />
-          </TableRail>
-        ) : undefined
-      }
-      stage={
-        <StoryStage
+    <ManuscriptRoom
+      leaveHref={`/campaign/${storyId}`}
+      isDesktop={isDesktop}
+      seats={seats}
+      candle={isDesktop ? candle : undefined}
+      station={station}
+      whispers={<TableWhispers houseCount={houseCount} reactionFloats={reactionFloats} />}
+      page={
+        <ManuscriptPage
           sessionId={sessionId}
           storyId={storyId}
           storyTurns={storyTurns}
           logTurns={logTurns}
           characters={characters}
-          rosterCharacters={rosterCharacters}
-          allCharacters={characters}
-          roster={roster}
-          onUpdateRoster={updateRoster}
-          activePlayerId={campaignSession?.activePlayerId ?? null}
+          activePlayerId={activePlayerIdNow}
           currentUserId={currentUserId}
           isGM={isGM}
-          myCharacter={myCharacter}
-          floorRound={floorRound}
           sessionTitle={campaignSession?.title ?? "Session"}
-          sessionStatus={campaignSession?.status ?? "draft"}
+          sessionStatus={sessionStatusNow}
           sessionOpening={campaignSession?.opening ?? null}
           storyTitle={story.title}
           sessionEpilogue={campaignSession?.epilogue ?? null}
           sessionCliffhanger={campaignSession?.cliffhanger ?? null}
+          onResolveBargain={handleResolveBargain}
+          onEditTurn={handleEditTurn}
           lobbyTheme="campfire"
           previousEpilogue={previousEpilogue}
           previousMood={previousMood}
@@ -993,18 +1093,6 @@ export default function SessionPlayPage() {
               showToast(err instanceof Error ? err.message : "Failed to begin session");
             }
           }}
-          showDiceRoller={showDiceRoller || !!pendingRollRequest}
-          onCloseDiceRoller={() => setShowDiceRoller(false)}
-          onResolveBargain={handleResolveBargain}
-          onSubmitFloorResponse={handleSubmitFloorResponse}
-          onVoteFloorSubmission={handleVoteFloorSubmission}
-          onUpdateFloorRound={handleUpdateFloorRound}
-          onCreateMark={createMark}
-          onRollSubmit={handleRollSubmit}
-          aspectAvailable={myAspectAvailable}
-          pendingRollRequest={pendingRollRequest}
-          reactionFloats={reactionFloats}
-          onEditTurn={handleEditTurn}
           mapImageUrl={story?.mapImageUrl ?? null}
           onUpdateMapImage={async (url) => {
             try {
@@ -1013,68 +1101,24 @@ export default function SessionPlayPage() {
               showToast(err instanceof Error ? err.message : "Failed to update map");
             }
           }}
+          roster={roster}
+          rosterCharacters={rosterCharacters}
+          allCharacters={characters}
+          onUpdateRoster={updateRoster}
+          endOfPage={endOfPage}
+          margin={{
+            isDesktop,
+            clocks,
+            myCharacter,
+            actions: {
+              onOpenDiceRoller: () => setShowDiceRoller(true),
+              onUpdateRollRequest: handleUpdateRollRequest,
+              onResolveBargain: handleResolveBargain,
+              onCreateMark: createMark,
+              onToggleClockSegment: isGM ? handleToggleClockSegment : undefined,
+            },
+          }}
         />
-      }
-      dock={
-        <>
-        {!isDesktop && (
-          <CastStrip
-            characters={rosterCharacters.length > 0 ? rosterCharacters : characters}
-            ownerId={ownerId}
-            activePlayerId={campaignSession?.activePlayerId ?? null}
-            currentUserId={currentUserId}
-            isGM={isGM}
-            sessionStatus={campaignSession?.status ?? "draft"}
-            canPassSpotlight={canPassSpotlight}
-            onPassTurn={handlePassTurn}
-            spotlightQueue={spotlightQueue}
-            seatTimer={seatTimer}
-            onOpenSheet={() => openDeck(isGM ? "cast" : "you")}
-            onOpenChat={openChat}
-          />
-        )}
-        <ActionDock
-          sessionId={sessionId}
-          sessionStatus={campaignSession?.status ?? "draft"}
-          activePlayerId={campaignSession?.activePlayerId ?? null}
-          currentUserId={currentUserId}
-          isGM={isGM}
-          myCharacter={myCharacter ?? null}
-          characters={characters}
-          floorRound={floorRound}
-          pendingRollRequest={pendingRollRequest}
-          onCommitDraft={handleCommitDraft}
-          onViewChat={openChat}
-          onReaction={handleReaction}
-          myHandRaised={myHandRaised}
-          onRaiseHand={handleRaiseHand}
-          onLowerHand={handleLowerHand}
-          onLastWords={handleLastWords}
-          onOpenDiceRoller={() => setShowDiceRoller(true)}
-          onUpdateFloorRound={handleUpdateFloorRound}
-          penHolderName={
-            characters.find((c) => c.userId === campaignSession?.activePlayerId)?.name ?? null
-          }
-          onReclaimPen={() => (story ? handlePassTurn(story.userId) : undefined)}
-          directSlot={
-            isGM ? (
-              <DirectRow
-                activeChars={characters.filter((c) => c.status === "active")}
-                onRequestRoll={handleRequestRoll}
-                onPushEvent={handlePushEvent}
-                onSceneBreak={handleSceneBreak}
-                onStoryMoment={handleStoryMoment}
-                onAddIllustration={handleAddIllustration}
-                onOfferBargain={handleOfferBargain}
-                clocks={clocks}
-                onClocksChange={handleClocksChange}
-                onOpenFloor={() => setFloorFormOpen(true)}
-                onOpenCast={isDesktop ? undefined : () => openDeck("cast")}
-              />
-            ) : undefined
-          }
-        />
-        </>
       }
     >
       {/* Toast */}
@@ -1115,143 +1159,96 @@ export default function SessionPlayPage() {
         )}
       </AnimatePresence>
 
-      {/* Open the floor — GM ritual */}
-      {isGM && (
-        <OpenFloorForm
-          open={floorFormOpen}
-          prompt={floorPrompt}
-          setPrompt={setFloorPrompt}
-          audiencePulse={floorPulse}
-          setAudiencePulse={setFloorPulse}
-          submitting={floorSubmitting}
-          onSubmit={handleOpenFloor}
-          onClose={() => setFloorFormOpen(false)}
+      {/* Dice ritual — opens from the margin's cast seal or auto on request. */}
+      {!isGM && (
+        <DiceRoller
+          visible={showDiceRoller || !!pendingRollRequest}
+          onClose={() => setShowDiceRoller(false)}
+          onRollSubmit={handleRollSubmit}
+          characters={characters}
+          currentUserId={currentUserId}
+          aspectAvailable={myAspectAvailable}
+          preSelectedAttribute={pendingRollRequest?.attribute ?? null}
+          rollReason={pendingRollRequest?.reason ?? null}
+          rollOnSuccess={pendingRollRequest?.onSuccess ?? null}
+          rollOnFailure={pendingRollRequest?.onFailure ?? null}
+          rollFatal={pendingRollRequest?.fatal ?? false}
         />
       )}
 
-      <AnimatePresence>
-        {showLogDrawer && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/35 backdrop-blur-sm"
-              onClick={() => setShowLogDrawer(false)}
-            />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 right-0 top-0 z-40 w-[min(390px,92vw)] border-l border-border"
-            >
-              <button
-                onClick={() => setShowLogDrawer(false)}
-                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-void/80 text-text-secondary hover:text-paper"
-                aria-label="Close feed"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <line x1="4" y1="4" x2="12" y2="12" />
-                  <line x1="12" y1="4" x2="4" y2="12" />
-                </svg>
-              </button>
-              <SessionLog
-                turns={logTurns}
-                currentUserId={currentUserId}
-                sessionTitle={campaignSession?.title ?? "Session"}
-                storyTitle={story.title}
-                onSendChat={handleSendChat}
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                isGM={isGM}
-                onUpdateRollRequest={handleUpdateRollRequest}
-                fullWidth
-                view={logTab}
-                onChangeView={setLogTab}
-              />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Your sheet — a player's character leaf, off the page's edge. */}
+      {!isGM && myCharacter && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowSheet(true)}
+            className="hand-note fixed bottom-5 right-4 z-30 cursor-pointer text-base opacity-60 transition-opacity hover:opacity-100"
+            style={{ color: myInk }}
+          >
+            {myCharFirstName} ✧
+          </button>
+          <AnimatePresence>
+            {showSheet && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowSheet(false)}
+                  className="fixed inset-0 z-40 bg-black/50"
+                />
+                <motion.div
+                  initial={{ x: "100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "100%" }}
+                  transition={{ type: "spring", stiffness: 300, damping: 32 }}
+                  className="fixed bottom-0 right-0 top-0 z-40 w-full max-w-sm overflow-y-auto border-l border-border bg-ink/98 p-4 shadow-[-20px_0_60px_rgba(0,0,0,0.5)]"
+                >
+                  <div className="mb-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowSheet(false)}
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-border text-text-ghost transition-colors hover:text-paper"
+                      aria-label="Close your sheet"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <CharacterSheetPanel
+                    myCharacter={myCharacter}
+                    onCreateMark={createMark}
+                    onRemoveMark={removeMark}
+                  />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
-        {/* The deck sheet — mobile home for character / table talk / cast.
-            Desktop gets the same panels in the always-on rail instead. */}
-        {!isDesktop && (
-          <DeckSheet
-            open={deckOpen}
-            segment={deckSegment}
-            onChangeSegment={setDeckSegment}
-            onClose={() => setDeckOpen(false)}
-            youLabel={isGM ? "Party" : "You"}
-            renderSegment={(segment) => {
-              if (segment === "talk") {
-                return (
-                  <div className="h-full">
-                    <SessionLog
-                      turns={logTurns}
-                      currentUserId={currentUserId}
-                      sessionTitle={campaignSession?.title ?? "Session"}
-                      storyTitle={story.title}
-                      onSendChat={handleSendChat}
-                      chatInput={chatInput}
-                      setChatInput={setChatInput}
-                      isGM={isGM}
-                      onUpdateRollRequest={handleUpdateRollRequest}
-                      fullWidth
-                      view={logTab}
-                      onChangeView={setLogTab}
-                    />
-                  </div>
-                );
-              }
-              if (segment === "cast") {
-                return (
-                  <div className="space-y-6 px-3 py-4">
-                    <CastRail
-                      characters={rosterCharacters.length > 0 ? rosterCharacters : characters}
-                      ownerId={ownerId}
-                      activePlayerId={campaignSession?.activePlayerId ?? null}
-                      currentUserId={currentUserId}
-                      isGM={isGM}
-                      sessionStatus={campaignSession?.status ?? "draft"}
-                      canPassSpotlight={canPassSpotlight}
-                      onPassTurn={handlePassTurn}
-                      spotlightQueue={spotlightQueue}
-                      seatTimer={seatTimer}
-                      showExtendButton={showExtendButton}
-                      onExtend={handleSeatExtend}
-                    />
-                    <ClocksSection clocks={clocks} isGM={isGM} onClocksChange={handleClocksChange} />
-                  </div>
-                );
-              }
-              return (
-                <div className="space-y-6 px-4 py-4">
-                  {isGM ? (
-                    <PartyStatusPanel
-                      characters={characters}
-                      activePlayerId={campaignSession?.activePlayerId ?? null}
-                      onChangeCharacterStatus={handleChangeCharacterStatus}
-                      onInviteNewCharacter={handleInviteNewCharacter}
-                      roster={roster}
-                      currentUserId={currentUserId}
-                      onCreateMark={createMark}
-                      onRemoveMark={removeMark}
-                    />
-                  ) : (
-                    <CharacterSheetPanel
-                      myCharacter={myCharacter ?? null}
-                      onCreateMark={createMark}
-                      onRemoveMark={removeMark}
-                    />
-                  )}
-                  <ClocksSection clocks={clocks} isGM={isGM} onClocksChange={handleClocksChange} />
-                </div>
-              );
-            }}
-          />
-        )}
-    </PlaySessionShell>
+      {/* Table talk — the voices under the table. */}
+      <button
+        type="button"
+        onClick={openChat}
+        className="hand-note fixed bottom-5 left-4 z-30 cursor-pointer text-base opacity-60 transition-opacity hover:opacity-100"
+      >
+        under the table ☾
+      </button>
+      <TableTalkDrawer
+        open={showLogDrawer}
+        onClose={() => setShowLogDrawer(false)}
+        turns={logTurns}
+        currentUserId={currentUserId}
+        sessionTitle={campaignSession?.title ?? "Session"}
+        storyTitle={story.title}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        onSendChat={handleSendChat}
+        isGM={isGM}
+        onUpdateRollRequest={handleUpdateRollRequest}
+        view={logTab}
+        onChangeView={setLogTab}
+      />
+    </ManuscriptRoom>
   );
 }
