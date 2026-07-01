@@ -5,18 +5,26 @@ import ManuscriptRoom from "@/components/campaign/manuscript/ManuscriptRoom";
 import ManuscriptPage from "@/components/campaign/manuscript/ManuscriptPage";
 import InlineQuill from "@/components/campaign/manuscript/InlineQuill";
 import WaitingLine from "@/components/campaign/manuscript/WaitingLine";
+import TableSeats from "@/components/campaign/manuscript/TableSeats";
+import CandleTimer from "@/components/campaign/manuscript/CandleTimer";
 import DiceRoller from "@/components/campaign/DiceRoller";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useTurnTimer } from "@/hooks/use-turn-timer";
 import { isLogTurnType } from "@/lib/campaign-turns";
 import { getSessionInteractionState } from "@/lib/campaign-interaction-state";
 import { resolveQuillState } from "@/lib/manuscript-quill-state";
-import { derivePendingRollRequest } from "@/lib/campaign-play-derive";
+import {
+  derivePendingRollRequest,
+  deriveExtensionTurns,
+  deriveSpotlightQueue,
+} from "@/lib/campaign-play-derive";
 import { getPlayerInk, parseStats, type CharacterMark, type Turn } from "@/types/campaign";
 import {
   ACTIVE_PLAYER_USER_IDS,
   CHARACTERS,
   GM_TURN_BASE,
+  GM_USER_ID,
   INITIAL_TURNS,
   OPENING_NARRATION,
   SESSION_ID,
@@ -293,6 +301,66 @@ export default function ManuscriptHarnessPage() {
     );
   }, []);
 
+  // ── Hand-raise (ooc turns with spotlight metadata, like the live page) ──
+  const spotlightQueue = useMemo(
+    () => deriveSpotlightQueue(turns, characters, GM_USER_ID, activePlayerId),
+    [turns, characters, activePlayerId],
+  );
+  const myHandRaised = !!currentUserId && spotlightQueue.some((b) => b.userId === currentUserId);
+
+  const sendSpotlightBid = useCallback(
+    (cancel: boolean) => {
+      if (!myCharacter) return;
+      appendTurn({
+        type: "ooc",
+        content: cancel ? "lowers their hand." : "reaches for the page.",
+        metadata: JSON.stringify(cancel ? { spotlightCancel: true } : { spotlightRequest: true }),
+        userId: myCharacter.userId,
+        characterId: myCharacter.id,
+        user: myCharacter.user ?? { id: myCharacter.userId, displayName: null, avatarUrl: null },
+        characterName: myCharacter.name.split(" ")[0],
+      });
+    },
+    [appendTurn, myCharacter],
+  );
+
+  // ── The candle — ONE timer mount per client, at page level ──
+  const penWithPlayer =
+    !!activePlayerId && characters.some((c) => c.userId === activePlayerId && c.status === "active");
+  const extensionTurns = useMemo(() => deriveExtensionTurns(logTurns), [logTurns]);
+  const {
+    progress,
+    timeStr,
+    urgency,
+    extendLocally,
+    showExtendButton,
+  } = useTurnTimer({
+    activePlayerId,
+    isPlayerTurn: penWithPlayer,
+    isActive: true,
+    isGM,
+    currentUserId,
+    extensionTurns,
+    onTurnExpired: () => setActivePlayerId(null),
+  });
+
+  const handleFeedTheFlame = useCallback(() => {
+    extendLocally();
+    appendTurn({
+      type: "ooc",
+      content: "feeds the flame — three more minutes.",
+      metadata: JSON.stringify({ timerExtension: 180 }),
+      ...(myCharacter
+        ? {
+            userId: myCharacter.userId,
+            characterId: myCharacter.id,
+            user: myCharacter.user ?? { id: myCharacter.userId, displayName: null, avatarUrl: null },
+            characterName: myCharacter.name.split(" ")[0],
+          }
+        : {}),
+    });
+  }, [extendLocally, appendTurn, myCharacter]);
+
   // ── End-of-page state (the ActionDock replacement) ─────────
   const interaction = getSessionInteractionState({
     sessionStatus: "active",
@@ -346,9 +414,9 @@ export default function ManuscriptHarnessPage() {
         directorWriting={quillState.directorWriting}
         onReaction={() => {}}
         showHandRaise
-        myHandRaised={false}
-        onRaiseHand={() => {}}
-        onLowerHand={() => {}}
+        myHandRaised={myHandRaised}
+        onRaiseHand={() => sendSpotlightBid(false)}
+        onLowerHand={() => sendSpotlightBid(true)}
       />
     ) : quillState.kind === "roll-pending" ? (
       <WaitingLine
@@ -362,10 +430,39 @@ export default function ManuscriptHarnessPage() {
       <WaitingLine goneNotice={quillState.dead ? "dead" : "retired"} />
     ) : null;
 
+  const candle = (
+    <CandleTimer
+      progress={progress}
+      timeStr={timeStr}
+      urgency={urgency}
+      burning={penWithPlayer}
+      showExtend={showExtendButton}
+      onExtend={handleFeedTheFlame}
+      compact={!isDesktop}
+    />
+  );
+
+  const seats = (
+    <TableSeats
+      layout={isDesktop ? "rim" : "strip"}
+      characters={characters}
+      ownerId={GM_USER_ID}
+      activePlayerId={activePlayerId}
+      currentUserId={currentUserId}
+      isGM={isGM}
+      canPassSpotlight={isGM}
+      onPassTurn={(userId) => setActivePlayerId(userId)}
+      spotlightQueue={spotlightQueue}
+      strip={!isDesktop ? { candle, leaveHref: "/demo-adventure" } : undefined}
+    />
+  );
+
   return (
     <ManuscriptRoom
       leaveHref="/demo-adventure"
       isDesktop={isDesktop}
+      seats={seats}
+      candle={isDesktop ? candle : undefined}
       page={
         <ManuscriptPage
           sessionId={SESSION_ID}
