@@ -1,13 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerCharacter } from "@/types/campaign";
 import type { ProgressClockData } from "@/components/campaign/ProgressClock";
-import RollRequestForm from "@/components/campaign/RollRequestForm";
+
+/**
+ * The Director's moves as SENTENCES, not forms. A move is a line of prose
+ * with blanks — you complete the sentence, then press the seal. Inline
+ * underlined slots replace boxed inputs; choices are words you underline,
+ * not dropdowns. "The gameplay is the writing" applies to the Director too.
+ *
+ * Same commit contract as the retired form version — QuillStation and the
+ * pages pass the identical handlers.
+ */
 
 export type RitualFocus = "roll" | "scene" | "story" | "illustration" | "bargain" | "pressure";
 
-// Titles + one-liners for each focused ritual (the Director's hand).
 export const RITUAL_META: Record<RitualFocus, { title: string; hint: string }> = {
   roll: { title: "Call a roll", hint: "Put the moment in the hands of the dice." },
   bargain: { title: "Offer a bargain", hint: "A price for a gain — let them choose." },
@@ -17,11 +25,221 @@ export const RITUAL_META: Record<RitualFocus, { title: string; hint: string }> =
   pressure: { title: "The pressure", hint: "A clock the whole table can feel rising." },
 };
 
+// ── The sentence kit ───────────────────────────────────────
+
+/** An inline blank in the sentence — a dashed underline you write on. */
+function Blank({
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+  className = "",
+  onEnter,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  autoFocus?: boolean;
+  className?: string;
+  onEnter?: () => void;
+}) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      onKeyDown={
+        onEnter
+          ? (e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                onEnter();
+              }
+            }
+          : undefined
+      }
+      size={Math.max(value.length, placeholder.length) + 2}
+      className={`ink-caret inline-block max-w-full border-b border-dashed border-amber/40 bg-transparent px-1 font-reading text-[15px] text-paper outline-none transition-colors placeholder:italic placeholder:text-text-ghost focus:border-amber/80 ${className}`}
+      style={{ ["--ink-self" as string]: "var(--ink-gm)" }}
+    />
+  );
+}
+
+/** A full-width written line — for stakes and longer clauses. */
+function BlankLine({
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  autoFocus?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      rows={1}
+      className="ink-caret block w-full resize-none overflow-hidden border-b border-dashed border-amber/40 bg-transparent px-1 font-reading text-[15px] leading-[1.7] text-paper outline-none transition-colors placeholder:italic placeholder:text-text-ghost focus:border-amber/80"
+      style={{ ["--ink-self" as string]: "var(--ink-gm)" }}
+    />
+  );
+}
+
+/** Choose by underlining a word, not by opening a dropdown. */
+function WordChoice({
+  options,
+  value,
+  onChange,
+  colorFor,
+}: {
+  options: Array<{ key: string; label: string }>;
+  value: string;
+  onChange: (key: string) => void;
+  colorFor?: (key: string) => string;
+}) {
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-2.5 gap-y-1 align-baseline">
+      {options.map((option) => {
+        const selected = value === option.key;
+        const color = colorFor?.(option.key);
+        return (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => onChange(option.key)}
+            className={`cursor-pointer font-reading text-[15px] transition-all ${
+              selected
+                ? `underline decoration-2 underline-offset-4 ${color ?? "text-amber decoration-amber/70"}`
+                : "text-text-tertiary hover:text-text-secondary"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
+/** A phrase you underline to mean it — fatal stakes, major beat, leaves a mark. */
+function ToggleWord({
+  on,
+  onToggle,
+  tone = "amber",
+  children,
+}: {
+  on: boolean;
+  onToggle: () => void;
+  tone?: "amber" | "rose";
+  children: ReactNode;
+}) {
+  const toneOn = tone === "rose" ? "text-rose decoration-rose/70" : "text-amber decoration-amber/70";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`cursor-pointer font-reading text-[14px] italic transition-all ${
+        on ? `underline decoration-2 underline-offset-4 ${toneOn}` : "text-text-tertiary hover:text-text-secondary"
+      }`}
+      aria-pressed={on}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** The seal at the end of the sentence. */
+function Seal({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="wax-seal cursor-pointer px-5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em]"
+    >
+      {children}
+    </button>
+  );
+}
+
+const MOODS = [
+  { key: "tense", className: "text-rose decoration-rose/70" },
+  { key: "calm", className: "text-sage decoration-sage/70" },
+  { key: "ominous", className: "text-violet decoration-violet/70" },
+  { key: "triumphant", className: "text-amber decoration-amber/70" },
+  { key: "melancholy", className: "text-indigo-400 decoration-indigo-400/70" },
+  { key: "chaotic", className: "text-orange-400 decoration-orange-400/70" },
+  { key: "mysterious", className: "text-cyan-400 decoration-cyan-400/70" },
+  { key: "romantic", className: "text-pink-400 decoration-pink-400/70" },
+] as const;
+
+const STORY_MOODS = [
+  ...MOODS,
+  { key: "death", className: "text-red-400 decoration-red-700/70" },
+  { key: "betrayal", className: "text-fuchsia-400 decoration-fuchsia-700/70" },
+] as const;
+
+function moodColor(moods: ReadonlyArray<{ key: string; className: string }>, key: string) {
+  return moods.find((m) => m.key === key)?.className ?? "text-amber decoration-amber/70";
+}
+
+const STAKE_PRESETS = [
+  {
+    label: "Pressure",
+    reason: "Act before the danger escalates.",
+    success: "They seize the opening and keep control.",
+    failure: "The situation worsens before anyone can stop it.",
+  },
+  {
+    label: "Discovery",
+    reason: "Uncover what is really happening here.",
+    success: "They read the signs clearly and gain leverage.",
+    failure: "They learn the truth, but too late or at a cost.",
+  },
+  {
+    label: "Escape",
+    reason: "Get clear before the trap closes.",
+    success: "They slip free with seconds to spare.",
+    failure: "The way out narrows and someone is exposed.",
+  },
+] as const;
+
+// ── The moves ──────────────────────────────────────────────
+
 interface DirectorMovesProps {
   focus: RitualFocus;
   onClose: () => void;
   activeChars: PlayerCharacter[];
-  onRequestRoll: (targetUserId: string, attribute: string, reason: string, onSuccess: string, onFailure: string, fatal?: boolean) => void;
+  onRequestRoll: (
+    targetUserId: string,
+    attribute: string,
+    reason: string,
+    onSuccess: string,
+    onFailure: string,
+    fatal?: boolean,
+  ) => void;
   onPushEvent: (content: string) => void;
   onSceneBreak?: (title: string, mood: string, aspects?: string[]) => void;
   onStoryMoment?: (
@@ -31,15 +249,16 @@ interface DirectorMovesProps {
     options?: { importance?: "normal" | "major"; leavesMark?: boolean },
   ) => void;
   onAddIllustration?: (imageUrl: string, caption?: string) => void;
-  onOfferBargain?: (body: { targetUserId: string; targetLabel: string; gain: string; price: string }) => Promise<void> | void;
+  onOfferBargain?: (body: {
+    targetUserId: string;
+    targetLabel: string;
+    gain: string;
+    price: string;
+  }) => Promise<void> | void;
   clocks?: ProgressClockData[];
   onClocksChange?: (clocks: ProgressClockData[]) => void;
 }
 
-/**
- * One focused Director ritual — the forms lifted from the old right-rail
- * console, re-homed as a popover above the Director's row in the dock.
- */
 export default function DirectorMoves({
   focus,
   onClose,
@@ -53,566 +272,467 @@ export default function DirectorMoves({
   clocks = [],
   onClocksChange,
 }: DirectorMovesProps) {
-  // Bargain ritual state
+  // Roll
+  const [rollTarget, setRollTarget] = useState("everyone");
+  const [rollApproach, setRollApproach] = useState("Bold");
+  const [rollReason, setRollReason] = useState("");
+  const [rollOnSuccess, setRollOnSuccess] = useState("");
+  const [rollOnFailure, setRollOnFailure] = useState("");
+  const [rollFatal, setRollFatal] = useState(false);
+
+  // Bargain
   const [bargainTarget, setBargainTarget] = useState("everyone");
   const [bargainGain, setBargainGain] = useState("");
   const [bargainPrice, setBargainPrice] = useState("");
   const [bargainBusy, setBargainBusy] = useState(false);
 
-  // Pressure ritual state
+  // Pressure
   const [pressureName, setPressureName] = useState("");
   const [pressureLine, setPressureLine] = useState("");
   const [pressureSize, setPressureSize] = useState<4 | 6 | 8>(6);
 
-  // Scene break form state
-  const [sceneBreakTitle, setSceneBreakTitle] = useState("");
-  const [sceneBreakMood, setSceneBreakMood] = useState("ominous");
-  const [sceneBreakAspects, setSceneBreakAspects] = useState<string[]>([]);
-  const [sceneBreakAspectInput, setSceneBreakAspectInput] = useState("");
+  // Scene break
+  const [sceneTitle, setSceneTitle] = useState("");
+  const [sceneMood, setSceneMood] = useState("ominous");
+  const [sceneAspects, setSceneAspects] = useState<string[]>([]);
+  const [sceneAspectInput, setSceneAspectInput] = useState("");
 
-  // Story moment form state
-  const [storyMomentText, setStoryMomentText] = useState("");
-  const [storyMomentSubtext, setStoryMomentSubtext] = useState("");
-  const [storyMomentMood, setStoryMomentMood] = useState("ominous");
-  const [storyMomentMajor, setStoryMomentMajor] = useState(false);
-  const [storyMomentLeavesMark, setStoryMomentLeavesMark] = useState(false);
+  // Story moment
+  const [momentText, setMomentText] = useState("");
+  const [momentSubtext, setMomentSubtext] = useState("");
+  const [momentMood, setMomentMood] = useState("ominous");
+  const [momentMajor, setMomentMajor] = useState(false);
+  const [momentMark, setMomentMark] = useState(false);
 
-  // Illustration form state
-  const [illustrationUrl, setIllustrationUrl] = useState("");
-  const [illustrationCaption, setIllustrationCaption] = useState("");
+  // Illustration
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageCaption, setImageCaption] = useState("");
 
-  // Helper: add aspect tag
+  const targetOptions = [
+    { key: "everyone", label: "the whole table" },
+    ...activeChars.map((c) => ({ key: c.userId, label: c.name.split(" ")[0] })),
+  ];
+
   const addAspect = () => {
-    const tag = sceneBreakAspectInput.trim();
-    if (tag && !sceneBreakAspects.includes(tag)) {
-      setSceneBreakAspects((prev) => [...prev, tag]);
-    }
-    setSceneBreakAspectInput("");
+    const tag = sceneAspectInput.trim();
+    if (tag && !sceneAspects.includes(tag)) setSceneAspects((prev) => [...prev, tag]);
+    setSceneAspectInput("");
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3 border-b border-amber/15 pb-4">
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3 border-b border-amber/15 pb-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-amber/70">The Director&apos;s hand</p>
-          <h3 className="mt-1.5 font-display text-[20px] leading-tight text-paper">{RITUAL_META[focus].title}</h3>
-          <p className="mt-1 text-[12px] leading-relaxed text-text-ghost">{RITUAL_META[focus].hint}</p>
+          <h3 className="font-display text-[18px] leading-tight text-paper">{RITUAL_META[focus].title}</h3>
+          <p className="table-murmur mt-0.5 !text-[11.5px]">{RITUAL_META[focus].hint}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-text-ghost transition-colors hover:text-paper"
-          aria-label="Close ritual"
+          className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-text-ghost transition-colors hover:text-paper"
+          aria-label="Close"
         >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <line x1="4" y1="4" x2="12" y2="12" />
-            <line x1="12" y1="4" x2="4" y2="12" />
-          </svg>
+          ✕
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-3">
-        {focus === "roll" && <RollRequestForm activeChars={activeChars} onRequestRoll={(...args) => { onRequestRoll(...args); onClose(); }} />}
 
-        {/* Pressure — one scene clock; raising it ticks the clock AND
-            drops the escalation line into canon, so it never goes stale. */}
-        {focus === "pressure" && (() => {
+      {/* ── Call a roll ── */}
+      {focus === "roll" && (
+        <div className="space-y-3.5">
+          <p className="font-reading text-[15px] leading-[2] text-paper/85">
+            Ask <WordChoice options={targetOptions} value={rollTarget} onChange={setRollTarget} /> to
+            meet it with{" "}
+            <WordChoice
+              options={[
+                { key: "Bold", label: "boldness" },
+                { key: "Keen", label: "keenness" },
+                { key: "Subtle", label: "subtlety" },
+              ]}
+              value={rollApproach}
+              onChange={setRollApproach}
+            />
+            ,
+          </p>
+          <div className="font-reading text-[15px] leading-[2] text-paper/85">
+            <span className="text-text-secondary">for </span>
+            <BlankLine
+              value={rollReason}
+              onChange={setRollReason}
+              placeholder="what hangs in the balance…"
+              autoFocus
+            />
+          </div>
+          <div className="font-reading text-[14px] leading-[1.9]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-sage">holds </span>
+            <BlankLine value={rollOnSuccess} onChange={setRollOnSuccess} placeholder="what they win… (optional)" />
+          </div>
+          <div className="font-reading text-[14px] leading-[1.9]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose">breaks </span>
+            <BlankLine value={rollOnFailure} onChange={setRollOnFailure} placeholder="what it costs… (optional)" />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-[10px] uppercase tracking-[0.14em] text-text-ghost">borrow a stake:</span>
+            {STAKE_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setRollReason(preset.reason);
+                  setRollOnSuccess(preset.success);
+                  setRollOnFailure(preset.failure);
+                }}
+                className="table-action cursor-pointer text-lavender/80 transition-colors hover:text-lavender"
+                title={preset.reason}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
+            <ToggleWord on={rollFatal} onToggle={() => setRollFatal((v) => !v)} tone="rose">
+              ⚠ at fatal stakes — a failure is the end
+            </ToggleWord>
+            <Seal
+              disabled={!rollReason.trim()}
+              onClick={() => {
+                onRequestRoll(
+                  rollTarget,
+                  rollApproach,
+                  rollReason.trim(),
+                  rollOnSuccess.trim(),
+                  rollOnFailure.trim(),
+                  rollFatal,
+                );
+                onClose();
+              }}
+            >
+              Call it
+            </Seal>
+          </div>
+        </div>
+      )}
+
+      {/* ── Offer a bargain ── */}
+      {focus === "bargain" && (
+        <div className="space-y-3.5">
+          <p className="font-reading text-[15px] leading-[2] text-paper/85">
+            Offer <WordChoice options={targetOptions} value={bargainTarget} onChange={setBargainTarget} /> a
+            bargain:
+          </p>
+          <div className="font-reading text-[15px] leading-[1.9]">
+            <span className="text-sage">they gain </span>
+            <BlankLine value={bargainGain} onChange={setBargainGain} placeholder="what the world grants…" autoFocus />
+          </div>
+          <div className="font-reading text-[15px] leading-[1.9]">
+            <span className="text-rose">for the price of </span>
+            <BlankLine value={bargainPrice} onChange={setBargainPrice} placeholder="what it takes in return…" />
+          </div>
+          <div className="flex justify-end border-t border-border/50 pt-3">
+            <Seal
+              disabled={!bargainGain.trim() || !bargainPrice.trim() || bargainBusy}
+              onClick={async () => {
+                if (!onOfferBargain) return;
+                setBargainBusy(true);
+                try {
+                  const label =
+                    bargainTarget === "everyone"
+                      ? "Whole table"
+                      : activeChars.find((c) => c.userId === bargainTarget)?.name ?? "Someone";
+                  await onOfferBargain({
+                    targetUserId: bargainTarget,
+                    targetLabel: label,
+                    gain: bargainGain.trim(),
+                    price: bargainPrice.trim(),
+                  });
+                  setBargainGain("");
+                  setBargainPrice("");
+                  setBargainTarget("everyone");
+                  onClose();
+                } finally {
+                  setBargainBusy(false);
+                }
+              }}
+            >
+              {bargainBusy ? "Offering…" : "Offer it"}
+            </Seal>
+          </div>
+        </div>
+      )}
+
+      {/* ── Scene break ── */}
+      {focus === "scene" && (
+        <div className="space-y-3.5">
+          <p className="font-reading text-[15px] leading-[2.2] text-paper/85">
+            Cut the scene — call it{" "}
+            <Blank value={sceneTitle} onChange={setSceneTitle} placeholder="untitled" autoFocus />, struck
+            in a{" "}
+            <WordChoice
+              options={MOODS.map((m) => ({ key: m.key, label: m.key }))}
+              value={sceneMood}
+              onChange={setSceneMood}
+              colorFor={(key) => moodColor(MOODS, key)}
+            />{" "}
+            key.
+          </p>
+          <div className="font-reading text-[14px] leading-[2]">
+            <span className="text-text-secondary">carrying </span>
+            {sceneAspects.map((aspect) => (
+              <button
+                key={aspect}
+                type="button"
+                onClick={() => setSceneAspects((prev) => prev.filter((a) => a !== aspect))}
+                className="mr-2 cursor-pointer italic text-lavender underline decoration-lavender/40 underline-offset-4 transition-colors hover:text-rose hover:line-through"
+                title="Strike this aspect out"
+              >
+                {aspect}
+              </button>
+            ))}
+            <Blank
+              value={sceneAspectInput}
+              onChange={setSceneAspectInput}
+              placeholder="an aspect, if any… (enter to pin)"
+              onEnter={addAspect}
+            />
+          </div>
+          <div className="flex justify-end border-t border-border/50 pt-3">
+            <Seal
+              onClick={() => {
+                const finalAspects = [...sceneAspects];
+                if (sceneAspectInput.trim()) finalAspects.push(sceneAspectInput.trim());
+                onSceneBreak?.(sceneTitle.trim(), sceneMood, finalAspects.length > 0 ? finalAspects : undefined);
+                setSceneTitle("");
+                setSceneMood("ominous");
+                setSceneAspects([]);
+                setSceneAspectInput("");
+                onClose();
+              }}
+            >
+              Cut
+            </Seal>
+          </div>
+        </div>
+      )}
+
+      {/* ── Story moment ── */}
+      {focus === "story" && (
+        <div className="space-y-3.5">
+          <div className="font-reading text-[15px] leading-[1.9] text-paper/85">
+            <span className="text-text-secondary">Hold the table on — </span>
+            <BlankLine
+              value={momentText}
+              onChange={setMomentText}
+              placeholder="the beat everyone must feel…"
+              autoFocus
+            />
+          </div>
+          <div className="font-reading text-[14px] leading-[1.9]">
+            <span className="text-text-secondary">beneath it, </span>
+            <Blank value={momentSubtext} onChange={setMomentSubtext} placeholder="a quieter line… (optional)" />
+          </div>
+          <p className="font-reading text-[15px] leading-[2.2] text-paper/85">
+            lit{" "}
+            <WordChoice
+              options={STORY_MOODS.map((m) => ({ key: m.key, label: m.key }))}
+              value={momentMood}
+              onChange={setMomentMood}
+              colorFor={(key) => moodColor(STORY_MOODS, key)}
+            />
+            .
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <ToggleWord on={momentMajor} onToggle={() => setMomentMajor((v) => !v)}>
+              a major beat — hold it longer
+            </ToggleWord>
+            <ToggleWord on={momentMark} onToggle={() => setMomentMark((v) => !v)} tone="rose">
+              it leaves a mark on them
+            </ToggleWord>
+          </div>
+          <div className="flex justify-end border-t border-border/50 pt-3">
+            <Seal
+              disabled={!momentText.trim()}
+              onClick={() => {
+                onStoryMoment?.(momentText.trim(), momentMood, momentSubtext.trim() || undefined, {
+                  importance: momentMajor ? "major" : "normal",
+                  leavesMark: momentMark,
+                });
+                setMomentText("");
+                setMomentSubtext("");
+                setMomentMood("ominous");
+                setMomentMajor(false);
+                setMomentMark(false);
+                onClose();
+              }}
+            >
+              Play it
+            </Seal>
+          </div>
+        </div>
+      )}
+
+      {/* ── Illustration ── */}
+      {focus === "illustration" && (
+        <div className="space-y-3.5">
+          <div className="font-reading text-[15px] leading-[1.9] text-paper/85">
+            <span className="text-text-secondary">Place an image — </span>
+            <BlankLine value={imageUrl} onChange={setImageUrl} placeholder="paste any image address…" autoFocus />
+            <p className="mt-1 text-[10px] text-text-ghost">
+              <a
+                href="https://unsplash.com/s/photos/fantasy-landscape"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 transition-colors hover:text-amber/70"
+              >
+                Browse Unsplash for free images
+              </a>
+            </p>
+          </div>
+          {imageUrl.trim() && (
+            <div className="overflow-hidden rounded-md border border-border bg-black/20">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl.trim()}
+                alt="Preview"
+                className="max-h-32 w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+                onLoad={(e) => {
+                  (e.target as HTMLImageElement).style.display = "block";
+                }}
+              />
+            </div>
+          )}
+          <div className="font-reading text-[14px] leading-[1.9]">
+            <span className="text-text-secondary">captioned </span>
+            <Blank value={imageCaption} onChange={setImageCaption} placeholder="what the party sees… (optional)" />
+          </div>
+          <div className="flex justify-end border-t border-border/50 pt-3">
+            <Seal
+              disabled={!imageUrl.trim()}
+              onClick={() => {
+                onAddIllustration?.(imageUrl.trim(), imageCaption.trim() || undefined);
+                setImageUrl("");
+                setImageCaption("");
+                onClose();
+              }}
+            >
+              Place it
+            </Seal>
+          </div>
+        </div>
+      )}
+
+      {/* ── The pressure ── */}
+      {focus === "pressure" &&
+        (() => {
           const clock = clocks.length > 0 ? clocks[0] : null;
           if (clock) {
             const full = clock.filled >= clock.segments;
             return (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 rounded-xl border border-amber/20 bg-amber/[0.05] px-4 py-3">
-                  <span className="text-amber">⛓</span>
+              <div className="space-y-3.5">
+                <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-[15px] text-paper">{clock.name}</p>
+                    <p className="font-reading text-[15px] text-paper/90">{clock.name}</p>
                     <div className="mt-1.5 flex gap-1">
                       {Array.from({ length: clock.segments }).map((_, i) => (
-                        <span key={i} className={`h-1.5 flex-1 rounded-full ${i < clock.filled ? "bg-amber" : "bg-subtle"}`} />
+                        <span
+                          key={i}
+                          className={`h-1.5 flex-1 rounded-full ${i < clock.filled ? "bg-amber" : "bg-subtle"}`}
+                        />
                       ))}
                     </div>
                   </div>
-                  <span className="shrink-0 font-display text-[13px] tabular-nums text-amber">{clock.filled}/{clock.segments}</span>
+                  <span className="shrink-0 font-mono text-[12px] tabular-nums text-amber">
+                    {clock.filled}/{clock.segments}
+                  </span>
                 </div>
 
                 {!full && (
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-                      What tightens? <span className="normal-case tracking-normal text-text-ghost/60">(one line for the page)</span>
-                    </label>
-                    <textarea
+                  <div className="font-reading text-[15px] leading-[1.9] text-paper/85">
+                    <span className="text-text-secondary">What tightens? </span>
+                    <BlankLine
                       value={pressureLine}
-                      onChange={(e) => setPressureLine(e.target.value)}
-                      rows={2}
-                      placeholder="The water reaches her knees…"
-                      className="mt-1.5 w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
+                      onChange={setPressureLine}
+                      placeholder="one line for the page… (optional)"
+                      autoFocus
                     />
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClocksChange?.(clocks.filter((_, i) => i !== 0));
+                      onClose();
+                    }}
+                    className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-rose"
+                  >
+                    {full ? "Clear it" : "The danger passed"}
+                  </button>
                   {full ? (
-                    <span className="text-[12px] italic text-amber/80">The clock is full — let it break.</span>
+                    <span className="table-murmur text-amber/80">the clock is full — let it break.</span>
                   ) : (
-                    <button
+                    <Seal
                       onClick={() => {
                         onClocksChange?.(
-                          clocks.map((c, i) => (i === 0 ? { ...c, filled: Math.min(c.filled + 1, c.segments) } : c)),
+                          clocks.map((c, i) =>
+                            i === 0 ? { ...c, filled: Math.min(c.filled + 1, c.segments) } : c,
+                          ),
                         );
                         if (pressureLine.trim()) onPushEvent(pressureLine.trim());
                         setPressureLine("");
                         onClose();
                       }}
-                      className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90"
                     >
-                      Raise the pressure
-                    </button>
+                      Raise it
+                    </Seal>
                   )}
-                  <button
-                    onClick={() => {
-                      onClocksChange?.(clocks.filter((_, i) => i !== 0));
-                      onClose();
-                    }}
-                    className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-rose"
-                  >
-                    {full ? "Clear it" : "The danger passed"}
-                  </button>
                 </div>
               </div>
             );
           }
           return (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">Name the pressure</label>
-                <input
-                  value={pressureName}
-                  onChange={(e) => setPressureName(e.target.value)}
-                  placeholder="The tide rises"
-                  autoFocus
-                  className="mt-1.5 w-full rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">How close to breaking?</label>
-                <div className="mt-1.5 grid grid-cols-3 gap-2">
-                  {([4, 6, 8] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setPressureSize(s)}
-                      className={`rounded-xl border px-3 py-2 text-[13px] transition-colors ${
-                        pressureSize === s ? "border-amber/45 bg-amber/[0.12] text-amber" : "border-border bg-ink/30 text-text-secondary hover:border-amber/30"
-                      }`}
-                    >
-                      {s} segments
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 pt-1">
-                <button
+            <div className="space-y-3.5">
+              <p className="font-reading text-[15px] leading-[2.2] text-paper/85">
+                Start a clock —{" "}
+                <Blank value={pressureName} onChange={setPressureName} placeholder="name the danger…" autoFocus />,{" "}
+                <WordChoice
+                  options={[
+                    { key: "4", label: "four" },
+                    { key: "6", label: "six" },
+                    { key: "8", label: "eight" },
+                  ]}
+                  value={String(pressureSize)}
+                  onChange={(key) => setPressureSize(Number(key) as 4 | 6 | 8)}
+                />{" "}
+                turns of the screw from breaking.
+              </p>
+              <div className="flex justify-end border-t border-border/50 pt-3">
+                <Seal
                   disabled={!pressureName.trim()}
                   onClick={() => {
                     onClocksChange?.([
                       ...clocks,
-                      { id: `clock-${Date.now()}`, name: pressureName.trim(), segments: pressureSize, filled: 0, type: "danger" },
+                      {
+                        id: `clock-${Date.now()}`,
+                        name: pressureName.trim(),
+                        segments: pressureSize,
+                        filled: 0,
+                        type: "danger",
+                      },
                     ]);
                     setPressureName("");
                     setPressureSize(6);
                     onClose();
                   }}
-                  className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 >
-                  Start the clock
-                </button>
-                <button onClick={onClose} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
-                  Cancel
-                </button>
+                  Start it
+                </Seal>
               </div>
             </div>
           );
         })()}
-
-        {/* Bargain — a price for a gain */}
-        {focus === "bargain" && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">To</label>
-              <div className="relative mt-1.5">
-                <select
-                  value={bargainTarget}
-                  onChange={(e) => setBargainTarget(e.target.value)}
-                  className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-border bg-ink/40 pl-3 pr-10 text-[14px] text-paper outline-none transition-colors focus:border-amber/35"
-                >
-                  <option value="everyone" className="bg-elevated text-paper">Whole table</option>
-                  {activeChars.map((c) => (
-                    <option key={c.userId} value={c.userId} className="bg-elevated text-paper">{c.name}</option>
-                  ))}
-                </select>
-                <svg
-                  width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-ghost"
-                >
-                  <path d="M4 6l4 4 4-4" />
-                </svg>
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">The gain</label>
-              <textarea
-                value={bargainGain}
-                onChange={(e) => setBargainGain(e.target.value)}
-                placeholder="What they get…"
-                rows={2}
-                className="mt-1.5 w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none transition-colors placeholder:text-text-ghost/50 focus:border-amber/35"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-[0.16em] text-text-ghost">The price</label>
-              <textarea
-                value={bargainPrice}
-                onChange={(e) => setBargainPrice(e.target.value)}
-                placeholder="What it costs them…"
-                rows={2}
-                className="mt-1.5 w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none transition-colors placeholder:text-text-ghost/50 focus:border-rose/40"
-              />
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                onClick={async () => {
-                  if (!onOfferBargain || !bargainGain.trim() || !bargainPrice.trim()) return;
-                  setBargainBusy(true);
-                  try {
-                    const label =
-                      bargainTarget === "everyone"
-                        ? "Whole table"
-                        : activeChars.find((c) => c.userId === bargainTarget)?.name ?? "Someone";
-                    await onOfferBargain({ targetUserId: bargainTarget, targetLabel: label, gain: bargainGain.trim(), price: bargainPrice.trim() });
-                    setBargainGain("");
-                    setBargainPrice("");
-                    setBargainTarget("everyone");
-                    onClose();
-                  } finally {
-                    setBargainBusy(false);
-                  }
-                }}
-                disabled={!bargainGain.trim() || !bargainPrice.trim() || bargainBusy}
-                className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-              >
-                {bargainBusy ? "Offering…" : "Offer the bargain"}
-              </button>
-              <button onClick={onClose} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Scene Break */}
-        {focus === "scene" && (
-          <div className="space-y-4">
-            {/* Title */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Title (optional)</label>
-              <input
-                type="text"
-                value={sceneBreakTitle}
-                onChange={(e) => setSceneBreakTitle(e.target.value)}
-                placeholder="The Descent Begins..."
-                className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
-                autoFocus
-              />
-            </div>
-
-            {/* Mood pills */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Mood</label>
-              <div className="flex gap-1.5 mt-1 flex-wrap">
-                {(["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic"] as const).map((mood) => {
-                  const moodColors: Record<string, string> = {
-                    tense: "bg-rose/20 border-rose/40 text-rose",
-                    calm: "bg-sage/20 border-sage/40 text-sage",
-                    ominous: "bg-violet/20 border-violet/40 text-violet",
-                    triumphant: "bg-amber/20 border-amber/40 text-amber",
-                    melancholy: "bg-indigo-400/20 border-indigo-400/40 text-indigo-400",
-                    chaotic: "bg-orange-400/20 border-orange-400/40 text-orange-400",
-                    mysterious: "bg-cyan-400/20 border-cyan-400/40 text-cyan-400",
-                    romantic: "bg-pink-400/20 border-pink-400/40 text-pink-400",
-                  };
-                  return (
-                    <button
-                      key={mood}
-                      onClick={() => setSceneBreakMood(mood)}
-                      className={`px-2.5 py-1.5 text-[10px] rounded border transition-all cursor-pointer capitalize ${
-                        sceneBreakMood === mood
-                          ? moodColors[mood]
-                          : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary"
-                      }`}
-                    >
-                      {mood}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Aspect tags input */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Scene Aspects (optional)</label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {sceneBreakAspects.map((aspect) => (
-                  <span
-                    key={aspect}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-subtle/30 border border-border rounded-full text-[9px] text-text-secondary font-serif italic"
-                  >
-                    {aspect}
-                    <button
-                      onClick={() => setSceneBreakAspects((prev) => prev.filter((a) => a !== aspect))}
-                      className="text-text-tertiary hover:text-text-secondary cursor-pointer"
-                    >
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <input
-                type="text"
-                value={sceneBreakAspectInput}
-                onChange={(e) => setSceneBreakAspectInput(e.target.value)}
-                placeholder="e.g. Torrential Rain, No Escape..."
-                className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addAspect();
-                  }
-                }}
-              />
-              <p className="text-[8px] text-text-ghost mt-0.5">Press Enter or comma to add</p>
-            </div>
-
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                onClick={() => {
-                  // Add any pending aspect text
-                  const finalAspects = [...sceneBreakAspects];
-                  if (sceneBreakAspectInput.trim()) {
-                    finalAspects.push(sceneBreakAspectInput.trim());
-                  }
-                  onSceneBreak?.(sceneBreakTitle.trim(), sceneBreakMood, finalAspects.length > 0 ? finalAspects : undefined);
-                  setSceneBreakTitle("");
-                  setSceneBreakMood("ominous");
-                  setSceneBreakAspects([]);
-                  setSceneBreakAspectInput("");
-                  onClose();
-                }}
-                className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90"
-              >
-                Cut the scene
-              </button>
-              <button onClick={onClose} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Story Moment */}
-        {focus === "story" && (
-          <div className="space-y-4">
-            {/* Text */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Text</label>
-              <textarea
-                value={storyMomentText}
-                onChange={(e) => setStoryMomentText(e.target.value)}
-                placeholder="The temple crumbles around them..."
-                className="mt-1.5 w-full min-h-20 resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none placeholder:text-text-ghost/50 focus:border-amber/35"
-                autoFocus
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setStoryMomentMajor((value) => !value)}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-all ${
-                storyMomentMajor
-                  ? "border-amber/35 bg-amber/[0.06] text-amber"
-                  : "border-border bg-subtle/20 text-text-tertiary hover:text-text-secondary"
-              }`}
-            >
-              <span className="text-[10px] uppercase tracking-wider font-bold">Major Moment</span>
-              <span className={`relative h-[18px] w-8 rounded-full transition-colors ${storyMomentMajor ? "bg-amber" : "bg-subtle"}`}>
-                <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-void transition-transform ${storyMomentMajor ? "translate-x-4" : "translate-x-0.5"}`} />
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStoryMomentLeavesMark((value) => !value)}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-all ${
-                storyMomentLeavesMark
-                  ? "border-rose/35 bg-rose/[0.06] text-rose"
-                  : "border-border bg-subtle/20 text-text-tertiary hover:text-text-secondary"
-              }`}
-            >
-              <span className="text-[10px] uppercase tracking-wider font-bold">Leaves a Mark</span>
-              <span className={`relative h-[18px] w-8 rounded-full transition-colors ${storyMomentLeavesMark ? "bg-rose" : "bg-subtle"}`}>
-                <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-void transition-transform ${storyMomentLeavesMark ? "translate-x-4" : "translate-x-0.5"}`} />
-              </span>
-            </button>
-
-            {/* Subtext */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Subtext (optional)</label>
-              <input
-                type="text"
-                value={storyMomentSubtext}
-                onChange={(e) => setStoryMomentSubtext(e.target.value)}
-                placeholder="Optional secondary line..."
-                className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
-              />
-            </div>
-
-            {/* Mood pills */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Mood</label>
-              <div className="flex gap-1.5 mt-1 flex-wrap">
-                {(["tense", "calm", "ominous", "triumphant", "melancholy", "chaotic", "mysterious", "romantic", "death", "betrayal"] as const).map((mood) => {
-                  const moodColors: Record<string, string> = {
-                    tense: "bg-rose/20 border-rose/40 text-rose",
-                    calm: "bg-sage/20 border-sage/40 text-sage",
-                    ominous: "bg-violet/20 border-violet/40 text-violet",
-                    triumphant: "bg-amber/20 border-amber/40 text-amber",
-                    melancholy: "bg-indigo-400/20 border-indigo-400/40 text-indigo-400",
-                    chaotic: "bg-orange-400/20 border-orange-400/40 text-orange-400",
-                    mysterious: "bg-cyan-400/20 border-cyan-400/40 text-cyan-400",
-                    romantic: "bg-pink-400/20 border-pink-400/40 text-pink-400",
-                    death: "bg-red-900/30 border-red-700/50 text-red-400",
-                    betrayal: "bg-fuchsia-900/30 border-fuchsia-700/50 text-fuchsia-400",
-                  };
-                  return (
-                    <button
-                      key={mood}
-                      onClick={() => setStoryMomentMood(mood)}
-                      className={`px-2.5 py-1.5 text-[10px] rounded border transition-all cursor-pointer capitalize ${
-                        storyMomentMood === mood
-                          ? moodColors[mood]
-                          : "bg-subtle/30 border-border text-text-tertiary hover:text-text-secondary"
-                      }`}
-                    >
-                      {mood}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                onClick={() => {
-                  if (storyMomentText.trim()) {
-                    onStoryMoment?.(
-                      storyMomentText.trim(),
-                      storyMomentMood,
-                      storyMomentSubtext.trim() || undefined,
-                      {
-                        importance: storyMomentMajor ? "major" : "normal",
-                        leavesMark: storyMomentLeavesMark,
-                      },
-                    );
-                    setStoryMomentText("");
-                    setStoryMomentSubtext("");
-                    setStoryMomentMood("ominous");
-                    setStoryMomentMajor(false);
-                    setStoryMomentLeavesMark(false);
-                    onClose();
-                  }
-                }}
-                disabled={!storyMomentText.trim()}
-                className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-              >
-                Play the moment
-              </button>
-              <button onClick={onClose} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Illustration */}
-        {focus === "illustration" && (
-          <div className="space-y-4">
-            {/* Image URL */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Image URL</label>
-              <input
-                type="text"
-                value={illustrationUrl}
-                onChange={(e) => setIllustrationUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30"
-                autoFocus
-              />
-              <p className="text-[9px] text-text-ghost mt-1">
-                Paste any image URL.{" "}
-                <a href="https://unsplash.com/s/photos/fantasy-landscape" target="_blank" rel="noopener noreferrer" className="text-amber/40 hover:text-amber/60 underline underline-offset-2 transition-colors">
-                  Browse Unsplash for free images
-                </a>
-              </p>
-            </div>
-
-            {/* Image preview */}
-            {illustrationUrl.trim() && (
-              <div className="rounded-lg overflow-hidden border border-border bg-black/20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={illustrationUrl.trim()}
-                  alt="Preview"
-                  className="w-full max-h-32 object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  onLoad={(e) => { (e.target as HTMLImageElement).style.display = "block"; }}
-                />
-              </div>
-            )}
-
-            {/* Caption */}
-            <div>
-              <label className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">Caption (optional)</label>
-              <textarea
-                value={illustrationCaption}
-                onChange={(e) => setIllustrationCaption(e.target.value)}
-                placeholder="What does the party see?"
-                className="w-full mt-1.5 rounded-xl border border-border bg-ink/40 px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30 resize-none"
-                rows={2}
-              />
-            </div>
-
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                onClick={() => {
-                  if (illustrationUrl.trim()) {
-                    onAddIllustration?.(illustrationUrl.trim(), illustrationCaption.trim() || undefined);
-                    setIllustrationUrl("");
-                    setIllustrationCaption("");
-                    onClose();
-                  }
-                }}
-                disabled={!illustrationUrl.trim()}
-                className="rounded-xl bg-amber px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-void shadow-[0_8px_24px_-10px_rgba(216,178,90,0.7)] transition-colors hover:bg-amber/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-              >
-                Place in the story
-              </button>
-              <button onClick={onClose} className="px-3 py-2 text-[12px] text-text-ghost transition-colors hover:text-text-secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

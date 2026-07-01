@@ -157,23 +157,30 @@ export default function QuillStation({
           ✕
         </button>
       </div>
-      <textarea
-        value={crossroadsPrompt}
-        onChange={(e) => setCrossroadsPrompt(e.target.value)}
-        rows={2}
-        autoFocus
-        placeholder="The altar splits open. What does the party do?"
-        className="w-full resize-none rounded-xl border border-border bg-ink/40 px-3.5 py-3 font-reading text-[15px] leading-relaxed text-paper outline-none placeholder:text-text-ghost/50 focus:border-lavender/40"
-      />
-      <label className="flex cursor-pointer select-none items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-text-tertiary">
-        <input
-          type="checkbox"
-          checked={crossroadsPulse}
-          onChange={(e) => setCrossroadsPulse(e.target.checked)}
-          className="h-3.5 w-3.5 accent-lavender"
+      <div className="font-reading text-[15px] leading-[1.9] text-paper/85">
+        <span className="text-text-secondary">Pose it to the table — </span>
+        <textarea
+          value={crossroadsPrompt}
+          onChange={(e) => setCrossroadsPrompt(e.target.value)}
+          rows={2}
+          autoFocus
+          placeholder="The altar splits open. What does the party do?"
+          className="ink-caret block w-full resize-none border-b border-dashed border-lavender/40 bg-transparent px-1 font-reading text-[15px] leading-[1.7] text-paper outline-none transition-colors placeholder:italic placeholder:text-text-ghost focus:border-lavender/80"
+          style={{ ["--ink-self" as string]: "var(--t-lavender, #a78bfa)" }}
         />
-        Let the audience pulse
-      </label>
+      </div>
+      <button
+        type="button"
+        onClick={() => setCrossroadsPulse((v) => !v)}
+        aria-pressed={crossroadsPulse}
+        className={`cursor-pointer font-reading text-[14px] italic transition-all ${
+          crossroadsPulse
+            ? "text-lavender underline decoration-2 decoration-lavender/70 underline-offset-4"
+            : "text-text-tertiary hover:text-text-secondary"
+        }`}
+      >
+        and let the dark lean in with its pulses
+      </button>
       <div className="flex items-center gap-3 pt-1">
         <button
           type="button"
