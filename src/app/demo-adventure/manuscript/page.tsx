@@ -24,7 +24,16 @@ import {
   deriveExtensionTurns,
   deriveSpotlightQueue,
 } from "@/lib/campaign-play-derive";
-import { getPlayerInk, parseStats, type CharacterMark, type Turn } from "@/types/campaign";
+import PageFork from "@/components/campaign/manuscript/PageFork";
+import TableWhispers from "@/components/campaign/manuscript/TableWhispers";
+import {
+  getPlayerInk,
+  parseStats,
+  type CharacterMark,
+  type FloorRound,
+  type FloorSubmission,
+  type Turn,
+} from "@/types/campaign";
 import {
   ACTIVE_PLAYER_USER_IDS,
   CHARACTERS,
@@ -366,6 +375,120 @@ export default function ManuscriptHarnessPage() {
     });
   }, [extendLocally, appendTurn, myCharacter]);
 
+  // ── Crossroads (fixture lifecycle mirroring the server) ────
+  const [floorRound, setFloorRound] = useState<FloorRound | null>(null);
+  const [reactionFloats, setReactionFloats] = useState<Array<{ id: string; type: string }>>([]);
+
+  const handleOpenCrossroads = useCallback((prompt: string, audiencePulseEnabled: boolean) => {
+    setFloorRound({
+      id: `fr-${Date.now()}`,
+      sessionId: SESSION_ID,
+      openedBy: GM_USER_ID,
+      prompt,
+      mode: "vote",
+      status: "open",
+      audiencePulseEnabled,
+      selectedSubmissionId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      submissions: [],
+      myVoteSubmissionId: null,
+      voteCount: 0,
+      eligibleVoterCount: CHARACTERS.length,
+      allEligibleVotersVoted: false,
+      isVoteEligible: true,
+      audiencePulseCount: 0,
+      myAudiencePulseSubmissionId: null,
+    });
+  }, []);
+
+  const handleSubmitFloorResponse = useCallback(
+    async (_roundId: string, body: { characterId: string; type: string; content: string }) => {
+      const character = CHARACTERS.find((c) => c.id === body.characterId);
+      setFloorRound((prev) => {
+        if (!prev) return prev;
+        const submission: FloorSubmission = {
+          id: `sub-${Date.now()}`,
+          roundId: prev.id,
+          userId: character?.userId ?? null,
+          characterId: body.characterId,
+          type: body.type as Turn["type"],
+          content: body.content,
+          source: "player",
+          sourceLabel: null,
+          audienceSparkId: null,
+          status: "submitted",
+          createdAt: new Date().toISOString(),
+          characterName: character?.name.split(" ")[0] ?? null,
+          user: character?.user ?? { id: null, displayName: null, avatarUrl: null },
+          voteCount: 0,
+          audiencePulseCount: 0,
+          isMine: character?.userId === currentUserId,
+        };
+        return { ...prev, submissions: [...prev.submissions, submission] };
+      });
+    },
+    [currentUserId],
+  );
+
+  const handleVoteFloorSubmission = useCallback(async (_roundId: string, submissionId: string) => {
+    setFloorRound((prev) => {
+      if (!prev) return prev;
+      const previousVote = prev.myVoteSubmissionId;
+      if (previousVote === submissionId) return prev;
+      return {
+        ...prev,
+        myVoteSubmissionId: submissionId,
+        voteCount: previousVote ? prev.voteCount : prev.voteCount + 1,
+        submissions: prev.submissions.map((s) =>
+          s.id === submissionId
+            ? { ...s, voteCount: s.voteCount + 1 }
+            : s.id === previousVote
+              ? { ...s, voteCount: Math.max(0, s.voteCount - 1) }
+              : s,
+        ),
+      };
+    });
+  }, []);
+
+  const handleUpdateFloorRound = useCallback(
+    async (
+      _roundId: string,
+      body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string },
+    ) => {
+      if (body.status === "cancelled") {
+        setFloorRound(null);
+        return;
+      }
+      if (body.status === "resolved") {
+        const winner = floorRound?.submissions.find((s) => s.id === body.selectedSubmissionId);
+        if (winner) {
+          const character = CHARACTERS.find((c) => c.id === winner.characterId);
+          appendTurn({
+            type: winner.type,
+            content: winner.content,
+            ...(character
+              ? {
+                  userId: character.userId,
+                  characterId: character.id,
+                  user: character.user ?? { id: character.userId, displayName: null, avatarUrl: null },
+                  characterName: character.name.split(" ")[0],
+                }
+              : {}),
+          });
+        }
+        setFloorRound(null);
+        return;
+      }
+      setFloorRound((prev) => (prev ? { ...prev, status: body.status } : prev));
+    },
+    [floorRound, appendTurn],
+  );
+
+  const handleReaction = useCallback((type: string) => {
+    setReactionFloats((prev) => [...prev.slice(-30), { id: `r-${Date.now()}-${prev.length}`, type }]);
+  }, []);
+
   // ── The Director's moves (fixture-backed sendTurn equivalents) ──
   const [showChat, setShowChat] = useState(false);
   const [chatInput, setChatInput] = useState("");
@@ -473,7 +596,7 @@ export default function ManuscriptHarnessPage() {
     currentUserId,
     isGM,
     myCharacterStatus: myCharacter?.status ?? null,
-    floorRound: null,
+    floorRound,
   });
   const directorWriting =
     !activePlayerId || !CHARACTERS.some((c) => c.userId === activePlayerId && c.status === "active");
@@ -517,7 +640,7 @@ export default function ManuscriptHarnessPage() {
       <WaitingLine
         penHolderName={penHolder ? penHolder.name.split(" ")[0] : null}
         directorWriting={quillState.directorWriting}
-        onReaction={() => {}}
+        onReaction={handleReaction}
         showHandRaise
         myHandRaised={myHandRaised}
         onRaiseHand={() => sendSpotlightBid(false)}
@@ -530,6 +653,16 @@ export default function ManuscriptHarnessPage() {
         rollReason={pendingRollRequest?.reason ?? null}
         rollFatal={pendingRollRequest?.fatal ?? false}
         onOpenDiceRoller={() => setShowDiceRoller(true)}
+      />
+    ) : quillState.kind === "fork" && floorRound ? (
+      <PageFork
+        floorRound={floorRound}
+        isGM={isGM}
+        myCharacter={myCharacter}
+        playerUserIds={ACTIVE_PLAYER_USER_IDS}
+        onSubmitResponse={handleSubmitFloorResponse}
+        onVoteSubmission={handleVoteFloorSubmission}
+        onUpdateRound={handleUpdateFloorRound}
       />
     ) : quillState.kind === "gone" ? (
       <WaitingLine goneNotice={quillState.dead ? "dead" : "retired"} />
@@ -574,9 +707,9 @@ export default function ManuscriptHarnessPage() {
       onStoryMoment={handleStoryMoment}
       onAddIllustration={handleAddIllustration}
       onOfferBargain={handleOfferBargain}
-      floorRound={null}
-      onOpenCrossroads={() => {}}
-      onUpdateFloorRound={() => {}}
+      floorRound={floorRound}
+      onOpenCrossroads={handleOpenCrossroads}
+      onUpdateFloorRound={handleUpdateFloorRound}
       ledger={
         <div className="space-y-4">
           <PartyLedger
@@ -608,6 +741,7 @@ export default function ManuscriptHarnessPage() {
       seats={seats}
       candle={isDesktop ? candle : undefined}
       station={station}
+      whispers={<TableWhispers houseCount={7} reactionFloats={reactionFloats} />}
       page={
         <ManuscriptPage
           sessionId={SESSION_ID}
