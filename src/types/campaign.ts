@@ -204,3 +204,13 @@ export function getPlayerColor(userId: string, allUserIds: string[]): string {
   const idx = allUserIds.indexOf(userId);
   return idx >= 0 ? PLAYER_COLORS[idx % PLAYER_COLORS.length] : "text-white/80";
 }
+
+// The manuscript surface writes each player in their own ink. The CSS vars
+// --ink-1..8 (+ --ink-gm, --ink-faded) are defined on .manuscript-room in
+// globals.css with per-theme values; this returns the var() for inline style.
+const INK_COUNT = 8;
+
+export function getPlayerInk(userId: string, allUserIds: string[]): string {
+  const idx = allUserIds.indexOf(userId);
+  return idx >= 0 ? `var(--ink-${(idx % INK_COUNT) + 1})` : "var(--ink-faded)";
+}

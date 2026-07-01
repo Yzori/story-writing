@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Plus_Jakarta_Sans, Literata, IBM_Plex_Mono, Playfair_Display, DM_Sans } from "next/font/google";
+import { Fraunces, Plus_Jakarta_Sans, Literata, IBM_Plex_Mono, Playfair_Display, DM_Sans, Caveat } from "next/font/google";
 import Providers from "@/components/providers";
 import Navbar from "@/components/shared/Navbar";
 import "./globals.css";
@@ -42,6 +42,13 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+// The hand that writes in the manuscript's margins (adventure mode)
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Quiloria — Where Stories Come Alive",
   description:
@@ -78,7 +85,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable} ${playfair.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${fraunces.variable} ${jakarta.variable} ${literata.variable} ${plexMono.variable} ${playfair.variable} ${dmSans.variable} ${caveat.variable}`} suppressHydrationWarning>
       <head>
         {/* Re-light the lamp before first paint — setTheme() only persists to
             localStorage, so without this a Vellum reader reloads into Midnight. */}
