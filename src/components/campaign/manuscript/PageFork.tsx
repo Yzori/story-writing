@@ -85,8 +85,8 @@ export default function PageFork({
       </p>
 
       {/* Status line + GM round controls — always visible on the fork. */}
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-        <span className="hand-note text-sm opacity-60">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+        <span className="text-[11px] uppercase tracking-[0.14em] text-text-tertiary">
           {floorRound.status === "open"
             ? `${floorRound.submissions.length} hand${floorRound.submissions.length === 1 ? "" : "s"} writing`
             : `${floorRound.voteCount} of ${floorRound.eligibleVoterCount} seals pressed`}
@@ -96,37 +96,37 @@ export default function PageFork({
             : ""}
         </span>
         {isGM && (
-          <span className="flex items-center gap-3">
+          <span className="flex items-center gap-3.5">
             {floorRound.status === "open" && (
               <button
                 type="button"
                 disabled={floorRound.submissions.length === 0}
                 onClick={() => void onUpdateRound(floorRound.id, { status: "voting" })}
-                className="hand-note cursor-pointer text-base text-lavender underline decoration-lavender/50 decoration-wavy underline-offset-4 disabled:cursor-not-allowed disabled:opacity-35"
+                className="table-action cursor-pointer text-lavender transition-colors hover:text-paper disabled:cursor-not-allowed disabled:opacity-35"
                 title={
                   floorRound.submissions.length
                     ? "Reveal the candidates and open the vote"
                     : "No candidates written yet"
                 }
               >
-                open the vote
+                Open the vote
               </button>
             )}
             {floorRound.status === "voting" && (
               <button
                 type="button"
                 onClick={() => void onUpdateRound(floorRound.id, { status: "closed" })}
-                className="hand-note cursor-pointer text-base text-lavender underline decoration-lavender/50 decoration-wavy underline-offset-4"
+                className="table-action cursor-pointer text-lavender transition-colors hover:text-paper"
               >
-                close the vote
+                Close the vote
               </button>
             )}
             <button
               type="button"
               onClick={() => void onUpdateRound(floorRound.id, { status: "cancelled" })}
-              className="hand-note cursor-pointer text-base opacity-50 transition-opacity hover:text-rose hover:opacity-90"
+              className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-rose"
             >
-              tear it out
+              Cancel
             </button>
           </span>
         )}
@@ -139,7 +139,7 @@ export default function PageFork({
             <span className="font-semibold" style={{ color: myInk }}>
               {myCharacter.name.split(" ")[0]}{" "}
             </span>
-            <span className="hand-note text-base opacity-55">might…</span>
+            <span className="table-murmur">might…</span>
           </p>
           <textarea
             value={content}
@@ -155,10 +155,10 @@ export default function PageFork({
                 key={option.key}
                 type="button"
                 onClick={() => setTurnType(option.key)}
-                className={`hand-note cursor-pointer text-base transition-all ${
+                className={`table-action cursor-pointer transition-colors ${
                   turnType === option.key
-                    ? "underline decoration-lavender/60 decoration-wavy underline-offset-4"
-                    : "opacity-55 hover:opacity-90"
+                    ? "underline decoration-2 underline-offset-4"
+                    : "text-text-tertiary hover:text-text-secondary"
                 }`}
                 style={turnType === option.key ? { color: myInk } : undefined}
               >
@@ -193,14 +193,14 @@ export default function PageFork({
       )}
 
       {!isGM && floorRound.status === "open" && mySubmission && (
-        <p className="hand-note mt-4 text-center text-base opacity-60">
+        <p className="table-murmur mt-4 text-center">
           your ink is on the table — waiting for the others…
         </p>
       )}
 
       {/* The competing paragraphs. */}
       {revealed && sorted.length === 0 && (
-        <p className="hand-note mt-5 text-center text-base opacity-55">
+        <p className="table-murmur mt-5 text-center">
           no hands have written yet — the fork waits.
         </p>
       )}
@@ -244,16 +244,16 @@ export default function PageFork({
                           />
                         ))}
                         {submission.voteCount > 6 && (
-                          <span className="hand-note text-sm text-amber/80">+{submission.voteCount - 6}</span>
+                          <span className="text-[10px] text-amber/80">+{submission.voteCount - 6}</span>
                         )}
                         {submission.voteCount === 0 && (
-                          <span className="hand-note text-sm opacity-40">no seals</span>
+                          <span className="text-[10px] uppercase tracking-[0.12em] text-text-ghost">no seals</span>
                         )}
                       </span>
                     )}
                     {floorRound.audiencePulseEnabled && submission.audiencePulseCount > 0 && (
                       <span
-                        className="hand-note text-sm text-lavender/70"
+                        className="text-[10.5px] text-lavender/70"
                         title="Pulses from the audience"
                       >
                         ✧ {submission.audiencePulseCount}
@@ -266,10 +266,10 @@ export default function PageFork({
                         className={`cursor-pointer px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${
                           isMyVote
                             ? "wax-seal"
-                            : "hand-note text-base font-normal normal-case tracking-normal underline decoration-amber/50 decoration-wavy underline-offset-4 opacity-70 hover:opacity-100"
+                            : "table-action text-amber/80 transition-colors hover:text-amber"
                         }`}
                       >
-                        {isMyVote ? "Your seal" : "press your seal"}
+                        {isMyVote ? "Your seal" : "Press your seal"}
                       </button>
                     )}
                     {canCanonize && (

@@ -22,7 +22,7 @@ export default function RollQuestionNote({
   const { meta, turn, isMine } = annotation;
   return (
     <NoteShell tone={meta.fatal ? "rose" : "amber"} rotate={-0.6}>
-      <p className="hand-note text-base text-paper/80">
+      <p className="hand-note text-paper/85">
         <span className="italic">{meta.reason}</span>
         {" — roll "}
         <strong className="font-bold text-amber">{meta.attribute}</strong>
@@ -48,16 +48,16 @@ export default function RollQuestionNote({
               <button
                 type="button"
                 onClick={() => void onUpdateRollRequest(turn.id, "closed")}
-                className="hand-note cursor-pointer text-sm opacity-55 transition-opacity hover:opacity-90"
+                className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-paper"
               >
-                let it stand
+                Close
               </button>
               <button
                 type="button"
                 onClick={() => void onUpdateRollRequest(turn.id, "cancelled")}
-                className="hand-note cursor-pointer text-sm line-through opacity-55 transition-opacity hover:text-rose hover:opacity-90"
+                className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-rose"
               >
-                withdraw
+                Withdraw
               </button>
             </>
           )}

@@ -74,8 +74,8 @@ export default function ManuscriptRoom({
           }`}
         >
           <span className="block h-10 w-6 rounded-b-sm bg-gradient-to-b from-amber/70 to-amber/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-transform group-hover:translate-y-1 [clip-path:polygon(0_0,100%_0,100%_100%,50%_78%,0_100%)]" />
-          <span className="hand-note mt-1 text-sm opacity-0 transition-opacity group-hover:opacity-100">
-            leave
+          <span className="table-action mt-1 text-text-secondary opacity-0 transition-opacity group-hover:opacity-100">
+            Leave
           </span>
         </Link>
       )}

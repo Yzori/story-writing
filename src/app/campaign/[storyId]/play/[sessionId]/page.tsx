@@ -1182,10 +1182,10 @@ export default function SessionPlayPage() {
           <button
             type="button"
             onClick={() => setShowSheet(true)}
-            className="hand-note fixed bottom-5 right-4 z-30 cursor-pointer text-base opacity-60 transition-opacity hover:opacity-100"
+            className="table-action fixed bottom-5 right-4 z-30 cursor-pointer opacity-80 transition-opacity hover:opacity-100"
             style={{ color: myInk }}
           >
-            {myCharFirstName} ✧
+            ✧ {myCharFirstName}
           </button>
           <AnimatePresence>
             {showSheet && (
@@ -1230,9 +1230,9 @@ export default function SessionPlayPage() {
       <button
         type="button"
         onClick={openChat}
-        className="hand-note fixed bottom-5 left-4 z-30 cursor-pointer text-base opacity-60 transition-opacity hover:opacity-100"
+        className="table-action fixed bottom-5 left-4 z-30 cursor-pointer text-text-tertiary transition-colors hover:text-paper"
       >
-        under the table ☾
+        ☾ Table talk
       </button>
       <TableTalkDrawer
         open={showLogDrawer}

@@ -65,7 +65,7 @@ export default function InlineNoteFold({
               <button
                 type="button"
                 onClick={() => toggle(annotation.id)}
-                className="hand-note flex cursor-pointer items-center gap-1.5 text-base opacity-70 transition-opacity hover:opacity-100"
+                className="flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary transition-colors hover:text-paper"
                 aria-expanded={open}
               >
                 <span

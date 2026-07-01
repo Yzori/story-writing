@@ -188,34 +188,34 @@ export default function InlineQuill({
       {/* The inked control line — marks under the paragraph, not chrome. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         {!lastWords && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             {typeOptions.map((option) => (
               <button
                 key={option.key}
                 type="button"
                 onClick={() => setDraftType(option.key)}
-                className={`hand-note cursor-pointer text-lg transition-all ${
+                className={`table-action cursor-pointer transition-colors ${
                   draftType === option.key
-                    ? "underline decoration-amber/60 decoration-wavy underline-offset-4"
-                    : "opacity-55 hover:opacity-90"
+                    ? "underline decoration-2 underline-offset-4"
+                    : "text-text-tertiary hover:text-text-secondary"
                 }`}
                 style={draftType === option.key ? { color: inkColor } : undefined}
               >
-                {option.label.toLowerCase()}
+                {option.label}
               </button>
             ))}
           </div>
         )}
 
         {showLeaveAMark && (
-          <label className="hand-note flex cursor-pointer select-none items-center gap-1.5 text-base opacity-70 transition-opacity hover:opacity-100">
+          <label className="table-action flex cursor-pointer select-none items-center gap-1.5 text-text-tertiary transition-colors hover:text-amber">
             <input
               type="checkbox"
               checked={leaveAMark}
               onChange={(e) => setLeaveAMark(e.target.checked)}
               className="h-3 w-3 accent-amber"
             />
-            this leaves a mark
+            Leaves a mark
           </label>
         )}
 
@@ -224,14 +224,14 @@ export default function InlineQuill({
             type="button"
             onClick={toggleListening}
             title={isListening ? "Stop dictation" : "Dictate with your voice"}
-            className={`hand-note flex cursor-pointer items-center gap-1 text-base transition-opacity ${
-              isListening ? "text-rose" : "opacity-55 hover:opacity-90"
+            className={`table-action flex cursor-pointer items-center gap-1 transition-colors ${
+              isListening ? "text-rose" : "text-text-tertiary hover:text-text-secondary"
             }`}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
               <rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v4" />
             </svg>
-            {isListening ? "listening…" : "dictate"}
+            {isListening ? "Listening…" : "Voice"}
           </button>
         )}
 
@@ -239,10 +239,10 @@ export default function InlineQuill({
           <button
             type="button"
             onClick={clearDraft}
-            className="hand-note cursor-pointer text-base line-through opacity-45 transition-opacity hover:opacity-80"
+            className="table-action cursor-pointer text-text-tertiary line-through transition-colors hover:text-text-secondary"
             title="Scratch out this draft"
           >
-            scratch it out
+            Scratch it out
           </button>
         )}
 
@@ -250,9 +250,9 @@ export default function InlineQuill({
           {draftSaved && draftContent && (
             <motion.span
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.55 }}
+              animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
-              className="hand-note text-base"
+              className="text-[10px] uppercase tracking-[0.14em] text-text-ghost"
             >
               ✓ kept
             </motion.span>

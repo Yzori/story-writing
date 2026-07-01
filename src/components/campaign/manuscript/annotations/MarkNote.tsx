@@ -53,21 +53,21 @@ export function MarkPromptNote({
 
   return (
     <NoteShell tone="amber" rotate={-0.5}>
-      <p className="hand-note text-base text-amber/90">{annotation.preamble}</p>
+      <p className="hand-note text-amber/90">{annotation.preamble}</p>
       <div className="mt-1.5 flex items-center gap-3">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hand-note cursor-pointer text-base underline decoration-amber/60 decoration-wavy underline-offset-4 transition-opacity hover:opacity-100"
+          className="table-action cursor-pointer text-amber transition-colors hover:text-paper"
         >
-          mark this moment
+          Mark it
         </button>
         <button
           type="button"
           onClick={() => onDismiss(annotation.turn.id)}
-          className="hand-note cursor-pointer text-sm opacity-45 transition-opacity hover:opacity-80"
+          className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-paper"
         >
-          let it pass
+          Pass
         </button>
       </div>
     </NoteShell>
@@ -79,7 +79,7 @@ export function MarkPlacedNote({ annotation }: { annotation: MarkPlacedAnnotatio
   const kind = KIND_GLYPH[annotation.mark.kind];
   return (
     <NoteShell rotate={0.7}>
-      <p className="hand-note text-base text-paper/80">
+      <p className="hand-note text-paper/85">
         <span className={`mr-1.5 ${kind.className}`} aria-hidden="true">
           {kind.glyph}
         </span>

@@ -70,7 +70,7 @@ export default function TableWhispers({
               }}
             />
           ))}
-          <span className="hand-note ml-1 text-sm opacity-50">{houseCount} in the dark</span>
+          <span className="ml-1 text-[10px] uppercase tracking-[0.14em] text-text-ghost">{houseCount} in the dark</span>
         </div>
       )}
 

@@ -25,7 +25,7 @@ export default function RollStampNote({ annotation }: { annotation: RollStampAnn
           </span>
         )}
         <div className="min-w-0">
-          <p className="hand-note text-base text-paper/80">
+          <p className="hand-note text-paper/85">
             {turn.characterName ?? "The dice"}{" "}
             <span className={tier?.className ?? "text-text-secondary"}>
               {meta.fatal && meta.tier === "failure" ? "fell" : (tier?.word ?? "rolled")}
@@ -42,7 +42,7 @@ export default function RollStampNote({ annotation }: { annotation: RollStampAnn
             </p>
           )}
           {meta.aspectSaved && (
-            <p className="hand-note text-sm text-lavender/90">— their truth held them up</p>
+            <p className="hand-note !text-[1.05rem] text-lavender/90">— their truth held them up</p>
           )}
         </div>
       </div>

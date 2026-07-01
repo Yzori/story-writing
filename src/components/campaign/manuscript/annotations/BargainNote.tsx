@@ -20,17 +20,17 @@ export default function BargainNote({
 
   return (
     <NoteShell tone="amber" rotate={-1}>
-      <p className="hand-note text-base text-amber/90">
+      <p className="hand-note text-amber/90">
         A bargain for {meta.targetLabel}
       </p>
-      <p className="hand-note mt-0.5 text-base">
+      <p className="mt-1 font-reading text-[13.5px] italic leading-snug">
         <span className="text-sage">{meta.gain}</span>
-        <span className="opacity-55"> — for — </span>
+        <span className="text-text-ghost"> — for — </span>
         <span className="text-rose">{meta.price}</span>
       </p>
       {resolved ? (
         <p
-          className={`hand-note mt-1 text-base font-bold ${
+          className={`hand-note mt-1 font-bold ${
             meta.status === "accepted" ? "text-sage" : "text-text-tertiary line-through"
           }`}
           style={{ transform: "rotate(-2deg)" }}
@@ -50,13 +50,13 @@ export default function BargainNote({
           <button
             type="button"
             onClick={() => void onResolveBargain(turn.id, "refused")}
-            className="hand-note cursor-pointer text-base opacity-60 transition-opacity hover:text-rose hover:opacity-100"
+            className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-rose"
           >
-            refuse
+            Refuse
           </button>
         </div>
       ) : (
-        <p className="hand-note mt-1 text-sm italic opacity-50">the offer hangs unanswered…</p>
+        <p className="table-murmur mt-1 !text-[11.5px]">the offer hangs unanswered…</p>
       )}
     </NoteShell>
   );

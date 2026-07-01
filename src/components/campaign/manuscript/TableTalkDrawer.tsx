@@ -59,7 +59,7 @@ export default function TableTalkDrawer({
             className="fixed bottom-0 right-0 top-0 z-40 flex w-full max-w-sm flex-col border-l border-border bg-ink/98 shadow-[-20px_0_60px_rgba(0,0,0,0.5)]"
           >
             <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-              <p className="hand-note text-lg text-paper/85">under the table</p>
+              <p className="font-mono text-[9px] uppercase tracking-[0.26em] text-text-tertiary">Under the table</p>
               <button
                 type="button"
                 onClick={onClose}

@@ -60,8 +60,12 @@ export default function CandleTimer({
       </div>
       {lit && burning && (
         <span
-          className={`hand-note ${compact ? "text-sm" : "text-base"} ${
-            urgency === "critical" ? "text-rose" : urgency === "warn" ? "text-amber" : ""
+          className={`font-mono tabular-nums ${compact ? "text-[10px]" : "text-[11px]"} ${
+            urgency === "critical"
+              ? "text-rose"
+              : urgency === "warn"
+                ? "text-amber"
+                : "text-text-secondary"
           }`}
         >
           {timeStr}
@@ -71,10 +75,10 @@ export default function CandleTimer({
         <button
           type="button"
           onClick={onExtend}
-          className="hand-note cursor-pointer text-sm text-amber/80 underline decoration-amber/50 decoration-wavy underline-offset-2 transition-opacity hover:opacity-100"
+          className="table-action cursor-pointer text-amber/85 transition-colors hover:text-amber"
           title="Feed the flame — three more minutes"
         >
-          feed the flame
+          +3 min
         </button>
       )}
     </div>

@@ -187,9 +187,9 @@ export default function SpectatorRoom({
       <button
         type="button"
         onClick={() => setShowChat(true)}
-        className="hand-note fixed bottom-5 left-4 z-30 cursor-pointer text-base opacity-60 transition-opacity hover:opacity-100"
+        className="table-action fixed bottom-5 left-4 z-30 cursor-pointer text-text-tertiary transition-colors hover:text-paper"
       >
-        under the table ☾
+        ☾ Table talk
       </button>
       <TableTalkDrawer
         open={showChat}

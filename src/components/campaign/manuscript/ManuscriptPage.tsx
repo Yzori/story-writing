@@ -302,14 +302,14 @@ export default function ManuscriptPage({
       {!showMap && storyId && (
         <button
           onClick={() => setShowMap(true)}
-          className="hand-note absolute right-4 top-2 z-20 flex min-h-9 cursor-pointer items-center gap-1.5 text-base text-amber/60 transition-colors hover:text-amber lg:right-[220px] xl:right-[280px]"
+          className="table-action absolute right-4 top-2 z-20 flex min-h-9 cursor-pointer items-center gap-1.5 text-amber/70 transition-colors hover:text-amber lg:right-[220px] xl:right-[280px]"
           aria-label="Places and map"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
             <line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" />
           </svg>
-          the places
+          Places
         </button>
       )}
 
@@ -379,7 +379,7 @@ export default function ManuscriptPage({
 
             {storyTurns.length === 0 && !sessionOpening ? (
               <div className="py-20 text-center">
-                <p className="hand-note text-base">
+                <p className="table-murmur">
                   {isGM ? "The page is blank. Set the scene." : "The Director is dipping the quill…"}
                 </p>
               </div>
@@ -395,9 +395,9 @@ export default function ManuscriptPage({
                   <div className="!mb-8 flex justify-center">
                     <button
                       onClick={handleLoadEarlier}
-                      className="hand-note cursor-pointer text-base text-text-tertiary transition-colors hover:text-amber"
+                      className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-amber"
                     >
-                      ↑ turn back the pages <span className="text-text-ghost">({visibleStartIndex} more)</span>
+                      ↑ Turn back the pages <span className="normal-case tracking-normal text-text-ghost">({visibleStartIndex} more)</span>
                     </button>
                   </div>
                 )}
@@ -453,9 +453,9 @@ export default function ManuscriptPage({
           type="button"
           onClick={scrollToBottom}
           aria-label="Scroll to the newest ink"
-          className="hand-note absolute bottom-6 left-1/2 z-20 -translate-x-1/2 cursor-pointer rounded-full border border-amber/35 bg-black/80 px-4 py-1.5 text-base text-amber shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md transition-colors hover:bg-amber/15"
+          className="table-action absolute bottom-6 left-1/2 z-20 -translate-x-1/2 cursor-pointer rounded-full border border-amber/35 bg-black/80 px-4 py-2 text-amber shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md transition-colors hover:bg-amber/15"
         >
-          ↓ new ink
+          ↓ New ink
         </button>
       )}
 

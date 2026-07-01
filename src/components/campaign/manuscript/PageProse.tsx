@@ -128,7 +128,7 @@ export default function PageProse({
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber/50" aria-hidden="true">
                     <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                   </svg>
-                  <span className="hand-note text-sm text-amber/70">still wet — edit</span>
+                  <span className="table-action text-amber/70">Still wet — edit</span>
                 </button>
               )}
             </div>
@@ -146,7 +146,7 @@ export default function PageProse({
                   >
                     <div className="mb-4 mt-2 rounded-xl border border-amber/20 bg-amber/5 p-4">
                       <div className="mb-2 flex items-center justify-between">
-                        <span className="hand-note text-sm text-amber/60">the ink is still wet</span>
+                        <span className="table-murmur !text-[11.5px] text-amber/70">the ink is still wet</span>
                         <span className="text-[9px] text-text-ghost">Changes apply instantly</span>
                       </div>
                       <textarea

@@ -148,8 +148,8 @@ function Seat({
       )}
       {caption && (
         <span
-          className={`hand-note max-w-[76px] truncate text-center text-sm leading-tight ${
-            seat.gone ? "line-through opacity-40" : ""
+          className={`max-w-[76px] truncate text-center font-display text-[9px] uppercase leading-tight tracking-[0.12em] ${
+            seat.gone ? "line-through opacity-40" : "opacity-85"
           }`}
           style={{ color: seat.gone ? undefined : ring }}
         >
@@ -242,8 +242,10 @@ export default function TableSeats({
         layout === "rim" ? "left-full ml-2 top-0 w-44" : "top-full mt-2 left-0 w-44"
       }`}
     >
-      <p className="hand-note text-base text-paper/85">Pass the pen to {confirmSeat.name.split(" ")[0]}?</p>
-      <div className="mt-1.5 flex items-center gap-2">
+      <p className="text-[13px] leading-snug text-paper/90">
+        Pass the pen to <strong>{confirmSeat.name.split(" ")[0]}</strong>?
+      </p>
+      <div className="mt-2 flex items-center gap-2.5">
         <button
           type="button"
           onClick={() => {
@@ -257,9 +259,9 @@ export default function TableSeats({
         <button
           type="button"
           onClick={() => setConfirmUserId(null)}
-          className="hand-note cursor-pointer text-sm opacity-55 hover:opacity-90"
+          className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-paper"
         >
-          keep it
+          Keep it
         </button>
       </div>
     </div>
@@ -292,7 +294,7 @@ export default function TableSeats({
             </div>
           ))}
           {penHolder && (
-            <span className="hand-note ml-1 shrink-0 truncate text-sm" style={{ color: penHolder.ink }}>
+            <span className="table-murmur ml-1 shrink-0 truncate !text-[12px]" style={{ color: penHolder.ink }}>
               {penHolder.isDirector ? "the Director writes" : `${penHolder.name.split(" ")[0]} writes`}
             </span>
           )}
@@ -320,11 +322,11 @@ export default function TableSeats({
               <button
                 type="button"
                 onClick={() => setSlipOpen((v) => !v)}
-                className="hand-note cursor-pointer text-sm opacity-50 transition-opacity hover:opacity-90"
+                className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-amber"
                 title="Who runs the session"
                 aria-expanded={slipOpen}
               >
-                {slipOpen ? "fold it away" : "the reins"}
+                {slipOpen ? "Close" : "Reins"}
               </button>
               <AnimatePresence>
                 {slipOpen && (

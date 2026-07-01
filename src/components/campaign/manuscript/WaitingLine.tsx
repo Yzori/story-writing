@@ -63,7 +63,7 @@ export default function WaitingLine({
 
   if (goneNotice) {
     return (
-      <p className="hand-note text-center text-base">
+      <p className="table-murmur text-center">
         {goneNotice === "dead"
           ? "The page falls silent for you — you watch from beyond the light. The story remembers."
           : "Your character has stepped away from the table."}
@@ -74,11 +74,11 @@ export default function WaitingLine({
   if (rollPending) {
     return (
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <p className="hand-note text-lg text-amber">
+        <p className="table-murmur !text-[14px]">
           The dice are waiting — a{" "}
-          <strong className="font-bold">{rollAttribute || "fate"}</strong> check
-          {rollFatal && <strong className="ml-1.5 text-rose">at fatal stakes</strong>}
-          {rollReason ? <span className="opacity-75"> · {rollReason}</span> : null}
+          <strong className="not-italic text-amber">{rollAttribute || "fate"}</strong> check
+          {rollFatal && <strong className="ml-1.5 not-italic text-rose">at fatal stakes</strong>}
+          {rollReason ? <span> · {rollReason}</span> : null}
         </p>
         {onOpenDiceRoller && (
           <button
@@ -95,7 +95,7 @@ export default function WaitingLine({
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
-      <p className="hand-note flex items-center gap-2 text-lg">
+      <p className="table-murmur flex items-center gap-2">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber/70 [animation:pulse_1.4s_ease-in-out_infinite]" />
         {directorWriting
           ? "The Director's quill moves…"
@@ -106,7 +106,6 @@ export default function WaitingLine({
 
       {onReaction && (
         <div className="flex items-center gap-1">
-          <span className="hand-note mr-1 text-base opacity-55">whisper:</span>
           {REACTIONS.map((r) => (
             <motion.button
               key={r.key}
@@ -130,14 +129,12 @@ export default function WaitingLine({
           type="button"
           onClick={() => (myHandRaised ? onLowerHand?.() : onRaiseHand())}
           title={myHandRaised ? "Lower your hand" : "Ask the Director for the pen"}
-          className={`hand-note flex cursor-pointer items-center gap-1.5 text-lg transition-all ${
-            myHandRaised
-              ? "text-amber underline decoration-amber/60 decoration-wavy underline-offset-4"
-              : "opacity-60 hover:opacity-100"
+          className={`table-action flex cursor-pointer items-center gap-1.5 transition-colors ${
+            myHandRaised ? "text-amber" : "text-text-tertiary hover:text-amber"
           }`}
         >
           <span aria-hidden="true">✋</span>
-          {myHandRaised ? "hand raised" : "reach for the page"}
+          {myHandRaised ? "Hand raised" : "Raise hand"}
         </button>
       )}
     </div>

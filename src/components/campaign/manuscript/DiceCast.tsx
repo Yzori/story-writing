@@ -431,7 +431,7 @@ export default function DiceCast({
             className="manuscript-sheet relative w-full max-w-md rounded-sm px-6 py-7 sm:px-8"
           >
             {/* The question, in the Director's hand. */}
-            <p className="hand-note text-lg text-amber/85">
+            <p className="hand-note text-amber/85">
               {displayedReason ? "the dice are called —" : "cast the bones —"}
             </p>
             {displayedReason && (
@@ -440,8 +440,8 @@ export default function DiceCast({
               </p>
             )}
             {displayedFatal && (
-              <p className="hand-note mt-1 text-base text-rose underline decoration-rose/60 decoration-wavy underline-offset-4">
-                at fatal stakes — a failure here is the end
+              <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
+                ⚠ Fatal stakes — a failure here is the end
               </p>
             )}
 
@@ -450,22 +450,22 @@ export default function DiceCast({
               <div className="mt-3 space-y-0.5">
                 {displayedOnSuccess && (
                   <p
-                    className={`hand-note text-base transition-opacity ${
+                    className={`font-reading text-[13px] italic leading-snug transition-opacity ${
                       phase === "revealed" && total !== null && total < 7 ? "opacity-30" : ""
                     }`}
                   >
-                    <span className="text-sage">if it holds:</span>{" "}
-                    <span className="opacity-80">{displayedOnSuccess}</span>
+                    <span className="not-italic text-[10px] font-bold uppercase tracking-[0.14em] text-sage">holds </span>
+                    <span className="text-text-secondary">{displayedOnSuccess}</span>
                   </p>
                 )}
                 {displayedOnFailure && (
                   <p
-                    className={`hand-note text-base transition-opacity ${
+                    className={`font-reading text-[13px] italic leading-snug transition-opacity ${
                       phase === "revealed" && total !== null && total >= 7 ? "opacity-30" : ""
                     }`}
                   >
-                    <span className="text-rose">if it breaks:</span>{" "}
-                    <span className="opacity-80">{displayedOnFailure}</span>
+                    <span className="not-italic text-[10px] font-bold uppercase tracking-[0.14em] text-rose">breaks </span>
+                    <span className="text-text-secondary">{displayedOnFailure}</span>
                   </p>
                 )}
               </div>
@@ -474,7 +474,7 @@ export default function DiceCast({
             {/* First-cast primer — a note from the binder. */}
             {phase === "idle" && !primerSeen && (
               <div className="mt-4 rounded-md border border-amber/25 bg-amber/[0.06] p-3">
-                <p className="hand-note text-base leading-snug text-paper/80">
+                <p className="text-[12.5px] leading-relaxed text-text-secondary">
                   Two dice, added. <strong className="text-sage">10+</strong> and it holds ·{" "}
                   <strong className="text-amber">7–9</strong> and it holds at a price ·{" "}
                   <strong className="text-rose">6−</strong> and the world refuses. Your{" "}
@@ -495,20 +495,20 @@ export default function DiceCast({
             {/* How do they meet it? Approaches are fiction, not maths. */}
             {phase === "idle" && (
               <div className="mt-5">
-                <p className="hand-note text-sm opacity-50">how do they meet it?</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-text-ghost">How do they meet it?</p>
                 <div className="mt-1 flex items-center gap-5">
                   {APPROACHES.map((a) => (
                     <button
                       key={a}
                       type="button"
                       onClick={() => setSelectedApproach(a)}
-                      className={`hand-note cursor-pointer text-xl transition-all ${
+                      className={`cursor-pointer font-display text-[15px] tracking-wide transition-all ${
                         selectedApproach === a
-                          ? "text-amber underline decoration-amber/60 decoration-wavy underline-offset-4"
-                          : "opacity-50 hover:opacity-90"
+                          ? "text-amber underline decoration-2 underline-offset-[6px]"
+                          : "text-text-tertiary hover:text-text-secondary"
                       }`}
                     >
-                      {a.toLowerCase()}
+                      {a}
                     </button>
                   ))}
                 </div>
@@ -523,16 +523,14 @@ export default function DiceCast({
                   <button
                     type="button"
                     onClick={() => setAspectInvoked((v) => !v)}
-                    className={`hand-note mt-0.5 cursor-pointer text-base transition-all ${
-                      aspectInvoked
-                        ? "text-lavender underline decoration-lavender/60 decoration-wavy underline-offset-4"
-                        : "opacity-55 hover:opacity-90"
+                    className={`table-action mt-1 cursor-pointer transition-colors ${
+                      aspectInvoked ? "text-lavender" : "text-text-tertiary hover:text-lavender"
                     }`}
                   >
-                    {aspectInvoked ? "leaning on their truth — a miss becomes a foothold" : "lean on their truth"}
+                    {aspectInvoked ? "✓ Leaning on their truth — a miss becomes a foothold" : "Lean on their truth"}
                   </button>
                 ) : (
-                  <p className="hand-note mt-0.5 text-base opacity-40 line-through">
+                  <p className="table-murmur mt-1 !text-[11.5px] line-through opacity-70">
                     their truth is spent this scene
                   </p>
                 )}
@@ -548,7 +546,7 @@ export default function DiceCast({
                 </>
               )}
               {phase === "idle" && (
-                <p className="hand-note text-base opacity-35">the paper waits for the bones</p>
+                <p className="table-murmur opacity-60">the paper waits for the bones</p>
               )}
             </div>
 
@@ -569,7 +567,7 @@ export default function DiceCast({
               <motion.p
                 animate={reduceMotion ? undefined : { opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 1.6, repeat: Infinity }}
-                className="hand-note mt-4 text-center text-base opacity-70"
+                className="table-murmur mt-4 text-center"
               >
                 the world holds its breath…
               </motion.p>
@@ -612,9 +610,9 @@ export default function DiceCast({
               <button
                 type="button"
                 onClick={handleClose}
-                className="hand-note mx-auto mt-5 block cursor-pointer text-base opacity-45 transition-opacity hover:opacity-80"
+                className="table-action mx-auto mt-5 block cursor-pointer text-text-tertiary transition-colors hover:text-text-secondary"
               >
-                {phase === "revealed" ? "let it fade" : "withdraw"}
+                {phase === "revealed" ? "Let it fade" : "Withdraw"}
               </button>
             )}
           </motion.div>

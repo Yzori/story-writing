@@ -62,8 +62,8 @@ export function CoachSlip({
           exit={{ opacity: 0, y: 8 }}
           className="relative mb-3 rounded-md border border-amber/30 bg-gradient-to-b from-amber/[0.10] to-elevated/90 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
         >
-          <p className="hand-note text-lg text-amber">{title}</p>
-          <p className="hand-note mt-1 text-base leading-snug text-paper/80">{children}</p>
+          <p className="hand-note text-amber">{title}</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">{children}</p>
           <div className="mt-2 flex justify-end">
             <button
               type="button"

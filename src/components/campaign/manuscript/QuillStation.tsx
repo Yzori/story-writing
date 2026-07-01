@@ -102,38 +102,38 @@ export default function QuillStation({
 
   const activeSlot = roundLive && onUpdateFloorRound && (
     <div className="rounded-md border border-lavender/30 bg-lavender/[0.07] px-3 py-2">
-      <p className="hand-note text-base text-lavender">
+      <p className="table-murmur !text-[12px] text-lavender/90">
         {roundLive.status === "open"
           ? "The ink divides — the table is writing"
           : roundLive.status === "voting"
             ? "The table is voting"
             : "Choose what becomes canon (on the page)"}
       </p>
-      <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+      <div className="mt-1.5 flex flex-wrap items-center gap-3">
         {roundLive.status === "open" && (
           <button
             type="button"
             onClick={() => void onUpdateFloorRound(roundLive.id, { status: "voting" })}
-            className="hand-note cursor-pointer text-base text-lavender underline decoration-lavender/50 decoration-wavy underline-offset-4"
+            className="table-action cursor-pointer text-lavender transition-colors hover:text-paper"
           >
-            open the vote
+            Open the vote
           </button>
         )}
         {roundLive.status === "voting" && (
           <button
             type="button"
             onClick={() => void onUpdateFloorRound(roundLive.id, { status: "closed" })}
-            className="hand-note cursor-pointer text-base text-lavender underline decoration-lavender/50 decoration-wavy underline-offset-4"
+            className="table-action cursor-pointer text-lavender transition-colors hover:text-paper"
           >
-            close the vote
+            Close the vote
           </button>
         )}
         <button
           type="button"
           onClick={() => void onUpdateFloorRound(roundLive.id, { status: "cancelled" })}
-          className="hand-note cursor-pointer text-base opacity-50 transition-opacity hover:text-rose hover:opacity-90"
+          className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-rose"
         >
-          tear it out
+          Cancel
         </button>
       </div>
     </div>
@@ -254,8 +254,8 @@ export default function QuillStation({
             disabled={move.key === "crossroads" && !!roundLive}
             className="flex w-full cursor-pointer items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-amber/[0.08] disabled:cursor-not-allowed disabled:opacity-35"
           >
-            <span className="hand-note text-lg text-paper/90">{move.label}</span>
-            <span className="hand-note shrink-0 text-sm opacity-45">{move.hint}</span>
+            <span className="font-display text-[13px] text-paper/95">{move.label}</span>
+            <span className="shrink-0 text-[10.5px] italic text-text-ghost">{move.hint}</span>
           </button>
         ))}
       </div>
@@ -266,29 +266,29 @@ export default function QuillStation({
               key={move.key}
               type="button"
               onClick={() => setPanel(move.key)}
-              className="hand-note cursor-pointer py-0.5 text-base opacity-65 transition-opacity hover:opacity-100"
+              className="cursor-pointer py-0.5 font-display text-[11.5px] text-text-secondary transition-colors hover:text-paper"
               title={RITUAL_META[move.key].hint}
             >
-              {move.label.toLowerCase()}
+              {move.label}
             </button>
           ))}
           {ledger && (
             <button
               type="button"
               onClick={() => setPanel("ledger")}
-              className="hand-note cursor-pointer py-0.5 text-base opacity-65 transition-opacity hover:opacity-100"
+              className="cursor-pointer py-0.5 font-display text-[11.5px] text-text-secondary transition-colors hover:text-paper"
               title="Party status, revives, invites, clocks"
             >
-              party ledger
+              Party ledger
             </button>
           )}
           {onEndSession && (
             <button
               type="button"
               onClick={onEndSession}
-              className="hand-note cursor-pointer py-0.5 text-base opacity-65 transition-opacity hover:text-rose hover:opacity-100"
+              className="cursor-pointer py-0.5 font-display text-[11.5px] text-text-secondary transition-colors hover:text-rose"
             >
-              close the book
+              Close the book
             </button>
           )}
         </div>
@@ -314,7 +314,7 @@ export default function QuillStation({
           )}
         </AnimatePresence>
         <div className="rounded-xl border border-amber/20 bg-ink/85 p-3 shadow-[0_14px_40px_rgba(0,0,0,0.5)] backdrop-blur-md">
-          <p className="hand-note mb-1.5 text-base text-amber/80">The Director&rsquo;s quill</p>
+          <p className="mb-1.5 font-mono text-[9px] uppercase tracking-[0.26em] text-amber/70">The Director&rsquo;s quill</p>
           {moveList}
         </div>
       </div>
@@ -352,7 +352,7 @@ export default function QuillStation({
               transition={{ type: "spring", stiffness: 260, damping: 28 }}
               className="fixed inset-x-0 bottom-0 z-40 max-h-[82dvh] overflow-y-auto rounded-t-2xl border-t border-amber/25 bg-ink/98 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
             >
-              <p className="hand-note mb-2 text-base text-amber/80">The Director&rsquo;s quill</p>
+              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.26em] text-amber/70">The Director&rsquo;s quill</p>
               {panelBody ?? (
                 <>
                   {coachSlip}

@@ -30,9 +30,9 @@ export default function ClockNote({
           }
         />
         <div className="min-w-0">
-          <p className="hand-note text-base leading-tight text-paper/85">{clock.name}</p>
-          <p className="hand-note text-sm opacity-55">
-            {clock.filled} of {clock.segments}
+          <p className="hand-note leading-tight text-paper/85">{clock.name}</p>
+          <p className="font-mono text-[10px] text-text-tertiary">
+            {clock.filled}/{clock.segments}
           </p>
         </div>
       </div>
