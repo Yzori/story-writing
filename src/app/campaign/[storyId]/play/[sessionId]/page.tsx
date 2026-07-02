@@ -628,7 +628,9 @@ export default function SessionPlayPage() {
           </div>
         }
       >
-        {campaignSession?.opening && (
+        {/* Beginning the session posts the opening as the first turn, so the
+            preview block only shows while the page is still being set. */}
+        {sessionStatus === "draft" && campaignSession?.opening && (
           <p className="mb-8 font-reading text-[15px] italic leading-[1.85] text-text-secondary">
             {campaignSession.opening}
           </p>

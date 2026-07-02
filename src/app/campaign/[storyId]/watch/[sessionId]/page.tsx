@@ -249,7 +249,8 @@ export default function WatchSessionPage() {
           </div>
         }
       >
-        {campaignSession?.opening && (
+        {/* The opening lands as the first turn once the session begins. */}
+        {sessionStatus === "draft" && campaignSession?.opening && (
           <p className="mb-8 font-reading text-[15px] italic leading-[1.85] text-text-secondary">
             {campaignSession.opening}
           </p>
