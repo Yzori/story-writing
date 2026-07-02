@@ -519,6 +519,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         aspectInvoked: !!rollIntent.aspectInvoked,
         aspectAvailable,
         fatalRequested: rollRequestMeta?.fatal === true,
+        characterName: turnCharacter?.name ?? null,
       });
       serverRollTier = roll.tier;
       contentToStore = roll.content;

@@ -30,7 +30,7 @@ describe("resolveRoll", () => {
     expect(r.tier).toBe("success");
     expect(r.markEligible).toBe(false);
     expect(r.aspectSaved).toBe(false);
-    expect(r.content).toContain("Full Success");
+    expect(r.content).toContain("It holds.");
   });
 
   it("flags a partial as mark-eligible", () => {
@@ -57,7 +57,7 @@ describe("resolveRoll", () => {
     });
     expect(r.tier).toBe("partial");
     expect(r.aspectSaved).toBe(true);
-    expect(r.content).toContain("truth invoked");
+    expect(r.content).toContain("Their truth turned the miss.");
   });
 
   it("does not save when the aspect is already spent this scene", () => {
@@ -117,7 +117,12 @@ describe("resolveRoll", () => {
 
   it("includes the approach as fictional texture in the content", () => {
     const r = resolveRoll({ ...base, d1: 5, d2: 5, approach: "Bold" });
-    expect(r.content).toContain("· bold");
+    expect(r.content).toContain("Bold");
+  });
+
+  it("prints the roller's first name in the set line", () => {
+    const r = resolveRoll({ ...base, d1: 5, d2: 5, approach: "Keen", characterName: "Lyra Varen" });
+    expect(r.content).toBe("— Lyra rolled Keen: 5 + 5 = 10. It holds.");
   });
 });
 

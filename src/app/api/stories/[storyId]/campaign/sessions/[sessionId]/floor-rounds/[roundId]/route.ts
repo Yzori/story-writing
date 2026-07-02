@@ -101,8 +101,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (!parsed.data.selectedSubmissionId) {
         return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Choose a submission to canonize" } }, { status: 400 });
       }
-      if (round.mode === "vote" && round.status !== "closed") {
-        return NextResponse.json({ error: { code: "BAD_REQUEST", message: "Close voting before canonizing a table vote" } }, { status: 400 });
+      // v2 single-block vote: the table writes and votes in one open phase,
+      // so a vote round canonizes straight from "open" (or "voting"); the
+      // legacy reveal→close→canonize pipeline is still honored via "closed".
+      if (round.mode === "vote" && !["open", "voting", "closed"].includes(round.status)) {
+        return NextResponse.json({ error: { code: "BAD_REQUEST", message: "This round is not ready to canonize" } }, { status: 400 });
       }
       if (round.mode !== "vote" && round.status !== "open") {
         return NextResponse.json({ error: { code: "BAD_REQUEST", message: "This round is not ready to canonize" } }, { status: 400 });
@@ -147,7 +150,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .where(
             and(
               eq(campaignFloorRounds.id, roundId),
-              inArray(campaignFloorRounds.status, round.mode === "vote" ? ["closed"] : ["open"]),
+              inArray(campaignFloorRounds.status, round.mode === "vote" ? ["open", "voting", "closed"] : ["open"]),
             ),
           )
           .returning({ id: campaignFloorRounds.id });
@@ -226,7 +229,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({
-      data: await getVisibleFloorRound(sessionId, session.user.id, true),
+      data: await getVisibleFloorRound(sessionId, session.user.id),
     });
   } catch (error) {
     console.error("PATCH /api/.../floor-rounds/[roundId] error:", error);

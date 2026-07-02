@@ -8,7 +8,7 @@ import {
   users,
   spectatorPresence,
 } from "@/server/db/schema";
-import { eq, and, asc, gt, isNull, ne, sql } from "drizzle-orm";
+import { eq, and, asc, gt, isNull, like, ne, or, sql } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = {
@@ -78,10 +78,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch turns, excluding OOC
+    // Fetch turns, excluding OOC table talk — but vote records ride the ooc
+    // type (log types stay out of compiled chapters) and DO print on the page.
     const turnConditions = [
       eq(campaignTurns.sessionId, sessionId),
-      ne(campaignTurns.type, "ooc"),
+      or(
+        ne(campaignTurns.type, "ooc"),
+        like(campaignTurns.metadata, '%"kind":"vote-record"%'),
+      )!,
     ];
     if (afterSortNum !== null) {
       turnConditions.push(gt(campaignTurns.sortOrder, afterSortNum));

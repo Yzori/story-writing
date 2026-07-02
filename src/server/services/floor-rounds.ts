@@ -62,7 +62,6 @@ export async function getEligibleFloorVoterIds(sessionId: string): Promise<Set<s
 export async function getVisibleFloorRound(
   sessionId: string,
   currentUserId: string,
-  isGM: boolean,
 ): Promise<FloorRound | null> {
   // Once a closed round can coexist with a new open round (migration 0021),
   // pick the most recently updated so the active round wins over a stale
@@ -138,7 +137,11 @@ export async function getVisibleFloorRound(
     .where(eq(campaignFloorAudiencePulses.roundId, round.id));
   const audiencePulseCount = pulseCountRow?.count ?? 0;
 
-  const shouldRevealAll = isGM || round.status !== "open";
+  // v2 single-block vote: the table writes AND votes in one open phase, so
+  // every line is visible to everyone as it lands ("the ink divides"). The
+  // old blind-collection reveal (hidden until the GM opened voting) went
+  // with the two-phase pipeline.
+  const shouldRevealAll = true;
 
   return {
     id: round.id,
@@ -197,7 +200,7 @@ export async function getAudiencePulseFloorRound(
   // progressed past `open`. `isGM=true` unmasks the prose; `currentUserId=""`
   // forces `isMine: false` on every submission, which is correct for an
   // unauthenticated audience viewer.
-  const floorRound = await getVisibleFloorRound(sessionId, "", true);
+  const floorRound = await getVisibleFloorRound(sessionId, "");
   if (!floorRound) return null;
 
   const myPulse = await db.query.campaignFloorAudiencePulses.findFirst({

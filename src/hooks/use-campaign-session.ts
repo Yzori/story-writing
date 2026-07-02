@@ -2,23 +2,29 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import type { Turn, CampaignSession, PlayerCharacter, StoryData, SessionRosterEntry, FloorRound, FloorRoundMode, CharacterMark, CharacterMarkKind } from "@/types/campaign";
-import type { ProgressClockData } from "@/components/campaign/ProgressClock";
+import type {
+  Turn,
+  CampaignSession,
+  PlayerCharacter,
+  StoryData,
+  SessionRosterEntry,
+  FloorRound,
+} from "@/types/campaign";
 import { campaignJsonRequest } from "@/lib/campaign-api";
 
-/** An ephemeral reaction dropped on the stage by someone at the table. */
-export interface TableReaction {
-  id: string;
-  type: string;
-  userId: string | null;
-  displayName: string | null;
-  createdAt: string;
-}
+/**
+ * The v2 play surface's data plumbing: session + turns + characters +
+ * roster + the floor round, polled; and the few mutations the "Set in Ink"
+ * page actually performs — write a turn, pass the pen, begin/end the
+ * session, cancel a roll call, run a vote. The old surface's inventory
+ * (clocks, marks, bargains, reactions, acting-GM, turn edits) was removed
+ * with the manuscript cutover; the API routes for it still exist.
+ */
 
 // How far behind the newest known sortOrder each poll reaches. Re-fetching a
-// short tail of already-seen turns lets in-place mutations (turn edits,
-// roll-request close/cancel, bargain resolution) made by other clients reach
-// us — a strict greater-than cursor would never deliver them.
+// short tail of already-seen turns lets in-place mutations (roll-request
+// close/cancel) made by other clients reach us — a strict greater-than
+// cursor would never deliver them.
 const TURN_POLL_OVERLAP = 20;
 
 // Merge freshly fetched turns into the existing list: append unseen turns,
@@ -55,21 +61,15 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [previousEpilogue, setPreviousEpilogue] = useState<string | null>(null);
-  const [previousMood, setPreviousMood] = useState<string | null>(null);
   const [roster, setRoster] = useState<SessionRosterEntry[]>([]);
-  const [clocks, setClocks] = useState<ProgressClockData[]>([]);
   const [floorRound, setFloorRound] = useState<FloorRound | null>(null);
-  const [tableReactions, setTableReactions] = useState<TableReaction[]>([]);
 
   const maxSortRef = useRef(-1);
-  const reactionCursorRef = useRef<string | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentUserId = authSession?.user?.id;
   const isGM = story?.userId === currentUserId;
   const floorRoundsUrl = `/api/stories/${storyId}/campaign/sessions/${sessionId}/floor-rounds`;
-  const reactionsUrl = `/api/stories/${storyId}/campaign/sessions/${sessionId}/reactions`;
 
   // Characters present in this session's roster (present or introduced)
   const rosterCharacters = useMemo(() => {
@@ -108,12 +108,11 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     const fetchInitial = async () => {
       try {
         setLoading(true);
-        const [storyRes, turnsRes, charsRes, rosterRes, clocksRes] = await Promise.all([
+        const [storyRes, turnsRes, charsRes, rosterRes] = await Promise.all([
           fetch(`/api/stories/${storyId}`),
           fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/turns`),
           fetch(`/api/stories/${storyId}/campaign/characters`),
           fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`),
-          fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`),
         ]);
 
         if (!storyRes.ok) throw new Error("Failed to load story");
@@ -136,7 +135,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           setCharacters(charsJson.data ?? []);
         }
 
-        // Roster may not exist yet (API being built concurrently) — graceful fallback
         if (rosterRes.ok) {
           try {
             const rosterJson = await rosterRes.json();
@@ -144,32 +142,9 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           } catch { /* roster API may not return expected shape yet */ }
         }
 
-        // Progress clocks
-        if (clocksRes.ok) {
-          try {
-            const clocksJson = await clocksRes.json();
-            setClocks(clocksJson.data ?? []);
-          } catch { /* graceful fallback */ }
-        }
-
         try {
           const floorJson = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
           setFloorRound(floorJson.data ?? null);
-        } catch { /* non-critical */ }
-
-        // Fetch previous session's epilogue for "Previously on..." in lobby
-        try {
-          const sessionsRes = await fetch(`/api/stories/${storyId}/campaign/sessions`);
-          if (sessionsRes.ok) {
-            const sessionsJson = await sessionsRes.json();
-            const allSessions = sessionsJson.data ?? [];
-            const currentIdx = allSessions.findIndex((s: { id: string }) => s.id === sessionId);
-            if (currentIdx > 0) {
-              const prev = allSessions[currentIdx - 1];
-              if (prev.epilogue) setPreviousEpilogue(prev.epilogue);
-              if (prev.closingMood) setPreviousMood(prev.closingMood);
-            }
-          }
         } catch { /* non-critical */ }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
@@ -194,8 +169,8 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     pollIntervalRef.current = setInterval(async () => {
       try {
         // Poll with a trailing overlap so in-place mutations to recent turns
-        // (edits, roll-request status flips, bargain answers) from other
-        // clients are picked up, not just strictly-newer rows.
+        // (roll-request status flips) from other clients are picked up, not
+        // just strictly-newer rows.
         const afterSort = Math.max(-1, maxSortRef.current - TURN_POLL_OVERLAP);
         const res = await fetch(
           `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns?afterSort=${afterSort}`,
@@ -219,8 +194,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             if (
               prev.status === next.status &&
               prev.activePlayerId === next.activePlayerId &&
-              prev.actingGmId === next.actingGmId &&
-              prev.takeoverProposerId === next.takeoverProposerId &&
               prev.title === next.title &&
               prev.epilogue === next.epilogue
             ) return prev;
@@ -236,37 +209,13 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           }
         } catch { /* non-critical */ }
 
-        // Ephemeral table reactions — append any we haven't seen, keep a short
-        // tail so the floating-emoji layer has something to animate.
-        try {
-          const cursor = reactionCursorRef.current;
-          const reactRes = await fetch(
-            cursor ? `${reactionsUrl}?after=${encodeURIComponent(cursor)}` : reactionsUrl,
-            { signal: controller.signal },
-          );
-          if (reactRes.ok) {
-            const reactJson = await reactRes.json();
-            const incoming: TableReaction[] = reactJson.data ?? [];
-            if (incoming.length > 0) {
-              reactionCursorRef.current = incoming[incoming.length - 1].createdAt;
-              setTableReactions((prev) => {
-                const seen = new Set(prev.map((r) => r.id));
-                const fresh = incoming.filter((r) => !seen.has(r.id));
-                if (fresh.length === 0) return prev;
-                return [...prev, ...fresh].slice(-40);
-              });
-            }
-          }
-        } catch { /* non-critical */ }
-
         // Refresh character list + roster every 6th poll (~30s)
         charPollCount++;
         if (charPollCount >= 6) {
           charPollCount = 0;
-          const [charsRes, rosterPollRes, clocksPollRes] = await Promise.all([
+          const [charsRes, rosterPollRes] = await Promise.all([
             fetch(`/api/stories/${storyId}/campaign/characters`, { signal: controller.signal }),
             fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`, { signal: controller.signal }),
-            fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`, { signal: controller.signal }),
           ]);
           if (charsRes.ok) {
             const charsJson = await charsRes.json();
@@ -276,12 +225,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
             try {
               const rosterJson = await rosterPollRes.json();
               setRoster(rosterJson.data ?? []);
-            } catch { /* ignore */ }
-          }
-          if (clocksPollRes.ok) {
-            try {
-              const clocksJson = await clocksPollRes.json();
-              setClocks(clocksJson.data ?? []);
             } catch { /* ignore */ }
           }
         }
@@ -294,7 +237,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       controller.abort();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [storyId, sessionId, loading, floorRoundsUrl, reactionsUrl, isTerminal]);
+  }, [storyId, sessionId, loading, floorRoundsUrl, isTerminal]);
 
   // ── Send turn ──────────────────────────────────────────────
   const sendTurn = useCallback(
@@ -355,66 +298,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     [storyId, sessionId]
   );
 
-  // ── Update roster (GM sets who's present) ────────────────────
-  const updateRoster = useCallback(
-    async (characterIds: string[]) => {
-      let previousRoster: SessionRosterEntry[] = [];
-      // Optimistic update: mark listed characters as present, others as absent
-      setRoster((prev) => {
-        previousRoster = prev;
-        if (prev.length === 0) return prev;
-        return prev.map((entry) => ({
-          ...entry,
-          status: characterIds.includes(entry.characterId) ? "present" as const : "absent" as const,
-        }));
-      });
-
-      try {
-        const json = await campaignJsonRequest<SessionRosterEntry[]>(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/roster`,
-          {
-            method: "PUT",
-            body: { characterIds },
-            fallbackError: "Failed to update roster",
-          },
-        );
-        setRoster(json.data ?? []);
-      } catch (err) {
-        setRoster(previousRoster);
-        showToast(err instanceof Error ? err.message : "Failed to update roster");
-      }
-    },
-    [storyId, sessionId, showToast]
-  );
-
-  const refreshClocks = useCallback(async () => {
-    const json = await campaignJsonRequest<ProgressClockData[]>(
-      `/api/stories/${storyId}/campaign/sessions/${sessionId}/clocks`,
-      { fallbackError: "Failed to refresh clocks" },
-    );
-    setClocks(json.data ?? []);
-    return json.data ?? [];
-  }, [storyId, sessionId]);
-
-  // ── Patch the parent story (mapImageUrl, charter fields, etc.) ───
-  // Centralises "PATCH /api/stories/[id] then refresh local state" so
-  // callers don't double-fetch. Returns the updated story.
-  const patchStory = useCallback(
-    async (patch: Record<string, unknown>) => {
-      const json = await campaignJsonRequest<StoryData>(
-        `/api/stories/${storyId}`,
-        {
-          method: "PATCH",
-          body: patch,
-          fallbackError: "Failed to update story",
-        },
-      );
-      if (json.data) setStory((prev) => (prev ? { ...prev, ...json.data } : json.data ?? null));
-      return json.data ?? null;
-    },
-    [storyId],
-  );
-
   // ── Update session (status, title, etc.) ───────────────────
   const updateSession = useCallback(
     async (data: Record<string, unknown>) => {
@@ -430,61 +313,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
       return json.data as CampaignSession;
     },
     [storyId, sessionId]
-  );
-
-  // ── Acting GM: planned handoff / reclaim / table-consent takeover (D2) ──
-  const updateActingGm = useCallback(
-    async (action: "handoff" | "reclaim" | "propose" | "confirm" | "cancel", targetUserId?: string) => {
-      const json = await campaignJsonRequest<{ actingGmId: string | null; takeoverProposerId: string | null }>(
-        `/api/stories/${storyId}/campaign/sessions/${sessionId}/acting-gm`,
-        {
-          method: "POST",
-          body: targetUserId ? { action, targetUserId } : { action },
-          fallbackError: "Failed to update acting GM",
-        },
-      );
-      // Reflect immediately; the poll keeps every client in sync after.
-      if (json.data) {
-        setCampaignSession((prev) =>
-          prev ? { ...prev, actingGmId: json.data!.actingGmId, takeoverProposerId: json.data!.takeoverProposerId } : prev,
-        );
-      }
-      return json.data;
-    },
-    [storyId, sessionId]
-  );
-
-  const editTurn = useCallback(
-    async (turnId: string, newContent: string) => {
-      const trimmed = newContent.trim();
-      let previousTurns: Turn[] = [];
-
-      setTurns((prev) => {
-        previousTurns = prev;
-        return prev.map((turn) =>
-          turn.id === turnId ? { ...turn, content: trimmed } : turn,
-        );
-      });
-
-      try {
-        const json = await campaignJsonRequest<Turn>(
-          `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}`,
-          {
-            method: "PATCH",
-            body: { content: trimmed },
-            fallbackError: "Failed to edit turn",
-          },
-        );
-        if (json.data) {
-          setTurns((prev) => prev.map((turn) => (turn.id === turnId ? json.data as Turn : turn)));
-        }
-        return json.data as Turn;
-      } catch (err) {
-        setTurns(previousTurns);
-        throw err;
-      }
-    },
-    [storyId, sessionId],
   );
 
   const updateRollRequest = useCallback(
@@ -505,54 +333,19 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     [storyId, sessionId],
   );
 
-  const updateBargain = useCallback(
-    async (turnId: string, response: "accepted" | "refused") => {
-      const json = await campaignJsonRequest<Turn>(
-        `/api/stories/${storyId}/campaign/sessions/${sessionId}/turns/${turnId}/bargain`,
-        {
-          method: "PATCH",
-          body: { response },
-          fallbackError: "Failed to answer bargain",
-        },
-      );
-      if (json.data) {
-        setTurns((prev) => prev.map((turn) => (turn.id === turnId ? json.data as Turn : turn)));
-      }
-      return json.data as Turn;
-    },
-    [storyId, sessionId],
-  );
-
-  // Broadcast a reaction to everyone at the table. Best-effort and silent —
-  // a dropped emoji must never interrupt play.
-  const sendReaction = useCallback(
-    async (type: string) => {
-      try {
-        await campaignJsonRequest(reactionsUrl, {
-          method: "POST",
-          body: { type },
-          fallbackError: "Failed to send reaction",
-        });
-      } catch {
-        /* non-critical */
-      }
-    },
-    [reactionsUrl],
-  );
-
   const refreshFloorRound = useCallback(async () => {
     const json = await campaignJsonRequest<FloorRound | null>(floorRoundsUrl);
     setFloorRound(json.data ?? null);
     return json.data ?? null;
   }, [floorRoundsUrl]);
 
-  const createFloorRound = useCallback(async (prompt: string, mode: FloorRoundMode, audiencePulseEnabled?: boolean) => {
+  const createFloorRound = useCallback(async (prompt: string, audiencePulseEnabled?: boolean) => {
     const json = await campaignJsonRequest<FloorRound>(
       floorRoundsUrl,
       {
         method: "POST",
-        body: { prompt, mode, audiencePulseEnabled: !!audiencePulseEnabled },
-        fallbackError: "Failed to open Crossroads",
+        body: { prompt, audiencePulseEnabled: !!audiencePulseEnabled },
+        fallbackError: "Failed to open the vote",
       },
     );
     setFloorRound(json.data ?? null);
@@ -587,52 +380,6 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     setFloorRound(json.data ?? null);
     return json.data ?? null;
   }, [floorRoundsUrl]);
-
-  // ── Character marks (scars / vows / debts / memories) ────────
-  const createMark = useCallback(
-    async (
-      characterId: string,
-      input: { kind: CharacterMarkKind; text: string; sourceTurnId?: string },
-    ) => {
-      const json = await campaignJsonRequest<CharacterMark>(
-        `/api/stories/${storyId}/campaign/characters/${characterId}/marks`,
-        {
-          method: "POST",
-          body: { ...input, sessionId },
-          fallbackError: "Failed to mark the moment",
-        },
-      );
-      const mark = json.data;
-      if (mark) {
-        setCharacters((prev) =>
-          prev.map((c) =>
-            c.id === characterId
-              ? { ...c, marks: [...(c.marks ?? []), mark] }
-              : c,
-          ),
-        );
-      }
-      return mark ?? null;
-    },
-    [storyId, sessionId],
-  );
-
-  const removeMark = useCallback(
-    async (characterId: string, markId: string) => {
-      await campaignJsonRequest(
-        `/api/stories/${storyId}/campaign/characters/${characterId}/marks/${markId}`,
-        { method: "DELETE", fallbackError: "Failed to remove mark" },
-      );
-      setCharacters((prev) =>
-        prev.map((c) =>
-          c.id === characterId
-            ? { ...c, marks: (c.marks ?? []).filter((m) => m.id !== markId) }
-            : c,
-        ),
-      );
-    },
-    [storyId],
-  );
 
   const updateFloorRound = useCallback(
     async (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => {
@@ -672,28 +419,14 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     currentUserId: currentUserId ?? null,
     isGM,
     myCharacter,
-    previousEpilogue,
-    previousMood,
     sendTurn,
     setActivePlayer,
-    patchStory,
     updateSession,
-    updateActingGm,
-    updateRoster,
-    editTurn,
     updateRollRequest,
-    updateBargain,
     refreshFloorRound,
     createFloorRound,
     submitFloorResponse,
     voteFloorSubmission,
     updateFloorRound,
-    clocks,
-    setClocks,
-    refreshClocks,
-    createMark,
-    removeMark,
-    tableReactions,
-    sendReaction,
   };
 }

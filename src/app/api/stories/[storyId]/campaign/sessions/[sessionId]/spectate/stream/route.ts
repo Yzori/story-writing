@@ -8,7 +8,7 @@ import {
   playerCharacters,
   spectatorPresence,
 } from "@/server/db/schema";
-import { eq, and, asc, gt, isNull, ne, sql } from "drizzle-orm";
+import { eq, and, asc, gt, isNull, like, ne, or, sql } from "drizzle-orm";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -97,7 +97,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(campaignTurns.sessionId, sessionId),
-          ne(campaignTurns.type, "ooc"),
+          // ooc table talk stays private; vote records print on the page.
+          or(
+            ne(campaignTurns.type, "ooc"),
+            like(campaignTurns.metadata, '%"kind":"vote-record"%'),
+          ),
           gt(campaignTurns.sortOrder, afterSort)
         )
       )

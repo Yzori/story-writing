@@ -33,9 +33,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
     }
 
-    const isGM = !!check.story && isSessionGm(check.story, campaignSession, session.user.id);
     return NextResponse.json({
-      data: await getVisibleFloorRound(sessionId, session.user.id, isGM),
+      data: await getVisibleFloorRound(sessionId, session.user.id),
     });
   } catch (error) {
     console.error("GET /api/.../floor-rounds error:", error);
@@ -105,7 +104,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     return NextResponse.json({
-      data: await getVisibleFloorRound(sessionId, session.user.id, true),
+      data: await getVisibleFloorRound(sessionId, session.user.id),
     }, { status: 201 });
   } catch (error) {
     console.error("POST /api/.../floor-rounds error:", error);

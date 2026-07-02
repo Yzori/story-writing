@@ -37,6 +37,8 @@ export interface RollResolutionInput {
   aspectAvailable: boolean;
   /** Whether the roll-request flagged this as fatal. */
   fatalRequested: boolean;
+  /** The rolling character's first name, for the set line. */
+  characterName?: string | null;
 }
 
 export interface RollResolution {
@@ -58,7 +60,7 @@ export interface RollResolution {
  * it actually saves the roll. Pure — caller supplies the dice + scene availability.
  */
 export function resolveRoll(input: RollResolutionInput): RollResolution {
-  const { d1, d2, approach, aspect, aspectInvoked, aspectAvailable, fatalRequested } = input;
+  const { d1, d2, approach, aspect, aspectInvoked, aspectAvailable, fatalRequested, characterName } = input;
   const total = d1 + d2;
   let tier = rollTierFor(total);
 
@@ -68,10 +70,14 @@ export function resolveRoll(input: RollResolutionInput): RollResolution {
     aspectSaved = true;
   }
 
-  const tierLabel = tier === "success" ? "Full Success" : tier === "partial" ? "Partial Success" : "Failure";
-  const approachTag = approach ? ` · ${approach.toLowerCase()}` : "";
-  const truthTag = aspectSaved ? " · truth invoked" : "";
-  const content = `Rolled 2d6 = ${total} — ${tierLabel}${approachTag}${truthTag}`;
+  // The turn's content IS the one line of set type the v2 page prints —
+  // mechanics resolve into print, never into ink.
+  const tierSentence =
+    tier === "success" ? "It holds." : tier === "partial" ? "It holds — at a price." : "It breaks.";
+  const who = characterName ? `${characterName.split(" ")[0]} rolled` : "The dice";
+  const approachTag = approach ? ` ${approach}` : "";
+  const truthTag = aspectSaved ? " Their truth turned the miss." : "";
+  const content = `— ${who}${approachTag}: ${d1} + ${d2} = ${total}. ${tierSentence}${truthTag}`;
 
   // markEligible: worth marking when it cost something — partial or worse, or
   // any fatal-flagged roll (even a survived one: "I lived through this").

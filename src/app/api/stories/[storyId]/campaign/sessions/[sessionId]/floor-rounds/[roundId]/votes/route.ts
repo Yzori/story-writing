@@ -42,7 +42,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!round || round.sessionId !== sessionId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Floor round not found" } }, { status: 404 });
     }
-    if (round.mode !== "vote" || round.status !== "voting") {
+    // v2 single-block vote: the table writes and votes in one open phase, so
+    // votes are accepted while the round is "open" as well as the legacy
+    // reveal-then-vote "voting" phase.
+    if (round.mode !== "vote" || (round.status !== "open" && round.status !== "voting")) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Voting is not open" } }, { status: 403 });
     }
     if (check.story && isSessionGm(check.story, campaignSession, session.user.id)) {
@@ -90,9 +93,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         set: { submissionId: parsed.data.submissionId },
       });
 
-    const isGM = !!check.story && isSessionGm(check.story, campaignSession, session.user.id);
     return NextResponse.json({
-      data: await getVisibleFloorRound(sessionId, session.user.id, isGM),
+      data: await getVisibleFloorRound(sessionId, session.user.id),
     });
   } catch (error) {
     console.error("POST /api/.../floor-rounds/[roundId]/votes error:", error);
