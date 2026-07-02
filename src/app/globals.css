@@ -2306,6 +2306,29 @@ html.theme-light .manuscript-sheet {
 /* The quill caret writes in your character's ink. */
 .ink-caret { caret-color: var(--ink-self, var(--t-gold)); }
 
+/* Live ink (adventure v2) — words arrive wet and dry into the page. */
+.ink-wet {
+  filter: brightness(1.45);
+  text-shadow: 0 0 10px currentColor;
+  transition: filter 2.6s ease, text-shadow 2.6s ease;
+}
+.ink-wet.ink-dry { filter: none; text-shadow: none; }
+html.theme-light .ink-wet { filter: saturate(1.7); text-shadow: none; }
+html.theme-light .ink-wet.ink-dry { filter: none; }
+
+/* v2 dice — the bones tumble on the slip while the result is in the air. */
+@keyframes die-tumble {
+  0% { transform: rotate(-4deg) translateY(-2px); }
+  25% { transform: rotate(86deg) translateY(2px); }
+  50% { transform: rotate(184deg) translateY(-3px); }
+  75% { transform: rotate(272deg) translateY(2px); }
+  100% { transform: rotate(356deg) translateY(-2px); }
+}
+.die-tumbling { animation: die-tumble 0.55s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .die-tumbling { animation: none; }
+}
+
 /* Thin thread from a margin note to the line it annotates. */
 .note-leader {
   position: absolute;

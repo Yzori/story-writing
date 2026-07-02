@@ -1,0 +1,1156 @@
+<title>Adventure v2 — Core Surface Concepts</title>
+<style>
+  :root{
+    --void:#0b0e14; --room:#0e1219; --sheet:#151b29; --sheet-2:#131827;
+    --paper:#e9dfc8; --paper-dim:rgba(233,223,200,.72); --ghost:rgba(233,223,200,.42);
+    --line:rgba(233,223,200,.14); --line-soft:rgba(233,223,200,.08);
+    --gold:#e2ac4a; --gold-dim:rgba(226,172,74,.55);
+    --ink-kael:#d295a5; --ink-yara:#7fc6b9; --ink-bren:#b3a1e0; --ink-strange:#b9c6d8;
+    --wax:#7e2f33;
+    --serif:Georgia,'Iowan Old Style','Palatino Linotype',Palatino,serif;
+    --sans:ui-sans-serif,system-ui,'Segoe UI',sans-serif;
+  }
+  html,body{margin:0;padding:0}
+  body{background:var(--void);color:var(--paper);font:16px/1.7 var(--serif);
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+  /* ── pitch chrome ─────────────────────────── */
+  .eyebrow{font:600 11px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+  header.top{padding:72px 0 20px;border-bottom:1px solid var(--line-soft)}
+  h1{font:400 clamp(34px,5vw,54px)/1.12 var(--serif);margin:18px 0 14px;text-wrap:balance;letter-spacing:-.01em}
+  .lede{max-width:62ch;color:var(--paper-dim);font-size:17px;margin:0 0 8px}
+  .lede em{color:var(--paper);font-style:italic}
+
+  .spec{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1px;background:var(--line-soft);
+    border:1px solid var(--line-soft);margin:40px 0 0}
+  .spec>div{background:var(--room);padding:18px 20px}
+  .spec h3{font:600 10.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin:0 0 10px}
+  .spec p{margin:0;font-size:14.5px;line-height:1.65;color:var(--paper-dim)}
+  .spec p b{color:var(--paper);font-weight:600}
+
+  section.concept{padding:84px 0 8px}
+  .c-head{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:baseline;margin-bottom:10px}
+  .c-num{font:400 64px/1 var(--serif);color:var(--ghost);letter-spacing:-.02em}
+  .c-head h2{font:400 clamp(26px,3.4vw,38px)/1.15 var(--serif);margin:0;text-wrap:balance}
+  .c-thesis{grid-column:2;max-width:64ch;color:var(--paper-dim);margin:6px 0 0;font-size:16.5px}
+  .c-thesis b{color:var(--gold);font-weight:600}
+
+  .tabs{display:flex;flex-wrap:wrap;gap:2px 22px;margin:26px 0 14px;padding:0}
+  .tabs button{appearance:none;background:none;border:none;cursor:pointer;padding:8px 0;
+    font:600 12px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);
+    border-bottom:2px solid transparent;transition:color .15s}
+  .tabs button:hover{color:var(--paper-dim)}
+  .tabs button[aria-pressed="true"]{color:var(--gold);border-bottom-color:var(--gold)}
+  .tabs button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .concept-note{font-size:14px;font-style:italic;color:var(--ghost);margin:0 0 18px;min-height:1.5em}
+
+  .mock{position:relative;height:580px;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    background:var(--room)}
+  [hidden]{display:none!important}
+
+  .call{position:absolute;z-index:9;border:1px dashed rgba(226,172,74,.5);color:var(--gold);
+    font:600 10px/1.5 var(--sans);letter-spacing:.07em;text-transform:uppercase;
+    padding:7px 10px;border-radius:4px;background:rgba(11,14,20,.9);max-width:200px}
+
+  .notes{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:26px 0 0}
+  .notes h4{font:600 10.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;margin:0 0 10px}
+  .notes .win h4{color:var(--ink-yara)} .notes .strain h4{color:var(--ink-kael)}
+  .notes ul{margin:0;padding:0 0 0 18px;color:var(--paper-dim);font-size:14.5px}
+  .notes li{margin:0 0 8px}
+
+  /* ── shared story typography inside mocks ─── */
+  .prose p{margin:0 0 1.15em;font-size:15.5px;line-height:1.85;color:rgba(233,223,200,.92)}
+  .prose .dir{color:rgba(233,223,200,.92)}
+  .prose .say{font-weight:600}
+  .at{padding:0 2px;border-bottom:2px solid;font-weight:600}
+  .caret{display:inline-block;width:2px;height:1.05em;vertical-align:-.18em;background:var(--gold);margin-left:2px}
+  .lead-in{font-weight:600}
+  .placeholder{color:var(--ghost);font-style:italic}
+  .seal{appearance:none;border:none;cursor:pointer;border-radius:999px;padding:9px 18px;
+    background:radial-gradient(circle at 35% 30%,#a04248,var(--wax) 70%);color:#f3d9a5;
+    font:700 10.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;
+    box-shadow:0 3px 10px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.15)}
+  .seal:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .writing-line{font-style:italic;color:var(--ghost);font-size:15px}
+  .writing-line .who{font-style:normal;font-weight:600}
+  .dots span{display:inline-block}
+
+  .die{position:relative;width:42px;height:42px;border-radius:8px;background:#e9dfc8;
+    box-shadow:0 4px 10px rgba(0,0,0,.55), inset 0 -3px 0 rgba(0,0,0,.18)}
+  .die .pip{position:absolute;width:7px;height:7px;border-radius:50%;background:#211a10}
+
+  .vote-block{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);padding:14px 0;margin:6px 0 12px}
+  .vote-q{font-style:italic;color:var(--gold);font-size:15.5px;margin:0 0 12px}
+  .vote-opt{position:relative;margin:0 0 14px;padding:2px 0 2px 16px;border-left:2px solid}
+  .vote-opt p{margin:0;font-size:15px;line-height:1.75}
+  .vote-meta{display:flex;align-items:center;gap:10px;margin-top:6px;font:600 10px/1 var(--sans);
+    letter-spacing:.12em;text-transform:uppercase;color:var(--ghost)}
+  .vote-meta .w{display:inline-block;width:14px;height:14px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#a04248,var(--wax) 70%);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+
+  /* ── Concept I: Set in Ink ─────────────────── */
+  .m1{display:flex;align-items:stretch;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 0%,#101624 0%,var(--void) 70%)}
+  .m1 .sheet{width:min(640px,88%);margin:36px 0 0;background:var(--sheet);border:1px solid var(--line-soft);
+    border-bottom:none;border-radius:6px 6px 0 0;padding:34px 46px 20px;display:flex;flex-direction:column;
+    box-shadow:0 -20px 60px rgba(0,0,0,.45)}
+  .m1 .sheet-head{display:flex;justify-content:space-between;gap:12px;font:600 9.5px/1.6 var(--sans);
+    letter-spacing:.16em;text-transform:uppercase;color:var(--ghost);border-bottom:1px solid var(--line-soft);
+    padding-bottom:12px;margin-bottom:22px}
+  .m1 .prose{flex:1;overflow:hidden}
+  .m1 .sig{border-top:1px solid var(--line-soft);margin-top:14px;padding-top:12px;
+    font:600 10px/1.8 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ghost)}
+  .m1 .sig .nm{letter-spacing:.12em}
+  .dice-slip{display:flex;align-items:center;gap:20px;margin:18px 0;padding:16px 18px;
+    border:1px solid rgba(226,172,74,.25);border-radius:6px;background:rgba(226,172,74,.05)}
+  .dice-slip .stakes{flex:1;font-size:14px;line-height:1.7}
+  .dice-slip .stakes .q{font-style:italic;color:var(--paper)}
+  .dice-slip .stakes .hb{margin-top:6px;font-size:13px;color:var(--paper-dim)}
+  .dice-slip .stakes .hb b{font:700 9.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+  .dice-slip .stakes .hold b{color:var(--ink-yara)} .dice-slip .stakes .brk b{color:var(--ink-kael)}
+  .dice-pair{display:flex;gap:10px;align-items:center}
+
+  /* ── Concept II: The Open Book ─────────────── */
+  .m2{display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(100% 80% at 50% 10%,#0f1522 0%,var(--void) 75%)}
+  .book{display:grid;grid-template-columns:1fr 1fr;width:min(880px,94%);height:492px;
+    border-radius:6px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.55);position:relative}
+  .pg{padding:30px 34px;overflow:hidden;position:relative}
+  .pg.verso{background:var(--sheet-2);border-right:none}
+  .pg.recto{background:var(--sheet)}
+  .book::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:44px;transform:translateX(-50%);
+    background:linear-gradient(90deg,transparent, rgba(0,0,0,.5) 50%, transparent);pointer-events:none;z-index:2}
+  .ribbon{position:absolute;left:50%;top:-4px;transform:translateX(-50%);width:14px;height:74px;z-index:3;
+    background:linear-gradient(180deg,var(--gold),#9a6f26);
+    clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%)}
+  .pg h5{font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--ghost);
+    margin:0 0 18px;display:flex;justify-content:space-between;gap:10px}
+  .pg.verso .prose p{font-size:14px;line-height:1.8;color:rgba(233,223,200,.62);text-align:justify}
+  .pg.recto .prose p{font-size:15px}
+  .settle{margin-top:14px;padding-top:10px;border-top:1px dotted var(--line);font-size:12.5px;color:var(--ghost);font-style:italic}
+  .quill-with{color:var(--paper)}
+
+  /* ── Concept III: The Table ────────────────── */
+  .m3{background:
+    radial-gradient(60% 48% at 50% 46%, rgba(226,172,74,.13) 0%, rgba(226,172,74,.04) 45%, transparent 70%),
+    radial-gradient(120% 100% at 50% 50%, #121a2b 0%, #0a0d13 78%);
+    display:flex;align-items:center;justify-content:center}
+  .m3 .page-mini{width:min(470px,58%);height:400px;background:var(--sheet);border:1px solid var(--line-soft);
+    border-radius:5px;padding:24px 30px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;z-index:2}
+  .m3 .page-mini .prose p{font-size:14px;line-height:1.8}
+  .seat{position:absolute;z-index:3;display:flex;flex-direction:column;align-items:center;gap:5px;width:78px}
+  .seat .ring{width:46px;height:46px;border-radius:50%;border:2px solid;display:flex;align-items:center;
+    justify-content:center;font:400 18px var(--serif);background:rgba(11,14,20,.85);position:relative;
+    transition:box-shadow .2s}
+  .seat .nm{font:600 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+  .seat.lit .ring{box-shadow:0 0 22px rgba(226,172,74,.55)}
+  .pen-dot{position:absolute;top:-7px;right:-7px;color:var(--gold);font-size:15px;
+    filter:drop-shadow(0 0 5px rgba(226,172,74,.8))}
+  .aud{position:absolute;z-index:1;display:flex;gap:7px}
+  .aud i{width:5px;height:5px;border-radius:50%;background:rgba(233,223,200,.22)}
+  .table-cap{position:absolute;left:0;right:0;bottom:18px;text-align:center;z-index:3}
+  .slip{position:absolute;z-index:3;width:170px;background:#1a2134;border:1px solid var(--line);
+    border-radius:4px;padding:12px 14px;font-size:12.5px;line-height:1.6;color:var(--paper-dim);
+    box-shadow:0 10px 26px rgba(0,0,0,.5)}
+  .slip .vote-meta{margin-top:8px}
+  .m3 .dice-wood{position:absolute;z-index:3;display:flex;gap:10px;align-items:flex-start}
+
+  /* ── the words we use ──────────────────────── */
+  .lang-scroll{overflow-x:auto;margin-top:26px;border:1px solid var(--line-soft)}
+  table.lang{width:100%;min-width:560px;border-collapse:collapse;font-size:14px}
+  .lang th{font:600 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ghost);text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);
+    background:var(--room)}
+  .lang td{padding:11px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top;line-height:1.55}
+  .lang td.was{color:var(--ghost);font-style:italic;text-decoration:line-through;text-decoration-color:rgba(210,149,165,.5)}
+  .lang td.now{color:var(--paper)}
+  .lang td.why{color:var(--paper-dim);font-size:13px}
+
+  /* ── recommendation ────────────────────────── */
+  section.rec{margin:96px 0 0;border-top:1px solid var(--line-soft);padding:56px 0 40px}
+  .rec h2{font:400 clamp(24px,3vw,34px)/1.2 var(--serif);margin:14px 0 18px;text-wrap:balance}
+  .rec p{max-width:68ch;color:var(--paper-dim);font-size:16px;margin:0 0 16px}
+  .rec p b{color:var(--paper);font-weight:600}
+  .rec .keep{color:var(--gold)}
+  footer{padding:20px 0 64px;color:var(--ghost);font:400 12.5px/1.7 var(--sans)}
+
+  /* ── Live Ink demo ─────────────────────────── */
+  .demo-room{transition:background .8s}
+  .demo-room .sheet{transition:opacity .6s}
+  .demo-room.held .sheet{opacity:.55}
+  .wet{filter:brightness(1.45);text-shadow:0 0 10px currentColor;transition:filter 3s ease,text-shadow 3s ease}
+  .wet.dry{filter:none;text-shadow:none}
+  .struck{text-decoration:line-through;text-decoration-thickness:2px;opacity:.4;transition:opacity 2s}
+  .struck.bled{opacity:.18}
+  .glim{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(233,223,200,.0);
+    box-shadow:0 0 6px rgba(226,172,74,.0);transition:all 1.2s;z-index:4}
+  .glim.on{background:rgba(233,223,200,.55);box-shadow:0 0 8px rgba(226,172,74,.6)}
+  .murmur{position:absolute;left:0;right:0;bottom:10px;text-align:center;z-index:5;
+    font:600 9.5px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--ghost);transition:color .6s}
+  .murmur.stir{color:var(--gold-dim)}
+  .sig .flare{text-shadow:0 0 12px currentColor;transition:text-shadow .4s}
+  .demo-slip{position:absolute;right:6%;top:30%;z-index:6;width:230px;background:#1a2134;
+    border:1px solid rgba(226,172,74,.35);border-radius:5px;padding:14px 16px;font-size:13px;line-height:1.65;
+    color:var(--paper-dim);box-shadow:0 16px 40px rgba(0,0,0,.6);opacity:0;transform:translateY(8px);
+    transition:opacity .5s,transform .5s}
+  .demo-slip.in{opacity:1;transform:none}
+  .demo-slip .res{display:block;margin-top:8px;font:400 17px var(--serif);color:var(--gold)}
+  .demo-slip .dice-pair{margin-top:10px}
+  .demo-ctl{position:absolute;left:0;right:0;bottom:40px;display:flex;justify-content:center;z-index:7;
+    opacity:0;transition:opacity .6s;pointer-events:none}
+  .demo-ctl.in{opacity:1;pointer-events:auto}
+  .replay{appearance:none;cursor:pointer;background:rgba(11,14,20,.9);border:1px solid var(--gold-dim);
+    color:var(--gold);border-radius:999px;padding:10px 22px;font:600 11px/1 var(--sans);
+    letter-spacing:.16em;text-transform:uppercase}
+  .replay:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .setline{color:rgba(233,223,200,.5);font-style:italic;font-size:14px}
+  @media (prefers-reduced-motion:no-preference){
+    .demo-slip .die.tumble{animation:tumble .18s linear 5}
+    @keyframes tumble{50%{transform:rotate(14deg) translateY(-3px)}}
+  }
+
+  /* ── The House (audience) ──────────────────── */
+  .warm{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity 1.2s;
+    background:radial-gradient(70% 55% at 50% 40%, rgba(226,172,74,.14), transparent 70%)}
+  .warm.on{opacity:1}
+  .gilded{border-left:2px solid var(--gold);padding-left:14px;
+    background:linear-gradient(100deg,transparent 35%,rgba(226,172,74,.10) 50%,transparent 65%);
+    background-size:220% 100%}
+  .gild-meta{font:600 9.5px/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+    color:var(--gold-dim);margin:-8px 0 16px;padding-left:16px}
+  .aud-chip{appearance:none;cursor:pointer;border:1px solid var(--gold-dim);border-radius:999px;
+    padding:8px 15px;font:600 10px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+    color:var(--gold);background:rgba(226,172,74,.06);transition:background .2s}
+  .aud-chip:hover{background:rgba(226,172,74,.14)}
+  .aud-chip:disabled{cursor:default;opacity:.45;border-style:dashed}
+  .aud-chip:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .house-gestures{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;padding-top:14px;
+    border-top:1px solid var(--line-soft)}
+  .rim{position:absolute;right:2.5%;top:16%;z-index:4;display:flex;flex-direction:column;gap:14px;align-items:center}
+  .rim .seat-mini{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .rim .ring-mini{width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(226,172,74,.65);
+    display:flex;align-items:center;justify-content:center;font:400 13px var(--serif);color:var(--gold);
+    background:rgba(11,14,20,.85);box-shadow:0 0 14px rgba(226,172,74,.25)}
+  .rim .nm-mini{font:600 8.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim)}
+  .rim .dark-count{margin-top:6px;font:600 8.5px/1.6 var(--sans);letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ghost);text-align:center}
+  .rim .dark-dots{display:flex;flex-wrap:wrap;gap:5px;width:44px;justify-content:center;margin-bottom:5px}
+  .rim .dark-dots i{width:4px;height:4px;border-radius:50%;background:rgba(233,223,200,.22)}
+  .glint{position:absolute;z-index:8;color:var(--gold);font-size:11px;pointer-events:none;opacity:0}
+  @media (prefers-reduced-motion:no-preference){
+    .gilded{animation:sweep 2.8s ease 1}
+    @keyframes sweep{from{background-position:200% 0}to{background-position:-20% 0}}
+    .glint{animation:glintup 1.4s ease-out forwards}
+    @keyframes glintup{0%{opacity:0;transform:translateY(4px)}25%{opacity:1}100%{opacity:0;transform:translateY(-26px)}}
+  }
+
+  /* ── The Stranger (audience character) ─────── */
+  .ballot{border:1px solid rgba(185,198,216,.3);border-radius:6px;background:rgba(185,198,216,.05);
+    padding:16px 18px;margin:16px 0;transition:opacity .6s}
+  .ballot.gone{opacity:0}
+  .ballot h6{margin:0 0 12px;font:600 9.5px/1.5 var(--sans);letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-strange)}
+  .b-opt{display:block;width:100%;appearance:none;background:none;border:1px solid transparent;
+    border-radius:4px;cursor:pointer;text-align:left;padding:9px 10px;margin:0 0 6px;position:relative;
+    color:rgba(233,223,200,.88);font:italic 14px/1.55 var(--serif);transition:border-color .2s}
+  .b-opt:hover{border-color:rgba(185,198,216,.35)}
+  .b-opt:focus-visible{outline:2px solid var(--ink-strange);outline-offset:2px}
+  .b-opt:disabled{cursor:default}
+  .b-opt.win{border-color:var(--gold-dim);color:var(--paper)}
+  .b-bar{display:block;height:3px;margin-top:7px;background:rgba(185,198,216,.15);border-radius:2px;overflow:hidden}
+  .b-bar i{display:block;height:100%;width:0%;background:var(--ink-strange);transition:width .25s ease}
+  .b-opt.win .b-bar i{background:var(--gold)}
+  .b-tally{position:absolute;right:10px;top:9px;font:600 10px/1.6 var(--sans);letter-spacing:.1em;
+    color:var(--ghost)}
+  .b-yours{font:600 8.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-strange);margin-left:8px}
+
+  @media (max-width:760px){
+    .c-head{grid-template-columns:1fr}
+    .c-thesis{grid-column:1}
+    .notes{grid-template-columns:1fr}
+    .mock{height:520px}
+    .m1 .sheet{padding:24px 22px 14px}
+    .book{grid-template-columns:1fr;height:auto}
+    .pg.verso{display:none}
+    .call{display:none}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .caret{animation:blink 1.1s steps(1) infinite}
+    @keyframes blink{50%{opacity:0}}
+    .dots span{animation:rise 1.4s ease-in-out infinite}
+    .dots span:nth-child(2){animation-delay:.18s}
+    .dots span:nth-child(3){animation-delay:.36s}
+    @keyframes rise{0%,100%{opacity:.3}50%{opacity:1}}
+    .seat.lit .ring{animation:breathe 2.6s ease-in-out infinite}
+    @keyframes breathe{50%{box-shadow:0 0 30px rgba(226,172,74,.75)}}
+  }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Quiloria · Adventure Mode v2 · concept pitch</p>
+    <h1>Where do the mechanics live?</h1>
+    <p class="lede">Three concepts for the core play surface. Same locked spec, same scene, same five states — three different answers to the only question that decides whether this feels calm or messy. <em>Click the states under each concept.</em></p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="spec">
+    <div>
+      <h3>One beat of play</h3>
+      <p>The Director writes. <b>Naming @Kael hands him the pen.</b> He writes one passage; the pen returns.</p>
+    </div>
+    <div>
+      <h3>Two mechanics</h3>
+      <p><b>The 2d6 dice</b> and <b>the table's vote</b> (with the audience leaning in). Nothing else ships in v1.</p>
+    </div>
+    <div>
+      <h3>Waiting is reading</h3>
+      <p>The book, plus <b>"… is writing."</b> No panels, no queues, no cockpit.</p>
+    </div>
+    <div>
+      <h3>Four chairs</h3>
+      <p>Director · players · the audience beyond the light. Sessions still compile into chapters.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CONCEPT I ═══════════ -->
+<section class="concept wrap" id="c1">
+  <div class="c-head">
+    <span class="c-num">I</span>
+    <h2>Set in Ink</h2>
+    <p class="c-thesis">The mechanics live <b>in the type itself</b>. There is one page and nothing else — no seats, no station, no margin. Presence is a signature line. The pass is a written name. The dice and the vote are the only two moments the page stops being pure story, and they happen <b>as things printed on it</b>.</p>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Concept I states">
+    <button data-state="director" data-note="The Director's ink flows. The moment the name @Kael is set down, the pen is his — the pass is the sentence." aria-pressed="true">The Director writes</button>
+    <button data-state="turn" data-note="Kael's view: the ask is the last line of the story, his ink takes over the page, one seal to commit. That is the entire control surface." aria-pressed="false">Your turn</button>
+    <button data-state="dice" data-note="A roll is a printed slip between paragraphs — stakes above, bones below. The result stamps into the page as one line of set type." aria-pressed="false">The dice</button>
+    <button data-state="vote" data-note="The ink divides: competing passages in their authors' inks, wax seals as votes, the audience leaning from the dark. The winning ink is set; the rest fades to a footnote." aria-pressed="false">The table votes</button>
+    <button data-state="waiting" data-note="Everyone else sees a book — and one breathing line. Nothing to operate." aria-pressed="false">Waiting</button>
+  </div>
+  <p class="concept-note"></p>
+
+  <div class="mock m1" data-state="director">
+    <div class="sheet">
+      <div class="sheet-head">
+        <span>The Vault of Ashes · session iii</span>
+        <span>chapter forming</span>
+      </div>
+      <div class="prose">
+        <p class="dir">The vault door had not been opened in a hundred years, and it showed: wax spilled like old blood across the seams, and the air beyond breathed cold through the keyhole. Somewhere below, the warden's lantern swung its slow arc.</p>
+        <p style="color:var(--ink-yara)">Yara pressed two fingers to the wax and closed her eyes. <span class="say">"It's not a lock,"</span> she murmured. <span class="say">"It's a promise. Someone swore this door shut."</span></p>
+
+        <p class="dir" data-st="director" style="color:var(--gold)">The lantern's arc stopped. Footsteps — unhurried, certain — turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">@Kael</span>, the light is coming for you. What do you do?<span class="caret"></span></p>
+
+        <p class="dir" data-st="turn dice vote waiting">The lantern's arc stopped. Footsteps — unhurried, certain — turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">Kael</span>, the light is coming for you. What do you do?</p>
+
+        <div data-st="turn">
+          <p><span class="lead-in" style="color:var(--ink-kael)">Kael </span><span class="placeholder">…what does he do?</span><span class="caret" style="background:var(--ink-kael)"></span></p>
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button class="seal" type="button">Add to the story</button>
+          </div>
+        </div>
+
+        <div class="dice-slip" data-st="dice">
+          <div class="stakes">
+            <div class="q">Kael — meet it with boldness: cross the hall before the lantern turns.</div>
+            <div class="hb hold"><b>holds</b> · you reach the stair unseen</div>
+            <div class="hb brk"><b>breaks</b> · the light finds you, and the vault knows your name</div>
+          </div>
+          <div class="dice-pair">
+            <div class="die" style="transform:rotate(-7deg)">
+              <span class="pip" style="top:7px;left:7px"></span><span class="pip" style="top:7px;right:7px"></span>
+              <span class="pip" style="top:17px;left:17px"></span>
+              <span class="pip" style="bottom:7px;left:7px"></span><span class="pip" style="bottom:7px;right:7px"></span>
+            </div>
+            <div class="die" style="transform:rotate(9deg)">
+              <span class="pip" style="top:7px;left:7px"></span>
+              <span class="pip" style="top:17px;left:17px"></span>
+              <span class="pip" style="bottom:7px;right:7px"></span>
+            </div>
+            <button class="seal" type="button">Roll</button>
+          </div>
+        </div>
+
+        <div class="vote-block" data-st="vote">
+          <p class="vote-q">✦ The wax breaks — and the promise with it. What wakes below?</p>
+          <div class="vote-opt" style="border-color:var(--ink-yara)">
+            <p style="color:var(--ink-yara)">Nothing wakes. Worse — something is already awake, and it has been waiting, politely, for someone to knock.</p>
+            <div class="vote-meta"><span class="w"></span><span class="w"></span> 2 votes · 12 viewers lean this way</div>
+          </div>
+          <div class="vote-opt" style="border-color:var(--ink-bren)">
+            <p style="color:var(--ink-bren)">The ash stirs into the shape of the hundred who sealed it — and they are still loyal.</p>
+            <div class="vote-meta"><span class="w"></span> 1 vote · 4 viewers</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button class="seal" type="button">Add the winner to the story</button></div>
+        </div>
+
+        <p class="writing-line" data-st="waiting"><span class="who" style="color:var(--ink-yara)">Yara</span> is writing<span class="dots"><span>.</span><span>.</span><span>.</span></span></p>
+      </div>
+
+      <div class="sig">
+        at the table — <span class="nm" style="color:var(--gold)">✦ the Director</span> · <span class="nm" style="color:var(--ink-kael)">Kael</span> · <span class="nm" style="color:var(--ink-yara)">Yara</span> · <span class="nm" style="color:var(--ink-bren)">Bren</span> · <span class="nm">12 watching</span>
+      </div>
+    </div>
+
+    <div class="call" data-st="director" style="right:4%;top:38%">naming a character <em>is</em> the pass — no seats to click</div>
+    <div class="call" data-st="turn" style="right:4%;top:52%">the ask is the lead-in; one seal is the whole UI</div>
+    <div class="call" data-st="waiting" style="right:4%;top:64%">presence lives in one signature line, names in their inks</div>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>Why it might win</h4>
+      <ul>
+        <li>The purest expression of the thesis: if it can't be a sentence on the page, it doesn't exist.</li>
+        <li>Zero furniture to re-clutter later — the spec is enforced by the layout itself.</li>
+        <li>Collapses to mobile with no design work: it's already a single column of type.</li>
+        <li>The ink-identity system (already built) does all the presence work color alone can do.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Where it strains</h4>
+      <ul>
+        <li>Quietest of the three — the drama budget must be spent entirely on the dice cast and the vote, or it reads as a doc.</li>
+        <li>Presence is abstract: "who's here" is a signature line, not faces.</li>
+        <li>@-passing needs a good mention picker or it becomes typing friction.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CONCEPT II ═══════════ -->
+<section class="concept wrap" id="c2">
+  <div class="c-head">
+    <span class="c-num">II</span>
+    <h2>The Open Book</h2>
+    <p class="c-thesis">The mechanics live <b>on the live page only</b>. You sit inside an open spread: the verso is history — settled, set type, untouchable. The recto is <b>now</b> — the forming paragraph, the dice, the vote. When a mechanic resolves, it settles into the verso as one printed line. Past and play are divided by the gutter.</p>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Concept II states">
+    <button data-state="director" data-note="The recto's running head is the turn signal: 'the quill is with the Director.' History on the left never changes." aria-pressed="true">The Director writes</button>
+    <button data-state="turn" data-note="Kael's view: the recto is his. The running head names him; the ask sits at the top of the live page." aria-pressed="false">Your turn</button>
+    <button data-state="dice" data-note="The dice are clipped to the live page like a slip of paper. When cast, the slip vanishes and one set line joins the verso." aria-pressed="false">The dice</button>
+    <button data-state="vote" data-note="The live page splits into competing inks. The winning passage crosses the gutter and becomes history; the loser never touches the verso." aria-pressed="false">The table votes</button>
+    <button data-state="waiting" data-note="A reader's view of the spread: finished pages left, a page being written right. '…is writing' is the only moving part." aria-pressed="false">Waiting</button>
+  </div>
+  <p class="concept-note"></p>
+
+  <div class="mock m2" data-state="director">
+    <div class="book">
+      <span class="ribbon"></span>
+      <div class="pg verso">
+        <h5><span>The Vault of Ashes</span><span>· 61 ·</span></h5>
+        <div class="prose">
+          <p>The road had given them nothing for three days but rain and the long patience of the hills, and then, at dusk on the fourth, the chapel — roofless, ash-floored, and older than any map admitted.</p>
+          <p>Bren found the stair by falling into it. "Stairs," he reported, from below, with dignity.</p>
+          <p>The vault door had not been opened in a hundred years, and it showed: wax spilled like old blood across the seams, and the air beyond breathed cold through the keyhole. Somewhere below, the warden's lantern swung its slow arc.</p>
+          <p data-st="dice vote waiting" style="color:rgba(233,223,200,.5)">— Kael crossed with boldness, and the dice held: <em>8</em>. The stair took him quietly.</p>
+        </div>
+        <p class="settle" data-st="dice">⤷ resolved mechanics settle here as one set line</p>
+      </div>
+      <div class="pg recto">
+        <h5>
+          <span data-st="director dice vote">now writing — <span class="quill-with" style="color:var(--gold)">✦ the Director</span></span>
+          <span data-st="turn">now writing — <span class="quill-with" style="color:var(--ink-kael)">you, Kael</span></span>
+          <span data-st="waiting">now writing — <span class="quill-with" style="color:var(--ink-yara)">Yara</span></span>
+          <span>· 62 ·</span>
+        </h5>
+        <div class="prose">
+          <p style="color:var(--ink-yara)">Yara pressed two fingers to the wax. <span class="say">"It's not a lock. It's a promise."</span></p>
+
+          <p data-st="director" style="color:var(--gold)">The lantern's arc stopped. Footsteps turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">@Kael</span>, the light is coming for you.<span class="caret"></span></p>
+
+          <p data-st="turn dice vote waiting">The lantern's arc stopped. Footsteps turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">Kael</span>, the light is coming for you. What do you do?</p>
+
+          <div data-st="turn">
+            <p><span class="lead-in" style="color:var(--ink-kael)">Kael </span><span class="placeholder">…what does he do?</span><span class="caret" style="background:var(--ink-kael)"></span></p>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="seal" type="button">Add to the story</button></div>
+          </div>
+
+          <div class="dice-slip" data-st="dice" style="margin:14px 0">
+            <div class="stakes">
+              <div class="q">Kael — with boldness: cross before the lantern turns.</div>
+            </div>
+            <div class="dice-pair">
+              <div class="die" style="width:34px;height:34px;transform:rotate(-7deg)">
+                <span class="pip" style="top:5px;left:5px"></span><span class="pip" style="top:5px;right:5px"></span>
+                <span class="pip" style="bottom:5px;left:5px"></span><span class="pip" style="bottom:5px;right:5px"></span>
+              </div>
+              <button class="seal" type="button">Roll</button>
+            </div>
+          </div>
+
+          <div class="vote-block" data-st="vote">
+            <p class="vote-q">✦ What wakes below?</p>
+            <div class="vote-opt" style="border-color:var(--ink-yara)">
+              <p style="color:var(--ink-yara)">Something already awake, waiting politely for a knock.</p>
+              <div class="vote-meta"><span class="w"></span><span class="w"></span> 2 votes · 12 viewers</div>
+            </div>
+            <div class="vote-opt" style="border-color:var(--ink-bren)">
+              <p style="color:var(--ink-bren)">The ash stirs into the hundred who sealed it, still loyal.</p>
+              <div class="vote-meta"><span class="w"></span> 1 vote · 4 viewers</div>
+            </div>
+          </div>
+
+          <p class="writing-line" data-st="waiting"><span class="who" style="color:var(--ink-yara)">Yara</span> is writing<span class="dots"><span>.</span><span>.</span><span>.</span></span></p>
+        </div>
+      </div>
+    </div>
+    <div class="call" data-st="vote" style="left:6%;bottom:10%">the losing ink never crosses the gutter</div>
+    <div class="call" data-st="dice" style="left:6%;bottom:10%">history absorbs the roll as one printed line</div>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>Why it might win</h4>
+      <ul>
+        <li>The strongest metaphor of the three: the gutter <em>is</em> the mechanics-quarantine rule, made visible.</li>
+        <li>Flatters the output — you watch a real book accrete while you play; compile-to-chapter feels inevitable.</li>
+        <li>"Now writing —" as a running head is the calmest possible turn signal.</li>
+        <li>Spectators get the best seat in the house: a book that writes itself.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Where it strains</h4>
+      <ul>
+        <li>Half the screen is history you rarely re-read — expensive real estate during play.</li>
+        <li>The writing column is narrow on laptops.</li>
+        <li>On mobile the verso disappears and it quietly becomes Concept I — which asks whether the spread earns its complexity.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CONCEPT III ═══════════ -->
+<section class="concept wrap" id="c3">
+  <div class="c-head">
+    <span class="c-num">III</span>
+    <h2>The Table</h2>
+    <p class="c-thesis">The mechanics live <b>around the page, on the table</b>. The room is radial: one lit page at the center, seats at the table's edge, the audience as faint points beyond the light. The pen visibly travels when a name is written. Dice are cast <b>onto the wood</b>, votes are slips laid beside the page — the page itself stays pure story.</p>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Concept III states">
+    <button data-state="director" data-note="The Director's seat holds the pen at the head of the table; the candlelight leans their way." aria-pressed="true">The Director writes</button>
+    <button data-state="turn" data-note="The written @ makes the pen physically glide across the table to Kael's seat — the one piece of theatre the pass gets." aria-pressed="false">Your turn</button>
+    <button data-state="dice" data-note="The bones land on the wood beside the page, stakes on a slip — mechanics never print on the story." aria-pressed="false">The dice</button>
+    <button data-state="vote" data-note="Two slips laid on the table flanking the page; seals slide onto them; the winner is transcribed." aria-pressed="false">The table votes</button>
+    <button data-state="waiting" data-note="Yara's seat glows, her ink flows onto the page. Everyone else just watches the table." aria-pressed="false">Waiting</button>
+  </div>
+  <p class="concept-note"></p>
+
+  <div class="mock m3" data-state="director">
+    <!-- audience beyond the light -->
+    <div class="aud" style="top:22px;left:8%"><i></i><i></i><i></i><i></i></div>
+    <div class="aud" style="top:22px;right:8%"><i></i><i></i><i></i><i></i><i></i></div>
+
+    <!-- seats -->
+    <div class="seat lit-director" data-seat="director" style="top:26px;left:50%;transform:translateX(-50%)">
+      <div class="ring" style="border-color:var(--gold);color:var(--gold)">✦<span class="pen-dot" data-st="director dice vote">✒</span></div>
+      <span class="nm" style="color:var(--gold)">Director</span>
+    </div>
+    <div class="seat" data-seat="yara" style="right:5%;top:44%">
+      <div class="ring" style="border-color:var(--ink-yara);color:var(--ink-yara)">Y<span class="pen-dot" data-st="waiting">✒</span></div>
+      <span class="nm" style="color:var(--ink-yara)">Yara</span>
+    </div>
+    <div class="seat" data-seat="bren" style="left:5%;top:44%">
+      <div class="ring" style="border-color:var(--ink-bren);color:var(--ink-bren)">B</div>
+      <span class="nm" style="color:var(--ink-bren)">Bren</span>
+    </div>
+    <div class="seat" data-seat="kael" style="bottom:26px;left:50%;transform:translateX(-50%)">
+      <div class="ring" style="border-color:var(--ink-kael);color:var(--ink-kael)">K<span class="pen-dot" data-st="turn">✒</span></div>
+      <span class="nm" style="color:var(--ink-kael)">Kael · you</span>
+    </div>
+
+    <!-- the page -->
+    <div class="page-mini">
+      <div class="prose">
+        <p style="color:var(--ink-yara)">Yara pressed two fingers to the wax. <span class="say">"It's not a lock. It's a promise. Someone swore this door shut."</span></p>
+
+        <p data-st="director" style="color:var(--gold)">The lantern's arc stopped. Footsteps turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">@Kael</span>, the light is coming for you.<span class="caret"></span></p>
+        <p data-st="turn dice vote waiting">The lantern's arc stopped. Footsteps turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">Kael</span>, the light is coming for you. What do you do?</p>
+
+        <div data-st="turn">
+          <p><span class="lead-in" style="color:var(--ink-kael)">Kael </span><span class="placeholder">…what does he do?</span><span class="caret" style="background:var(--ink-kael)"></span></p>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="seal" type="button">Add to the story</button></div>
+        </div>
+
+        <p class="writing-line" data-st="waiting"><span class="who" style="color:var(--ink-yara)">Yara</span> is writing<span class="dots"><span>.</span><span>.</span><span>.</span></span></p>
+      </div>
+    </div>
+
+    <!-- mechanics on the wood -->
+    <div class="dice-wood" data-st="dice" style="right:8%;bottom:16%">
+      <div class="slip" style="position:static;transform:rotate(3deg);margin-right:6px">
+        <b style="color:var(--gold);font-style:normal">with boldness —</b> cross the hall before the lantern turns.
+      </div>
+      <div class="die" style="transform:rotate(-11deg)">
+        <span class="pip" style="top:7px;left:7px"></span><span class="pip" style="top:7px;right:7px"></span>
+        <span class="pip" style="top:17px;left:17px"></span>
+        <span class="pip" style="bottom:7px;left:7px"></span><span class="pip" style="bottom:7px;right:7px"></span>
+      </div>
+      <div class="die" style="transform:rotate(6deg);margin-top:14px">
+        <span class="pip" style="top:7px;left:7px"></span>
+        <span class="pip" style="top:17px;left:17px"></span>
+        <span class="pip" style="bottom:7px;right:7px"></span>
+      </div>
+    </div>
+
+    <div class="slip" data-st="vote" style="left:3%;top:20%;transform:rotate(-3deg)">
+      <span style="color:var(--ink-yara)">Something already awake, waiting politely…</span>
+      <div class="vote-meta"><span class="w"></span><span class="w"></span> 2 · 12 lean</div>
+    </div>
+    <div class="slip" data-st="vote" style="right:3%;top:20%;transform:rotate(2.5deg)">
+      <span style="color:var(--ink-bren)">The ash stirs into the hundred who sealed it…</span>
+      <div class="vote-meta"><span class="w"></span> 1 · 4 lean</div>
+    </div>
+
+    <div class="table-cap" data-st="turn"><span class="call" style="position:static">the pen glides across the table when the name is written</span></div>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>Why it might win</h4>
+      <ul>
+        <li>Keeps the thing you already love — seats as presence — and promotes it to the whole concept.</li>
+        <li>Most theatrical @ pass: a physical pen crossing the table is a moment every table will feel.</li>
+        <li>Cleanest quarantine: mechanics literally never print on the story page.</li>
+        <li>The audience "beyond the light" has a natural home at the table's edge.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Where it strains</h4>
+      <ul>
+        <li>It's a room again — and rooms invite furniture. This is the layout that got re-cluttered twice.</li>
+        <li>The page shrinks to make space for wood that is empty 90% of the time.</li>
+        <li>Radial layouts fight mobile; the table collapses to a strip and the concept mostly evaporates.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ THE MISSING INGREDIENT ═══════════ -->
+<section class="concept wrap" id="c4">
+  <div class="c-head">
+    <span class="c-num">IV</span>
+    <h2>Live Ink — the ingredient that makes it alive</h2>
+    <p class="c-thesis">Every concept above still reads as "a book" for one reason: <b>we only ever show finished text.</b> A book is what the story leaves behind. The thing nobody has built — not Storium, not any VTT — is watching a story <b>be written</b>: the ink flowing, the hesitations, the crossed-out first attempt, the room holding its breath at the dice. The reader of a book sees what was written. <b>The table sees the writing.</b> This layer sits on top of Concept I; the demo below plays one live minute.</p>
+  </div>
+  <p class="concept-note">The moment plays itself once. Watch the ink arrive wet and dry on the page; watch the dark lean in.</p>
+
+  <div class="mock m1 demo-room" id="demo">
+    <div class="sheet">
+      <div class="sheet-head">
+        <span>The Vault of Ashes · session iii — live</span>
+        <span id="d-live" style="color:var(--gold)">● live</span>
+      </div>
+      <div class="prose" id="d-prose">
+        <p>The vault door had not been opened in a hundred years, and it showed: wax spilled like old blood across the seams, and the air beyond breathed cold through the keyhole.</p>
+        <p style="color:var(--ink-yara)">Yara pressed two fingers to the wax. <span class="say">"It's not a lock. It's a promise. Someone swore this door shut."</span></p>
+      </div>
+      <div class="sig" id="d-sig">
+        at the table — <span class="nm" style="color:var(--gold)">✦ the Director</span> · <span class="nm" id="d-sig-kael" style="color:var(--ink-kael)">Kael</span> · <span class="nm" style="color:var(--ink-yara)">Yara</span> · <span class="nm" style="color:var(--ink-bren)">Bren</span>
+      </div>
+    </div>
+    <div class="demo-slip" id="d-slip">
+      <b style="color:var(--gold)">with boldness —</b> cross the hall before the lantern turns.
+      <div class="dice-pair">
+        <div class="die" id="d-die1" style="width:32px;height:32px;transform:rotate(-8deg)">
+          <span class="pip" style="top:5px;left:5px"></span><span class="pip" style="top:5px;right:5px"></span>
+          <span class="pip" style="bottom:5px;left:5px"></span><span class="pip" style="bottom:5px;right:5px"></span>
+          <span class="pip" style="top:13px;left:13px"></span>
+        </div>
+        <div class="die" id="d-die2" style="width:32px;height:32px;transform:rotate(7deg)">
+          <span class="pip" style="top:5px;left:5px"></span>
+          <span class="pip" style="bottom:5px;right:5px"></span>
+          <span class="pip" style="top:13px;left:13px"></span>
+        </div>
+      </div>
+      <span class="res" id="d-res"></span>
+    </div>
+    <p class="murmur" id="d-murmur">12 watching</p>
+    <div class="demo-ctl" id="d-ctl"><button class="replay" id="d-replay" type="button">Replay the moment</button></div>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>The three layers</h4>
+      <ul>
+        <li><b>Live ink</b> — words arrive as they're written: wet, glowing faintly, drying into the page. Revisions stay as struck-through ghosts until the passage is sealed. Writing becomes performance; presence becomes visible (the thing whose absence killed Storium).</li>
+        <li><b>The felt audience</b> — the dark responds: a glimmer when someone leans in to read, a stir when the table gasps, the count breathing at the page's foot. Writers feel watched the way actors do.</li>
+        <li><b>Shared ritual time</b> — the dice and the vote happen to everyone's page at the same instant: the room dims, the table holds, the result stamps, and one set line joins the story. Synchronized moments, not an async feed.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Honest costs</h4>
+      <ul>
+        <li>True keystroke streaming needs a realtime channel (we poll today). But there's a day-one version with zero infra change: <b>commit → the ink replays</b>. Text always <em>arrives</em> as flowing ink even if written privately — the page never receives dead text.</li>
+        <li>Stage fright is real: default to live, offer "write behind the hand" (private drafting, ink replays on commit). Both look identical to the audience.</li>
+        <li>Restraint required — the glimmers and stirs must stay near-subliminal or we've rebuilt the clutter as particles.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ THE HOUSE ═══════════ -->
+<section class="concept wrap" id="c5">
+  <div class="c-head">
+    <span class="c-num">V</span>
+    <h2>The House — the audience is the light</h2>
+    <p class="c-thesis">When a table plays in public, the session is a show — and a show has a house. The law that keeps it honest: <b>the audience's money never buys the story; it buys light.</b> The table's seals decide what happens — gold only decorates, warms, and remembers. Free viewers are the dark: real, felt, counted. Paying viewers <b>become light the whole room can see</b> — a gilded line, a named seat at the rim, a brighter candle. No shop chrome ever enters the room.</p>
+  </div>
+  <p class="concept-note">This mock is the audience's view. Try the three gestures below the page — each one turns money into light.</p>
+
+  <div class="mock m1 demo-room" id="house">
+    <div class="warm" id="h-warm"></div>
+    <div class="sheet" style="z-index:2">
+      <div class="sheet-head">
+        <span>watching · The Vault of Ashes — live</span>
+        <span id="h-count" style="color:var(--gold)">19 watching</span>
+      </div>
+      <div class="prose">
+        <p class="gilded" style="animation:none">The vault door had not been opened in a hundred years, and it showed: wax spilled like old blood across the seams, and the air beyond breathed cold through the keyhole.</p>
+        <p class="gild-meta">✦ tipped in gold by 3 viewers</p>
+        <p id="h-target" style="color:var(--ink-yara)">Yara pressed two fingers to the wax. <span class="say">"It's not a lock. It's a promise. Someone swore this door shut."</span></p>
+        <p style="color:var(--gold)">The lantern's arc stopped. Footsteps — unhurried, certain — turned toward the stair. <span class="at" style="color:var(--ink-kael);border-color:var(--ink-kael)">Kael</span>, the light is coming for you. What do you do?</p>
+        <p class="writing-line"><span class="who" style="color:var(--ink-kael)">Kael</span> is writing<span class="dots"><span>.</span><span>.</span><span>.</span></span></p>
+      </div>
+      <div class="house-gestures">
+        <button class="aud-chip" id="h-gild" type="button">✦ Tip Yara's line · 5</button>
+        <button class="aud-chip" id="h-coin" type="button">Leave a tip for the table · 10</button>
+        <button class="aud-chip" id="h-seat" type="button">Take a front-row seat</button>
+      </div>
+    </div>
+
+    <div class="rim" id="h-rim">
+      <div class="seat-mini"><div class="ring-mini">M</div><span class="nm-mini">Mira</span></div>
+      <div class="seat-mini"><div class="ring-mini">T</div><span class="nm-mini">Tomas</span></div>
+      <div class="dark-count">
+        <div class="dark-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        +16 in the dark
+      </div>
+    </div>
+
+    <p class="murmur" id="h-murmur">the dark watches, quietly</p>
+    <div class="call" style="left:4%;bottom:12%">the table decides the story — money only makes light</div>
+  </div>
+
+  <div class="wrap" style="padding:0">
+    <div class="spec" style="margin-top:34px">
+      <div>
+        <h3>Tickets</h3>
+        <p>Regular nights are free. <b>Premieres and finales are ticketed</b> — the house pays in ink to be in the room while it happens. The replay joins the book afterward.</p>
+      </div>
+      <div>
+        <h3>Front-row seats</h3>
+        <p>A <b>named seat at the rim of the light</b> — per session or monthly. Your reactions glow brighter; the cast can see who came back.</p>
+      </div>
+      <div>
+        <h3>Tips on a line</h3>
+        <p><b>Applause that pays.</b> Tip a passage: it shimmers for the whole room, the writer's well refills, and the gilding survives into the published chapter.</p>
+      </div>
+      <div>
+        <h3>The pot</h3>
+        <p>Sweeten a crossroads. The pot hangs on <b>the question, never an answer</b> — it splits across the cast when the ink is set. Weightless by design.</p>
+      </div>
+      <div>
+        <h3>Subscriptions</h3>
+        <p><b>The Circle, extended to tables</b>: early chapters, a credit in the playbill, a reserved seat. Or champion one character and back their writer directly.</p>
+      </div>
+      <div>
+        <h3>After the show</h3>
+        <p>Every session mints a <b>free, shareable playbill</b> — cast, title, the most-gilded lines. The compiled chapter then lives in the normal book economy.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>Design laws</h4>
+      <ul>
+        <li><b>Gold never votes.</b> Outcomes belong to the table's seals; audience influence is light and warmth, not weight.</li>
+        <li><b>One gesture, one grammar.</b> Every paid act is "give gold, make light" — no separate features to learn. (This replaces the three bolted-on pay features we deleted: sparks, house-forks, amplifications.)</li>
+        <li><b>The dark is a real seat.</b> Free viewers are counted, felt, and can react — generosity is the upsell, never the paywall.</li>
+        <li><b>The split is printed in the program.</b> Even split across the cast by default, Director-adjustable, visible to the house.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Honest risks</h4>
+      <ul>
+        <li>Gilding can tilt writers toward crowd-pleasing — consider revealing gild totals only when the book closes, so the applause lands after the choice, not before it.</li>
+        <li>Ticketed doors need a full room to feel like an event — gate this behind tables that have proven an audience, or empty premieres will embarrass everyone.</li>
+        <li>Public rooms need the boring safety rail: Director controls the door, mutes the dark, reports work everywhere.</li>
+        <li>Platform cut on every flow is where Quiloria earns — set it once, print it once, never surface it in the room.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ THE STRANGER ═══════════ -->
+<section class="concept wrap" id="c6">
+  <div class="c-head">
+    <span class="c-num">VI</span>
+    <h2>The Stranger — the house's chair at the table</h2>
+    <p class="c-thesis">Opt-in when the story is made: <b>one chair at the table is left empty, and the dark sits in it.</b> The Stranger is a full character in the book — hooded, recurring, written in moon-silver ink — whose every action is chosen by the whole house. The Director stages its moments by writing <b>@Stranger</b>; the house votes; the chosen deed is set in the dark's ink. Even the Director doesn't know what it will do — the story gains a wild element, and the audience gains the one thing no show has ever given them: <b>they are a character in the book.</b> Controlled by presence, never by gold — the law of the House holds.</p>
+  </div>
+  <p class="concept-note">You are the audience. The Director has summoned the Stranger — cast your vote and watch the dark decide. (The house may outvote you.)</p>
+
+  <div class="mock m1 demo-room" id="stranger">
+    <div class="warm" id="s-warm"></div>
+    <div class="sheet" style="z-index:2">
+      <div class="sheet-head">
+        <span>watching · The Vault of Ashes — live</span>
+        <span style="color:var(--ink-strange)">the Stranger wakes</span>
+      </div>
+      <div class="prose" id="s-prose">
+        <p style="color:var(--ink-kael)">Kael reached the stair, and the door gave under his shoulder — one century of promise breaking in a single breath.</p>
+        <p style="color:var(--gold)">Beyond it, in the settled ash, a hooded shape rose from a chair no one had noticed. <span class="at" style="color:var(--ink-strange);border-color:var(--ink-strange)">@Stranger</span> — the promise is broken. What does the Stranger do?</p>
+        <div class="ballot" id="s-ballot">
+          <h6>The audience plays the Stranger — voting closes in 60s</h6>
+          <button class="b-opt" type="button" data-opt="0">Step into the lantern's spill and draw back the hood — let them see its face.
+            <span class="b-tally">0</span><span class="b-bar"><i></i></span></button>
+          <button class="b-opt" type="button" data-opt="1">Whistle down the stair — call the warden home.
+            <span class="b-tally">0</span><span class="b-bar"><i></i></span></button>
+          <button class="b-opt" type="button" data-opt="2">Slip behind the party and lean the vault door shut.
+            <span class="b-tally">0</span><span class="b-bar"><i></i></span></button>
+        </div>
+      </div>
+      <div class="sig">
+        at the table — <span class="nm" style="color:var(--gold)">✦ the Director</span> · <span class="nm" style="color:var(--ink-kael)">Kael</span> · <span class="nm" style="color:var(--ink-yara)">Yara</span> · <span class="nm" style="color:var(--ink-bren)">Bren</span> · <span class="nm" style="color:var(--ink-strange)">the Stranger (played by the audience)</span>
+      </div>
+    </div>
+    <p class="murmur" id="s-murmur">21 watching · the vote is open</p>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>How it plays</h4>
+      <ul>
+        <li><b>Summoned like anyone else:</b> the Director writes @Stranger and the house takes over — the same pass grammar, pointed at the dark.</li>
+        <li><b>Vote on deeds, ink by a hand:</b> the house picks the intent; the Director (or a player the Director taps) sets it in the Stranger's silver — pace stays live, sentences stay good. Slow tables can open it to written submissions instead.</li>
+        <li><b>The dice choose a hand:</b> when the Stranger must roll, one random watcher is handed the bones for the whole house — a lottery of glory.</li>
+        <li><b>It persists.</b> The Stranger recurs across sessions; the house returns to see <em>their</em> character again. Retention is the point.</li>
+        <li><b>Cheap to build:</b> it's the crossroads machinery (rounds, submissions, votes) wearing a hood — one system, two skins.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Design decisions it forces</h4>
+      <ul>
+        <li><b>The Director's veto is non-negotiable</b> — a struck option simply never appears. The Stranger is boxed by the role chosen at creation (the traveler, the servant, the raven), not a free agent.</li>
+        <li><b>Below a quorum the Stranger sleeps</b> — three people voting is sadder than no Stranger. The Director sees "the dark is thin tonight."</li>
+        <li><b>Who writes the ballot?</b> Director-framed options are safe; house-proposed options are electric but need the veto and a beat more time. Ship Director-framed, earn toward proposals.</li>
+        <li><b>The purity line:</b> votes must stay free or the House's law dies here. The defensible tie to revenue: <em>candlelight seats may propose; the dark votes.</em> Sell the pen-to-the-ballot, never the outcome.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ THE WORDS WE USE ═══════════ -->
+<section class="concept wrap" id="c7">
+  <div class="c-head">
+    <span class="c-num">VII</span>
+    <h2>Speak plainly — the language law</h2>
+    <p class="c-thesis">The world can be as deep as we like; the vocabulary cannot. Storium's documented growth-killer was onboarding, and plain labels are the cheapest onboarding there is. The law has three registers: <b>controls speak plainly</b> — if a player must understand a word to act, it's a common word, and a first session requires zero new vocabulary. <b>Atmosphere may whisper poetry</b> — murmur lines and visuals can say "the dark leans in," because nothing depends on reading them. <b>Proper nouns are budgeted</b> — the Director, the Stranger, Ink Drops. Three coins. A new one must retire an old one. The test for every label: <b>would a first-time visitor understand it on sight?</b></p>
+  </div>
+
+  <div class="lang-scroll">
+    <table class="lang">
+      <thead><tr><th>Moment</th><th>The temptation</th><th>What we ship</th><th>Where the poetry went</th></tr></thead>
+      <tbody>
+        <tr><td>Committing your passage</td><td class="was">Set the words</td><td class="now">Add to the story</td><td class="why">the button still looks like a wax seal</td></tr>
+        <tr><td>Rolling</td><td class="was">Cast the bones</td><td class="now">Roll</td><td class="why">the dice still tumble onto the page</td></tr>
+        <tr><td>Whose turn</td><td class="was">the pen is with Kael</td><td class="now">Kael is writing…</td><td class="why">the traveling pen is a visual, not a term</td></tr>
+        <tr><td>Audience count</td><td class="was">19 beyond the light</td><td class="now">19 watching</td><td class="why">"the dark" survives in ambient murmurs only</td></tr>
+        <tr><td>Paid applause</td><td class="was">Gild this passage</td><td class="now">Tip this line · 5</td><td class="why">the line turning gold teaches "gilded" by itself</td></tr>
+        <tr><td>Paid presence</td><td class="was">A seat in the candlelight</td><td class="now">Take a front-row seat</td><td class="why">the seat still glows at the rim of the light</td></tr>
+        <tr><td>Deciding</td><td class="was">Press your seal</td><td class="now">Vote</td><td class="why">the vote mark is drawn as a seal</td></tr>
+        <tr><td>The audience character</td><td class="was">the dark's chair</td><td class="now">the Stranger — played by the audience</td><td class="why">a character name is fiction, not jargon</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="notes">
+    <div class="win">
+      <h4>What this buys</h4>
+      <ul>
+        <li>A first-time viewer can tip, vote, and take a seat without reading anything twice — the conversion path has no vocabulary toll.</li>
+        <li>The poetry gets <em>stronger</em>, not weaker: it stops carrying instructions, so it can be pure atmosphere.</li>
+        <li>Terms players coin themselves ("gilded," "the dark") become community slang — earned, not assigned.</li>
+      </ul>
+    </div>
+    <div class="strain">
+      <h4>Discipline it demands</h4>
+      <ul>
+        <li>Every new feature will arrive with a lovely coined name attached. The name goes in the marketing copy; the button gets the plain verb.</li>
+        <li>The three proper nouns are a hard budget: the Director, the Stranger, Ink Drops. Adding a fourth means retiring one.</li>
+        <li>The mocks above have been re-labeled to this law — it applies to us first.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ RECOMMENDATION ═══════════ -->
+<section class="rec">
+  <div class="wrap">
+    <p class="eyebrow">Recommendation</p>
+    <h2>Set in Ink, performed in Live Ink</h2>
+    <p><b>The shell is Concept I; the soul is Concept IV.</b> Set in Ink is the only layout that physically enforces the spec — there is nowhere to put a fourteenth control, because there is nothing but a page. And its one risk, quietness, is exactly what Live Ink answers: the page is never silent because it is never finished — ink flows, dries, is struck through, is watched. "A blank page" and "a live performance" turn out to be the same design.</p>
+    <p>From Concept II, take the <span class="keep">law</span>, not the layout: <b>mechanics never touch history.</b> A roll or a vote exists only at the live edge of the page; the moment it resolves it becomes one line of set type. That single rule is what keeps the compiled chapter clean and the play surface honest — and it costs nothing to adopt inside Concept I.</p>
+    <p>From Concept III, take the <span class="keep">one moment of theatre</span>: when the Director sets a name down, something visibly travels — the ink of the signature line shifts, the named name flares. Presence compressed to a single breathing line of signatures, not a rail of avatars. If real tables later tell us they miss faces, seats can return — but they should have to earn their way back in.</p>
+    <p style="font-size:14px;color:var(--ghost)">Type is set in system approximations here; the build uses Fraunces / Literata with the Caveat hand and the existing ink palette. All three mocks run on the same fixture scene so the deltas you're seeing are concept, not content.</p>
+  </div>
+</section>
+
+<footer class="wrap">Quiloria · Adventure Mode v2 concept pitch · 2 July 2026 · states: the Director writes → your turn → the dice → the table votes → waiting</footer>
+
+<script>
+  document.querySelectorAll('.concept').forEach(function(c){
+    var mock=c.querySelector('.mock'), note=c.querySelector('.concept-note');
+    var btns=Array.prototype.slice.call(c.querySelectorAll('.tabs button'));
+    function apply(b){
+      mock.dataset.state=b.dataset.state;
+      note.textContent=b.dataset.note;
+      btns.forEach(function(x){x.setAttribute('aria-pressed', x===b?'true':'false');});
+      mock.querySelectorAll('[data-st]').forEach(function(el){
+        el.hidden=el.dataset.st.split(' ').indexOf(b.dataset.state)===-1;
+      });
+      // Concept III: light the writing seat
+      mock.querySelectorAll('.seat').forEach(function(s){s.classList.remove('lit');});
+      var seatFor={director:'director',dice:'director',vote:'director',turn:'kael',waiting:'yara'}[b.dataset.state];
+      var seat=mock.querySelector('.seat[data-seat="'+seatFor+'"]');
+      if(seat)seat.classList.add('lit');
+    }
+    btns.forEach(function(b){b.addEventListener('click',function(){apply(b);});});
+    apply(btns[0]);
+  });
+</script>
+<script>
+(function(){
+  var room=document.getElementById('demo'); if(!room)return;
+  var prose=document.getElementById('d-prose'), sig=document.getElementById('d-sig-kael');
+  var slip=document.getElementById('d-slip'), res=document.getElementById('d-res');
+  var murmur=document.getElementById('d-murmur'), ctl=document.getElementById('d-ctl');
+  var initProse=prose.innerHTML, running=false;
+  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+  function caretEl(color){var c=document.createElement('span');c.className='caret';c.style.background=color;return c;}
+  function makeP(color){var p=document.createElement('p');if(color)p.style.color=color;prose.appendChild(p);return p;}
+  async function typeInto(p,caret,text,cls,color){
+    var s=document.createElement('span');if(cls)s.className=cls;s.classList.add('wet');
+    if(color)s.style.color=color;
+    p.insertBefore(s,caret);
+    for(var i=0;i<text.length;i++){
+      s.textContent+=text[i];
+      var ch=text[i], d=reduced?8:(26+Math.random()*30);
+      if(!reduced&&(ch===','||ch==='—'))d+=190; if(!reduced&&(ch==='.'||ch==='?'))d+=260;
+      await wait(d);
+    }
+    setTimeout(function(){s.classList.add('dry');},1400);
+    return s;
+  }
+  function glimmer(n){
+    for(var i=0;i<n;i++){
+      var g=document.createElement('span');g.className='glim';
+      var side=Math.random();
+      if(side<.5){g.style.bottom=(24+Math.random()*40)+'px';g.style.left=(6+Math.random()*88)+'%';}
+      else{g.style.top=(20+Math.random()*60)+'%';g.style[Math.random()<.5?'left':'right']=(1+Math.random()*3)+'%';}
+      room.appendChild(g);
+      setTimeout(function(el){return function(){el.classList.add('on');};}(g),60+i*260);
+      setTimeout(function(el){return function(){el.classList.remove('on');setTimeout(function(){el.remove();},1300);};}(g),2600+i*260);
+    }
+  }
+  function setMurmur(t,stir){murmur.textContent=t;murmur.classList.toggle('stir',!!stir);}
+
+  async function play(){
+    if(running)return; running=true;
+    prose.innerHTML=initProse; slip.classList.remove('in'); res.textContent='';
+    ctl.classList.remove('in'); room.classList.remove('held');
+    sig.classList.remove('flare'); sig.textContent='Kael';
+    setMurmur('12 watching',false);
+    await wait(900);
+
+    // The Director writes — with a revision
+    var p1=makeP('var(--gold)'); var c1=caretEl('var(--gold)'); p1.appendChild(c1);
+    await typeInto(p1,c1,'The lantern’s arc stopped. ');
+    await wait(650);
+    var bad=await typeInto(p1,c1,'Footsteps climbed the ladder');
+    await wait(520); bad.classList.add('struck'); setTimeout(function(){bad.classList.add('bled');},2400);
+    await wait(380);
+    await typeInto(p1,c1,' — unhurried, certain — turned toward the stair. ');
+    glimmer(1); setMurmur('13 watching · the dark leans in',true);
+    await wait(300);
+
+    // The pass: writing the name IS the handoff
+    await typeInto(p1,c1,'@Kael','at',getComputedStyle(document.documentElement).getPropertyValue('--ink-kael'));
+    sig.classList.add('flare'); sig.textContent='✍ Kael';
+    await typeInto(p1,c1,', the light is coming for you. What do you do?');
+    c1.remove();
+    await wait(500);
+
+    // Kael writes, live
+    var wl=document.createElement('p'); wl.className='writing-line';
+    wl.innerHTML='<span class="who" style="color:var(--ink-kael)">Kael</span> is writing<span class="dots"><span>.</span><span>.</span><span>.</span></span>';
+    prose.appendChild(wl); glimmer(2); setMurmur('15 watching',true);
+    await wait(reduced?400:1700); wl.remove();
+    var p2=makeP('var(--ink-kael)'); var c2=caretEl('var(--ink-kael)'); p2.appendChild(c2);
+    await typeInto(p2,c2,'Kael pressed himself flat against the stone, counting the footsteps — ');
+    await wait(reduced?200:950);
+    await typeInto(p2,c2,'four, five — and moved on the sixth.');
+    c2.remove();
+    await wait(700);
+
+    // Shared ritual time: the dice
+    room.classList.add('held'); slip.classList.add('in');
+    if(!reduced){
+      document.getElementById('d-die1').classList.add('tumble');
+      document.getElementById('d-die2').classList.add('tumble');
+      await wait(1000);
+      document.getElementById('d-die1').classList.remove('tumble');
+      document.getElementById('d-die2').classList.remove('tumble');
+    } else { await wait(400); }
+    res.textContent='8 — it holds.';
+    await wait(1600);
+    slip.classList.remove('in'); room.classList.remove('held');
+
+    // The Open Book's law: the roll settles into one set line
+    var p3=makeP(); p3.className='setline'; var c3=caretEl('var(--ghost)'); p3.appendChild(c3);
+    await typeInto(p3,c3,'— the dice held: 8. The stair took him quietly.');
+    c3.remove();
+    glimmer(3); setMurmur('19 watching · the dark exhales',true);
+    await wait(600);
+    ctl.classList.add('in');
+    running=false;
+  }
+
+  document.getElementById('d-replay').addEventListener('click',play);
+  if(!reduced && 'IntersectionObserver' in window){
+    var seen=false;
+    new IntersectionObserver(function(entries,obs){
+      entries.forEach(function(e){if(e.isIntersecting&&!seen){seen=true;obs.disconnect();play();}});
+    },{threshold:.45}).observe(room);
+  } else { ctl.classList.add('in'); }
+})();
+</script>
+<script>
+(function(){
+  var house=document.getElementById('house'); if(!house)return;
+  var warm=document.getElementById('h-warm'), murmur=document.getElementById('h-murmur');
+  var count=document.getElementById('h-count'), inHouse=19;
+
+  function glints(anchor,n){
+    var r=anchor.getBoundingClientRect(), hr=house.getBoundingClientRect();
+    for(var i=0;i<n;i++){
+      var g=document.createElement('span');g.className='glint';g.textContent='✦';
+      g.style.left=(r.left-hr.left+Math.random()*r.width)+'px';
+      g.style.top=(r.top-hr.top-4)+'px';
+      g.style.animationDelay=(i*120)+'ms';
+      house.appendChild(g);
+      setTimeout(function(el){return function(){el.remove();};}(g),1800+i*120);
+    }
+  }
+  function flare(){warm.classList.add('on');setTimeout(function(){warm.classList.remove('on');},1800);}
+  function say(t){murmur.textContent=t;murmur.classList.add('stir');}
+
+  var gild=document.getElementById('h-gild');
+  gild.addEventListener('click',function(){
+    var p=document.getElementById('h-target');
+    p.classList.add('gilded');
+    var meta=document.createElement('p');meta.className='gild-meta';
+    meta.textContent='✦ tipped in gold by you — 5 to Yara’s well';
+    p.after(meta);
+    glints(p,4); flare(); say('you tipped Yara’s line — everyone saw it turn gold');
+    gild.disabled=true; gild.textContent='✦ tipped';
+  });
+
+  var coin=document.getElementById('h-coin');
+  coin.addEventListener('click',function(){
+    var sig=house.querySelector('.house-gestures');
+    glints(sig,5); flare(); say('a tip for the table — split across the cast');
+    coin.disabled=true; setTimeout(function(){coin.disabled=false;},2500);
+  });
+
+  var seatBtn=document.getElementById('h-seat');
+  var seat=seatBtn;
+  seat.addEventListener('click',function(){
+    var rim=document.getElementById('h-rim');
+    var s=document.createElement('div');s.className='seat-mini';
+    s.innerHTML='<div class="ring-mini">Y</div><span class="nm-mini">You</span>';
+    rim.insertBefore(s,rim.querySelector('.dark-count'));
+    inHouse+=0; count.textContent=inHouse+' watching';
+    glints(rim,3); flare(); say('front row — the cast can see you now');
+    seat.disabled=true; seat.textContent='front row';
+  });
+})();
+</script>
+<script>
+(function(){
+  var room=document.getElementById('stranger'); if(!room)return;
+  var ballot=document.getElementById('s-ballot'), prose=document.getElementById('s-prose');
+  var murmur=document.getElementById('s-murmur'), warm=document.getElementById('s-warm');
+  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var done=false;
+
+  var OUTCOMES=[
+    'The Stranger stepped into the lantern’s spill and drew back its hood — and Yara’s breath caught, because she knew the face. Everyone who had ever sworn anything knew that face.',
+    'From the ash came a low, patient whistle — once, twice. Below, the lantern stopped its arc and began, unhurried, to climb.',
+    'The Stranger rose without a sound, slipped behind them, and leaned into the vault door until it sighed shut. Whatever the promise had been, it belonged to all of them now.'
+  ];
+
+  function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+  async function typeSilver(text){
+    var p=document.createElement('p');p.style.color='var(--ink-strange)';
+    var caret=document.createElement('span');caret.className='caret';caret.style.background='var(--ink-strange)';
+    p.appendChild(caret);prose.appendChild(p);
+    var s=document.createElement('span');s.className='wet';p.insertBefore(s,caret);
+    for(var i=0;i<text.length;i++){
+      s.textContent+=text[i];
+      await wait(reduced?6:(24+Math.random()*26));
+    }
+    caret.remove();setTimeout(function(){s.classList.add('dry');},1400);
+  }
+
+  var opts=Array.prototype.slice.call(ballot.querySelectorAll('.b-opt'));
+  opts.forEach(function(btn){
+    btn.addEventListener('click',async function(){
+      if(done)return; done=true;
+      var mine=+btn.dataset.opt;
+      btn.insertAdjacentHTML('beforeend','<span class="b-yours">your vote</span>');
+      opts.forEach(function(b){b.disabled=true;});
+      murmur.textContent='the audience is deciding…';murmur.classList.add('stir');
+
+      // The house votes: your pick starts at 1; the rest of the house has its own mind.
+      var tallies=[0,0,0];tallies[mine]=1;
+      var housePref=Math.floor(Math.random()*3);
+      var rounds=reduced?4:14;
+      for(var r=0;r<rounds;r++){
+        var roll=Math.random();
+        var v=roll<.45?housePref:(roll<.7?mine:Math.floor(Math.random()*3));
+        tallies[v]++;
+        var max=Math.max.apply(null,tallies);
+        opts.forEach(function(b,i){
+          b.querySelector('.b-tally').textContent=tallies[i];
+          b.querySelector('.b-bar i').style.width=(tallies[i]/max*100)+'%';
+        });
+        await wait(reduced?60:(120+Math.random()*160));
+      }
+
+      var winner=tallies.indexOf(Math.max.apply(null,tallies));
+      opts[winner].classList.add('win');
+      warm.classList.add('on');setTimeout(function(){warm.classList.remove('on');},1800);
+      murmur.textContent=(winner===mine)
+        ? 'the audience agrees with you — '+tallies[winner]+' votes'
+        : 'the audience had other plans — '+tallies[winner]+' votes';
+      await wait(1400);
+      ballot.classList.add('gone');
+      await wait(650);ballot.remove();
+      await typeSilver(OUTCOMES[winner]);
+      murmur.textContent='written into the story — the audience decided';
+    });
+  });
+})();
+</script>
