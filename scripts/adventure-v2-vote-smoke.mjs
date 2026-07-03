@@ -2,7 +2,7 @@
 // Drive the v2 vote end-to-end at /demo-adventure-v2.
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3457";
+const BASE = process.env.SMOKE_BASE ?? "http://localhost:3457";
 const SHOT = (n) => `/tmp/adventure-v2-shots/${n}.png`;
 const log = (...a) => console.log("▸", ...a);
 
@@ -17,7 +17,7 @@ const roleBtn = (label) => page.locator("div.fixed.right-4 button", { hasText: l
 await page.waitForSelector("text=the dice are with");
 await roleBtn("Lyra").click();
 await page.getByRole("button", { name: "Roll", exact: true }).click();
-await page.waitForSelector("text=/— Lyra rolled Keen/", { timeout: 10000 });
+await page.waitForSelector("text=/— Lyra rolled:/", { timeout: 10000 });
 await page.waitForSelector("text=the Director is writing", { timeout: 10000 });
 log("setup: boot dice slip resolved, pen with the Director");
 

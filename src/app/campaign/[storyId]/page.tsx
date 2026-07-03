@@ -943,20 +943,15 @@ export default function CampaignPage() {
     if (!charName.trim() || charSubmitting) return;
     setCharSubmitting(true);
     try {
-      // Approaches are a per-roll fictional "how", not a character stat — the
-      // character carries no numeric spread. See docs/adventure-audit.md (D1).
-      const approaches = { Bold: 0, Keen: 0, Subtle: 0 };
-
       const payload: Record<string, unknown> = {
         name: charName.trim(),
         description: charDesc.trim(),
         traits: charTraits.trim(),
         backstory: charBackstory.trim(),
         portrait: charPortrait.trim() || undefined,
-        stats: JSON.stringify({
-          approaches,
-          aspect: charAspect.trim(),
-        }),
+        // The aspect is the only stat a character carries — rolls are flat
+        // 2d6 with no numeric spread. See docs/adventure-audit.md (D1).
+        stats: JSON.stringify({ aspect: charAspect.trim() }),
       };
       const res = await fetch(`/api/stories/${storyId}/campaign/characters`, {
         method: "POST",

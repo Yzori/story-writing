@@ -2,7 +2,7 @@
 // Drive the v2 dice ritual end-to-end at /demo-adventure-v2.
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3457";
+const BASE = process.env.SMOKE_BASE ?? "http://localhost:3457";
 const SHOT = (n) => `/tmp/adventure-v2-shots/${n}.png`;
 const log = (...a) => console.log("▸", ...a);
 
@@ -39,8 +39,8 @@ log("stamp:", JSON.stringify(stamp.replace(/\n/g, " · ")));
 await page.screenshot({ path: SHOT("3-stamp") });
 
 // slip settles → set line joins the story, pen returns to the Director
-await page.waitForSelector("text=/— Lyra rolled Keen/", { timeout: 8000 });
-log("set line in story:", JSON.stringify(await page.locator("p", { hasText: "— Lyra rolled Keen" }).first().innerText()));
+await page.waitForSelector("text=/— Lyra rolled:/", { timeout: 8000 });
+log("set line in story:", JSON.stringify(await page.locator("p", { hasText: "— Lyra rolled:" }).first().innerText()));
 await page.waitForSelector("text=the Director is writing", { timeout: 8000 });
 log("pen returned: Lyra sees 'the Director is writing…'");
 log("slip gone:", (await page.getByText("the dice are with").count()) === 0);
@@ -60,15 +60,11 @@ await page.screenshot({ path: SHOT("5-slash-menu") });
 await page.getByRole("button", { name: "Call for a roll" }).click();
 await page.waitForSelector("text=a roll — the slip prints");
 
-// probe: Ask disabled until who + with + ask are set
+// probe: Ask disabled until who + ask are set
 const askBtn = page.getByRole("button", { name: "Ask for the roll" });
 log("probe: Ask disabled at start:", await askBtn.isDisabled());
-// probe: approaches disabled before a target is picked
-log("probe: 'Bold' disabled before who:", await page.getByRole("button", { name: /^Bold/ }).isDisabled());
 const rollCall = page.locator("div", { hasText: "a roll — the slip prints" }).last();
 await rollCall.getByRole("button", { name: "Kaelen" }).click();
-await page.getByRole("button", { name: /^Bold/ }).click();
-log("Bold shows Kaelen approach chip:", JSON.stringify(await page.getByRole("button", { name: /^Bold/ }).innerText()));
 await page.getByLabel("What's at stake").fill("Cross the hall before the lantern turns.");
 await page.getByLabel("What happens if the roll holds").fill("you reach the stair unseen");
 await page.getByLabel("What happens if the roll breaks").fill("the light finds you");
@@ -77,15 +73,15 @@ await page.screenshot({ path: SHOT("6-rollcall") });
 await askBtn.click();
 await page.waitForSelector("text=the dice are with");
 log("slip printed for Kaelen; Director view shows murmur");
-log("slip shows 'Kaelen rolls Bold':", await page.getByText("rolls Bold").count());
+log("slip shows 'rolls the dice':", await page.getByText("rolls the dice").count());
 await page.screenshot({ path: SHOT("7-slip-kaelen") });
 
 // ── 4. Kaelen rolls ──
 await roleBtn("Kaelen").click();
 await page.getByRole("button", { name: "Roll", exact: true }).click();
-await page.waitForSelector("text=/— Kaelen rolled Bold: .*\\. It (holds|breaks)/", { timeout: 15000 });
-log("set line (dried):", JSON.stringify(await page.locator("p", { hasText: "— Kaelen rolled Bold" }).first().innerText()));
-log("Lyra's earlier set line (dried):", JSON.stringify(await page.locator("p", { hasText: "— Lyra rolled Keen" }).first().innerText()));
+await page.waitForSelector("text=/— Kaelen rolled: .*\\. It (holds|breaks)/", { timeout: 15000 });
+log("set line (dried):", JSON.stringify(await page.locator("p", { hasText: "— Kaelen rolled:" }).first().innerText()));
+log("Lyra's earlier set line (dried):", JSON.stringify(await page.locator("p", { hasText: "— Lyra rolled:" }).first().innerText()));
 await page.screenshot({ path: SHOT("8-setline-kaelen") });
 
 // ── 5. Probes: Never mind; viewer sees the calm page ──

@@ -28,8 +28,6 @@ export interface RollResolutionInput {
   /** The two crypto-rolled dice (1-6 each). Injected so this stays pure/testable. */
   d1: number;
   d2: number;
-  /** Matched approach display name (fictional texture only), or null. */
-  approach: string | null;
   /** The character's aspect text ("" if none). */
   aspect: string;
   aspectInvoked: boolean;
@@ -60,7 +58,7 @@ export interface RollResolution {
  * it actually saves the roll. Pure — caller supplies the dice + scene availability.
  */
 export function resolveRoll(input: RollResolutionInput): RollResolution {
-  const { d1, d2, approach, aspect, aspectInvoked, aspectAvailable, fatalRequested, characterName } = input;
+  const { d1, d2, aspect, aspectInvoked, aspectAvailable, fatalRequested, characterName } = input;
   const total = d1 + d2;
   let tier = rollTierFor(total);
 
@@ -75,9 +73,8 @@ export function resolveRoll(input: RollResolutionInput): RollResolution {
   const tierSentence =
     tier === "success" ? "It holds." : tier === "partial" ? "It holds — at a price." : "It breaks.";
   const who = characterName ? `${characterName.split(" ")[0]} rolled` : "The dice";
-  const approachTag = approach ? ` ${approach}` : "";
   const truthTag = aspectSaved ? " Their truth turned the miss." : "";
-  const content = `— ${who}${approachTag}: ${d1} + ${d2} = ${total}. ${tierSentence}${truthTag}`;
+  const content = `— ${who}: ${d1} + ${d2} = ${total}. ${tierSentence}${truthTag}`;
 
   // markEligible: worth marking when it cost something — partial or worse, or
   // any fatal-flagged roll (even a survived one: "I lived through this").

@@ -69,7 +69,9 @@ const targetUserIdSchema = z.string().max(64).refine(
 
 export const rollRequestMetadataSchema = z.object({
   targetUserId: targetUserIdSchema,
-  attribute: tidyText(32),
+  // Dead field: pre-2026-07 requests named a "Keen/Bold/Subtle" approach.
+  // Accepted so old rows still parse; never written or shown anymore.
+  attribute: tidyText(32).optional(),
   reason: tidyText(500),
   onSuccess: tidyText(400).optional(),
   onFailure: tidyText(400).optional(),
@@ -100,7 +102,6 @@ export const rollMetadataSchema = z.object({
 // What the client sends when initiating a roll. The server ignores any
 // dice/total/tier the client supplies and recomputes them authoritatively.
 export const rollIntentSchema = z.object({
-  attribute: z.string().max(32).optional(),
   aspectInvoked: z.boolean().optional(),
   rollRequestTurnId: z.string().max(64).optional(),
 });

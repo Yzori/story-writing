@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import type { PlayerCharacter } from "@/types/campaign";
-import { APPROACHES, getPlayerInk, type Approach } from "@/types/campaign";
+import { getPlayerInk } from "@/types/campaign";
 
 /**
- * The Director fills in the slip that will print: who rolls, with what,
- * the ask, and both stakes. Summoned from the quill by typing "/". Same
- * paper as the printed slip — the composer IS the slip, being written.
+ * The Director fills in the slip that will print: who rolls, the ask, and
+ * both stakes. Summoned from the quill by typing "/". Same paper as the
+ * printed slip — the composer IS the slip, being written.
  */
 export default function RollCall({
   characters,
@@ -19,7 +19,6 @@ export default function RollCall({
   allPlayerUserIds: string[];
   onCommit: (meta: {
     targetUserId: string;
-    attribute: Approach;
     reason: string;
     onSuccess: string | null;
     onFailure: string | null;
@@ -31,19 +30,16 @@ export default function RollCall({
     [characters],
   );
   const [targetId, setTargetId] = useState<string | null>(null);
-  const [approach, setApproach] = useState<Approach | null>(null);
   const [ask, setAsk] = useState("");
   const [holds, setHolds] = useState("");
   const [breaks, setBreaks] = useState("");
 
-  const target = active.find((c) => c.userId === targetId) ?? null;
-  const ready = !!targetId && !!approach && !!ask.trim();
+  const ready = !!targetId && !!ask.trim();
 
   const commit = () => {
-    if (!targetId || !approach || !ask.trim()) return;
+    if (!targetId || !ask.trim()) return;
     onCommit({
       targetUserId: targetId,
-      attribute: approach,
       reason: ask.trim(),
       onSuccess: holds.trim() || null,
       onFailure: breaks.trim() || null,
@@ -90,27 +86,6 @@ export default function RollCall({
             style={{ color: getPlayerInk(c.userId, allPlayerUserIds) }}
           >
             {c.name.split(" ")[0]}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost">
-          with
-        </span>
-        {APPROACHES.map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setApproach(a)}
-            disabled={!target}
-            className={`cursor-pointer font-display text-[14px] tracking-wide transition-colors disabled:cursor-default disabled:opacity-40 ${
-              approach === a
-                ? "text-amber underline decoration-2 underline-offset-4"
-                : "text-text-tertiary hover:text-text-secondary"
-            }`}
-          >
-            {a}
           </button>
         ))}
       </div>

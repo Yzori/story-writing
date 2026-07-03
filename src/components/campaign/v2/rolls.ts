@@ -9,7 +9,6 @@ import type { Turn } from "@/types/campaign";
 
 export interface RollSlipMeta {
   targetUserId: string;
-  attribute: string;
   /** The ask — what's at stake, one line, in the Director's words. */
   reason: string;
   onSuccess: string | null;
@@ -33,10 +32,9 @@ export function parseRollSlip(turn: Turn): RollSlipMeta | null {
   if (turn.type !== "roll-request" || !turn.metadata) return null;
   try {
     const raw = JSON.parse(turn.metadata);
-    if (!raw?.targetUserId || !raw?.attribute) return null;
+    if (!raw?.targetUserId) return null;
     return {
       targetUserId: raw.targetUserId,
-      attribute: raw.attribute,
       reason: raw.reason ?? "",
       onSuccess: raw.onSuccess ?? null,
       onFailure: raw.onFailure ?? null,
@@ -86,7 +84,7 @@ export function tierFor(total: number): RollTier {
 /**
  * Demo-only; the real surface gets its dice from the server. Flat 2d6 —
  * the dice are a shared dramatic device, identical odds for everyone
- * (audit D1); the approach named on the slip is fictional texture.
+ * (audit D1).
  */
 export function rollDice(): RollResult {
   const die = () => 1 + Math.floor(Math.random() * 6);
@@ -110,11 +108,7 @@ export const TIER_TEXT_CLASS: Record<RollTier, string> = {
 };
 
 /** The one line of set type that joins the story once the slip resolves. */
-export function composeSetLine(
-  name: string,
-  attribute: string,
-  r: RollResult,
-): string {
+export function composeSetLine(name: string, r: RollResult): string {
   const mod =
     r.modifier === 0
       ? ""
@@ -126,5 +120,5 @@ export function composeSetLine(
     partial: "It holds — at a price.",
     breaks: "It breaks.",
   }[r.tier];
-  return `— ${name} rolled ${attribute}: ${r.dice[0]} + ${r.dice[1]}${mod} = ${r.total}. ${tier}`;
+  return `— ${name} rolled: ${r.dice[0]} + ${r.dice[1]}${mod} = ${r.total}. ${tier}`;
 }

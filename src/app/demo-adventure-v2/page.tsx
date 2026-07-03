@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Turn } from "@/types/campaign";
-import { getPlayerInk, type Approach } from "@/types/campaign";
+import { getPlayerInk } from "@/types/campaign";
 import PageRoom from "@/components/campaign/v2/PageRoom";
 import StoryProse, { inkFor } from "@/components/campaign/v2/StoryProse";
 import Quill from "@/components/campaign/v2/Quill";
@@ -192,7 +192,6 @@ export default function DemoAdventureV2Page() {
   const onRollCall = useCallback(
     (meta: {
       targetUserId: string;
-      attribute: Approach;
       reason: string;
       onSuccess: string | null;
       onFailure: string | null;
@@ -208,7 +207,7 @@ export default function DemoAdventureV2Page() {
           userId: GM_USER_ID,
           characterId: null,
           type: "roll-request",
-          content: `The Director asks ${first} for a ${meta.attribute} roll — ${meta.reason}`,
+          content: `The Director asks ${first} for a roll — ${meta.reason}`,
           metadata: JSON.stringify({ ...meta, status: "open" }),
           sortOrder: prev.length,
           createdAt: new Date().toISOString(),
@@ -223,7 +222,7 @@ export default function DemoAdventureV2Page() {
   );
 
   // The named player casts — demo rolls client-side; live, the server rolls.
-  // Flat 2d6: identical odds for everyone, the approach is texture (audit D1).
+  // Flat 2d6: identical odds for everyone (audit D1).
   const executeRoll = useCallback((): RollResult => rollDice(), []);
 
   // The result has been read: close the slip, set one line of type into the
@@ -258,7 +257,7 @@ export default function DemoAdventureV2Page() {
             userId: meta.targetUserId,
             characterId: target?.id ?? null,
             type: "roll",
-            content: composeSetLine(first, meta.attribute, result),
+            content: composeSetLine(first, result),
             metadata: JSON.stringify(result),
             sortOrder: prev.length,
             createdAt: new Date().toISOString(),

@@ -16,7 +16,7 @@ import {
   resolveRollRequestTargets,
   resolveSceneBreakMetadata,
 } from "@/server/services/campaign-turn-write";
-import { APPROACHES, parseStats } from "@/types/campaign";
+import { parseStats } from "@/types/campaign";
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 const DUPLICATE_ROLL_RESPONSE = "DUPLICATE_ROLL_RESPONSE";
@@ -481,23 +481,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // ── Server-authoritative roll resolution ─────────────────────────────
-    // Client posts intent (which approach, whether the aspect is invoked).
-    // Server rolls a flat 2d6 with crypto — the odds are a shared dramatic
-    // device, identical for every character (no numeric modifiers; see audit
-    // D1). The approach is fictional texture only. The one lever is the aspect:
-    // a once-per-scene trump that turns a miss into a foothold. Rebuilding
-    // content/tier here is the only way to stop a player forging a favorable
-    // tier or dodging a fatal failure.
+    // Client posts intent (whether the aspect is invoked). Server rolls a
+    // flat 2d6 with crypto — the odds are a shared dramatic device, identical
+    // for every character (no numeric modifiers; see audit D1). The one lever
+    // is the aspect: a once-per-scene trump that turns a miss into a foothold.
+    // Rebuilding content/tier here is the only way to stop a player forging a
+    // favorable tier or dodging a fatal failure.
     let contentToStore: string = parsed.data.type === "story-moment"
       ? parsed.data.content.trim()
       : parsed.data.content;
     let serverRollTier: "success" | "partial" | "failure" | null = null;
 
     if (parsed.data.type === "roll" && rollIntent) {
-      const rawAttribute = rollIntent.attribute ?? "";
-      const matchedApproach = APPROACHES.find(
-        (a) => a.toLowerCase() === rawAttribute.toLowerCase(),
-      );
       const stats = turnCharacter ? parseStats(turnCharacter.stats) : null;
       const aspect = stats?.aspect ?? "";
 
@@ -514,7 +509,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const roll = resolveRoll({
         d1: r1,
         d2: r2,
-        approach: matchedApproach ?? null,
         aspect,
         aspectInvoked: !!rollIntent.aspectInvoked,
         aspectAvailable,
@@ -528,7 +522,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         dice: roll.dice,
         total: roll.total,
         modifier: 0,
-        attribute: matchedApproach ?? rawAttribute,
         tier: roll.tier,
         die: "2d6",
         fatal: roll.fatal,

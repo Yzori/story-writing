@@ -168,7 +168,7 @@ export default function DiceSlip({
           <span className="font-semibold" style={{ color: targetInk }}>
             {targetName}
           </span>{" "}
-          rolls {meta.attribute}
+          rolls the dice
           {meta.fatal && <span className="ml-2 font-bold text-rose">⚠ fatal stakes</span>}
         </p>
         {meta.onSuccess && (

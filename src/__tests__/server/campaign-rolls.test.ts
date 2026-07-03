@@ -5,7 +5,6 @@ import { resolveRoll, rollTierFor, buildRollConsequenceText } from "@/server/ser
 // No numeric modifiers; the only lever is the once-per-scene aspect save.
 
 const base = {
-  approach: null,
   aspect: "",
   aspectInvoked: false,
   aspectAvailable: false,
@@ -115,14 +114,9 @@ describe("resolveRoll", () => {
     expect(r.markEligible).toBe(true); // fatalRequested still makes it worth marking
   });
 
-  it("includes the approach as fictional texture in the content", () => {
-    const r = resolveRoll({ ...base, d1: 5, d2: 5, approach: "Bold" });
-    expect(r.content).toContain("Bold");
-  });
-
   it("prints the roller's first name in the set line", () => {
-    const r = resolveRoll({ ...base, d1: 5, d2: 5, approach: "Keen", characterName: "Lyra Varen" });
-    expect(r.content).toBe("— Lyra rolled Keen: 5 + 5 = 10. It holds.");
+    const r = resolveRoll({ ...base, d1: 5, d2: 5, characterName: "Lyra Varen" });
+    expect(r.content).toBe("— Lyra rolled: 5 + 5 = 10. It holds.");
   });
 });
 

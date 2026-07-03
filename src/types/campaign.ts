@@ -147,46 +147,23 @@ export interface StoryData {
 }
 
 export interface CharacterStats {
-  approaches: {
-    Bold: number;
-    Keen: number;
-    Subtle: number;
-  };
   aspect: string;
-}
-
-// Legacy shape for backward compat
-interface LegacyStats {
-  hp?: { current: number; max: number };
-  mp?: { current: number; max: number };
-  attributes?: Record<string, number>;
-  items?: string[];
 }
 
 export function parseStats(statsJson: string | null): CharacterStats | null {
   if (!statsJson) return null;
   try {
     const raw = JSON.parse(statsJson);
-    // New shape
-    if (raw.approaches) return raw as CharacterStats;
-    // Migrate legacy D&D stats to approaches
-    if (raw.attributes) {
-      const legacy = raw as LegacyStats;
-      const attrs = legacy.attributes ?? {};
-      // Map legacy attributes to approaches heuristically
-      const bold = Math.max((attrs.STR ?? 10) >= 14 ? 1 : 0, (attrs.CON ?? 10) >= 14 ? 1 : 0);
-      const keen = Math.max((attrs.INT ?? 10) >= 14 ? 1 : 0, (attrs.WIS ?? 10) >= 14 ? 1 : 0);
-      const subtle = Math.max((attrs.DEX ?? 10) >= 14 ? 1 : 0, (attrs.CHA ?? 10) >= 14 ? 1 : 0);
-      return { approaches: { Bold: bold, Keen: keen, Subtle: subtle }, aspect: "" };
-    }
+    // The aspect is the only stat a character carries. Rolls are flat 2d6
+    // (audit D1); older rows may also hold an "approaches" spread or legacy
+    // D&D attributes — both are dead weight and ignored.
+    if (typeof raw.aspect === "string") return { aspect: raw.aspect };
+    if (raw.approaches || raw.attributes) return { aspect: "" };
     return null;
   } catch {
     return null;
   }
 }
-
-export const APPROACHES = ["Bold", "Keen", "Subtle"] as const;
-export type Approach = (typeof APPROACHES)[number];
 
 // Stable color assignment for players based on index
 const PLAYER_COLORS = [

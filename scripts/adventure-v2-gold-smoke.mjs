@@ -4,7 +4,7 @@
 // the flare, and the calm of every other chair (no reach, no gold hand).
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3457";
+const BASE = process.env.SMOKE_BASE ?? "http://localhost:3457";
 const SHOT = (n) => `/tmp/adventure-v2-shots/${n}.png`;
 const log = (...a) => console.log("▸", ...a);
 

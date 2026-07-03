@@ -17,7 +17,6 @@ export const CHARACTERS: PlayerCharacter[] = [
     description: "A forgekeeper seeking the Obsidian Crown.",
     traits: "Believes every problem has a chemical solution.",
     stats: JSON.stringify({
-      approaches: { Bold: -1, Keen: 2, Subtle: 0 },
       aspect: "Trusts chemicals more than people",
     }),
     status: "active",
@@ -31,7 +30,6 @@ export const CHARACTERS: PlayerCharacter[] = [
     description: "A bladesinger haunted by a debt he can never repay.",
     traits: "A blade for every shadow.",
     stats: JSON.stringify({
-      approaches: { Bold: 2, Keen: -1, Subtle: 0 },
       aspect: "Wears his oaths heavier than his sword",
     }),
     status: "active",
@@ -45,7 +43,6 @@ export const CHARACTERS: PlayerCharacter[] = [
     description: "A healer who hears the whispers of the dead.",
     traits: "Hears the dead whether she wants to or not.",
     stats: JSON.stringify({
-      approaches: { Bold: -1, Keen: 1, Subtle: 1 },
       aspect: "Walks with one foot in the world after",
     }),
     status: "active",
@@ -110,10 +107,9 @@ export const INITIAL_TURNS: Turn[] = [
     characterId: null,
     type: "roll-request",
     content:
-      "The GM calls for a KEEN check from Lyra — Decipher the rune sequence before the altar finishes waking.",
+      "The Director asks Lyra for a roll — Decipher the rune sequence before the altar finishes waking.",
     metadata: JSON.stringify({
       targetUserId: "user-lyra",
-      attribute: "Keen",
       reason: "Decipher the rune sequence before the altar finishes waking.",
       onSuccess: "You read the binding clear and find a way to bend the awakening to your will.",
       onFailure: "The runes burn your skin. The altar wakes on its own terms.",

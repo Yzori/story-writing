@@ -24,7 +24,7 @@ import {
   type RollResult,
 } from "@/components/campaign/v2/rolls";
 import EndSessionModal from "@/components/campaign/EndSessionModal";
-import { getPlayerInk, type Approach, type Turn } from "@/types/campaign";
+import { getPlayerInk, type Turn } from "@/types/campaign";
 
 /**
  * The "Set in Ink" play surface: one lit page in the dark. The story is the
@@ -253,7 +253,6 @@ export default function SessionPlayPage() {
   const onRollCall = useCallback(
     async (meta: {
       targetUserId: string;
-      attribute: Approach;
       reason: string;
       onSuccess: string | null;
       onFailure: string | null;
@@ -263,11 +262,10 @@ export default function SessionPlayPage() {
         const first = target?.name.split(" ")[0] ?? "the party";
         await sendTurn(
           "roll-request",
-          `The Director asks ${first} for a ${meta.attribute} roll — ${meta.reason}`,
+          `The Director asks ${first} for a roll — ${meta.reason}`,
           undefined,
           JSON.stringify({
             targetUserId: meta.targetUserId,
-            attribute: meta.attribute,
             reason: meta.reason,
             onSuccess: meta.onSuccess ?? "",
             onFailure: meta.onFailure ?? "",
@@ -291,7 +289,6 @@ export default function SessionPlayPage() {
       "Rolling…",
       myCharacter.id,
       JSON.stringify({
-        attribute: pendingRoll.meta.attribute,
         aspectInvoked: false,
         rollRequestTurnId: pendingRoll.turn.id,
       }),
