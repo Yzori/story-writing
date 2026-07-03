@@ -30,6 +30,12 @@ export interface CompileOptions {
   turns: CompileTurn[];
   /** Marks created during THIS session (server-filtered by sessionId). */
   marks?: CompileMark[];
+  /**
+   * Lines the audience set in gold during play (The House). Their fragments
+   * compile wrapped in data-gilded markup so the shimmer survives into the
+   * published chapter — the paid applause outlives the session.
+   */
+  gildedTurnIds?: string[];
 }
 
 // ── Dialogue verb cycle ──────────────────────────────────────
@@ -186,6 +192,7 @@ function renderMarksCoda(marks: CompileMark[]): string {
 
 export function compileSessionToHTML(options: CompileOptions): string {
   const { sessionOpening, turns, marks = [] } = options;
+  const gilded = new Set(options.gildedTurnIds ?? []);
   const parts: string[] = [];
 
   // Opening narration as a blockquote
@@ -258,10 +265,14 @@ export function compileSessionToHTML(options: CompileOptions): string {
       continue;
     }
 
-    // Normal paragraph: assemble turn fragments
+    // Normal paragraph: assemble turn fragments. A gilded turn's fragment
+    // keeps its gold leaf ([data-gilded] styling in globals.css).
     let html = "<p>";
     for (let ti = 0; ti < group.length; ti++) {
-      html += renderTurn(group[ti], ti, group);
+      const fragment = renderTurn(group[ti], ti, group);
+      html += gilded.has(group[ti].id)
+        ? `<span data-gilded="true">${fragment.trimEnd()}</span> `
+        : fragment;
     }
     html = html.trimEnd() + "</p>";
     parts.push(html);

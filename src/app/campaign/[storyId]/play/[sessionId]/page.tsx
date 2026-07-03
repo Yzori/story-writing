@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
 import { useCampaignSession } from "@/hooks/use-campaign-session";
+import { useHouseGold } from "@/hooks/use-house-gold";
 import PageRoom from "@/components/campaign/v2/PageRoom";
+import GoldLight from "@/components/campaign/v2/GoldLight";
 import StoryProse, { isSetLine } from "@/components/campaign/v2/StoryProse";
 import Quill from "@/components/campaign/v2/Quill";
 import WaitingLine from "@/components/campaign/v2/WaitingLine";
@@ -106,6 +108,15 @@ export default function SessionPlayPage() {
 
   const sessionStatus = campaignSession?.status ?? "draft";
   const activePlayerId = campaignSession?.activePlayerId ?? null;
+
+  // The House's light reaches the table too: gilded lines shimmer and gold
+  // arriving from the dark flares the room. The cast never sends — gold
+  // flows one way, from the audience to the page.
+  const { gildedTurnIds, flareCount } = useHouseGold(
+    storyId,
+    sessionId,
+    sessionStatus === "active",
+  );
 
   // ── The page's turns ───────────────────────────────────────
   const pageTurns = useMemo(
@@ -627,6 +638,7 @@ export default function SessionPlayPage() {
             {houseCount > 0 && <span>· {houseCount} watching</span>}
           </div>
         }
+        overlays={<GoldLight flareCount={flareCount} />}
       >
         {/* Beginning the session posts the opening as the first turn, so the
             preview block only shows while the page is still being set. */}
@@ -642,6 +654,7 @@ export default function SessionPlayPage() {
           gmUserId={gmUserId}
           replayIds={replayIds}
           onReplayDone={onReplayDone}
+          gildedTurnIds={gildedTurnIds}
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">

@@ -599,6 +599,12 @@ export const inkDropTipSchema = z.object({
   message: z.string().max(200).optional(),
 });
 
+export const houseGoldSchema = z.object({
+  amount: z.union([z.literal(10), z.literal(25), z.literal(50), z.literal(100)]),
+  // A line set in gold — omitted, the gold is for the whole table.
+  turnId: z.string().uuid().optional(),
+});
+
 export const guildProfileSchema = z.object({
   tagline: z.string().max(200).optional(),
   roles: z.array(z.enum(["writer", "illustrator", "editor", "worldbuilder"])).min(1).max(4),

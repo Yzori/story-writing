@@ -7,22 +7,24 @@ import { useParams } from "next/navigation";
 import { useSpectatorSession } from "@/hooks/use-spectator-session";
 import { useSpectatorPresence } from "@/hooks/use-spectator-presence";
 import { useSpectatorFloorRound } from "@/hooks/use-spectator-floor-round";
-import { useSpectatorTips } from "@/hooks/use-spectator-tips";
+import { useHouseGold } from "@/hooks/use-house-gold";
 import PageRoom from "@/components/campaign/v2/PageRoom";
-import StoryProse, { isSetLine } from "@/components/campaign/v2/StoryProse";
+import StoryProse, { isSetLine, inkFor } from "@/components/campaign/v2/StoryProse";
 import WaitingLine from "@/components/campaign/v2/WaitingLine";
 import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
+import GoldSlip from "@/components/campaign/v2/GoldSlip";
+import GoldLight from "@/components/campaign/v2/GoldLight";
 import { findOpenRoll } from "@/components/campaign/v2/rolls";
-import TipButton from "@/components/campaign/spectator/TipButton";
-import TipModal from "@/components/campaign/spectator/TipModal";
 import { getPlayerInk, type PlayerCharacter, type Turn } from "@/types/campaign";
 
 /**
  * The dark beyond the page: the same "Set in Ink" sheet, fully read-only.
  * A watcher reads the ink as it arrives, sees the slip and the vote exactly
  * as the table does, and has two quiet hands of their own — leaning on a
- * vote line, and leaving a tip. (The House will grow this seat later.)
+ * vote line, and The House's gesture: give gold, make light. Tapping a
+ * settled line sets it in gold; "leave gold" at the page's foot lights the
+ * whole table. Gold splits evenly across the cast and never buys the story.
  */
 
 function isPageTurn(turn: Turn): boolean {
@@ -62,10 +64,16 @@ export default function WatchSessionPage() {
   } = useSpectatorSession(storyId, sessionId);
   const { spectatorCount: presenceCount, token } = useSpectatorPresence(storyId, sessionId);
   const { floorRound, sendPulse } = useSpectatorFloorRound(storyId, sessionId, token);
-  const { balance, sendTip } = useSpectatorTips(storyId, sessionId);
+  const { gildedTurnIds, flareCount, balance, sendGold } = useHouseGold(
+    storyId,
+    sessionId,
+    campaignSession?.status === "active",
+  );
 
   const spectatorCount = Math.max(pollCount, presenceCount);
-  const [showTipModal, setShowTipModal] = useState(false);
+  // The gold slip's target: null = closed; { turnId: null } = gold for the
+  // table; { turnId } = setting that line in gold.
+  const [goldTarget, setGoldTarget] = useState<{ turnId: string | null } | null>(null);
   const [replayIds, setReplayIds] = useState<ReadonlySet<string>>(new Set());
   const seenIdsRef = useRef<Set<string> | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -185,17 +193,23 @@ export default function WatchSessionPage() {
     ? "var(--ink-gm)"
     : getPlayerInk(activePlayerId ?? "", activePlayerUserIds);
 
-  const tipRecipients = useMemo(() => {
-    const list: { id: string; name: string; role?: string }[] = [];
-    const seen = new Set<string>();
-    for (const c of spectatorChars) {
-      if (c.userId && !seen.has(c.userId)) {
-        seen.add(c.userId);
-        list.push({ id: c.userId, name: c.displayName || c.name || "Player", role: c.name });
-      }
-    }
-    return list;
-  }, [spectatorChars]);
+  // The House's hands are only offered to a signed-in watcher of a live page.
+  const canGive = sessionStatus === "active" && balance !== null;
+
+  const gildLine = useMemo(() => {
+    if (!goldTarget?.turnId) return null;
+    const turn = pageTurns.find((t) => t.id === goldTarget.turnId);
+    if (!turn) return null;
+    return {
+      content: turn.content,
+      ink: inkFor(turn.userId, gmUserId, activePlayerUserIds),
+    };
+  }, [goldTarget, pageTurns, gmUserId, activePlayerUserIds]);
+
+  const onGild = useCallback(
+    (turnId: string) => setGoldTarget({ turnId }),
+    [],
+  );
 
   if (loading) {
     return (
@@ -246,7 +260,31 @@ export default function WatchSessionPage() {
               </span>
             ))}
             <span>· you are in the dark</span>
+            {canGive && (
+              <button
+                type="button"
+                onClick={() => setGoldTarget({ turnId: null })}
+                className="cursor-pointer text-amber/80 transition-colors hover:text-amber"
+                title="Leave gold for the table — it becomes light"
+              >
+                · leave gold ✦
+              </button>
+            )}
           </div>
+        }
+        overlays={
+          <>
+            {/* The House: gold arriving anywhere in the room flares the dark. */}
+            <GoldLight flareCount={flareCount} />
+            {goldTarget && balance !== null && (
+              <GoldSlip
+                line={gildLine}
+                balance={balance}
+                onSend={(amount) => sendGold(amount, goldTarget.turnId ?? undefined)}
+                onClose={() => setGoldTarget(null)}
+              />
+            )}
+          </>
         }
       >
         {/* The opening lands as the first turn once the session begins. */}
@@ -262,6 +300,8 @@ export default function WatchSessionPage() {
           gmUserId={gmUserId}
           replayIds={replayIds}
           onReplayDone={onReplayDone}
+          gildedTurnIds={gildedTurnIds}
+          onGild={canGive ? onGild : undefined}
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">
@@ -321,20 +361,6 @@ export default function WatchSessionPage() {
         <div ref={endRef} />
       </PageRoom>
 
-      {/* A quiet hand from the dark — the one revenue affordance, until The House. */}
-      {sessionStatus === "active" && balance !== null && tipRecipients.length > 0 && (
-        <>
-          <TipButton balance={balance} onClick={() => setShowTipModal(true)} />
-          {showTipModal && (
-            <TipModal
-              recipients={tipRecipients}
-              balance={balance}
-              onSend={sendTip}
-              onClose={() => setShowTipModal(false)}
-            />
-          )}
-        </>
-      )}
     </>
   );
 }

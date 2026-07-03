@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerCharacter, Turn } from "@/types/campaign";
 import { getPlayerInk } from "@/types/campaign";
+import { isStoryTurnType } from "@/lib/campaign-turns";
 
 /**
  * The story as it stands, each hand in its own ink. Turns arriving after
@@ -17,6 +18,11 @@ import { getPlayerInk } from "@/types/campaign";
  * (the live slip lives at the end of the page); a resolved roll ("roll")
  * or vote record ("ooc") is one line of set type in faded ink. Both are
  * log types, so they stay out of the compiled chapter too.
+ *
+ * The House: lines the audience set in gold (`gildedTurnIds`) carry gold
+ * leaf under their ink — no amounts, no names, just the shimmer. When
+ * `onGild` is given (the watch surface), story lines are within the dark's
+ * reach: tapping one offers to set it in gold.
  */
 
 const MENTION_RE = /@([A-Za-zÀ-ž'’-]+)/g;
@@ -93,12 +99,14 @@ function paragraphClass(turn: Turn): string {
 function ReplayParagraph({
   turn,
   ink,
+  gilded,
   characters,
   allPlayerUserIds,
   onDone,
 }: {
   turn: Turn;
   ink: string;
+  gilded: boolean;
   characters: PlayerCharacter[];
   allPlayerUserIds: string[];
   onDone: (turnId: string) => void;
@@ -150,7 +158,9 @@ function ReplayParagraph({
       className={paragraphClass(turn)}
       style={{ color: ink }}
     >
-      <span className={dry ? "ink-wet ink-dry" : "ink-wet"}>
+      <span
+        className={`${dry ? "ink-wet ink-dry" : "ink-wet"}${gilded ? " ink-gilded" : ""}`}
+      >
         {renderInked(content.slice(0, typed), characters, allPlayerUserIds)}
       </span>
       {!finished && (
@@ -170,6 +180,8 @@ export default function StoryProse({
   gmUserId,
   replayIds,
   onReplayDone,
+  gildedTurnIds,
+  onGild,
 }: {
   turns: Turn[];
   characters: PlayerCharacter[];
@@ -177,6 +189,10 @@ export default function StoryProse({
   /** Turn ids that arrived live and should write themselves in. */
   replayIds: ReadonlySet<string>;
   onReplayDone: (turnId: string) => void;
+  /** Lines the audience has set in gold — they keep their shimmer. */
+  gildedTurnIds?: ReadonlySet<string>;
+  /** The dark's reach: given (watch surface), tapping a story line offers to gild it. */
+  onGild?: (turnId: string) => void;
 }) {
   const allPlayerUserIds = characters
     .filter((c) => c.status === "active")
@@ -190,18 +206,23 @@ export default function StoryProse({
         const ink = isSetLine(turn)
           ? "var(--ink-faded)"
           : inkFor(turn.userId, gmUserId, allPlayerUserIds);
+        const gilded = gildedTurnIds?.has(turn.id) ?? false;
         if (replayIds.has(turn.id)) {
           return (
             <ReplayParagraph
               key={turn.id}
               turn={turn}
               ink={ink}
+              gilded={gilded}
               characters={characters}
               allPlayerUserIds={allPlayerUserIds}
               onDone={onReplayDone}
             />
           );
         }
+        // Only settled story ink is within the dark's reach — set lines and
+        // live furniture can't take gold leaf.
+        const reachable = !!onGild && isStoryTurnType(turn.type);
         return (
           <p
             key={turn.id}
@@ -209,7 +230,26 @@ export default function StoryProse({
             className={paragraphClass(turn)}
             style={{ color: ink }}
           >
-            {renderInked(turn.content, characters, allPlayerUserIds)}
+            <span
+              className={
+                [gilded && "ink-gilded", reachable && "gild-reach"]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+              {...(reachable
+                ? {
+                    role: "button",
+                    tabIndex: 0,
+                    title: "Set this line in gold",
+                    onClick: () => onGild(turn.id),
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter") onGild(turn.id);
+                    },
+                  }
+                : {})}
+            >
+              {renderInked(turn.content, characters, allPlayerUserIds)}
+            </span>
           </p>
         );
       })}

@@ -91,4 +91,5 @@ export const SOURCE_LABELS: Record<string, { label: string; accent: string }> = 
   circle: { label: "Subscriptions", accent: "bg-amber" },
   commission: { label: "Commissions", accent: "bg-amethyst" },
   crossroads: { label: "Crossroads", accent: "bg-sage" },
+  gold: { label: "Gold from the audience", accent: "bg-copper" },
 };

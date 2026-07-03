@@ -5,7 +5,7 @@ import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 
-const EARNING_TYPES = ["tip", "unlock", "circle", "commission", "donation", "crossroads"];
+const EARNING_TYPES = ["tip", "unlock", "circle", "commission", "donation", "crossroads", "gold"];
 const CREATOR_SHARE_SQL = sql<number>`floor(${inkDropTransactions.amount} * 0.7)`;
 
 /**

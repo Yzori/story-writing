@@ -11,6 +11,8 @@ import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import RollCall from "@/components/campaign/v2/RollCall";
 import VoteCall from "@/components/campaign/v2/VoteCall";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
+import GoldSlip from "@/components/campaign/v2/GoldSlip";
+import GoldLight from "@/components/campaign/v2/GoldLight";
 import { composeVoteLine } from "@/components/campaign/v2/votes";
 import {
   composeSetLine,
@@ -79,6 +81,39 @@ export default function DemoAdventureV2Page() {
   const [round, setRound] = useState<DemoRound | null>(null);
   const [replayIds, setReplayIds] = useState<ReadonlySet<string>>(new Set());
   const endRef = useRef<HTMLDivElement>(null);
+
+  // The House, demo-local: one line arrives already set in gold; the viewer
+  // chair can gild more and leave gold for the table. Gold buys light only.
+  const [gildedTurnIds, setGildedTurnIds] = useState<ReadonlySet<string>>(
+    new Set(["t-2"]),
+  );
+  const [flareCount, setFlareCount] = useState(0);
+  const [demoBalance, setDemoBalance] = useState(120);
+  const [goldTarget, setGoldTarget] = useState<{ turnId: string | null } | null>(
+    null,
+  );
+
+  const gildLine = useMemo(() => {
+    if (!goldTarget?.turnId) return null;
+    const turn = turns.find((t) => t.id === goldTarget.turnId);
+    if (!turn) return null;
+    return {
+      content: turn.content,
+      ink: inkFor(turn.userId, GM_USER_ID, ACTIVE_USER_IDS),
+    };
+  }, [goldTarget, turns]);
+
+  const onSendGold = useCallback(
+    async (amount: number) => {
+      setDemoBalance((b) => b - amount);
+      if (goldTarget?.turnId) {
+        const turnId = goldTarget.turnId;
+        setGildedTurnIds((prev) => new Set(prev).add(turnId));
+      }
+      setFlareCount((c) => c + 1);
+    },
+    [goldTarget],
+  );
 
   // The live slip, if a roll is on the table.
   const pendingRoll = useMemo(() => findOpenRoll(turns), [turns]);
@@ -447,7 +482,30 @@ export default function DemoAdventureV2Page() {
               </span>
             ))}
             <span>· 12 watching</span>
+            {role === "viewer" && (
+              <button
+                type="button"
+                onClick={() => setGoldTarget({ turnId: null })}
+                className="cursor-pointer text-amber/80 transition-colors hover:text-amber"
+                title="Leave gold for the table — it becomes light"
+              >
+                · leave gold ✦
+              </button>
+            )}
           </div>
+        }
+        overlays={
+          <>
+            <GoldLight flareCount={flareCount} />
+            {goldTarget && (
+              <GoldSlip
+                line={gildLine}
+                balance={demoBalance}
+                onSend={onSendGold}
+                onClose={() => setGoldTarget(null)}
+              />
+            )}
+          </>
         }
       >
         <p className="mb-8 font-reading text-[15px] italic leading-[1.85] text-text-secondary">
@@ -460,6 +518,10 @@ export default function DemoAdventureV2Page() {
           gmUserId={GM_USER_ID}
           replayIds={replayIds}
           onReplayDone={onReplayDone}
+          gildedTurnIds={gildedTurnIds}
+          onGild={
+            role === "viewer" ? (turnId) => setGoldTarget({ turnId }) : undefined
+          }
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">

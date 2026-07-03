@@ -4,10 +4,11 @@ import {
   chapters,
   campaignSessions,
   campaignTurns,
+  campaignGold,
   characterMarks,
   playerCharacters,
 } from "@/server/db/schema";
-import { eq, and, asc, isNull, sql } from "drizzle-orm";
+import { eq, and, asc, isNull, isNotNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { compileSessionToHTML } from "@/server/services/compile-session";
@@ -137,6 +138,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(and(eq(characterMarks.sessionId, sessionId), eq(characterMarks.storyId, storyId)))
       .orderBy(asc(characterMarks.createdAt));
 
+    // Lines the audience set in gold during play — their shimmer survives
+    // into the chapter as [data-gilded] markup (The House's paid applause).
+    const gildedRows = await db
+      .selectDistinct({ turnId: campaignGold.turnId })
+      .from(campaignGold)
+      .where(
+        and(eq(campaignGold.sessionId, sessionId), isNotNull(campaignGold.turnId))
+      );
+
     // Compile turns to HTML
     const compiledHTML = compileSessionToHTML({
       sessionTitle: campaignSession.title,
@@ -151,6 +161,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           text: m.text,
           characterName: m.characterName,
         })),
+      gildedTurnIds: gildedRows
+        .map((r) => r.turnId)
+        .filter((id): id is string => !!id),
     });
 
     // Determine next sort order for the new chapter

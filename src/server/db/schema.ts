@@ -2724,6 +2724,62 @@ export const storyDonationsRelations = relations(storyDonations, ({ one }) => ({
   }),
 }));
 
+// ── The House — gold left by the audience ────────────────────
+// "Money never buys the story; it buys light." One row is one gesture from
+// the dark: gold left for the table (turnId null) or a line set in gold
+// (turnId names the passage). Amount is the gross gesture; the split across
+// the cast lives in inkDropTransactions. The room only ever shows the
+// shimmer — totals surface at book-close, never in-session.
+
+export const campaignGold = pgTable(
+  "campaign_gold",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    turnId: uuid("turn_id").references(() => campaignTurns.id, {
+      onDelete: "set null",
+    }),
+    fromUserId: uuid("from_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amount: integer("amount").notNull(), // drops, gross (before the split)
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_campaign_gold_session").on(table.sessionId, table.createdAt),
+    index("idx_campaign_gold_turn").on(table.turnId),
+    index("idx_campaign_gold_story").on(table.storyId),
+  ]
+);
+
+export const campaignGoldRelations = relations(campaignGold, ({ one }) => ({
+  session: one(campaignSessions, {
+    fields: [campaignGold.sessionId],
+    references: [campaignSessions.id],
+  }),
+  story: one(stories, {
+    fields: [campaignGold.storyId],
+    references: [stories.id],
+  }),
+  turn: one(campaignTurns, {
+    fields: [campaignGold.turnId],
+    references: [campaignTurns.id],
+  }),
+  from: one(users, {
+    fields: [campaignGold.fromUserId],
+    references: [users.id],
+  }),
+}));
+
 // ── Crossroads — influence polls with weighted voting ────────
 
 export const crossroads = pgTable(

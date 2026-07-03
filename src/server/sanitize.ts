@@ -19,6 +19,7 @@ const ALLOWED_ATTR = [
   "data-caption", "data-prompt", "data-floatside", "data-color",
   "data-scene-break", "data-scene-break-style", "data-scene-break-label",
   "data-story-moment", "data-mood",
+  "data-gilded",
   "src", "alt", "width", "height", "loading",
   "id",
 ];

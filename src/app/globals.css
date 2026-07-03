@@ -2329,6 +2329,59 @@ html.theme-light .ink-wet.ink-dry { filter: none; }
   .die-tumbling { animation: none; }
 }
 
+/* The House — gold is light. A gilded line keeps its author's ink and takes
+   gold leaf beneath it; the same mark survives into the compiled chapter as
+   [data-gilded]. No amounts, no names — just the shimmer. */
+.ink-gilded,
+[data-gilded="true"] {
+  padding: 0.06em 0.18em;
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--t-gold) 15%, transparent) 0%,
+    color-mix(in srgb, var(--t-gold) 6%, transparent) 100%
+  );
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--t-gold) 32%, transparent);
+}
+html.theme-light .ink-gilded,
+html.theme-light [data-gilded="true"] {
+  text-shadow: none;
+}
+
+/* A line within the dark's reach — hover shows where the light would sit. */
+.gild-reach { cursor: pointer; }
+.gild-reach:hover,
+.gild-reach:focus-visible {
+  outline: none;
+  padding: 0.06em 0.18em;
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--t-gold) 8%, transparent) 0%,
+    color-mix(in srgb, var(--t-gold) 3%, transparent) 100%
+  );
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* The dark answers gold with light — a slow warm flare around the sheet. */
+@keyframes gold-flare {
+  0% { opacity: 0; }
+  16% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.gold-flare {
+  background:
+    radial-gradient(90% 55% at 50% 108%, color-mix(in srgb, var(--t-gold) 17%, transparent), transparent 62%),
+    radial-gradient(90% 45% at 50% -8%, color-mix(in srgb, var(--t-gold) 11%, transparent), transparent 62%);
+  animation: gold-flare 2.6s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gold-flare { animation-duration: 1.2s; }
+}
+
 /* Thin thread from a margin note to the line it annotates. */
 .note-leader {
   position: absolute;
