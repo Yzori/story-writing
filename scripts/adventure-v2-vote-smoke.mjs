@@ -82,7 +82,7 @@ await page.waitForSelector("text=tap a line to lean");
 await page.locator("button", { hasText: "draws his blade" }).click();
 await page.waitForSelector("text=your lean");
 log("viewer leaned; lean printed:",
-  JSON.stringify(await page.locator("p", { hasText: /viewer.*lean/i }).first().innerText()));
+  JSON.stringify(await page.locator("span, p", { hasText: /viewer.*lean/i }).last().innerText()));
 await page.screenshot({ path: SHOT("v4-viewer-lean") });
 
 // ── 6. Director adds the winner ──

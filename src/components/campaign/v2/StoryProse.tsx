@@ -251,9 +251,16 @@ export default function StoryProse({
           <p
             key={turn.id}
             data-turn-id={turn.id}
-            className={paragraphClass(turn)}
+            className={`${paragraphClass(turn)}${reachable ? " gild-line" : ""}`}
             style={{ color: ink }}
           >
+            {/* At rest, a faint nib marks every line the dark can reach —
+                hover isn't the only way to learn the page takes gold. */}
+            {reachable && (
+              <span className="gild-nib" aria-hidden="true">
+                ✦
+              </span>
+            )}
             <span
               className={
                 [gilded && "ink-gilded", reachable && "gild-reach"]

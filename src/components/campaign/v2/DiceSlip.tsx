@@ -207,9 +207,9 @@ export default function DiceSlip({
               Roll
             </button>
           ) : (
-            <span className="flex flex-col items-start gap-1">
+            <span className="flex flex-col items-start gap-1.5">
               <span className="table-murmur">
-                the dice are with{" "}
+                the page waits — the dice are with{" "}
                 <span className="font-semibold not-italic" style={{ color: targetInk }}>
                   {targetName}
                 </span>
@@ -218,7 +218,8 @@ export default function DiceSlip({
                 <button
                   type="button"
                   onClick={onCallOff}
-                  className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-text-secondary"
+                  className="table-action cursor-pointer rounded-full border border-border/70 px-2.5 py-1 text-text-tertiary transition-colors hover:border-border hover:text-text-secondary"
+                  title="Take the call back — the slip leaves the page and the pen returns to you"
                 >
                   Call it off
                 </button>

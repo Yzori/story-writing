@@ -92,28 +92,41 @@ export default function VoteBlock({
             // A player can't vote for their own line; a viewer leans anywhere.
             const rowClickable = canLean || (canVote && !o.isMine);
             const meta = (
-              <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost">
+              <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost">
                 {o.authorName} · {o.voteCount} {o.voteCount === 1 ? "vote" : "votes"}
                 {o.leanCount > 0 &&
                   ` · ${o.leanCount} ${o.leanCount === 1 ? "viewer leans" : "viewers lean"} this way`}
                 {o.isMine && <span> · yours</span>}
                 {o.isMyVote && <span className="text-amber"> · your vote</span>}
                 {o.isMyLean && <span className="text-amber"> · your lean</span>}
-              </p>
+              </span>
             );
+            const chosen = o.isMyVote || o.isMyLean;
             const body = (
-              <>
-                <p
-                  className="font-reading text-[15px] leading-relaxed"
-                  style={{ color: o.ink }}
-                >
-                  {o.content}
-                </p>
-                {meta}
-              </>
+              <span className="flex items-start gap-3">
+                <span className="block min-w-0 flex-1">
+                  <span
+                    className="block font-reading text-[15px] leading-relaxed"
+                    style={{ color: o.ink }}
+                  >
+                    {o.content}
+                  </span>
+                  {meta}
+                </span>
+                {/* The ballot mark — an empty circle says "you can choose
+                    this" even at rest, even on touch. */}
+                {rowClickable && (
+                  <span
+                    className={`mt-1.5 inline-block h-3.5 w-3.5 shrink-0 rounded-full border transition-colors ${
+                      chosen ? "border-amber bg-amber" : "border-border"
+                    }`}
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
             );
             const rowClass = `block w-full border-l-2 py-1 pl-3 pr-2 text-left transition-colors ${
-              o.isMyVote || o.isMyLean ? "bg-paper/[0.04]" : ""
+              chosen ? "bg-paper/[0.04]" : ""
             }`;
             return rowClickable ? (
               <button
@@ -123,6 +136,7 @@ export default function VoteBlock({
                 className={`${rowClass} cursor-pointer hover:bg-paper/[0.03]`}
                 style={{ borderColor: o.ink }}
                 title={canVote && !o.isMine ? "Vote for this line" : "Lean toward this line"}
+                aria-pressed={chosen}
               >
                 {body}
               </button>

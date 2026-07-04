@@ -60,12 +60,18 @@ function isPageTurn(turn: Turn): boolean {
   }
 }
 
+// Aliases let the Director's own word land on the canonical move —
+// "/dice" finds the roll, "/decide" finds the vote.
 const DIRECTOR_MOVES_ACTIVE = [
-  { key: "roll", label: "Call for a roll" },
-  { key: "vote", label: "Put it to a vote" },
-  { key: "end", label: "End the session" },
+  { key: "roll", label: "Call for a roll", aliases: ["dice", "check", "ask"] },
+  { key: "vote", label: "Put it to a vote", aliases: ["crossroads", "choice", "decide"] },
+  { key: "end", label: "End the session", aliases: ["finish", "close"] },
 ];
-const STRANGER_MOVE = { key: "stranger", label: "Wake the Stranger" };
+const STRANGER_MOVE = {
+  key: "stranger",
+  label: "Wake the Stranger",
+  aliases: ["audience", "dark"],
+};
 
 export default function SessionPlayPage() {
   const params = useParams();

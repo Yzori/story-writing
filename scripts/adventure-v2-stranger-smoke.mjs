@@ -112,10 +112,10 @@ log("probe: veto returns to the quill, nothing printed:",
 
 // ── 6. Probe: @-naming the Stranger inks silver in the cast list ──
 await quill.fill("The shadows lengthen. @Grave");
-await page.waitForSelector("div.absolute button");
+await page.waitForSelector(".move-card button");
 log("probe: @ list offers the Stranger:",
-  (await page.locator("div.absolute button", { hasText: "Gravekeeper" }).count()) === 1);
-await page.locator("div.absolute button", { hasText: "Gravekeeper" }).click();
+  (await page.locator(".move-card button", { hasText: "Gravekeeper" }).count()) === 1);
+await page.locator(".move-card button", { hasText: "Gravekeeper" }).click();
 log("probe: mention completed:",
   (await quill.inputValue()).includes("@Gravekeeper"));
 

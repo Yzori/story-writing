@@ -286,10 +286,10 @@ export default function WatchSessionPage() {
               <button
                 type="button"
                 onClick={() => setGoldTarget({ turnId: null })}
-                className="cursor-pointer text-amber/80 transition-colors hover:text-amber"
-                title="Leave gold for the table — it becomes light"
+                className="table-action ml-auto flex cursor-pointer items-center gap-1 rounded-full border border-amber/30 px-2.5 py-1 text-amber/90 transition-colors hover:bg-amber/10"
+                title="Leave gold for the table — it becomes light. Or tap any line marked ✦ to set it in gold."
               >
-                · leave gold ✦
+                leave gold ✦
               </button>
             )}
           </div>

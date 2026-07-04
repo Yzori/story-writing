@@ -2359,10 +2359,47 @@ html.theme-light [data-gilded="true"] {
   text-shadow: none;
 }
 
+/* The Director's move card — the "/" menu and the @ cast list, written on
+   the page's own paper instead of borrowed app chrome. */
+.move-card {
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--t-gold) 28%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--t-gold) 5%, rgba(16, 21, 38, 0.98)),
+    rgba(13, 17, 30, 0.98)
+  );
+  box-shadow:
+    0 14px 44px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+html.theme-light .move-card {
+  border-color: rgba(168, 130, 44, 0.35);
+  background: linear-gradient(180deg, #fffdf6, #fbf5e8);
+  box-shadow: 0 14px 40px rgba(76, 54, 28, 0.18);
+}
+
+/* The dark's reach made visible at rest — a faint nib beside every line
+   that can take gold, so touch knows what hover knew. */
+.gild-line { position: relative; }
+.gild-nib {
+  position: absolute;
+  left: -1.15rem;
+  top: 0.4em;
+  font-size: 9px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--t-gold) 40%, transparent);
+  pointer-events: none;
+  transition: color 160ms ease;
+}
+.gild-line:hover .gild-nib,
+.gild-line:focus-within .gild-nib { color: var(--t-gold); }
+
 /* A line within the dark's reach — hover shows where the light would sit. */
 .gild-reach { cursor: pointer; }
 .gild-reach:hover,
-.gild-reach:focus-visible {
+.gild-reach:focus-visible,
+.gild-reach:active {
   outline: none;
   padding: 0.06em 0.18em;
   background-image: linear-gradient(

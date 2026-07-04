@@ -64,21 +64,34 @@ export default function StrangerBlock({
         <div className="mt-3 space-y-2">
           {deeds.map((d) => {
             const meta = (
-              <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost">
+              <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost">
                 {d.voiceCount} {d.voiceCount === 1 ? "voice" : "voices"}
                 {d.isMyChoice && <span style={{ color: "var(--ink-strange)" }}> · your choice</span>}
-              </p>
+              </span>
             );
             const body = (
-              <>
-                <p
-                  className="font-reading text-[15px] leading-relaxed"
-                  style={{ color: "var(--ink-strange)" }}
-                >
-                  {d.content}
-                </p>
-                {meta}
-              </>
+              <span className="flex items-start gap-3">
+                <span className="block min-w-0 flex-1">
+                  <span
+                    className="block font-reading text-[15px] leading-relaxed"
+                    style={{ color: "var(--ink-strange)" }}
+                  >
+                    {d.content}
+                  </span>
+                  {meta}
+                </span>
+                {/* The ballot mark — visible at rest, silver when it's yours. */}
+                {canChoose && (
+                  <span
+                    className="mt-1.5 inline-block h-3.5 w-3.5 shrink-0 rounded-full border transition-colors"
+                    style={{
+                      borderColor: "var(--ink-strange)",
+                      background: d.isMyChoice ? "var(--ink-strange)" : "transparent",
+                    }}
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
             );
             const rowClass = `block w-full border-l-2 py-1 pl-3 pr-2 text-left transition-colors ${
               d.isMyChoice ? "bg-paper/[0.04]" : ""
@@ -91,6 +104,7 @@ export default function StrangerBlock({
                 className={`${rowClass} cursor-pointer hover:bg-paper/[0.03]`}
                 style={{ borderColor: "var(--ink-strange)" }}
                 title="Choose this deed"
+                aria-pressed={d.isMyChoice}
               >
                 {body}
               </button>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import ComposerCard from "./ComposerCard";
 
 /**
  * The Director wakes the Stranger: one line for the moment, and two to four
- * deeds the house will choose between. Summoned from the quill by typing
- * "/". Same paper as the ballot that will print — the composer IS the
- * ballot, being written. Every deed is Director-framed (the veto starts
+ * deeds the house will choose between. Summoned from the quill by "/".
+ * Same paper as the ballot that will print — silver, but the same shape as
+ * every other composer. Every deed is Director-framed (the veto starts
  * here: nothing reaches the house the Director didn't write).
  */
 
@@ -33,30 +34,16 @@ export default function StrangerCall({
     onCommit({ prompt: prompt.trim(), deeds: filledDeeds });
   };
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      commit();
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onCancel();
-    }
-  };
-
   return (
-    <div
-      className="rounded-md border px-5 py-4"
-      style={{
-        borderColor: "color-mix(in srgb, var(--ink-strange) 30%, transparent)",
-        background: "color-mix(in srgb, var(--ink-strange) 6%, transparent)",
-      }}
-      onKeyDown={onKeyDown}
+    <ComposerCard
+      whisper={`${name} wakes — the audience chooses what it does`}
+      silver
+      ready={ready}
+      commitLabel="Put it to the audience"
+      commitTitle="Print the ballot for the audience (Ctrl+Enter)"
+      onCommit={commit}
+      onCancel={onCancel}
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-        {name} wakes — the audience chooses what it does
-      </p>
-
       <input
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
@@ -95,25 +82,6 @@ export default function StrangerCall({
           + another deed
         </button>
       )}
-
-      <div className="mt-4 flex items-center justify-end gap-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-text-secondary"
-        >
-          Never mind
-        </button>
-        <button
-          type="button"
-          onClick={commit}
-          disabled={!ready}
-          className="wax-seal cursor-pointer px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em]"
-          title="Print the ballot for the audience (Ctrl+Enter)"
-        >
-          Put it to the audience
-        </button>
-      </div>
-    </div>
+    </ComposerCard>
   );
 }

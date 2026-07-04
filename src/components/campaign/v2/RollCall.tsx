@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import type { PlayerCharacter } from "@/types/campaign";
 import { getPlayerInk } from "@/types/campaign";
+import ComposerCard from "./ComposerCard";
 
 /**
  * The Director fills in the slip that will print: who rolls, the ask, and
- * both stakes. Summoned from the quill by typing "/". Same paper as the
- * printed slip — the composer IS the slip, being written.
+ * both stakes. Summoned from the quill by "/". Same paper as the printed
+ * slip — the composer IS the slip, being written.
  */
 export default function RollCall({
   characters,
@@ -46,29 +47,18 @@ export default function RollCall({
     });
   };
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      commit();
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onCancel();
-    }
-  };
-
   const inputClass =
     "block w-full bg-transparent font-reading italic outline-none placeholder:text-text-ghost";
 
   return (
-    <div
-      className="rounded-md border border-amber/25 bg-amber/[0.05] px-5 py-4"
-      onKeyDown={onKeyDown}
+    <ComposerCard
+      whisper="a roll — the slip prints on the page when you ask"
+      ready={ready}
+      commitLabel="Ask for the roll"
+      commitTitle="Print the slip (Ctrl+Enter)"
+      onCommit={commit}
+      onCancel={onCancel}
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-        a roll — the slip prints on the page when you ask
-      </p>
-
       <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-text-ghost">
           who
@@ -124,25 +114,6 @@ export default function RollCall({
           aria-label="What happens if the roll breaks"
         />
       </label>
-
-      <div className="mt-4 flex items-center justify-end gap-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-text-secondary"
-        >
-          Never mind
-        </button>
-        <button
-          type="button"
-          onClick={commit}
-          disabled={!ready}
-          className="wax-seal cursor-pointer px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em]"
-          title="Print the slip (Ctrl+Enter)"
-        >
-          Ask for the roll
-        </button>
-      </div>
-    </div>
+    </ComposerCard>
   );
 }

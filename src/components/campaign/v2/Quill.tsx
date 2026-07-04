@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerCharacter } from "@/types/campaign";
 import { getPlayerInk } from "@/types/campaign";
+import MoveCard from "./MoveCard";
 
 /**
  * The end of the page when the pen is yours. Renders as the story's next
@@ -11,8 +12,9 @@ import { getPlayerInk } from "@/types/campaign";
  *
  * The Director's pass lives INSIDE the writing: typing "@" opens the cast
  * list; committing a passage that names a character hands them the pen.
- * Typing "/" on an empty line summons the Director's moves (dice, and
- * later the vote). Labels follow the language law — plain words on controls.
+ * The moves have a visible home too — the Moves chip under the quill types
+ * the "/" for you, and typing "/" on an empty line summons the same card.
+ * Labels follow the language law — plain words on controls.
  */
 
 const PLACEHOLDERS = {
@@ -52,7 +54,7 @@ export default function Quill({
   /** Commit the passage; passToUserId is set when the Director named someone. */
   onCommit: (content: string, passToUserId: string | null) => void | Promise<void>;
   /** The moves "/" can summon (Director only in v2). */
-  moves?: Array<{ key: string; label: string }>;
+  moves?: Array<{ key: string; label: string; aliases?: string[] }>;
   onMove?: (key: string) => void;
   /** The chair left for the dark — named in the @ list in moon-silver.
    *  Naming it stages, never passes the pen (the ballot does that work). */
@@ -60,7 +62,9 @@ export default function Quill({
 }) {
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
+  const [moveHighlight, setMoveHighlight] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // Auto-grow with the ink.
   useEffect(() => {
@@ -117,14 +121,35 @@ export default function Quill({
     if (moveQuery === null || !moves) return [];
     return moves.filter(
       (m) =>
-        m.key.startsWith(moveQuery) || m.label.toLowerCase().includes(moveQuery),
+        m.key.startsWith(moveQuery) ||
+        m.label.toLowerCase().includes(moveQuery) ||
+        m.aliases?.some((a) => a.startsWith(moveQuery)),
     );
   }, [moveQuery, moves]);
 
+  const movesOpen = moveQuery !== null;
+  const highlight = Math.min(moveHighlight, Math.max(moveMatches.length - 1, 0));
+
   const pickMove = (key: string) => {
     setContent("");
+    setMoveHighlight(0);
     onMove?.(key);
   };
+
+  const toggleMoves = () => {
+    setContent(movesOpen ? "" : "/");
+    setMoveHighlight(0);
+    textareaRef.current?.focus();
+  };
+  // The chip won't clobber a passage mid-write — "/" only works on an empty line.
+  const movesChipDisabled = !movesOpen && !!content.trim();
+
+  // Keep the card in view when the page offers it near the fold.
+  useEffect(() => {
+    if (moveQuery !== null || mentionQuery !== null) {
+      rootRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [moveQuery, mentionQuery]);
 
   const passTarget = isGM ? firstMentionUserId(content, activeChars) : null;
   const passName = passTarget
@@ -146,7 +171,7 @@ export default function Quill({
   const leadIn = isGM ? null : myCharName;
 
   return (
-    <div className="relative" data-turn-id="the-quill">
+    <div className="relative" data-turn-id="the-quill" ref={rootRef}>
       <div className="font-reading text-[16px] leading-[1.85] sm:text-[17px]">
         {leadIn && (
           <span className="font-semibold" style={{ color: ink }}>
@@ -156,8 +181,36 @@ export default function Quill({
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            setContent(e.target.value);
+            setMoveHighlight(0);
+          }}
           onKeyDown={(e) => {
+            // The move card holds the keyboard while it's open.
+            if (moveMatches.length > 0) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setMoveHighlight((h) => (h + 1) % moveMatches.length);
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setMoveHighlight(
+                  (h) => (h - 1 + moveMatches.length) % moveMatches.length,
+                );
+                return;
+              }
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                pickMove(moveMatches[highlight].key);
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setContent("");
+                return;
+              }
+            }
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
               e.preventDefault();
               void commit();
@@ -169,10 +222,6 @@ export default function Quill({
               e.preventDefault();
               insertMentionText(strangerFirst);
             }
-            if (e.key === "Tab" && moveMatches.length > 0) {
-              e.preventDefault();
-              pickMove(moveMatches[0].key);
-            }
           }}
           placeholder={PLACEHOLDERS[isGM ? "gm" : "player"]}
           rows={1}
@@ -183,61 +232,74 @@ export default function Quill({
         />
       </div>
 
-      {/* The Director's moves — summoned by /. */}
+      {/* The Director's moves — summoned by / or the chip below. */}
       {moveMatches.length > 0 && (
-        <div className="absolute z-10 mt-1 flex flex-wrap gap-3 rounded-md border border-border bg-elevated/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
-          {moveMatches.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => pickMove(m.key)}
-              className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.12em] text-amber transition-opacity hover:opacity-80"
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <MoveCard
+          moves={moveMatches}
+          highlight={highlight}
+          onPick={pickMove}
+          onHover={setMoveHighlight}
+        />
       )}
 
       {/* The Director's cast list — summoned by @. */}
       {(mentionMatches.length > 0 || strangerMatches) && (
-        <div className="absolute z-10 mt-1 flex flex-wrap gap-2 rounded-md border border-border bg-elevated/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
-          {mentionMatches.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => insertMention(c)}
-              className="cursor-pointer font-reading text-[15px] transition-opacity hover:opacity-80"
-              style={{ color: getPlayerInk(c.userId, allPlayerUserIds) }}
-            >
-              {c.name.split(" ")[0]}
-            </button>
-          ))}
-          {strangerMatches && strangerFirst && (
-            <button
-              key="the-stranger"
-              type="button"
-              onClick={() => insertMentionText(strangerFirst)}
-              className="cursor-pointer font-reading text-[15px] transition-opacity hover:opacity-80"
-              style={{ color: "var(--ink-strange)" }}
-              title="Name the Stranger — it stages, it doesn't pass the pen"
-            >
-              {strangerFirst}
-            </button>
-          )}
+        <div className="move-card mt-2 px-4 py-2.5">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            {mentionMatches.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => insertMention(c)}
+                className="cursor-pointer font-reading text-[15px] transition-opacity hover:opacity-80"
+                style={{ color: getPlayerInk(c.userId, allPlayerUserIds) }}
+              >
+                {c.name.split(" ")[0]}
+              </button>
+            ))}
+            {strangerMatches && strangerFirst && (
+              <button
+                key="the-stranger"
+                type="button"
+                onClick={() => insertMentionText(strangerFirst)}
+                className="cursor-pointer font-reading text-[15px] transition-opacity hover:opacity-80"
+                style={{ color: "var(--ink-strange)" }}
+                title="Name the Stranger — it stages, it doesn't pass the pen"
+              >
+                {strangerFirst}
+              </button>
+            )}
+          </div>
+          <p className="mt-1.5 border-t border-border/40 pt-1.5 font-mono text-[9.5px] tracking-[0.08em] text-text-ghost">
+            naming someone hands them the pen · Tab picks the first
+          </p>
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-        {isGM && (
-          <span className="table-murmur">
-            {passName
-              ? `the pen goes to ${passName} when you add this`
-              : moves?.length
-                ? "type @ to hand someone the pen · / for a roll or a vote"
-                : "type @ to hand someone the pen"}
-          </span>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {isGM && !!moves?.length && (
+          <button
+            type="button"
+            onClick={toggleMoves}
+            disabled={movesChipDisabled}
+            className="table-action flex cursor-pointer items-center gap-1.5 rounded-full border border-amber/25 px-2.5 py-1 text-amber/90 transition-colors hover:bg-amber/10 disabled:cursor-default disabled:opacity-40"
+            title={
+              movesChipDisabled
+                ? "Finish or clear this passage first"
+                : "Call for a roll, put it to a vote, end the session — or just type /"
+            }
+            aria-expanded={movesOpen}
+          >
+            <span className="font-mono text-[11px] normal-case">/</span> Moves
+          </button>
         )}
+        <span className="table-murmur">
+          {isGM
+            ? passName
+              ? `the pen goes to ${passName} when you add this`
+              : "type @ to hand someone the pen"
+            : "the pen is yours — it returns to the Director when you add to the story"}
+        </span>
         <div className="ml-auto">
           <button
             type="button"

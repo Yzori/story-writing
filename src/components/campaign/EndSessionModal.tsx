@@ -13,8 +13,9 @@ interface EndSessionModalProps {
 }
 
 /**
- * End-Session confirmation modal (GM only). Presentational — all state and the
- * confirm handler live in the play page. Lifted verbatim to slim the page.
+ * Ending the session (Director only). A leaf of the same paper as the page
+ * it closes — sheet, whispered header, wax seal — not a foreign app dialog.
+ * Presentational: all state and the confirm handler live in the play page.
  */
 export default function EndSessionModal({
   open,
@@ -40,67 +41,95 @@ export default function EndSessionModal({
               e.preventDefault();
               onClose();
             }
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              onConfirm();
+            }
           }}
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm outline-none"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm outline-none"
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
             transition={{ duration: 0.2 }}
-            className="bg-[#111] border border-amber/20 rounded-2xl p-6 max-w-md w-full mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
+            className="manuscript-sheet w-full max-w-md rounded-md px-6 py-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2 mb-4">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span id="end-session-title" className="text-[11px] uppercase tracking-[0.2em] font-display text-amber">End Session</span>
-            </div>
-
-            <p className="text-sm text-white/60 mb-5">
-              This will close the session for all players. You can optionally leave a closing thought — a teaser, a reflection, or a &ldquo;to be continued...&rdquo;
+            <p
+              id="end-session-title"
+              className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-ghost"
+            >
+              closing the session
             </p>
 
-            <label className="mb-1 block font-display text-[9px] uppercase tracking-[0.18em] text-amber/60">Closing Thought</label>
+            <p className="table-murmur mt-3">
+              this closes the page for everyone at the table — you can leave a
+              closing line, and a hook for next time
+            </p>
+
+            <label
+              htmlFor="end-session-epilogue"
+              className="table-action mt-5 block text-text-ghost"
+            >
+              A closing line
+            </label>
             <textarea
+              id="end-session-epilogue"
               value={epilogueText}
               onChange={(e) => setEpilogueText(e.target.value)}
-              placeholder="The road stretches on, and the shadows grow longer..."
-              aria-label="Closing thought (optional)"
+              placeholder="The road stretches on, and the shadows grow longer…"
+              aria-label="Closing line (optional)"
               autoFocus
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
+              className="mt-1 block w-full resize-none border-b border-border/60 bg-transparent pb-1 font-reading text-[15px] italic text-paper/90 outline-none transition-colors placeholder:text-text-ghost focus:border-amber/40"
               rows={3}
               maxLength={5000}
             />
-            <p className="text-[9px] text-white/20 mt-1 mb-4">Optional — the closing moment of this session</p>
+            <p className="mt-1 font-mono text-[9.5px] text-text-ghost">
+              optional — the last line under this session
+            </p>
 
-            <label className="mb-1 block font-display text-[9px] uppercase tracking-[0.18em] text-amber/60">Cliffhanger</label>
+            <label
+              htmlFor="end-session-cliffhanger"
+              className="table-action mt-4 block text-text-ghost"
+            >
+              A hook for next time
+            </label>
             <textarea
+              id="end-session-cliffhanger"
               value={cliffhangerText}
               onChange={(e) => setCliffhangerText(e.target.value)}
               placeholder="At dawn, the gates will open — and they are not ready…"
-              aria-label="Cliffhanger for next session (optional)"
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-paper/80 font-serif italic placeholder:text-white/15 outline-none focus:border-amber/30 resize-none transition-colors"
+              aria-label="Hook for next session (optional)"
+              className="mt-1 block w-full resize-none border-b border-border/60 bg-transparent pb-1 font-reading text-[15px] italic text-paper/90 outline-none transition-colors placeholder:text-text-ghost focus:border-amber/40"
               rows={2}
               maxLength={280}
             />
-            <p className="text-[9px] text-white/20 mt-1 mb-5">Optional — the hook that opens next session&apos;s &ldquo;Previously, on…&rdquo;</p>
+            <p className="mt-1 font-mono text-[9.5px] text-text-ghost">
+              optional — opens the next session&rsquo;s &ldquo;previously&rdquo;
+            </p>
 
-            <div className="flex gap-3">
-              <button
-                onClick={onConfirm}
-                className="flex-1 bg-amber/10 hover:bg-amber/20 border border-amber/20 text-amber text-[11px] uppercase tracking-wider font-bold rounded-full py-2.5 cursor-pointer transition-colors"
-              >
-                End Session
-              </button>
-              <button
-                onClick={onClose}
-                className="px-5 text-[11px] text-white/40 hover:text-white cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="font-mono text-[9.5px] tracking-[0.08em] text-text-ghost">
+                Ctrl+Enter ends it · Esc keeps writing
+              </span>
+              <div className="ml-auto flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="table-action cursor-pointer text-text-tertiary transition-colors hover:text-text-secondary"
+                >
+                  Never mind
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  className="wax-seal cursor-pointer px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em]"
+                >
+                  End the session
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
