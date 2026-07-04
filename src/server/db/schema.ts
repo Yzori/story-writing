@@ -1501,6 +1501,10 @@ export const sessionPollVotesRelations = relations(
 );
 
 // ── Progress Clocks ─────────────────────────────────────────
+// ORPHANED 2026-07-04: the clocks API routes were pruned with the rest of
+// the manuscript-era inventory (v2 keeps dice + votes only). The table and
+// its rows stay until the owner okays a drop-table migration; same for
+// character_champions and spectator_reactions below.
 
 export const progressClocks = pgTable("progress_clocks", {
   id: uuid("id")

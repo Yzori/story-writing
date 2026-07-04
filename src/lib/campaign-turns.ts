@@ -128,8 +128,9 @@ export const storyMomentMetadataSchema = z.object({
   markEligible: z.boolean().optional(),
 });
 
-// Plain consequence metadata. Bargain consequences use bargainMetadataSchema;
-// other consequences may carry a markEligible flag the GM sets via composer.
+// Plain consequence metadata — may carry a markEligible flag. (Bargains and
+// their schema died with the 2026-07-02 demolition; legacy bargain rows keep
+// their JSON but nothing parses it anymore.)
 export const consequenceMetadataSchema = z.object({
   markEligible: z.boolean().optional(),
 });
@@ -139,23 +140,8 @@ export const illustrationMetadataSchema = z.object({
   caption: z.string().optional(),
 });
 
-export const bargainMetadataSchema = z.object({
-  kind: z.literal("bargain"),
-  targetUserId: targetUserIdSchema,
-  targetLabel: tidyText(120),
-  gain: tidyText(700),
-  price: tidyText(700),
-  status: z.enum(["open", "accepted", "refused", "cancelled"]).optional(),
-  responseUserId: z.string().max(64).optional(),
-  responseLabel: tidyText(120).optional(),
-  resolvedAt: z.string().max(80).optional(),
-  // Server-set when the bargain is accepted — a debt was taken on.
-  markEligible: z.boolean().optional(),
-});
-
 export type RollRequestMetadata = z.infer<typeof rollRequestMetadataSchema>;
 export type RollMetadata = z.infer<typeof rollMetadataSchema>;
-export type BargainMetadata = z.infer<typeof bargainMetadataSchema>;
 export type SceneBreakMetadata = z.infer<typeof sceneBreakMetadataSchema>;
 export type StoryMomentMetadata = z.infer<typeof storyMomentMetadataSchema>;
 
@@ -197,10 +183,6 @@ export function isLegacyCinematicSceneBreak(type: string, metadata: string | nul
 
 export function parseIllustrationMetadata(metadata: string | null | undefined) {
   return parseMetadata(metadata, illustrationMetadataSchema);
-}
-
-export function parseBargainMetadata(metadata: string | null | undefined) {
-  return parseMetadata(metadata, bargainMetadataSchema);
 }
 
 export function parseConsequenceMetadata(metadata: string | null | undefined) {

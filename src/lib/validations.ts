@@ -338,16 +338,6 @@ export const createPlayerCharacterSchema = z.object({
   stats: z.string().max(10000).optional(),
 });
 
-export const updatePlayerCharacterSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  portrait: portraitSchema.optional(),
-  description: z.string().max(5000).optional(),
-  traits: z.string().max(5000).optional(),
-  backstory: z.string().max(10000).optional(),
-  stats: z.string().max(10000).optional(),
-  status: z.enum(["active", "retired", "dead"]).optional(),
-});
-
 // ── Campaign Sessions ──────────────────────────────────────
 
 export const createCampaignSessionSchema = z.object({
@@ -430,20 +420,6 @@ export const createFloorAudiencePulseSchema = z.object({
   submissionId: z.string().uuid(),
 });
 
-// ── Character Marks ─────────────────────────────────────────
-// One-line player-authored marks that stick to a character across sessions.
-// Text capped at 140 to keep the UI poetic — a single beat, not a paragraph.
-
-export const characterMarkKinds = ["scar", "vow", "debt", "memory"] as const;
-export type CharacterMarkKind = (typeof characterMarkKinds)[number];
-
-export const createCharacterMarkSchema = z.object({
-  kind: z.enum(characterMarkKinds),
-  text: z.string().trim().min(1, "A mark needs a line").max(140),
-  sourceTurnId: z.string().uuid().optional(),
-  sessionId: z.string().uuid().optional(),
-});
-
 // ── Campaign Applications ───────────────────────────────────
 
 export const createApplicationSchema = z
@@ -477,12 +453,6 @@ export const updateApplicationSchema = z.object({
   votingDeadline: z.string().datetime().optional(),
 });
 
-// ── Campaign Votes ──────────────────────────────────────────
-
-export const createVoteSchema = z.object({
-  vote: z.boolean(),
-});
-
 // ── GM Transfer ─────────────────────────────────────────────
 
 export const transferGmSchema = z.object({
@@ -509,19 +479,6 @@ export const closeSessionPollSchema = z.object({
   confirmedOption: z.string().max(200),
 });
 
-// ── Progress Clocks ────────────────────────────────────────
-
-export const createProgressClockSchema = z.object({
-  name: z.string().min(1).max(200),
-  segments: z.union([z.literal(4), z.literal(6), z.literal(8)]),
-  type: z.enum(["danger", "progress", "racing"]).default("danger"),
-});
-
-export const updateProgressClockSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  filled: z.number().int().min(0).optional(),
-});
-
 // ── Session Roster ──────────────────────────────────────────
 
 export const updateSessionRosterSchema = z.object({
@@ -542,32 +499,6 @@ export const upsertReadingProgressSchema = z.object({
 });
 
 // ── Guild Profiles ──────────────────────────────────────────
-
-// ── Spectator Reactions ────────────────────────────────────
-
-export const spectatorReactionSchema = z.object({
-  token: z.string().min(1).max(100),
-  type: z.enum([
-    "gasped",
-    "cried",
-    "laughed",
-    "need-more",
-    "saw-it-coming",
-    "heartbroken",
-    "inspired",
-    "terrified",
-  ]),
-});
-
-// Reactions sent by people AT the table (GM + players), as opposed to the
-// gallery's spectatorReactionSchema. Shares the spectator_reactions table but
-// carries the table's own ephemeral emoji set.
-export const TABLE_REACTION_TYPES = ["tension", "gasp", "bravo", "laugh", "dread"] as const;
-export const tableReactionSchema = z.object({
-  type: z.enum(TABLE_REACTION_TYPES),
-});
-
-// ── Ink Drop Tips ──────────────────────────────────────────
 
 // ── Annotations ────────────────────────────────────────────
 
@@ -612,12 +543,6 @@ export const inkDropCheckoutSchema = z.object({
   tier: z.enum(["500", "1200", "3000"]),
 });
 
-export const inkDropTipSchema = z.object({
-  recipientUserId: z.string().uuid("Invalid recipient"),
-  amount: z.union([z.literal(5), z.literal(10), z.literal(25), z.literal(50), z.literal(100)]),
-  message: z.string().max(200).optional(),
-});
-
 export const houseGoldSchema = z.object({
   amount: z.union([z.literal(10), z.literal(25), z.literal(50), z.literal(100)]),
   // A line set in gold — omitted, the gold is for the whole table.
@@ -636,38 +561,6 @@ export const guildProfileSchema = z.object({
   showcaseStoryIds: z.array(z.string().uuid()).max(5).optional(),
   yearsWriting: z.number().int().min(0).max(100).optional(),
   lookingFor: z.string().max(500).optional(),
-});
-
-// ── Places (Adventure-Mode Map) ────────────────────────────
-
-export const PLACE_MOOD_VALUES = [
-  "tense",
-  "calm",
-  "ominous",
-  "triumphant",
-  "melancholy",
-  "chaotic",
-  "mysterious",
-  "romantic",
-] as const;
-
-const placeCoord = z.number().int().min(0).max(100);
-
-export const createPlaceSchema = z.object({
-  name: z.string().min(1, "Name is required").max(120),
-  description: z.string().max(2000).optional(),
-  mood: z.enum(PLACE_MOOD_VALUES).optional(),
-  x: placeCoord.optional(),
-  y: placeCoord.optional(),
-});
-
-export const updatePlaceSchema = z.object({
-  name: z.string().min(1).max(120).optional(),
-  description: z.string().max(2000).optional(),
-  mood: z.enum(PLACE_MOOD_VALUES).nullable().optional(),
-  // null clears the coord (un-places the pin); undefined leaves it alone.
-  x: placeCoord.nullable().optional(),
-  y: placeCoord.nullable().optional(),
 });
 
 // Story map-image URL. Capped tight on purpose — the avatar incident

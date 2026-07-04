@@ -16,9 +16,10 @@ import { campaignJsonRequest } from "@/lib/campaign-api";
  * The v2 play surface's data plumbing: session + turns + characters +
  * roster + the floor round, polled; and the few mutations the "Set in Ink"
  * page actually performs — write a turn, pass the pen, begin/end the
- * session, cancel a roll call, run a vote. The old surface's inventory
- * (clocks, marks, bargains, reactions, acting-GM, turn edits) was removed
- * with the manuscript cutover; the API routes for it still exist.
+ * session, cancel a roll call, run a vote or a Stranger ballot. The old
+ * surface's inventory (clocks, marks, bargains, reactions, acting-GM, turn
+ * edits) was removed with the manuscript cutover; its API routes were
+ * pruned 2026-07-04 (the tables keep their data — see schema.ts).
  */
 
 // How far behind the newest known sortOrder each poll reaches. Re-fetching a

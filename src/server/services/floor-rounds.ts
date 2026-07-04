@@ -140,8 +140,7 @@ export async function getVisibleFloorRound(
   // v2 single-block vote: the table writes AND votes in one open phase, so
   // every line is visible to everyone as it lands ("the ink divides"). The
   // old blind-collection reveal (hidden until the GM opened voting) went
-  // with the two-phase pipeline.
-  const shouldRevealAll = true;
+  // with the two-phase pipeline — no masking happens here anymore.
 
   return {
     id: round.id,
@@ -156,14 +155,12 @@ export async function getVisibleFloorRound(
     updatedAt: round.updatedAt.toISOString(),
     myVoteSubmissionId: myVote?.submissionId ?? null,
     submissions: submissions
-      .filter((submission) => shouldRevealAll || submission.userId === currentUserId)
       .map((submission) => ({
         ...submission,
         type: submission.type as FloorRound["submissions"][number]["type"],
         source: (submission.source ?? "player") as FloorRound["submissions"][number]["source"],
         status: submission.status as FloorRound["submissions"][number]["status"],
         createdAt: submission.createdAt.toISOString(),
-        content: shouldRevealAll || submission.userId === currentUserId ? submission.content : "",
         characterName: submission.characterName,
         user: {
           id: submission.user?.id ?? submission.userId,
