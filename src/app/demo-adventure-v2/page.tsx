@@ -15,6 +15,7 @@ import StrangerCall from "@/components/campaign/v2/StrangerCall";
 import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
+import PenMark from "@/components/campaign/v2/PenMark";
 import { composeStrangerLine } from "@/components/campaign/v2/stranger";
 import { composeVoteLine } from "@/components/campaign/v2/votes";
 import {
@@ -590,31 +591,48 @@ export default function DemoAdventureV2Page() {
     <>
       <PageRoom
         leaveHref="/"
+        houseCount={12}
         header={
           <>
-            <span>The Shattered City · session ii — live</span>
-            <span className="text-amber/80">12 watching</span>
+            <h1 className="font-display text-[21px] font-semibold tracking-tight text-paper">
+              The Shattered City
+            </h1>
+            <p className="mt-1.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-text-ghost">
+              session ii — live<span className="text-amber/80"> · 12 watching</span>
+            </p>
           </>
         }
         signature={
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span>at the table —</span>
-            <span style={{ color: "var(--ink-gm)" }}>
+            <span
+              className="inline-flex items-baseline gap-1 font-medium not-italic"
+              style={{ color: "var(--ink-gm)" }}
+            >
+              {writerUserId === GM_USER_ID && <PenMark ink="var(--ink-gm)" />}
               ✦ the Director{role === "gm" ? " · you" : ""}
             </span>
             {CHARACTERS.map((c) => (
-              <span key={c.id} style={{ color: getPlayerInk(c.userId, ACTIVE_USER_IDS) }}>
-                · {c.name.split(" ")[0]}
+              <span
+                key={c.id}
+                className="inline-flex items-baseline gap-1 font-medium not-italic"
+                style={{ color: getPlayerInk(c.userId, ACTIVE_USER_IDS) }}
+              >
+                · {writerUserId === c.userId && (
+                  <PenMark ink={getPlayerInk(c.userId, ACTIVE_USER_IDS)} />
+                )}
+                {c.name.split(" ")[0]}
                 {role === c.userId ? " · you" : ""}
               </span>
             ))}
             <span
+              className="font-medium not-italic"
               style={{ color: "var(--ink-strange)" }}
               title="A chair left for the dark — the audience plays this character"
             >
               · ☾ {STRANGER_NAME}
             </span>
-            <span>· 12 watching</span>
+            <span>· 12 watching from the dark</span>
             {role === "viewer" && (
               <button
                 type="button"

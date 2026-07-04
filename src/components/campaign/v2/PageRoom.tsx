@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import HouseGlimmers from "./HouseGlimmers";
 
 /**
  * Adventure v2 — "Set in Ink". The bare page: one lit sheet in the dark,
@@ -9,6 +10,11 @@ import type { ReactNode } from "react";
  * signature line at the page's foot; every control lives at the end of
  * the page, inside the sheet. The layout physically enforces the v2 spec:
  * there is nowhere to put a fourteenth control.
+ *
+ * The room is candlelit, not merely dark: warm air rises behind the sheet,
+ * the pool of light on the paper breathes, and the house glimmers at the
+ * edges of the dark (one mote per watcher). Money never appears here —
+ * gold arrives as light (GoldLight goes through `overlays`).
  *
  * Z-scale: 0 the dark · 10 the sheet · 40 drawers/scrims · 50 modals · 70 toast.
  */
@@ -18,10 +24,11 @@ export default function PageRoom({
   signature,
   children,
   overlays,
+  houseCount = 0,
 }: {
   /** Back to the campaign hub — a small bookmark ribbon over the frame. */
   leaveHref?: string;
-  /** One line above the story: title + watching count. */
+  /** The title plate above the story: the tale's name, then one whispered status line. */
   header?: ReactNode;
   /** The signature line at the page's foot — the only presence UI. */
   signature?: ReactNode;
@@ -29,13 +36,18 @@ export default function PageRoom({
   children: ReactNode;
   /** Escapes the sheet: modals, toasts. */
   overlays?: ReactNode;
+  /** How many watch from the dark — the dark glimmers with them. */
+  houseCount?: number;
 }) {
   return (
     <div className="adventure-mode manuscript-room fixed inset-0 z-[80] overflow-y-auto text-paper selection:bg-amber/30">
-      {/* The dark — vignette pooled around the sheet. */}
+      {/* The dark — warm air behind the sheet, vignette pooled at the edges,
+          and the house glimmering in it. */}
       <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute inset-0 shadow-[inset_0_0_140px_rgba(0,0,0,0.85)]" />
+        <div className="candle-air absolute inset-0" />
+        <div className="absolute inset-0 shadow-[inset_0_0_160px_rgba(0,0,0,0.88)]" />
       </div>
+      <HouseGlimmers count={houseCount} />
 
       {leaveHref && (
         <Link
@@ -54,7 +66,7 @@ export default function PageRoom({
       <div className="relative z-10 mx-auto flex min-h-full w-full max-w-[720px] flex-col px-4 pt-10 sm:px-8">
         <div className="manuscript-sheet flex flex-1 flex-col rounded-t-md px-6 pb-6 pt-8 sm:px-12 sm:pt-10">
           {header && (
-            <div className="mb-8 flex items-baseline justify-between gap-3 border-b border-border/60 pb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-text-ghost">
+            <div className="mb-8 border-b border-border/60 pb-5 text-center">
               {header}
             </div>
           )}
@@ -62,7 +74,7 @@ export default function PageRoom({
           <div className="flex-1">{children}</div>
 
           {signature && (
-            <div className="mt-12 border-t border-border/60 pt-4 font-mono text-[10px] uppercase tracking-[0.14em] leading-loose text-text-ghost">
+            <div className="mt-12 border-t border-border/60 pt-4 font-reading text-[12.5px] italic leading-loose text-text-tertiary">
               {signature}
             </div>
           )}

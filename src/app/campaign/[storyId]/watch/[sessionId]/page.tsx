@@ -16,6 +16,7 @@ import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
 import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
+import PenMark from "@/components/campaign/v2/PenMark";
 import { findOpenRoll } from "@/components/campaign/v2/rolls";
 import { getPlayerInk, type PlayerCharacter, type Turn } from "@/types/campaign";
 
@@ -253,28 +254,50 @@ export default function WatchSessionPage() {
     <>
       <PageRoom
         leaveHref={`/campaign/${storyId}`}
+        houseCount={spectatorCount}
         header={
           <>
-            <span>
-              {storyTitle ?? "A tale"} · {campaignSession?.title ?? "session"}
+            <h1 className="font-display text-[21px] font-semibold tracking-tight text-paper">
+              {storyTitle ?? "A tale"}
+            </h1>
+            <p className="mt-1.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-text-ghost">
+              {campaignSession?.title ?? "session"}
               {sessionStatus === "active" ? " — live" : sessionStatus === "draft" ? " — preparing" : " — written"}
-            </span>
-            {spectatorCount > 0 && (
-              <span className="text-amber/80">{spectatorCount} watching</span>
-            )}
+              {spectatorCount > 0 && (
+                <span className="text-amber/80"> · {spectatorCount} watching</span>
+              )}
+            </p>
           </>
         }
         signature={
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span>at the table —</span>
-            <span style={{ color: "var(--ink-gm)" }}>✦ the Director</span>
+            <span
+              className="inline-flex items-baseline gap-1 font-medium not-italic"
+              style={{ color: "var(--ink-gm)" }}
+            >
+              {sessionStatus === "active" && directorWriting && (
+                <PenMark ink="var(--ink-gm)" />
+              )}
+              ✦ the Director
+            </span>
             {characters.map((c) => (
-              <span key={c.id} style={{ color: getPlayerInk(c.userId, activePlayerUserIds) }}>
-                · {c.name.split(" ")[0]}
+              <span
+                key={c.id}
+                className="inline-flex items-baseline gap-1 font-medium not-italic"
+                style={{ color: getPlayerInk(c.userId, activePlayerUserIds) }}
+              >
+                · {sessionStatus === "active" &&
+                  !directorWriting &&
+                  activePlayerId === c.userId && (
+                    <PenMark ink={getPlayerInk(c.userId, activePlayerUserIds)} />
+                  )}
+                {c.name.split(" ")[0]}
               </span>
             ))}
             {strangerName && (
               <span
+                className="font-medium not-italic"
                 style={{ color: "var(--ink-strange)" }}
                 title="A chair left for the dark — the audience plays this character"
               >

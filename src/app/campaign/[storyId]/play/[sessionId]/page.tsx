@@ -27,6 +27,7 @@ import {
   type RollResult,
 } from "@/components/campaign/v2/rolls";
 import EndSessionModal from "@/components/campaign/EndSessionModal";
+import PenMark from "@/components/campaign/v2/PenMark";
 import { getPlayerInk, type Turn } from "@/types/campaign";
 
 /**
@@ -695,42 +696,62 @@ export default function SessionPlayPage() {
     <>
       <PageRoom
         leaveHref={`/campaign/${storyId}`}
+        houseCount={houseCount}
         header={
           <>
-            <span>
-              {story.title} · {campaignSession?.title ?? "session"}
+            <h1 className="font-display text-[21px] font-semibold tracking-tight text-paper">
+              {story.title}
+            </h1>
+            <p className="mt-1.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-text-ghost">
+              {campaignSession?.title ?? "session"}
               {sessionStatus === "active"
                 ? " — live"
                 : sessionStatus === "draft"
                   ? " — preparing"
                   : " — written"}
-            </span>
-            {houseCount > 0 && (
-              <span className="text-amber/80">{houseCount} watching</span>
-            )}
+              {houseCount > 0 && (
+                <span className="text-amber/80"> · {houseCount} watching</span>
+              )}
+            </p>
           </>
         }
         signature={
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span>at the table —</span>
-            <span style={{ color: "var(--ink-gm)" }}>
+            <span
+              className="inline-flex items-baseline gap-1 font-medium not-italic"
+              style={{ color: "var(--ink-gm)" }}
+            >
+              {sessionStatus === "active" && directorWriting && (
+                <PenMark ink="var(--ink-gm)" />
+              )}
               ✦ the Director{isGM ? " · you" : ""}
             </span>
             {castForSignature.map((c) => (
               <span
                 key={c.id}
+                className="inline-flex items-baseline gap-1 font-medium not-italic"
                 style={{ color: getPlayerInk(c.userId, activePlayerUserIds) }}
               >
-                · {c.name.split(" ")[0]}
+                · {sessionStatus === "active" &&
+                  !directorWriting &&
+                  activePlayerId === c.userId && (
+                    <PenMark ink={getPlayerInk(c.userId, activePlayerUserIds)} />
+                  )}
+                {c.name.split(" ")[0]}
                 {currentUserId === c.userId ? " · you" : ""}
               </span>
             ))}
             {strangerName && (
-              <span style={{ color: "var(--ink-strange)" }} title="A chair left for the dark — the audience plays this character">
+              <span
+                className="font-medium not-italic"
+                style={{ color: "var(--ink-strange)" }}
+                title="A chair left for the dark — the audience plays this character"
+              >
                 · ☾ {strangerName}
               </span>
             )}
-            {houseCount > 0 && <span>· {houseCount} watching</span>}
+            {houseCount > 0 && <span>· {houseCount} watching from the dark</span>}
           </div>
         }
         overlays={<GoldLight flareCount={flareCount} />}

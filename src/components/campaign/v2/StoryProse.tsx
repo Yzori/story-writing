@@ -218,7 +218,7 @@ export default function StoryProse({
     .map((c) => c.userId);
 
   return (
-    <div className="font-reading">
+    <div className="story-prose font-reading">
       {turns.map((turn) => {
         // The slip is live-edge furniture, not history — never printed here.
         if (turn.type === "roll-request") return null;

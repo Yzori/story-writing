@@ -2255,17 +2255,135 @@ html.theme-light .manuscript-room {
   --manuscript-leader: rgba(76, 54, 28, 0.3);
 }
 
-/* The page itself — a parchment leaf under candlelight. */
+/* The page itself — a leaf under candlelight. The sheet is the brightest
+   thing in the room: warm-tinged, gold pooling at its head, light spilling
+   past its edges into the dark. The law: colored darks + bright gold light,
+   never gloom-on-gloom. */
 .manuscript-sheet {
   position: relative;
-  background: rgba(14, 18, 32, 0.95);
-  border: 1px solid var(--t-border);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  isolation: isolate;
+  background:
+    radial-gradient(
+      120% 85% at 50% 0%,
+      color-mix(in srgb, var(--t-gold) 10%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(180deg, #1a1d2e 0%, #131624 100%);
+  border: 1px solid color-mix(in srgb, var(--t-gold) 22%, var(--t-border));
+  box-shadow:
+    0 0 90px color-mix(in srgb, var(--t-gold) 11%, transparent),
+    0 0 26px color-mix(in srgb, var(--t-gold) 7%, transparent),
+    0 24px 80px rgba(0, 0, 0, 0.55);
+}
+/* The candle breathes — the pool of light on the paper slowly swells and
+   settles. Painted between sheet background and ink (isolate + negative z). */
+.manuscript-sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    95% 60% at 50% 8%,
+    color-mix(in srgb, var(--t-gold) 8%, transparent),
+    transparent 62%
+  );
+  animation: candle-breath 7s ease-in-out infinite;
+}
+@keyframes candle-breath {
+  0%, 100% { opacity: 0.45; }
+  38% { opacity: 1; }
+  62% { opacity: 0.7; }
 }
 html.theme-light .manuscript-sheet {
   background: var(--adventure-panel-bg-solid, #fffaf2);
   border-color: rgba(76, 54, 28, 0.14);
   box-shadow: 0 18px 60px rgba(76, 54, 28, 0.16);
+}
+html.theme-light .manuscript-sheet::after {
+  background: radial-gradient(
+    95% 60% at 50% 8%,
+    rgba(168, 130, 44, 0.07),
+    transparent 62%
+  );
+}
+
+/* The air of the room — warm haze rising behind the sheet, so the light
+   has somewhere to come from. */
+.candle-air {
+  background: radial-gradient(
+    56rem 40rem at 50% 26%,
+    color-mix(in srgb, var(--t-gold) 9%, transparent),
+    transparent 70%
+  );
+  animation: candle-breath 9s ease-in-out infinite;
+}
+html.theme-light .candle-air {
+  display: none;
+}
+
+/* The felt audience — the dark glimmers with the house. One mote per
+   watcher (capped), twinkling at the room's edges, never over the page. */
+.house-glimmer {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--t-gold) 82%, #fff);
+  box-shadow: 0 0 9px 2px color-mix(in srgb, var(--t-gold) 40%, transparent);
+  opacity: 0;
+  animation: glimmer 6.5s ease-in-out infinite;
+}
+@keyframes glimmer {
+  0%, 100% { opacity: 0; transform: translateY(0); }
+  35% { opacity: 0.9; }
+  55% { opacity: 0.45; transform: translateY(-4px); }
+  80% { opacity: 0.75; transform: translateY(-7px); }
+}
+html.theme-light .house-glimmer {
+  display: none;
+}
+
+/* The traveling pen — a nib beside whoever holds it, gliding along the
+   signature line when the pen passes. */
+.pen-mark {
+  display: inline-flex;
+  align-items: center;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+/* The pen arrives — the new writer's name blooms at the waiting line. */
+@keyframes name-bloom {
+  0% { filter: brightness(2); text-shadow: 0 0 16px currentColor; }
+  100% { filter: brightness(1); text-shadow: none; }
+}
+.name-bloom {
+  animation: name-bloom 1.6s ease-out both;
+}
+
+/* The opening of the page earns a drop cap — the first ink of the session
+   set like the first ink of a chapter. */
+.story-prose > p:first-of-type::first-letter {
+  float: left;
+  font-family: var(--font-display), serif;
+  font-size: 3.1em;
+  line-height: 0.88;
+  padding: 0.03em 0.09em 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manuscript-sheet::after,
+  .candle-air {
+    animation: none;
+    opacity: 0.7;
+  }
+  .house-glimmer {
+    animation: none;
+    opacity: 0.5;
+  }
+  .name-bloom {
+    animation: none;
+  }
 }
 
 /* Ink someone at the table actually wrote — margin questions, signatures,

@@ -21,7 +21,12 @@ export default function WaitingLine({
         aria-hidden="true"
       />
       <span>
-        <span className="font-semibold not-italic" style={{ color: ink }}>
+        {/* Keyed by name: when the pen passes, the new writer blooms. */}
+        <span
+          key={name}
+          className="name-bloom font-semibold not-italic"
+          style={{ color: ink }}
+        >
           {name}
         </span>{" "}
         is writing…
