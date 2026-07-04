@@ -13,6 +13,7 @@ import StoryProse, { isSetLine, inkFor } from "@/components/campaign/v2/StoryPro
 import WaitingLine from "@/components/campaign/v2/WaitingLine";
 import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
+import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
 import { findOpenRoll } from "@/components/campaign/v2/rolls";
@@ -61,6 +62,7 @@ export default function WatchSessionPage() {
     characters: spectatorChars,
     spectatorCount: pollCount,
     storyTitle,
+    strangerName,
   } = useSpectatorSession(storyId, sessionId);
   const { spectatorCount: presenceCount, token } = useSpectatorPresence(storyId, sessionId);
   const { floorRound, sendPulse } = useSpectatorFloorRound(storyId, sessionId, token);
@@ -184,6 +186,18 @@ export default function WatchSessionPage() {
     [sendPulse],
   );
 
+  // The Stranger's ballot — the same pulse machinery, but here the house's
+  // choice IS the mechanic. Free by law: gold never buys the story.
+  const strangerDeeds: StrangerDeed[] = useMemo(() => {
+    if (!liveRound || liveRound.mode !== "stranger") return [];
+    return liveRound.submissions.map((s) => ({
+      id: s.id,
+      content: s.content,
+      voiceCount: s.audiencePulseCount,
+      isMyChoice: liveRound.myAudiencePulseSubmissionId === s.id,
+    }));
+  }, [liveRound]);
+
   const sessionStatus = campaignSession?.status ?? "draft";
   const activePlayerId = campaignSession?.activePlayerId ?? null;
   const writerChar = characters.find((c) => c.userId === activePlayerId) ?? null;
@@ -259,6 +273,14 @@ export default function WatchSessionPage() {
                 · {c.name.split(" ")[0]}
               </span>
             ))}
+            {strangerName && (
+              <span
+                style={{ color: "var(--ink-strange)" }}
+                title="A chair left for the dark — the audience plays this character"
+              >
+                · ☾ {strangerName}
+              </span>
+            )}
             <span>· you are in the dark</span>
             {canGive && (
               <button
@@ -302,6 +324,7 @@ export default function WatchSessionPage() {
           onReplayDone={onReplayDone}
           gildedTurnIds={gildedTurnIds}
           onGild={canGive ? onGild : undefined}
+          strangerName={strangerName}
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">
@@ -330,6 +353,18 @@ export default function WatchSessionPage() {
                 throw new Error("Watchers don't hold the dice");
               }}
               onSettled={() => undefined}
+            />
+          ) : liveRound && liveRound.mode === "stranger" ? (
+            <StrangerBlock
+              name={strangerName ?? "the Stranger"}
+              prompt={liveRound.prompt}
+              deeds={strangerDeeds}
+              canChoose={!!token && ["open", "voting"].includes(liveRound.status)}
+              canResolve={false}
+              resolveReady={false}
+              onChoose={onLean}
+              onResolve={() => undefined}
+              onCallOff={() => undefined}
             />
           ) : liveRound ? (
             <VoteBlock

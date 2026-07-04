@@ -9,6 +9,7 @@ import Link from "next/link";
 
 import type { ApiStoryData } from "@/types/api";
 import { formatTimeAgo } from "@/lib/format";
+import StrangerChair from "@/components/campaign/StrangerChair";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -1939,6 +1940,19 @@ export default function CampaignPage() {
                       : "Invite-only"}
                   </span>
                 </div>
+
+                {/* The Stranger — a chair left for the dark. Only meaningful
+                    once the table is discoverable (the audience must be able
+                    to find it), but configurable any time. */}
+                <StrangerChair
+                  storyId={storyId}
+                  enabled={story?.campaignStrangerEnabled ?? false}
+                  name={story?.campaignStrangerName ?? null}
+                  nature={story?.campaignStrangerNature ?? null}
+                  onSaved={(patch) =>
+                    setStory((prev) => (prev ? { ...prev, ...patch } : prev))
+                  }
+                />
 
                 {/* Transfer GM — only show if there are players to transfer to */}
                 {characters.filter((c) => c.userId !== currentUserId).length > 0 && (

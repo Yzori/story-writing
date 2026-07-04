@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   campaignFloorAudiencePulses,
@@ -55,11 +55,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // v2 rounds run their whole life in "open" (single-block), so the house
+    // must be able to lean/choose there; "voting" is the legacy reveal phase.
     const round = await db.query.campaignFloorRounds.findFirst({
       where: and(
         eq(campaignFloorRounds.sessionId, sessionId),
         eq(campaignFloorRounds.audiencePulseEnabled, true),
-        eq(campaignFloorRounds.status, "voting"),
+        inArray(campaignFloorRounds.status, ["open", "voting"]),
       ),
     });
     if (!round) {

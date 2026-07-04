@@ -78,13 +78,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch turns, excluding OOC table talk — but vote records ride the ooc
-    // type (log types stay out of compiled chapters) and DO print on the page.
+    // Fetch turns, excluding OOC table talk — but vote and Stranger records
+    // ride the ooc type (log types stay out of compiled chapters) and DO
+    // print on the page.
     const turnConditions = [
       eq(campaignTurns.sessionId, sessionId),
       or(
         ne(campaignTurns.type, "ooc"),
         like(campaignTurns.metadata, '%"kind":"vote-record"%'),
+        like(campaignTurns.metadata, '%"kind":"stranger-record"%'),
       )!,
     ];
     if (afterSortNum !== null) {
@@ -156,6 +158,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       story: {
         id: story.id,
         title: story.title,
+        // The chair left for the dark, if any — the watch surface names the
+        // Stranger on its ballots. Nature stays out of the payload (the
+        // Director's notes are not the audience's business).
+        strangerEnabled: story.campaignStrangerEnabled,
+        strangerName: story.campaignStrangerEnabled
+          ? story.campaignStrangerName?.trim() || "the Stranger"
+          : null,
       },
     };
 

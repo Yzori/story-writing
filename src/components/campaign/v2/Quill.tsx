@@ -41,6 +41,7 @@ export default function Quill({
   onCommit,
   moves,
   onMove,
+  strangerName,
 }: {
   isGM: boolean;
   myCharName: string | null;
@@ -53,6 +54,9 @@ export default function Quill({
   /** The moves "/" can summon (Director only in v2). */
   moves?: Array<{ key: string; label: string }>;
   onMove?: (key: string) => void;
+  /** The chair left for the dark — named in the @ list in moon-silver.
+   *  Naming it stages, never passes the pen (the ballot does that work). */
+  strangerName?: string | null;
 }) {
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -86,12 +90,21 @@ export default function Quill({
     );
   }, [mentionQuery, activeChars]);
 
-  const insertMention = (c: PlayerCharacter) => {
-    setContent((prev) =>
-      prev.replace(/@([A-Za-zÀ-ž'’-]*)$/, `@${c.name.split(" ")[0]} `),
-    );
+  // The Stranger's callable name — "the Whisper" answers to @Whisper.
+  const strangerFirst = strangerName
+    ? strangerName.replace(/^the\s+/i, "").split(" ")[0]
+    : null;
+  const strangerMatches =
+    mentionQuery !== null &&
+    !!strangerFirst &&
+    strangerFirst.toLowerCase().startsWith(mentionQuery);
+
+  const insertMentionText = (first: string) => {
+    setContent((prev) => prev.replace(/@([A-Za-zÀ-ž'’-]*)$/, `@${first} `));
     textareaRef.current?.focus();
   };
+
+  const insertMention = (c: PlayerCharacter) => insertMentionText(c.name.split(" ")[0]);
 
   // The Director's moves — summoned while the line is just "/" + a query.
   const moveQuery = useMemo(() => {
@@ -152,6 +165,9 @@ export default function Quill({
             if (e.key === "Tab" && mentionMatches.length > 0) {
               e.preventDefault();
               insertMention(mentionMatches[0]);
+            } else if (e.key === "Tab" && strangerMatches && strangerFirst) {
+              e.preventDefault();
+              insertMentionText(strangerFirst);
             }
             if (e.key === "Tab" && moveMatches.length > 0) {
               e.preventDefault();
@@ -184,7 +200,7 @@ export default function Quill({
       )}
 
       {/* The Director's cast list — summoned by @. */}
-      {mentionMatches.length > 0 && (
+      {(mentionMatches.length > 0 || strangerMatches) && (
         <div className="absolute z-10 mt-1 flex flex-wrap gap-2 rounded-md border border-border bg-elevated/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
           {mentionMatches.map((c) => (
             <button
@@ -197,6 +213,18 @@ export default function Quill({
               {c.name.split(" ")[0]}
             </button>
           ))}
+          {strangerMatches && strangerFirst && (
+            <button
+              key="the-stranger"
+              type="button"
+              onClick={() => insertMentionText(strangerFirst)}
+              className="cursor-pointer font-reading text-[15px] transition-opacity hover:opacity-80"
+              style={{ color: "var(--ink-strange)" }}
+              title="Name the Stranger — it stages, it doesn't pass the pen"
+            >
+              {strangerFirst}
+            </button>
+          )}
         </div>
       )}
 

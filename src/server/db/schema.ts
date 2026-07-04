@@ -150,6 +150,13 @@ export const stories = pgTable("stories", {
   campaignAuditionPrompt: text("campaign_audition_prompt")
     .notNull()
     .default("Write the moment we first meet your character. Where are they? What are they doing? What do they want, and what stops them from getting it?"),
+  // The Stranger — a chair left for the dark (migration 0052). Opt-in: a
+  // recurring character the audience plays together. Name + nature are set
+  // by the Director when the chair is left; deeds are chosen by house
+  // ballot (floor rounds in mode 'stranger') and written in --ink-strange.
+  campaignStrangerEnabled: boolean("campaign_stranger_enabled").notNull().default(false),
+  campaignStrangerName: text("campaign_stranger_name"),
+  campaignStrangerNature: text("campaign_stranger_nature"),
   // Optional URL of a map image overlaid by the SpatialMap view. Capped at
   // the API layer (Zod max 4096) — never accept fat data: URIs here, the
   // avatar mistake showed how those balloon NextAuth cookies.

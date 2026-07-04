@@ -97,10 +97,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(campaignTurns.sessionId, sessionId),
-          // ooc table talk stays private; vote records print on the page.
+          // ooc table talk stays private; vote and Stranger records print
+          // on the page.
           or(
             ne(campaignTurns.type, "ooc"),
             like(campaignTurns.metadata, '%"kind":"vote-record"%'),
+            like(campaignTurns.metadata, '%"kind":"stranger-record"%'),
           ),
           gt(campaignTurns.sortOrder, afterSort)
         )

@@ -47,6 +47,9 @@ export const createStorySchema = z.object({
   campaignToneInfluence: z.number().int().min(0).max(100).optional(),
   campaignCadence: z.string().max(160).optional(),
   campaignAuditionPrompt: z.string().max(1000).optional(),
+  campaignStrangerEnabled: z.boolean().optional(),
+  campaignStrangerName: z.string().max(80).nullable().optional(),
+  campaignStrangerNature: z.string().max(500).nullable().optional(),
 });
 
 export const updateStorySchema = z.object({
@@ -82,6 +85,9 @@ export const updateStorySchema = z.object({
   campaignToneInfluence: z.number().int().min(0).max(100).optional(),
   campaignCadence: z.string().max(160).optional(),
   campaignAuditionPrompt: z.string().max(1000).optional(),
+  campaignStrangerEnabled: z.boolean().optional(),
+  campaignStrangerName: z.string().max(80).nullable().optional(),
+  campaignStrangerNature: z.string().max(500).nullable().optional(),
   // URL of a map background for the campaign's SpatialMap view. Capped at
   // 4096 chars on purpose — the avatar bloat incident showed how data:
   // URIs in DB columns blow up auth cookies. Real image upload lives in a
@@ -382,14 +388,27 @@ export const createCampaignTurnSchema = z
     { message: "Content is required", path: ["content"] },
   );
 
-// Crossroads has ONE shape: players write competing responses, the table
-// votes, the GM canonizes. (The house_fork/gm_pick modes, GM-authored
-// options, constituency, binding pledge, and drops-weighted audience ballots
-// were killed 2026-07-01 — see docs/adventure-audit.md.)
-export const createFloorRoundSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required").max(1000),
-  audiencePulseEnabled: z.boolean().optional().default(false),
-});
+// Crossroads has ONE table shape: players write competing responses, the
+// table votes, the GM canonizes. (The house_fork/gm_pick modes, constituency,
+// binding pledge, and drops-weighted audience ballots were killed 2026-07-01
+// — see docs/adventure-audit.md.) Mode "stranger" is the one deliberate
+// resurrection of GM-authored options: the Director frames 2–4 deeds for the
+// audience-played Stranger and the house's pulses are the ballot. Deeds
+// arrive with the round — the submissions endpoint stays closed to it.
+export const createFloorRoundSchema = z
+  .object({
+    prompt: z.string().min(1, "Prompt is required").max(1000),
+    audiencePulseEnabled: z.boolean().optional().default(false),
+    mode: z.enum(["vote", "stranger"]).optional().default("vote"),
+    deeds: z.array(z.string().min(1).max(500)).max(4).optional(),
+  })
+  .refine(
+    (data) => data.mode !== "stranger" || (data.deeds && data.deeds.length >= 2),
+    { message: "The Stranger needs at least two deeds to choose between" },
+  )
+  .refine((data) => data.mode === "stranger" || !data.deeds, {
+    message: "Only Stranger rounds carry deeds",
+  });
 
 export const updateFloorRoundSchema = z.object({
   status: z.enum(["voting", "closed", "resolved", "cancelled"]),

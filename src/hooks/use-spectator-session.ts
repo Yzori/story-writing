@@ -29,6 +29,8 @@ export interface UseSpectatorSessionReturn {
   characters: SpectatorCharacter[];
   spectatorCount: number;
   storyTitle: string | null;
+  /** The chair left for the dark, if this story keeps one. */
+  strangerName: string | null;
 }
 
 export function useSpectatorSession(storyId: string, sessionId: string): UseSpectatorSessionReturn {
@@ -39,6 +41,7 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
   const [characters, setCharacters] = useState<SpectatorCharacter[]>([]);
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [storyTitle, setStoryTitle] = useState<string | null>(null);
+  const [strangerName, setStrangerName] = useState<string | null>(null);
 
   const maxSortRef = useRef(-1);
   // When the SSE stream is live we pause polling; if it errors or EventSource is
@@ -112,6 +115,7 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
           maxSortRef.current = Math.max(...fetchedTurns.map((t) => t.sortOrder));
         }
         setStoryTitle(json.story?.title ?? null);
+        setStrangerName(json.story?.strangerName ?? null);
         setSpectatorCount(Number(json.spectatorCount ?? 0));
 
         const allChars = json.characters ?? [];
@@ -202,5 +206,6 @@ export function useSpectatorSession(storyId: string, sessionId: string): UseSpec
     characters,
     spectatorCount,
     storyTitle,
+    strangerName,
   };
 }

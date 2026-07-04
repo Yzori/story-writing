@@ -104,6 +104,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // v2 single-block vote: the table writes and votes in one open phase,
       // so a vote round canonizes straight from "open" (or "voting"); the
       // legacy reveal→close→canonize pipeline is still honored via "closed".
+      // Stranger ballots live their whole life in "open" and resolve from it.
       if (round.mode === "vote" && !["open", "voting", "closed"].includes(round.status)) {
         return NextResponse.json({ error: { code: "BAD_REQUEST", message: "This round is not ready to canonize" } }, { status: 400 });
       }
@@ -165,7 +166,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             characterId: submission.characterId,
             type: submission.userId ? submission.type : "narration",
             content: submission.content,
-            metadata: JSON.stringify({ floorRoundId: roundId, floorSubmissionId: submission.id }),
+            // Stranger deeds carry kind "stranger" so every surface writes
+            // them in the Stranger's moon-silver ink; they compile like any
+            // narration — the audience's hand survives into the chapter.
+            metadata: JSON.stringify(
+              round.mode === "stranger"
+                ? {
+                    floorRoundId: roundId,
+                    floorSubmissionId: submission.id,
+                    kind: "stranger",
+                    prompt: round.prompt,
+                  }
+                : { floorRoundId: roundId, floorSubmissionId: submission.id },
+            ),
             sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
           })
           .returning();

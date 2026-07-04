@@ -15,6 +15,9 @@ import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import RollCall from "@/components/campaign/v2/RollCall";
 import VoteCall from "@/components/campaign/v2/VoteCall";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
+import StrangerCall from "@/components/campaign/v2/StrangerCall";
+import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
+import { composeStrangerLine } from "@/components/campaign/v2/stranger";
 import {
   composeVoteLine,
 } from "@/components/campaign/v2/votes";
@@ -62,6 +65,7 @@ const DIRECTOR_MOVES_ACTIVE = [
   { key: "vote", label: "Put it to a vote" },
   { key: "end", label: "End the session" },
 ];
+const STRANGER_MOVE = { key: "stranger", label: "Wake the Stranger" };
 
 export default function SessionPlayPage() {
   const params = useParams();
@@ -93,7 +97,7 @@ export default function SessionPlayPage() {
     updateFloorRound,
   } = useCampaignSession(storyId, sessionId);
 
-  const [composing, setComposing] = useState<"roll" | "vote" | null>(null);
+  const [composing, setComposing] = useState<"roll" | "vote" | "stranger" | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [epilogueText, setEpilogueText] = useState("");
   const [cliffhangerText, setCliffhangerText] = useState("");
@@ -209,6 +213,19 @@ export default function SessionPlayPage() {
     [activeChars],
   );
   const gmUserId = story?.userId ?? "";
+
+  // The chair left for the dark, if this story keeps one. The move only
+  // wakes while someone is actually watching — below quorum it sleeps.
+  const strangerName = story?.campaignStrangerEnabled
+    ? story.campaignStrangerName?.trim() || "the Stranger"
+    : null;
+  const directorMoves = useMemo(
+    () =>
+      strangerName && houseCount > 0
+        ? [...DIRECTOR_MOVES_ACTIVE.slice(0, 2), STRANGER_MOVE, DIRECTOR_MOVES_ACTIVE[2]]
+        : DIRECTOR_MOVES_ACTIVE,
+    [strangerName, houseCount],
+  );
 
   const pendingRoll = useMemo(() => findOpenRoll(pageTurns), [pageTurns]);
 
@@ -333,10 +350,23 @@ export default function SessionPlayPage() {
   const onVoteCall = useCallback(
     async (prompt: string) => {
       try {
-        await createFloorRound(prompt, true);
+        await createFloorRound(prompt, { audiencePulseEnabled: true });
         setComposing(null);
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Failed to open the vote");
+      }
+    },
+    [createFloorRound, showToast],
+  );
+
+  // ── The Stranger ───────────────────────────────────────────
+  const onStrangerCall = useCallback(
+    async (ballot: { prompt: string; deeds: string[] }) => {
+      try {
+        await createFloorRound(ballot.prompt, { mode: "stranger", deeds: ballot.deeds });
+        setComposing(null);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to wake the Stranger");
       }
     },
     [createFloorRound, showToast],
@@ -433,6 +463,44 @@ export default function SessionPlayPage() {
     }
   }, [liveRound, updateFloorRound, showToast]);
 
+  // The house has spoken: the record line prints, then the chosen deed
+  // joins the story in the Stranger's ink (the server writes it on resolve).
+  const strangerDeeds: StrangerDeed[] = useMemo(() => {
+    if (!liveRound || liveRound.mode !== "stranger") return [];
+    return liveRound.submissions.map((s) => ({
+      id: s.id,
+      content: s.content,
+      voiceCount: s.audiencePulseCount,
+      isMyChoice: false,
+    }));
+  }, [liveRound]);
+
+  const onStrangerResolve = useCallback(async () => {
+    if (!liveRound || liveRound.submissions.length === 0 || !strangerName) return;
+    const winner = [...liveRound.submissions].sort(
+      (a, b) => b.audiencePulseCount - a.audiencePulseCount,
+    )[0];
+    const voicesFor = winner.audiencePulseCount;
+    const voicesOthers = liveRound.submissions
+      .filter((s) => s.id !== winner.id)
+      .reduce((sum, s) => sum + s.audiencePulseCount, 0);
+    try {
+      const record = await sendTurn(
+        "ooc",
+        composeStrangerLine(strangerName, voicesFor, voicesOthers),
+        undefined,
+        JSON.stringify({ kind: "stranger-record", prompt: liveRound.prompt }),
+      );
+      seenIdsRef.current?.add(record.id);
+      await updateFloorRound(liveRound.id, {
+        status: "resolved",
+        selectedSubmissionId: winner.id,
+      });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to add the deed");
+    }
+  }, [liveRound, strangerName, sendTurn, updateFloorRound, showToast]);
+
   // ── Session lifecycle ──────────────────────────────────────
   const onBegin = useCallback(async () => {
     try {
@@ -456,7 +524,7 @@ export default function SessionPlayPage() {
   }, [updateSession, epilogueText, cliffhangerText, showToast]);
 
   const onMove = useCallback((key: string) => {
-    if (key === "roll" || key === "vote") setComposing(key);
+    if (key === "roll" || key === "vote" || key === "stranger") setComposing(key);
     if (key === "end") setShowEndModal(true);
   }, []);
 
@@ -535,6 +603,18 @@ export default function SessionPlayPage() {
         onSettled={onRollSettled}
         onCallOff={isGM ? onRollCallOff : undefined}
       />
+    ) : liveRound && liveRound.mode === "stranger" ? (
+      <StrangerBlock
+        name={strangerName ?? "the Stranger"}
+        prompt={liveRound.prompt}
+        deeds={strangerDeeds}
+        canChoose={false}
+        canResolve={isGM}
+        resolveReady={liveRound.audiencePulseCount > 0}
+        onChoose={() => undefined}
+        onResolve={() => void onStrangerResolve()}
+        onCallOff={() => void onVoteCallOff()}
+      />
     ) : liveRound ? (
       <VoteBlock
         prompt={liveRound.prompt}
@@ -574,8 +654,9 @@ export default function SessionPlayPage() {
         ink={myInk}
         characters={characters}
         onCommit={commit}
-        moves={isGM ? DIRECTOR_MOVES_ACTIVE : undefined}
+        moves={isGM ? directorMoves : undefined}
         onMove={onMove}
+        strangerName={isGM ? strangerName : null}
       />
     ) : (
       <WaitingLine name={writerName} ink={writerInk} />
@@ -589,6 +670,12 @@ export default function SessionPlayPage() {
             characters={characters}
             allPlayerUserIds={activePlayerUserIds}
             onCommit={(meta) => void onRollCall(meta)}
+            onCancel={() => setComposing(null)}
+          />
+        ) : composing === "stranger" ? (
+          <StrangerCall
+            name={strangerName ?? "the Stranger"}
+            onCommit={(ballot) => void onStrangerCall(ballot)}
             onCancel={() => setComposing(null)}
           />
         ) : (
@@ -632,6 +719,11 @@ export default function SessionPlayPage() {
                 {currentUserId === c.userId ? " · you" : ""}
               </span>
             ))}
+            {strangerName && (
+              <span style={{ color: "var(--ink-strange)" }} title="A chair left for the dark — the audience plays this character">
+                · ☾ {strangerName}
+              </span>
+            )}
             {houseCount > 0 && <span>· {houseCount} watching</span>}
           </div>
         }
@@ -652,6 +744,7 @@ export default function SessionPlayPage() {
           replayIds={replayIds}
           onReplayDone={onReplayDone}
           gildedTurnIds={gildedTurnIds}
+          strangerName={strangerName}
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">

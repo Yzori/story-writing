@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerCharacter, Turn } from "@/types/campaign";
 import { getPlayerInk } from "@/types/campaign";
 import { isStoryTurnType } from "@/lib/campaign-turns";
+import { isStrangerTurn } from "./stranger";
 
 /**
  * The story as it stands, each hand in its own ink. Turns arriving after
@@ -36,13 +37,21 @@ export function inkFor(
   return getPlayerInk(userId, allPlayerUserIds);
 }
 
-/** Render content with cast @-mentions set in the named character's ink. */
+/**
+ * Render content with cast @-mentions set in the named character's ink.
+ * When a Stranger sits at the story (`strangerName`), @-naming it renders
+ * in moon-silver — the Director's way of staging its moments.
+ */
 export function renderInked(
   content: string,
   characters: PlayerCharacter[],
   allPlayerUserIds: string[],
+  strangerName?: string | null,
 ): ReactNode[] {
   const nodes: ReactNode[] = [];
+  const strangerFirst = strangerName
+    ? strangerName.replace(/^the\s+/i, "").split(" ")[0].toLowerCase()
+    : null;
   let last = 0;
   let key = 0;
   for (const match of content.matchAll(MENTION_RE)) {
@@ -51,18 +60,19 @@ export function renderInked(
     const target = characters.find(
       (c) => c.name.split(" ")[0].toLowerCase() === first,
     );
-    if (!target) continue;
+    const isStranger = !target && strangerFirst !== null && first === strangerFirst;
+    if (!target && !isStranger) continue;
     if (idx > last) nodes.push(content.slice(last, idx));
+    const ink = target
+      ? getPlayerInk(target.userId, allPlayerUserIds)
+      : "var(--ink-strange)";
     nodes.push(
       <span
         key={`m-${key++}`}
         className="border-b-2 font-semibold"
-        style={{
-          color: getPlayerInk(target.userId, allPlayerUserIds),
-          borderColor: getPlayerInk(target.userId, allPlayerUserIds),
-        }}
+        style={{ color: ink, borderColor: ink }}
       >
-        {target.name.split(" ")[0]}
+        {target ? target.name.split(" ")[0] : match[1]}
       </span>,
     );
     last = idx + match[0].length;
@@ -83,12 +93,16 @@ const SET_LINE_CLASS = "mb-5 font-reading text-[14.5px] leading-[1.8]";
 
 /**
  * Resolved mechanics — printed as one line of set type, not ink. A roll
- * always is; an "ooc" turn only when it's a vote record (legacy sessions
- * carry ordinary ooc chat that must never print on the page).
+ * always is; an "ooc" turn only when it's a vote or Stranger record (legacy
+ * sessions carry ordinary ooc chat that must never print on the page).
  */
 export function isSetLine(turn: Turn): boolean {
   if (turn.type === "roll") return true;
-  return turn.type === "ooc" && !!turn.metadata?.includes('"vote-record"');
+  return (
+    turn.type === "ooc" &&
+    (!!turn.metadata?.includes('"vote-record"') ||
+      !!turn.metadata?.includes('"stranger-record"'))
+  );
 }
 
 function paragraphClass(turn: Turn): string {
@@ -102,6 +116,7 @@ function ReplayParagraph({
   gilded,
   characters,
   allPlayerUserIds,
+  strangerName,
   onDone,
 }: {
   turn: Turn;
@@ -109,6 +124,7 @@ function ReplayParagraph({
   gilded: boolean;
   characters: PlayerCharacter[];
   allPlayerUserIds: string[];
+  strangerName?: string | null;
   onDone: (turnId: string) => void;
 }) {
   const [typed, setTyped] = useState(0);
@@ -161,7 +177,7 @@ function ReplayParagraph({
       <span
         className={`${dry ? "ink-wet ink-dry" : "ink-wet"}${gilded ? " ink-gilded" : ""}`}
       >
-        {renderInked(content.slice(0, typed), characters, allPlayerUserIds)}
+        {renderInked(content.slice(0, typed), characters, allPlayerUserIds, strangerName)}
       </span>
       {!finished && (
         <span
@@ -182,6 +198,7 @@ export default function StoryProse({
   onReplayDone,
   gildedTurnIds,
   onGild,
+  strangerName,
 }: {
   turns: Turn[];
   characters: PlayerCharacter[];
@@ -193,6 +210,8 @@ export default function StoryProse({
   gildedTurnIds?: ReadonlySet<string>;
   /** The dark's reach: given (watch surface), tapping a story line offers to gild it. */
   onGild?: (turnId: string) => void;
+  /** The chair left for the dark: @-naming it renders in moon-silver. */
+  strangerName?: string | null;
 }) {
   const allPlayerUserIds = characters
     .filter((c) => c.status === "active")
@@ -203,9 +222,13 @@ export default function StoryProse({
       {turns.map((turn) => {
         // The slip is live-edge furniture, not history — never printed here.
         if (turn.type === "roll-request") return null;
+        // The Stranger's deeds are written in its own hand, whoever held
+        // the pen for it.
         const ink = isSetLine(turn)
           ? "var(--ink-faded)"
-          : inkFor(turn.userId, gmUserId, allPlayerUserIds);
+          : isStrangerTurn(turn)
+            ? "var(--ink-strange)"
+            : inkFor(turn.userId, gmUserId, allPlayerUserIds);
         const gilded = gildedTurnIds?.has(turn.id) ?? false;
         if (replayIds.has(turn.id)) {
           return (
@@ -216,6 +239,7 @@ export default function StoryProse({
               gilded={gilded}
               characters={characters}
               allPlayerUserIds={allPlayerUserIds}
+              strangerName={strangerName}
               onDone={onReplayDone}
             />
           );
@@ -248,7 +272,7 @@ export default function StoryProse({
                   }
                 : {})}
             >
-              {renderInked(turn.content, characters, allPlayerUserIds)}
+              {renderInked(turn.content, characters, allPlayerUserIds, strangerName)}
             </span>
           </p>
         );

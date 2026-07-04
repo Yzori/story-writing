@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
-import { campaignFloorRounds, campaignSessions } from "@/server/db/schema";
+import { campaignFloorRounds, campaignFloorSubmissions, campaignSessions } from "@/server/db/schema";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createFloorRoundSchema } from "@/lib/validations";
@@ -83,6 +83,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    if (parsed.data.mode === "stranger" && !check.story.campaignStrangerEnabled) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "No chair was left for the dark on this story" } },
+        { status: 403 },
+      );
+    }
+
     const existing = await db.query.campaignFloorRounds.findFirst({
       where: and(
         eq(campaignFloorRounds.sessionId, sessionId),
@@ -93,15 +100,50 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: { code: "CONFLICT", message: "A floor round is already active" } }, { status: 409 });
     }
 
-    // One Crossroads shape: players write competing responses ("open"), the
-    // table votes, the GM canonizes. Opens in the collection phase.
-    await db.insert(campaignFloorRounds).values({
-      sessionId,
-      openedBy: session.user.id,
-      prompt: parsed.data.prompt.trim(),
-      mode: "vote",
-      audiencePulseEnabled: parsed.data.audiencePulseEnabled,
-    });
+    if (parsed.data.mode === "stranger") {
+      // The Stranger's ballot: the Director frames the deeds when the round
+      // opens; the house's pulses are the votes. Deeds are stored as
+      // submissions with userId NULL — the unique (roundId, userId) player
+      // constraint doesn't apply, and canonize already narrates ownerless
+      // submissions as the GM ("narration"). sourceLabel keeps the hand
+      // legible in the data.
+      const strangerName = check.story.campaignStrangerName?.trim() || "the Stranger";
+      const deeds = parsed.data.deeds ?? [];
+      await db.transaction(async (tx) => {
+        const [round] = await tx
+          .insert(campaignFloorRounds)
+          .values({
+            sessionId,
+            openedBy: session.user.id,
+            prompt: parsed.data.prompt.trim(),
+            mode: "stranger",
+            // The house's choice IS the mechanic — pulses are always on.
+            audiencePulseEnabled: true,
+          })
+          .returning({ id: campaignFloorRounds.id });
+        await tx.insert(campaignFloorSubmissions).values(
+          deeds.map((deed) => ({
+            roundId: round.id,
+            userId: null,
+            characterId: null,
+            type: "narration",
+            content: deed.trim(),
+            sourceLabel: strangerName,
+          })),
+        );
+      });
+    } else {
+      // One Crossroads table shape: players write competing responses
+      // ("open"), the table votes, the GM canonizes. Opens in the collection
+      // phase.
+      await db.insert(campaignFloorRounds).values({
+        sessionId,
+        openedBy: session.user.id,
+        prompt: parsed.data.prompt.trim(),
+        mode: "vote",
+        audiencePulseEnabled: parsed.data.audiencePulseEnabled,
+      });
+    }
 
     return NextResponse.json({
       data: await getVisibleFloorRound(sessionId, session.user.id),

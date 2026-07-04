@@ -8,6 +8,10 @@ export const GM_USER_ID = "demo-gm";
 export const STORY_ID = "demo-story";
 export const SESSION_ID = "demo-session";
 
+// The chair left for the dark — the audience plays this character together.
+// The Director wakes it with "/", frames its deeds, and the house chooses.
+export const STRANGER_NAME = "the Gravekeeper";
+
 export const CHARACTERS: PlayerCharacter[] = [
   {
     id: "char-lyra",
@@ -100,6 +104,44 @@ export const INITIAL_TURNS: Turn[] = [
     characterName: "Kaelen",
     characterPortrait: null,
   },
+  // The Stranger has already moved once tonight: the record line of set
+  // type, then its deed in moon-silver — exactly what a resolved house
+  // ballot prints.
+  {
+    id: "t-3b",
+    sessionId: SESSION_ID,
+    userId: GM_USER_ID,
+    characterId: null,
+    type: "ooc",
+    content: "— the Gravekeeper stirred: the house chose its deed, 7 voices to 4.",
+    metadata: JSON.stringify({
+      kind: "stranger-record",
+      prompt: "Something else is in the throne room with them.",
+    }),
+    sortOrder: 3,
+    createdAt: "2026-05-15T20:01:40Z",
+    user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
+    characterName: null,
+    characterPortrait: null,
+  },
+  {
+    id: "t-3c",
+    sessionId: SESSION_ID,
+    userId: GM_USER_ID,
+    characterId: null,
+    type: "narration",
+    content:
+      "Behind them, unseen, the Gravekeeper dragged one fingertip through the dust of the altar — and wrote Lyra's name in grave-script.",
+    metadata: JSON.stringify({
+      kind: "stranger",
+      prompt: "Something else is in the throne room with them.",
+    }),
+    sortOrder: 4,
+    createdAt: "2026-05-15T20:01:50Z",
+    user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
+    characterName: null,
+    characterPortrait: null,
+  },
   {
     id: "t-4",
     sessionId: SESSION_ID,
@@ -117,7 +159,7 @@ export const INITIAL_TURNS: Turn[] = [
       status: "open",
       requiredUserIds: ["user-lyra"],
     }),
-    sortOrder: 3,
+    sortOrder: 5,
     createdAt: "2026-05-15T20:02:00Z",
     user: { id: GM_USER_ID, displayName: "Alex (GM)", avatarUrl: null },
     characterName: null,

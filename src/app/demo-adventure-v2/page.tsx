@@ -11,8 +11,11 @@ import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import RollCall from "@/components/campaign/v2/RollCall";
 import VoteCall from "@/components/campaign/v2/VoteCall";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
+import StrangerCall from "@/components/campaign/v2/StrangerCall";
+import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
+import { composeStrangerLine } from "@/components/campaign/v2/stranger";
 import { composeVoteLine } from "@/components/campaign/v2/votes";
 import {
   composeSetLine,
@@ -26,6 +29,7 @@ import {
   INITIAL_TURNS,
   OPENING_NARRATION,
   SESSION_ID,
+  STRANGER_NAME,
 } from "./fixtures";
 
 /**
@@ -58,6 +62,7 @@ const ACTIVE_USER_IDS = CHARACTERS.filter((c) => c.status === "active").map(
 const DIRECTOR_MOVES = [
   { key: "roll", label: "Call for a roll" },
   { key: "vote", label: "Put it to a vote" },
+  { key: "stranger", label: "Wake the Stranger" },
 ];
 
 /** A live vote round — furniture at the page's edge, never a turn. */
@@ -71,14 +76,24 @@ interface DemoRound {
   ambientLeans: Record<string, number>;
 }
 
+/** The Stranger's ballot — Director-framed deeds, chosen by the house alone. */
+interface DemoStrangerRound {
+  prompt: string;
+  deeds: Array<{ id: string; content: string }>;
+  viewerChoice: string | null;
+  /** The rest of the "12 watching" — simulated house voices, per deed. */
+  ambientVoices: Record<string, number>;
+}
+
 export default function DemoAdventureV2Page() {
   const [role, setRole] = useState<Role>("gm");
   const [turns, setTurns] = useState<Turn[]>(INITIAL_TURNS);
   // null = the Director writes.
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  // The Director is filling in a roll slip or a vote question.
-  const [composing, setComposing] = useState<"roll" | "vote" | null>(null);
+  // The Director is filling in a roll slip, a vote question, or a ballot.
+  const [composing, setComposing] = useState<"roll" | "vote" | "stranger" | null>(null);
   const [round, setRound] = useState<DemoRound | null>(null);
+  const [strangerRound, setStrangerRound] = useState<DemoStrangerRound | null>(null);
   const [replayIds, setReplayIds] = useState<ReadonlySet<string>>(new Set());
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -120,9 +135,10 @@ export default function DemoAdventureV2Page() {
 
   // Keep the end of the page in view as ink arrives.
   const roundSubmissionCount = round ? round.submissions.length : -1;
+  const strangerOpen = strangerRound !== null;
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns.length, activePlayerId, composing, roundSubmissionCount]);
+  }, [turns.length, activePlayerId, composing, roundSubmissionCount, strangerOpen]);
 
   // The felt audience: while lines are on the table, the dark stirs — a
   // few of the "12 watching" lean, one by one. Demo-only colour.
@@ -147,6 +163,29 @@ export default function DemoAdventureV2Page() {
     }, 2600);
     return () => clearInterval(id);
   }, [roundHasLines]);
+
+  // The dark stirs at the Stranger's ballot too — a few of the "12
+  // watching" cast their voices, one by one. Demo-only colour.
+  const strangerHasDeeds = !!strangerRound && strangerRound.deeds.length > 0;
+  useEffect(() => {
+    if (!strangerHasDeeds) return;
+    const id = setInterval(() => {
+      setStrangerRound((prev) => {
+        if (!prev || prev.deeds.length === 0) return prev;
+        const total = Object.values(prev.ambientVoices).reduce((a, b) => a + b, 0);
+        if (total >= 9) return prev;
+        const pick = prev.deeds[Math.floor(Math.random() * prev.deeds.length)].id;
+        return {
+          ...prev,
+          ambientVoices: {
+            ...prev.ambientVoices,
+            [pick]: (prev.ambientVoices[pick] ?? 0) + 1,
+          },
+        };
+      });
+    }, 2200);
+    return () => clearInterval(id);
+  }, [strangerHasDeeds]);
 
   const onReplayDone = useCallback((turnId: string) => {
     setReplayIds((prev) => {
@@ -310,6 +349,84 @@ export default function DemoAdventureV2Page() {
     );
   }, [pendingRoll]);
 
+  // ── The Stranger — the house's ballot ──────────────────────
+  const onStrangerCall = useCallback(
+    ({ prompt, deeds }: { prompt: string; deeds: string[] }) => {
+      setStrangerRound({
+        prompt,
+        deeds: deeds.map((d, i) => ({ id: `deed-${i}`, content: d })),
+        viewerChoice: null,
+        ambientVoices: {},
+      });
+      setComposing(null);
+    },
+    [],
+  );
+
+  // The viewer's voice — tapping their current choice takes it back.
+  const onStrangerChoose = useCallback((deedId: string) => {
+    setStrangerRound((prev) =>
+      prev
+        ? { ...prev, viewerChoice: prev.viewerChoice === deedId ? null : deedId }
+        : prev,
+    );
+  }, []);
+
+  const strangerVoices = useCallback(
+    (r: DemoStrangerRound, deedId: string) =>
+      (r.ambientVoices[deedId] ?? 0) + (r.viewerChoice === deedId ? 1 : 0),
+    [],
+  );
+
+  // The Director lets it be done: the record line prints, and the chosen
+  // deed writes itself in the Stranger's moon-silver ink.
+  const onStrangerResolve = useCallback(() => {
+    if (!strangerRound || strangerRound.deeds.length === 0) return;
+    const winner = [...strangerRound.deeds].sort(
+      (a, b) => strangerVoices(strangerRound, b.id) - strangerVoices(strangerRound, a.id),
+    )[0];
+    const voicesFor = strangerVoices(strangerRound, winner.id);
+    const voicesOthers = strangerRound.deeds
+      .filter((d) => d.id !== winner.id)
+      .reduce((sum, d) => sum + strangerVoices(strangerRound, d.id), 0);
+    const recordId = `t-strec-${Date.now()}`;
+    const deedTurnId = `t-deed-${Date.now()}`;
+    setTurns((prev) => [
+      ...prev,
+      {
+        id: recordId,
+        sessionId: SESSION_ID,
+        userId: GM_USER_ID,
+        characterId: null,
+        type: "ooc",
+        content: composeStrangerLine(STRANGER_NAME, voicesFor, voicesOthers),
+        metadata: JSON.stringify({ kind: "stranger-record", prompt: strangerRound.prompt }),
+        sortOrder: prev.length,
+        createdAt: new Date().toISOString(),
+        user: { id: GM_USER_ID, displayName: "The Director", avatarUrl: null },
+        characterName: null,
+        characterPortrait: null,
+      },
+      {
+        id: deedTurnId,
+        sessionId: SESSION_ID,
+        userId: GM_USER_ID,
+        characterId: null,
+        type: "narration",
+        content: winner.content,
+        metadata: JSON.stringify({ kind: "stranger", prompt: strangerRound.prompt }),
+        sortOrder: prev.length + 1,
+        createdAt: new Date().toISOString(),
+        user: { id: GM_USER_ID, displayName: "The Director", avatarUrl: null },
+        characterName: null,
+        characterPortrait: null,
+      },
+    ]);
+    // The record is print; the deed writes itself in.
+    setReplayIds((prev) => new Set(prev).add(deedTurnId));
+    setStrangerRound(null);
+  }, [strangerRound, strangerVoices]);
+
   // The Director opens the floor: the question prints at the live edge.
   const onVoteCall = useCallback((prompt: string) => {
     setRound({
@@ -441,6 +558,17 @@ export default function DemoAdventureV2Page() {
 
   // What this chair may do at a live vote.
   const isPlayer = myChar !== null;
+  const strangerDeeds: StrangerDeed[] = strangerRound
+    ? strangerRound.deeds.map((d) => ({
+        id: d.id,
+        content: d.content,
+        voiceCount: strangerVoices(strangerRound, d.id),
+        isMyChoice: role === "viewer" && strangerRound.viewerChoice === d.id,
+      }))
+    : [];
+  const strangerVoiceTotal = strangerRound
+    ? strangerRound.deeds.reduce((s, d) => s + strangerVoices(strangerRound, d.id), 0)
+    : 0;
   const voteOptions: VoteOption[] = round
     ? round.submissions.map((s) => {
         const author = CHARACTERS.find((c) => c.userId === s.userId) ?? null;
@@ -480,6 +608,12 @@ export default function DemoAdventureV2Page() {
                 {role === c.userId ? " · you" : ""}
               </span>
             ))}
+            <span
+              style={{ color: "var(--ink-strange)" }}
+              title="A chair left for the dark — the audience plays this character"
+            >
+              · ☾ {STRANGER_NAME}
+            </span>
             <span>· 12 watching</span>
             {role === "viewer" && (
               <button
@@ -521,6 +655,7 @@ export default function DemoAdventureV2Page() {
           onGild={
             role === "viewer" ? (turnId) => setGoldTarget({ turnId }) : undefined
           }
+          strangerName={STRANGER_NAME}
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">
@@ -554,6 +689,18 @@ export default function DemoAdventureV2Page() {
               onResolve={onVoteResolve}
               onCallOff={() => setRound(null)}
             />
+          ) : strangerRound ? (
+            <StrangerBlock
+              name={STRANGER_NAME}
+              prompt={strangerRound.prompt}
+              deeds={strangerDeeds}
+              canChoose={role === "viewer"}
+              canResolve={role === "gm"}
+              resolveReady={strangerVoiceTotal > 0}
+              onChoose={onStrangerChoose}
+              onResolve={onStrangerResolve}
+              onCallOff={() => setStrangerRound(null)}
+            />
           ) : composing === "roll" && role === "gm" ? (
             <RollCall
               characters={CHARACTERS}
@@ -563,6 +710,12 @@ export default function DemoAdventureV2Page() {
             />
           ) : composing === "vote" && role === "gm" ? (
             <VoteCall onCommit={onVoteCall} onCancel={() => setComposing(null)} />
+          ) : composing === "stranger" && role === "gm" ? (
+            <StrangerCall
+              name={STRANGER_NAME}
+              onCommit={onStrangerCall}
+              onCancel={() => setComposing(null)}
+            />
           ) : iAmWriting ? (
             <Quill
               isGM={role === "gm"}
@@ -572,8 +725,10 @@ export default function DemoAdventureV2Page() {
               onCommit={commit}
               moves={role === "gm" ? DIRECTOR_MOVES : undefined}
               onMove={(key) =>
-                (key === "roll" || key === "vote") && setComposing(key)
+                (key === "roll" || key === "vote" || key === "stranger") &&
+                setComposing(key)
               }
+              strangerName={role === "gm" ? STRANGER_NAME : null}
             />
           ) : (
             <WaitingLine name={writerName} ink={writerInk} />

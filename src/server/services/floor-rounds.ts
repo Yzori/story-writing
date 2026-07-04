@@ -177,7 +177,9 @@ export async function getVisibleFloorRound(
     voteCount,
     eligibleVoterCount: eligibleVoterIds.size,
     allEligibleVotersVoted: eligibleVoterIds.size > 0 && voteCount >= eligibleVoterIds.size,
-    isVoteEligible: eligibleVoterIds.has(currentUserId),
+    // Stranger ballots belong to the house alone — the table reads, the
+    // dark decides (the votes route enforces the same).
+    isVoteEligible: round.mode !== "stranger" && eligibleVoterIds.has(currentUserId),
     audiencePulseCount,
     myAudiencePulseSubmissionId: null,
   };
@@ -187,18 +189,23 @@ export async function getAudiencePulseFloorRound(
   sessionId: string,
   token: string,
 ): Promise<FloorRound | null> {
+  // v2 rounds live their whole life in "open" (single-block: writing and
+  // voting happen together), so the audience must see them there — the old
+  // ["voting","closed"] gate belonged to the two-phase reveal pipeline and
+  // left watchers blind to every live v2 ballot.
   const round = await db.query.campaignFloorRounds.findFirst({
     where: and(
       eq(campaignFloorRounds.sessionId, sessionId),
       eq(campaignFloorRounds.audiencePulseEnabled, true),
-      inArray(campaignFloorRounds.status, ["voting", "closed"]),
+      inArray(campaignFloorRounds.status, ["open", "voting", "closed"]),
     ),
+    orderBy: [desc(campaignFloorRounds.updatedAt), desc(campaignFloorRounds.createdAt)],
   });
   if (!round) return null;
 
-  // Spectators see revealed submissions because the round has already
-  // progressed past `open`. `isGM=true` unmasks the prose; `currentUserId=""`
-  // forces `isMine: false` on every submission, which is correct for an
+  // v2 reveals all submissions while open ("the ink divides"), so spectators
+  // see the same prose the table does. `currentUserId=""` forces
+  // `isMine: false` on every submission, which is correct for an
   // unauthenticated audience viewer.
   const floorRound = await getVisibleFloorRound(sessionId, "");
   if (!floorRound) return null;

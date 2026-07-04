@@ -339,12 +339,25 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     return json.data ?? null;
   }, [floorRoundsUrl]);
 
-  const createFloorRound = useCallback(async (prompt: string, audiencePulseEnabled?: boolean) => {
+  const createFloorRound = useCallback(async (
+    prompt: string,
+    opts?: {
+      audiencePulseEnabled?: boolean;
+      /** "stranger" opens the house's ballot: Director-framed deeds, audience votes. */
+      mode?: "vote" | "stranger";
+      deeds?: string[];
+    },
+  ) => {
     const json = await campaignJsonRequest<FloorRound>(
       floorRoundsUrl,
       {
         method: "POST",
-        body: { prompt, audiencePulseEnabled: !!audiencePulseEnabled },
+        body: {
+          prompt,
+          audiencePulseEnabled: !!opts?.audiencePulseEnabled,
+          ...(opts?.mode ? { mode: opts.mode } : {}),
+          ...(opts?.deeds ? { deeds: opts.deeds } : {}),
+        },
         fallbackError: "Failed to open the vote",
       },
     );

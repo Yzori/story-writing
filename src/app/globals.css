@@ -146,6 +146,11 @@ html, html.theme-dark, .theme-dark {
   --t-veil-40: rgba(9, 11, 18, 0.4);
   --t-veil-90: rgba(9, 11, 18, 0.9);
 
+  /* The Stranger's moon-silver — the audience's one hand in the fiction.
+     Global (not room-scoped like --ink-1..8) because the campaign hub's
+     "chair for the dark" card wears it too. */
+  --ink-strange: #b7c3da;
+
   color-scheme: dark;
 }
 
@@ -246,6 +251,9 @@ html.theme-light, .theme-light {
   --t-veil-50: rgba(27, 34, 48, 0.42);
   --t-veil-40: rgba(27, 34, 48, 0.32);
   --t-veil-90: rgba(27, 34, 48, 0.82);
+
+  /* The Stranger's ink by day — iron-slate, still cold against the gold. */
+  --ink-strange: #4f5d73;
 
   color-scheme: light;
 }
@@ -2226,6 +2234,7 @@ body.with-bottom-tab {
   --ink-8: #a3e635; /* lime */
   --ink-gm: var(--t-gold);
   --ink-faded: rgba(242, 237, 221, 0.45);
+  /* --ink-strange (the Stranger's moon-silver) is global — see theme roots. */
   --manuscript-leader: rgba(226, 172, 74, 0.25);
   background:
     radial-gradient(ellipse 920px 720px at 50% 32%, rgba(226, 172, 74, 0.07), transparent 70%),

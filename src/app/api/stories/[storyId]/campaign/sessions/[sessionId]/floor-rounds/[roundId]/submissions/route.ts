@@ -46,6 +46,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (round.status !== "open") {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Submissions are closed" } }, { status: 403 });
     }
+    if (round.mode !== "vote") {
+      // Stranger ballots arrive with their deeds — the Director framed them
+      // when the round opened, and nothing reaches the house they didn't write.
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "The Stranger's deeds are set when the ballot opens" } },
+        { status: 403 },
+      );
+    }
 
     const body = await request.json();
     const parsed = createFloorSubmissionSchema.safeParse(body);

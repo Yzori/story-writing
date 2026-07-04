@@ -88,9 +88,11 @@ export interface SessionRosterEntry {
   status: "present" | "absent" | "introduced" | "spectating";
 }
 
-// One Crossroads shape since 2026-07-01: players submit, the table votes,
-// the GM canonizes. (Legacy rows may carry "gm_pick"/"house_fork" modes.)
-export type FloorRoundMode = "vote";
+// One Crossroads table shape since 2026-07-01: players submit, the table
+// votes, the GM canonizes. (Legacy rows may carry "gm_pick"/"house_fork"
+// modes.) Mode "stranger" is the house's ballot: Director-framed deeds for
+// the audience-played Stranger, chosen by audience pulse alone.
+export type FloorRoundMode = "vote" | "stranger";
 export type FloorRoundStatus = "open" | "voting" | "closed" | "resolved" | "cancelled";
 
 export interface FloorSubmission {
@@ -144,6 +146,10 @@ export interface StoryData {
   /** Background image for the campaign's SpatialMap. Null until the GM
    *  sets one via the map overlay's "Set map" dialog. */
   mapImageUrl?: string | null;
+  /** The Stranger — a chair left for the dark (opt-in, migration 0052). */
+  campaignStrangerEnabled?: boolean;
+  campaignStrangerName?: string | null;
+  campaignStrangerNature?: string | null;
 }
 
 export interface CharacterStats {

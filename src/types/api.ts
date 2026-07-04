@@ -55,6 +55,10 @@ export interface ApiStoryData {
   campaignToneInfluence?: number;
   campaignCadence?: string;
   campaignAuditionPrompt?: string;
+  /** The Stranger — a chair left for the dark (audience-played character). */
+  campaignStrangerEnabled?: boolean;
+  campaignStrangerName?: string | null;
+  campaignStrangerNature?: string | null;
   dropCaps?: boolean;
   sceneBreakStyle?: "asterism" | "fleuron" | "dots" | "line" | "text-line" | "space";
   paragraphIndent?: boolean;
