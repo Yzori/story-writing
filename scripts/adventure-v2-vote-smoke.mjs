@@ -35,7 +35,7 @@ await page.waitForSelector("text=a vote — the table writes lines");
 await page.getByLabel("The question to put to a vote").fill("The altar splits open. What does the party do?");
 await page.screenshot({ path: SHOT("v1-votecall") });
 await page.getByRole("button", { name: "Open the vote" }).click();
-await page.waitForSelector("text=put to a vote — the table writes, then votes");
+await page.waitForSelector("text=the table writes, then votes");
 log("vote block printed; Director sees:", JSON.stringify(await page.getByText("waiting for lines").count()), "waiting-murmur");
 // probe: resolve disabled with no lines
 log("probe: 'Add the winner' disabled with no lines:",
@@ -94,7 +94,7 @@ await page.waitForSelector("text=/— put to a vote: Kaelen's line carried, 2 vo
 log("record line:", JSON.stringify(await page.locator("p", { hasText: "— put to a vote" }).first().innerText()));
 await page.waitForSelector("p:has-text('draws his blade and steps between Lyra and the altar, ready for whatever crawls out.')", { timeout: 12000 });
 log("winning passage replayed into the story");
-log("vote block gone:", (await page.getByText("put to a vote — the table writes").count()) === 0);
+log("vote block gone:", (await page.getByText("the table writes, then votes").count()) === 0);
 log("pen with the Director (quill visible):", (await page.locator("textarea").count()) === 1);
 await page.screenshot({ path: SHOT("v5-resolved") });
 
@@ -103,7 +103,7 @@ await quill.fill("/");
 await page.getByRole("button", { name: "Put it to a vote" }).click();
 await page.getByLabel("The question to put to a vote").fill("A throwaway question?");
 await page.getByRole("button", { name: "Open the vote" }).click();
-await page.waitForSelector("text=put to a vote — the table writes");
+await page.waitForSelector("text=the table writes, then votes");
 await page.getByRole("button", { name: "Call it off" }).click();
 await page.waitForSelector("textarea");
 log("probe: Call it off returns to the quill, nothing printed:",

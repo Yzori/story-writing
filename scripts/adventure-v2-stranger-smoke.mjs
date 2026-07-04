@@ -53,7 +53,7 @@ log("probe: still disabled with one deed:",
 await page.getByLabel("Deed 2").fill("The Gravekeeper speaks Kaelen's debt aloud, so every soul in the room hears it.");
 await page.screenshot({ path: SHOT("s1-strangercall") });
 await page.getByRole("button", { name: "Put it to the audience" }).click();
-await page.waitForSelector("text=the Gravekeeper stirs — the audience chooses its deed");
+await page.waitForSelector("text=the audience chooses its deed");
 log("ballot printed at the live edge");
 log("probe: 'Add its deed' disabled with no voices yet:",
   await page.getByRole("button", { name: "Add its deed to the story" }).isDisabled());

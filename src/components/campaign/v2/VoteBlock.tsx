@@ -78,12 +78,14 @@ export default function VoteBlock({
   };
 
   return (
-    <div className="rounded-md border border-amber/25 bg-amber/[0.05] px-5 py-4">
-      <p className="font-reading text-[15px] italic leading-relaxed text-amber/90">
-        ✦ {prompt}
+    <div className="paper-slip px-5 py-4 sm:px-6">
+      {/* The slip's letterhead. */}
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-text-ghost">
+        <span className="text-amber/80">a vote</span> · the table writes, then votes
       </p>
-      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-        put to a vote — the table writes, then votes
+      {/* The question — the slip's one loud line. */}
+      <p className="mt-2.5 font-reading text-[16px] italic leading-relaxed text-amber/90 sm:text-[17px]">
+        ✦ {prompt}
       </p>
 
       {options.length > 0 && (

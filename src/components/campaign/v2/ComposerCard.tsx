@@ -33,16 +33,8 @@ export default function ComposerCard({
     <div
       className={
         silver
-          ? "rounded-md border px-5 py-4"
-          : "rounded-md border border-amber/25 bg-amber/[0.05] px-5 py-4"
-      }
-      style={
-        silver
-          ? {
-              borderColor: "color-mix(in srgb, var(--ink-strange) 30%, transparent)",
-              background: "color-mix(in srgb, var(--ink-strange) 6%, transparent)",
-            }
-          : undefined
+          ? "paper-slip paper-slip--silver px-5 py-4 sm:px-6"
+          : "paper-slip px-5 py-4 sm:px-6"
       }
       onKeyDown={(e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {

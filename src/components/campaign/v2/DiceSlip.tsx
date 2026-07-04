@@ -159,7 +159,7 @@ export default function DiceSlip({
       : "";
 
   return (
-    <div className="dice-slip px-5 py-4 sm:px-6">
+    <div className="paper-slip px-5 py-4 sm:px-6">
       {/* The slip's letterhead — what this is, whose hand it waits on. */}
       <p className="flex flex-wrap items-baseline gap-x-2 font-mono text-[9.5px] uppercase tracking-[0.18em] text-text-ghost">
         <span className="text-amber/80">a roll</span>

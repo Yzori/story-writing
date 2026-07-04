@@ -43,21 +43,18 @@ export default function StrangerBlock({
   onCallOff: () => void;
 }) {
   return (
-    <div
-      className="rounded-md border px-5 py-4"
-      style={{
-        borderColor: "color-mix(in srgb, var(--ink-strange) 30%, transparent)",
-        background: "color-mix(in srgb, var(--ink-strange) 6%, transparent)",
-      }}
-    >
+    <div className="paper-slip paper-slip--silver px-5 py-4 sm:px-6">
+      {/* The ballot's letterhead. */}
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-text-ghost">
+        <span style={{ color: "var(--ink-strange)" }}>{name} stirs</span> · the
+        audience chooses its deed
+      </p>
+      {/* The moment — the ballot's one loud line. */}
       <p
-        className="font-reading text-[15px] italic leading-relaxed"
+        className="mt-2.5 font-reading text-[16px] italic leading-relaxed sm:text-[17px]"
         style={{ color: "var(--ink-strange)" }}
       >
         ☾ {prompt}
-      </p>
-      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-        {name} stirs — the audience chooses its deed
       </p>
 
       {deeds.length > 0 && (
