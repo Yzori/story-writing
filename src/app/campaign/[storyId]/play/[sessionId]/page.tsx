@@ -26,6 +26,7 @@ import {
   tierFromServer,
   type RollResult,
 } from "@/components/campaign/v2/rolls";
+import DirectorHands from "@/components/campaign/v2/DirectorHands";
 import EndSessionModal from "@/components/campaign/EndSessionModal";
 import SignatureLine from "@/components/campaign/v2/SignatureLine";
 import { getPlayerInk, type Turn } from "@/types/campaign";
@@ -254,6 +255,22 @@ export default function SessionPlayPage() {
       ? getPlayerInk(currentUserId, activePlayerUserIds)
       : "var(--ink-faded)";
   const myCharGone = !isGM && !!myCharacter && myCharacter.status !== "active";
+
+  // If the pen arrives while the tab is elsewhere, the title taps the
+  // writer's shoulder; it clears the moment they look.
+  useEffect(() => {
+    if (!iAmWriting || typeof document === "undefined" || !document.hidden) return;
+    const original = document.title;
+    document.title = `✎ the pen is yours — ${story?.title ?? "the table"}`;
+    const onVisible = () => {
+      if (!document.hidden) document.title = original;
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      document.title = original;
+    };
+  }, [iAmWriting, story?.title]);
 
   // ── Writing + the pass ─────────────────────────────────────
   const commit = useCallback(
@@ -517,6 +534,16 @@ export default function SessionPlayPage() {
     }
   }, [updateSession, showToast]);
 
+  // The Director's failsafe: the pen never strands the table. Taking it
+  // back is the same server move as passing it — to no one.
+  const onTakeBack = useCallback(async () => {
+    try {
+      await setActivePlayer(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to take the pen back");
+    }
+  }, [setActivePlayer, showToast]);
+
   const onConfirmEnd = useCallback(async () => {
     try {
       await updateSession({
@@ -666,7 +693,18 @@ export default function SessionPlayPage() {
         strangerName={isGM ? strangerName : null}
       />
     ) : (
-      <WaitingLine name={writerName} ink={writerInk} />
+      <div>
+        <WaitingLine name={writerName} ink={writerInk} />
+        {/* While the pen is out, the Director keeps two quiet hands — the
+            table can never be stranded by a writer who stepped away. */}
+        {isGM && (
+          <DirectorHands
+            writerName={writerName}
+            onTakeBack={() => void onTakeBack()}
+            onEnd={() => setShowEndModal(true)}
+          />
+        )}
+      </div>
     );
 
   // The Director's composers take precedence over their own quill.

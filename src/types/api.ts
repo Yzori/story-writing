@@ -136,7 +136,8 @@ export type NotifType =
   | "annotation"
   | "circle"
   | "letter"
-  | "candle";
+  | "candle"
+  | "pen";
 
 export interface ApiNotification {
   id: string;

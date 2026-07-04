@@ -28,6 +28,7 @@ const EMAIL_ENABLED_TYPES = new Set<NotifType>([
   "open-call",     // your open-call pitch got a response
   "jam",           // jam started
   "letter",        // a reader left a letter on your desk (rare, high-signal)
+  "pen",           // the pen is yours at a live table — the session stalls without you
 ]);
 
 /**

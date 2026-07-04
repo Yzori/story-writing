@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, playerCharacters, sessionRoster } from "@/server/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { campaignSessions, campaignTurns, playerCharacters, sessionRoster } from "@/server/db/schema";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { resolveSessionGmId, verifySessionGmAccess } from "@/server/services/collaboration";
+import { createNotification } from "@/server/services/notifications";
+
+// A player who wrote within this window is considered at the table — the pen
+// arriving on their screen is signal enough. Anyone quieter gets a nudge:
+// a stalled pen is the one thing this surface can't survive.
+const AT_THE_TABLE_MS = 10 * 60 * 1000;
 
 type RouteParams = { params: Promise<{ storyId: string; sessionId: string }> };
 
@@ -91,6 +97,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .set({ activePlayerId, updatedAt: new Date() })
       .where(eq(campaignSessions.id, sessionId))
       .returning();
+
+    // The pen finds you: nudge the new holder unless they've written recently
+    // enough to clearly be at the table. In-app always; email rides the
+    // user's digest preferences via createNotification.
+    if (activePlayerId !== null && activePlayerId !== resolveSessionGmId(story, sess)) {
+      const [lastTurn] = await db
+        .select({ createdAt: campaignTurns.createdAt })
+        .from(campaignTurns)
+        .where(
+          and(
+            eq(campaignTurns.sessionId, sessionId),
+            eq(campaignTurns.userId, activePlayerId),
+          ),
+        )
+        .orderBy(desc(campaignTurns.createdAt))
+        .limit(1);
+      const atTheTable =
+        !!lastTurn && Date.now() - lastTurn.createdAt.getTime() < AT_THE_TABLE_MS;
+      if (!atTheTable) {
+        await createNotification(
+          activePlayerId,
+          "pen",
+          `The pen is yours in "${story.title}" — the table is waiting`,
+          `/campaign/${storyId}/play/${sessionId}`,
+        );
+      }
+    }
 
     return NextResponse.json({ data: updated });
   } catch (error) {

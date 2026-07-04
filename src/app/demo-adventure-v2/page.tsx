@@ -7,6 +7,7 @@ import PageRoom from "@/components/campaign/v2/PageRoom";
 import StoryProse, { inkFor } from "@/components/campaign/v2/StoryProse";
 import Quill from "@/components/campaign/v2/Quill";
 import WaitingLine from "@/components/campaign/v2/WaitingLine";
+import DirectorHands from "@/components/campaign/v2/DirectorHands";
 import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import RollCall from "@/components/campaign/v2/RollCall";
 import VoteCall from "@/components/campaign/v2/VoteCall";
@@ -733,7 +734,16 @@ export default function DemoAdventureV2Page() {
               strangerName={role === "gm" ? STRANGER_NAME : null}
             />
           ) : (
-            <WaitingLine name={writerName} ink={writerInk} />
+            <div>
+              <WaitingLine name={writerName} ink={writerInk} />
+              {/* The Director's failsafe — the pen can always come back. */}
+              {role === "gm" && (
+                <DirectorHands
+                  writerName={writerName}
+                  onTakeBack={() => setActivePlayerId(null)}
+                />
+              )}
+            </div>
           )}
         </div>
         <div ref={endRef} />
