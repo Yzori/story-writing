@@ -73,7 +73,7 @@ await page.screenshot({ path: SHOT("6-rollcall") });
 await askBtn.click();
 await page.waitForSelector("text=the dice are with");
 log("slip printed for Kaelen; Director view shows murmur");
-log("slip shows 'rolls the dice':", await page.getByText("rolls the dice").count());
+log("slip letterhead names the hand:", await page.getByText("the dice are with").count());
 await page.screenshot({ path: SHOT("7-slip-kaelen") });
 
 // ── 4. Kaelen rolls ──

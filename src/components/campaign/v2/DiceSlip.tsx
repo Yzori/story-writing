@@ -150,98 +150,110 @@ export default function DiceSlip({
     return () => clearTimeout(t);
   }, [phase, result]);
 
-  // Once the dice have spoken, the stake that didn't happen fades.
+  // Once the dice have spoken, the path not taken is struck from the record.
   const dimmed = (line: "holds" | "breaks") =>
     result &&
     ((line === "holds" && result.tier === "breaks") ||
       (line === "breaks" && result.tier !== "breaks"))
-      ? "opacity-30"
+      ? "opacity-30 line-through"
       : "";
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border border-amber/25 bg-amber/[0.05] px-5 py-4 sm:flex-row sm:items-center sm:gap-6">
-      <div className="flex-1">
-        <p className="font-reading text-[15px] italic leading-relaxed text-paper/90">
-          {meta.reason}
-        </p>
-        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-ghost">
-          <span className="font-semibold" style={{ color: targetInk }}>
-            {targetName}
-          </span>{" "}
-          rolls the dice
-          {meta.fatal && <span className="ml-2 font-bold text-rose">⚠ fatal stakes</span>}
-        </p>
-        {meta.onSuccess && (
-          <p
-            className={`mt-2 font-reading text-[13px] italic leading-snug text-text-secondary transition-opacity ${dimmed("holds")}`}
-          >
-            <span className="mr-1 font-mono text-[9.5px] font-bold uppercase not-italic tracking-[0.14em] text-sage">
-              holds
-            </span>
-            · {meta.onSuccess}
-          </p>
-        )}
-        {meta.onFailure && (
-          <p
-            className={`mt-1 font-reading text-[13px] italic leading-snug text-text-secondary transition-opacity ${dimmed("breaks")}`}
-          >
-            <span className="mr-1 font-mono text-[9.5px] font-bold uppercase not-italic tracking-[0.14em] text-rose">
-              breaks
-            </span>
-            · {meta.onFailure}
-          </p>
-        )}
-      </div>
+    <div className="dice-slip px-5 py-4 sm:px-6">
+      {/* The slip's letterhead — what this is, whose hand it waits on. */}
+      <p className="flex flex-wrap items-baseline gap-x-2 font-mono text-[9.5px] uppercase tracking-[0.18em] text-text-ghost">
+        <span className="text-amber/80">a roll</span>
+        <span>
+          ·{" "}
+          {canRoll ? (
+            "the dice are yours"
+          ) : (
+            <>
+              the dice are with{" "}
+              <span className="font-semibold" style={{ color: targetInk }}>
+                {targetName}
+              </span>
+            </>
+          )}
+        </span>
+        {meta.fatal && <span className="font-bold text-rose">· ⚠ fatal stakes</span>}
+      </p>
 
-      <div className="flex shrink-0 items-center gap-3 self-end sm:self-auto">
+      {/* The ask — the slip's one loud line. */}
+      <p className="mt-2.5 font-reading text-[17px] italic leading-relaxed text-paper sm:text-[18px]">
+        {meta.reason}
+      </p>
+
+      {/* The fork — both futures printed side by side. */}
+      {(meta.onSuccess || meta.onFailure) && (
+        <div className="mt-3 space-y-1.5">
+          {meta.onSuccess && (
+            <p
+              className={`flex items-baseline gap-2.5 border-l-2 border-sage/50 pl-3 font-reading text-[13.5px] italic leading-snug text-text-secondary transition-all ${dimmed("holds")}`}
+            >
+              <span className="shrink-0 font-mono text-[9.5px] font-bold uppercase not-italic tracking-[0.14em] text-sage">
+                holds
+              </span>
+              <span>{meta.onSuccess}</span>
+            </p>
+          )}
+          {meta.onFailure && (
+            <p
+              className={`flex items-baseline gap-2.5 border-l-2 border-rose/50 pl-3 font-reading text-[13.5px] italic leading-snug text-text-secondary transition-all ${dimmed("breaks")}`}
+            >
+              <span className="shrink-0 font-mono text-[9.5px] font-bold uppercase not-italic tracking-[0.14em] text-rose">
+                breaks
+              </span>
+              <span>{meta.onFailure}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* The casting edge — the bones, and the hand that acts. */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-dashed border-border/50 pt-3.5">
         <Die value={faces[0]} tumbling={phase === "casting"} tilt={-7} />
         <Die value={faces[1]} tumbling={phase === "casting"} tilt={9} />
 
-        {phase === "waiting" &&
-          (canRoll ? (
-            <button
-              type="button"
-              onClick={() => void cast()}
-              className="wax-seal cursor-pointer px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em]"
-            >
-              Roll
-            </button>
-          ) : (
-            <span className="flex flex-col items-start gap-1.5">
-              <span className="table-murmur">
-                the page waits — the dice are with{" "}
-                <span className="font-semibold not-italic" style={{ color: targetInk }}>
-                  {targetName}
-                </span>
-              </span>
-              {onCallOff && (
-                <button
-                  type="button"
-                  onClick={onCallOff}
-                  className="table-action cursor-pointer rounded-full border border-border/70 px-2.5 py-1 text-text-tertiary transition-colors hover:border-border hover:text-text-secondary"
-                  title="Take the call back — the slip leaves the page and the pen returns to you"
-                >
-                  Call it off
-                </button>
-              )}
-            </span>
-          ))}
+        <div className="ml-auto flex items-center gap-3">
+          {phase === "waiting" &&
+            (canRoll ? (
+              <button
+                type="button"
+                onClick={() => void cast()}
+                className="wax-seal cursor-pointer px-5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em]"
+              >
+                Roll
+              </button>
+            ) : onCallOff ? (
+              <button
+                type="button"
+                onClick={onCallOff}
+                className="table-action cursor-pointer rounded-full border border-border/70 px-2.5 py-1 text-text-tertiary transition-colors hover:border-border hover:text-text-secondary"
+                title="Take the call back — the slip leaves the page and the pen returns to you"
+              >
+                Call it off
+              </button>
+            ) : (
+              <span className="table-murmur">the table holds its breath…</span>
+            ))}
 
-        {phase === "revealed" && result && (
-          <span role="status" className="flex flex-col">
-            <span
-              className={`hand-note text-[20px] leading-tight ${TIER_TEXT_CLASS[result.tier]}`}
-            >
-              {result.total} — {TIER_STAMP[result.tier]}
+          {phase === "revealed" && result && (
+            <span role="status" className="flex flex-col items-end gap-1">
+              <span
+                className={`roll-stamp hand-note text-[21px] leading-tight ${TIER_TEXT_CLASS[result.tier]}`}
+              >
+                {result.total} — {TIER_STAMP[result.tier]}
+              </span>
+              <span className="font-mono text-[10px] text-text-tertiary">
+                {result.dice[0]} + {result.dice[1]}
+                {result.modifier !== 0 &&
+                  ` ${result.modifier > 0 ? "+" : "−"} ${Math.abs(result.modifier)}`}{" "}
+                = {result.total}
+              </span>
             </span>
-            <span className="font-mono text-[10px] text-text-tertiary">
-              {result.dice[0]} + {result.dice[1]}
-              {result.modifier !== 0 &&
-                ` ${result.modifier > 0 ? "+" : "−"} ${Math.abs(result.modifier)}`}{" "}
-              = {result.total}
-            </span>
-          </span>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

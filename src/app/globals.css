@@ -2443,6 +2443,57 @@ html.theme-light .house-glimmer {
 html.theme-light .ink-wet { filter: saturate(1.7); text-shadow: none; }
 html.theme-light .ink-wet.ink-dry { filter: none; }
 
+/* The slip itself — a smaller leaf laid on the page: its own paper, its
+   own light, a printer's tilt. It arrives the way it leaves — printed. */
+.dice-slip {
+  position: relative;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--t-gold) 30%, transparent);
+  background:
+    radial-gradient(
+      120% 100% at 50% 0%,
+      color-mix(in srgb, var(--t-gold) 7%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(180deg, #1e2133 0%, #171a29 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 26px rgba(0, 0, 0, 0.45),
+    0 0 34px color-mix(in srgb, var(--t-gold) 9%, transparent);
+  transform: rotate(-0.4deg);
+  animation: slip-print 0.5s ease-out both;
+}
+html.theme-light .dice-slip {
+  background: #fffdf4;
+  border-color: rgba(168, 130, 44, 0.4);
+  box-shadow: 0 10px 26px rgba(76, 54, 28, 0.18);
+}
+@keyframes slip-print {
+  from { opacity: 0; transform: translateY(10px) rotate(-0.4deg); }
+  to { opacity: 1; transform: rotate(-0.4deg); }
+}
+
+/* The result, stamped by hand across the slip's corner. */
+.roll-stamp {
+  display: inline-block;
+  border: 2px solid currentColor;
+  border-radius: 7px;
+  padding: 0.02em 0.4em;
+  transform: rotate(-2.5deg);
+  animation: stamp-land 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+@keyframes stamp-land {
+  from { opacity: 0; transform: rotate(-2.5deg) scale(1.6); }
+  to { opacity: 1; transform: rotate(-2.5deg) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-slip,
+  .roll-stamp {
+    animation: none;
+  }
+}
+
 /* v2 dice — the bones tumble on the slip while the result is in the air. */
 @keyframes die-tumble {
   0% { transform: rotate(-4deg) translateY(-2px); }
