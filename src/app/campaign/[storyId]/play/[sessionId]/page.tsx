@@ -27,7 +27,7 @@ import {
   type RollResult,
 } from "@/components/campaign/v2/rolls";
 import EndSessionModal from "@/components/campaign/EndSessionModal";
-import PenMark from "@/components/campaign/v2/PenMark";
+import SignatureLine from "@/components/campaign/v2/SignatureLine";
 import { getPlayerInk, type Turn } from "@/types/campaign";
 
 /**
@@ -716,43 +716,22 @@ export default function SessionPlayPage() {
           </>
         }
         signature={
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span>at the table —</span>
-            <span
-              className="inline-flex items-baseline gap-1 font-medium not-italic"
-              style={{ color: "var(--ink-gm)" }}
-            >
-              {sessionStatus === "active" && directorWriting && (
-                <PenMark ink="var(--ink-gm)" />
-              )}
-              ✦ the Director{isGM ? " · you" : ""}
-            </span>
-            {castForSignature.map((c) => (
-              <span
-                key={c.id}
-                className="inline-flex items-baseline gap-1 font-medium not-italic"
-                style={{ color: getPlayerInk(c.userId, activePlayerUserIds) }}
-              >
-                · {sessionStatus === "active" &&
-                  !directorWriting &&
-                  activePlayerId === c.userId && (
-                    <PenMark ink={getPlayerInk(c.userId, activePlayerUserIds)} />
-                  )}
-                {c.name.split(" ")[0]}
-                {currentUserId === c.userId ? " · you" : ""}
-              </span>
-            ))}
-            {strangerName && (
-              <span
-                className="font-medium not-italic"
-                style={{ color: "var(--ink-strange)" }}
-                title="A chair left for the dark — the audience plays this character"
-              >
-                · ☾ {strangerName}
-              </span>
-            )}
-            {houseCount > 0 && <span>· {houseCount} watching from the dark</span>}
-          </div>
+          <SignatureLine
+            directorYou={isGM}
+            directorPen={sessionStatus === "active" && directorWriting}
+            seats={castForSignature.map((c) => ({
+              id: c.id,
+              name: c.name.split(" ")[0],
+              ink: getPlayerInk(c.userId, activePlayerUserIds),
+              you: currentUserId === c.userId,
+              pen:
+                sessionStatus === "active" &&
+                !directorWriting &&
+                activePlayerId === c.userId,
+            }))}
+            strangerName={strangerName}
+            watching={houseCount}
+          />
         }
         overlays={<GoldLight flareCount={flareCount} />}
       >

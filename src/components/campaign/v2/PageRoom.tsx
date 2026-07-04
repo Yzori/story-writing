@@ -74,9 +74,7 @@ export default function PageRoom({
           <div className="flex-1">{children}</div>
 
           {signature && (
-            <div className="mt-12 border-t border-border/60 pt-4 font-reading text-[12.5px] italic leading-loose text-text-tertiary">
-              {signature}
-            </div>
+            <div className="mt-12 border-t border-border/60 pt-5">{signature}</div>
           )}
         </div>
       </div>

@@ -16,7 +16,7 @@ import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
 import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
-import PenMark from "@/components/campaign/v2/PenMark";
+import SignatureLine from "@/components/campaign/v2/SignatureLine";
 import { findOpenRoll } from "@/components/campaign/v2/rolls";
 import { getPlayerInk, type PlayerCharacter, type Turn } from "@/types/campaign";
 
@@ -270,52 +270,35 @@ export default function WatchSessionPage() {
           </>
         }
         signature={
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span>at the table —</span>
-            <span
-              className="inline-flex items-baseline gap-1 font-medium not-italic"
-              style={{ color: "var(--ink-gm)" }}
-            >
-              {sessionStatus === "active" && directorWriting && (
-                <PenMark ink="var(--ink-gm)" />
-              )}
-              ✦ the Director
-            </span>
-            {characters.map((c) => (
-              <span
-                key={c.id}
-                className="inline-flex items-baseline gap-1 font-medium not-italic"
-                style={{ color: getPlayerInk(c.userId, activePlayerUserIds) }}
-              >
-                · {sessionStatus === "active" &&
-                  !directorWriting &&
-                  activePlayerId === c.userId && (
-                    <PenMark ink={getPlayerInk(c.userId, activePlayerUserIds)} />
-                  )}
-                {c.name.split(" ")[0]}
-              </span>
-            ))}
-            {strangerName && (
-              <span
-                className="font-medium not-italic"
-                style={{ color: "var(--ink-strange)" }}
-                title="A chair left for the dark — the audience plays this character"
-              >
-                · ☾ {strangerName}
-              </span>
-            )}
-            <span>· you are in the dark</span>
-            {canGive && (
-              <button
-                type="button"
-                onClick={() => setGoldTarget({ turnId: null })}
-                className="table-action ml-auto flex cursor-pointer items-center gap-1 rounded-full border border-amber/30 px-2.5 py-1 text-amber/90 transition-colors hover:bg-amber/10"
-                title="Leave gold for the table — it becomes light. Or tap any line marked ✦ to set it in gold."
-              >
-                leave gold ✦
-              </button>
-            )}
-          </div>
+          <SignatureLine
+            directorPen={sessionStatus === "active" && directorWriting}
+            seats={characters.map((c) => ({
+              id: c.id,
+              name: c.name.split(" ")[0],
+              ink: getPlayerInk(c.userId, activePlayerUserIds),
+              pen:
+                sessionStatus === "active" &&
+                !directorWriting &&
+                activePlayerId === c.userId,
+            }))}
+            strangerName={strangerName}
+            watching={spectatorCount}
+            trailing={
+              <>
+                <span>· you are in the dark</span>
+                {canGive && (
+                  <button
+                    type="button"
+                    onClick={() => setGoldTarget({ turnId: null })}
+                    className="table-action flex cursor-pointer items-center gap-1 rounded-full border border-amber/30 px-2.5 py-1 not-italic text-amber/90 transition-colors hover:bg-amber/10"
+                    title="Leave gold for the table — it becomes light. Or tap any line marked ✦ to set it in gold."
+                  >
+                    leave gold ✦
+                  </button>
+                )}
+              </>
+            }
+          />
         }
         overlays={
           <>
