@@ -113,12 +113,17 @@ export async function getVisibleFloorRound(
     )
     .orderBy(asc(campaignFloorSubmissions.createdAt));
 
-  const myVote = await db.query.campaignFloorVotes.findFirst({
-    where: and(
-      eq(campaignFloorVotes.roundId, round.id),
-      eq(campaignFloorVotes.userId, currentUserId),
-    ),
-  });
+  // The audience path passes currentUserId="" — an empty string is not a
+  // uuid, and Postgres rejects the comparison outright, which used to crash
+  // every spectator fetch of a live round. No user, no vote to look up.
+  const myVote = currentUserId
+    ? await db.query.campaignFloorVotes.findFirst({
+        where: and(
+          eq(campaignFloorVotes.roundId, round.id),
+          eq(campaignFloorVotes.userId, currentUserId),
+        ),
+      })
+    : undefined;
   const eligibleVoterIds = await getEligibleFloorVoterIds(sessionId);
   const voteRows = await db
     .select({ userId: campaignFloorVotes.userId })
