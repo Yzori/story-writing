@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, campaignTurns, playerCharacters } from "@/server/db/schema";
+import { campaignSessions, campaignTurns, playerCharacters, follows } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
@@ -136,6 +136,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // draft to active and both insert the opening. The second one will see
     // the locked status as already-active and skip the insert.
     let updated;
+    let sessionJustBegan = false;
     try {
       updated = await db.transaction(async (tx) => {
         const [locked] = await tx
@@ -145,6 +146,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .for("update");
         const isFirstTransitionToActive =
           wantsActivation && locked?.status !== "active";
+        sessionJustBegan = isFirstTransitionToActive;
 
         if (isFirstTransitionToActive && finalOpening?.trim()) {
           await tx
@@ -178,14 +180,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       throw err;
     }
 
-    // Notify players when session ends or begins
-    if (parsed.data.status === "completed" || parsed.data.status === "active") {
+    // Notify players when session ends or begins. "has begun" only fires on
+    // the first draft→active transition (an active→active PATCH would
+    // otherwise re-notify the whole cast).
+    const castUserIds = new Set<string>();
+    if (parsed.data.status === "completed" || sessionJustBegan) {
       const players = await db.query.playerCharacters.findMany({
         where: eq(playerCharacters.storyId, storyId),
       });
-      const playerUserIds = [...new Set(
-        players.map((p) => p.userId).filter((id) => id !== session.user.id)
-      )];
+      players.forEach((p) => castUserIds.add(p.userId));
+      const playerUserIds = [...castUserIds].filter((id) => id !== session.user.id);
       if (playerUserIds.length > 0) {
         const action = parsed.data.status === "completed" ? "has ended" : "has begun";
         await createBulkNotifications(
@@ -193,6 +197,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           "collaboration",
           `Session "${updated.title}" ${action} in ${story.title}`,
           `/campaign/${storyId}/play/${sessionId}`
+        );
+      }
+    }
+
+    // The table going live is the story's followers' moment to arrive — the
+    // watch page is useless to them after the session ends. Cast and Director
+    // are excluded (they get the player notice above). In-app only: a "was
+    // live" email hours later is noise.
+    if (sessionJustBegan && story.isPublic) {
+      const followerRows = await db
+        .select({ userId: follows.userId })
+        .from(follows)
+        .where(eq(follows.storyId, storyId));
+      const followerIds = [...new Set(followerRows.map((r) => r.userId))].filter(
+        (id) => id !== session.user.id && !castUserIds.has(id)
+      );
+      if (followerIds.length > 0) {
+        await createBulkNotifications(
+          followerIds,
+          "live",
+          `"${story.title}" is live — a session is being written right now`,
+          `/campaign/${storyId}/watch/${sessionId}`
         );
       }
     }

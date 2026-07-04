@@ -76,6 +76,17 @@ const QUICK_FILTER_MAP: Record<string, Partial<Filters>> = {
 
 type Group = { key: FKey; label: string; value: string; base: string; options: string[]; searchable?: boolean; columns?: number };
 type BoostedStory = ApiStory & { boosted?: boolean };
+type LiveTable = {
+  storyId: string;
+  slug: string | null;
+  title: string;
+  coverImageUrl: string | null;
+  contentRating: string;
+  authorName: string | null;
+  sessionId: string;
+  sessionTitle: string;
+  spectatorCount: number;
+};
 
 // ── helpers ─────────────────────────────────────────────────
 
@@ -397,6 +408,61 @@ function StackSkeleton() {
   );
 }
 
+// ── live now ────────────────────────────────────────────────
+// Adventures being played at this moment. The watch page only exists while
+// the table sits — this row is how an audience finds it in time.
+
+function LiveTableCard({ table }: { table: LiveTable }) {
+  return (
+    <Link
+      href={`/campaign/${table.storyId}/watch/${table.sessionId}`}
+      className="group flex w-[264px] shrink-0 items-center gap-3.5 rounded-xl border border-border bg-surface p-3 transition-colors hover:border-rose/35"
+    >
+      <div className="relative h-[72px] w-[48px] shrink-0 overflow-hidden rounded-md border border-border">
+        {table.coverImageUrl ? (
+          <Image src={table.coverImageUrl} alt="" fill sizes="48px" className="object-cover" unoptimized />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-elevated to-void" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-display text-[14px] leading-snug text-paper transition-colors group-hover:text-rose">
+          {table.title}
+        </p>
+        <p className="mt-0.5 truncate text-[11px] text-text-secondary">{table.authorName || "Anonymous"}</p>
+        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-ghost">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose/60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose" />
+          </span>
+          {table.spectatorCount > 0
+            ? `${table.spectatorCount} watching · Watch`
+            : "Playing now · Watch"}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function LiveNowRow({ tables }: { tables: LiveTable[] }) {
+  return (
+    <section className="pt-7">
+      <div className="mb-3.5 flex items-center gap-2.5 text-[10px] uppercase tracking-[0.22em] text-text-ghost">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose/50" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-rose" />
+        </span>
+        Live now · adventures being written at this moment
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+        {tables.map((t) => (
+          <LiveTableCard key={t.sessionId} table={t} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ── page ────────────────────────────────────────────────────
 
 export default function BrowsePageWrapper() {
@@ -432,6 +498,7 @@ function BrowsePage() {
 
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [boosted, setBoosted] = useState<BoostedStory[]>([]);
+  const [liveTables, setLiveTables] = useState<LiveTable[]>([]);
   const [loading, setLoading] = useState(true);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -508,6 +575,24 @@ function BrowsePage() {
     return () => controller.abort();
   }, []);
 
+  // Adventures live at this moment — fetched once per visit; the row simply
+  // doesn't render when no table is sitting.
+  useEffect(() => {
+    const controller = new AbortController();
+    async function fetchLive() {
+      try {
+        const res = await fetch("/api/campaigns/live", { signal: controller.signal });
+        if (!res.ok) return;
+        const json = await res.json();
+        setLiveTables(Array.isArray(json.data) ? (json.data as LiveTable[]) : []);
+      } catch {
+        // discovery strip is optional — fail quietly
+      }
+    }
+    fetchLive();
+    return () => controller.abort();
+  }, []);
+
   const presentGenres = useMemo(() => {
     const counts: Record<string, number> = {};
     stories.forEach((s) => s.genres.forEach((g) => { counts[g] = (counts[g] || 0) + 1; }));
@@ -527,6 +612,19 @@ function BrowsePage() {
 
   // Boosted placements respect the same filters as organic results.
   const sponsored = useMemo(() => boosted.filter(passesFilters).slice(0, 2), [boosted, passesFilters]);
+
+  // Live tables honor the comfort rating (a real safety filter) but ignore the
+  // browsing filters — a live session is a moment, not a shelf.
+  const liveVisible = useMemo(
+    () =>
+      liveTables.filter((t) => {
+        if (filters.rating === "all") return true;
+        const max = ratingByValue(filters.rating)?.level ?? 3;
+        const lvl = ratingByValue(t.contentRating)?.level ?? 0;
+        return lvl <= max;
+      }),
+    [liveTables, filters.rating]
+  );
 
   const pool: BoostedStory[] = useMemo(() => {
     const sponsoredIds = new Set(sponsored.map((s) => s.id));
@@ -647,6 +745,8 @@ function BrowsePage() {
         ) : (
           // ── the reading ritual ──
           <>
+            {liveVisible.length > 0 && <LiveNowRow tables={liveVisible} />}
+
             <div className="mb-5 flex items-center gap-2.5 pt-7 text-[10px] uppercase tracking-[0.22em] text-text-ghost">
               <span className="h-px w-8 bg-amber/40" />
               Set aside for you · tonight
