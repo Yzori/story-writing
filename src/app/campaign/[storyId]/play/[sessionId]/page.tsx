@@ -6,8 +6,12 @@ import { useParams, useRouter } from "next/navigation";
 
 import { useCampaignSession } from "@/hooks/use-campaign-session";
 import { useHouseGold } from "@/hooks/use-house-gold";
+import { useCastPresence } from "@/hooks/use-cast-presence";
+import { useSessionWagers } from "@/hooks/use-session-wagers";
 import PageRoom from "@/components/campaign/v2/PageRoom";
 import GoldLight from "@/components/campaign/v2/GoldLight";
+import GhostOverture, { type OvertureLine } from "@/components/campaign/v2/GhostOverture";
+import MatchStrike from "@/components/campaign/v2/MatchStrike";
 import StoryProse, { isSetLine } from "@/components/campaign/v2/StoryProse";
 import Quill from "@/components/campaign/v2/Quill";
 import WaitingLine from "@/components/campaign/v2/WaitingLine";
@@ -17,6 +21,11 @@ import VoteCall from "@/components/campaign/v2/VoteCall";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
 import StrangerCall from "@/components/campaign/v2/StrangerCall";
 import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
+import LobbyQuestionCall from "@/components/campaign/v2/LobbyQuestionCall";
+import WarmupBlock, { type WarmupAnswer } from "@/components/campaign/v2/WarmupBlock";
+import TemperatureBlock, { type TemperatureOption } from "@/components/campaign/v2/TemperatureBlock";
+import { isLobbyRound } from "@/components/campaign/v2/lobby";
+import WagerRim from "@/components/campaign/v2/WagerRim";
 import { composeStrangerLine } from "@/components/campaign/v2/stranger";
 import {
   composeVoteLine,
@@ -105,7 +114,9 @@ export default function SessionPlayPage() {
     updateFloorRound,
   } = useCampaignSession(storyId, sessionId);
 
-  const [composing, setComposing] = useState<"roll" | "vote" | "stranger" | null>(null);
+  const [composing, setComposing] = useState<
+    "roll" | "vote" | "stranger" | "question" | null
+  >(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [epilogueText, setEpilogueText] = useState("");
   const [cliffhangerText, setCliffhangerText] = useState("");
@@ -129,6 +140,64 @@ export default function SessionPlayPage() {
     sessionId,
     sessionStatus === "active",
   );
+
+  // Who has actually taken their seat. The heartbeat only speaks for the
+  // table (GM or a character owner — the server refuses anyone else); it
+  // runs on draft AND active so the lobby sees arrivals and the in-session
+  // signature can read the same rows later.
+  const { presentUserIds } = useCastPresence(storyId, sessionId, {
+    heartbeat: true,
+    enabled: !loading && ["draft", "active"].includes(sessionStatus),
+  });
+
+  // The audience's wagers at the rim. The table reads them (they're part of
+  // the room); only the Director has a hand here — the pull.
+  const { wagers, pullWager } = useSessionWagers(storyId, sessionId, { sessionStatus });
+  const [wagerChecks, setWagerChecks] = useState<Record<string, boolean>>({});
+  const openWagers = useMemo(() => wagers.filter((w) => w.status === "open"), [wagers]);
+  const onPullWager = useCallback(
+    async (wagerId: string) => {
+      try {
+        await pullWager(wagerId);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to pull the slip");
+      }
+    },
+    [pullWager, showToast],
+  );
+
+  // The ghost overture — lines from past sessions drift in the waiting
+  // dark. Fetched once per draft view; public stories only (the spectate
+  // gate), a private table simply waits in plain dark.
+  const [overture, setOverture] = useState<OvertureLine[]>([]);
+  useEffect(() => {
+    if (loading || sessionStatus !== "draft" || !storyId || !sessionId) return;
+    let cancelled = false;
+    fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/overture`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && Array.isArray(json?.lines)) setOverture(json.lines);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [storyId, sessionId, sessionStatus, loading]);
+
+  // The match strike — fires once when this client observes draft → active
+  // (the Director's own client flips synchronously via the PATCH response,
+  // so all three roles see the same instant).
+  const [justBegan, setJustBegan] = useState(false);
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = sessionStatus;
+    if (prev === "draft" && sessionStatus === "active") {
+      const t = setTimeout(() => setJustBegan(true), 0);
+      return () => clearTimeout(t);
+    }
+  }, [sessionStatus, loading]);
 
   // ── The page's turns ───────────────────────────────────────
   const pageTurns = useMemo(
@@ -183,9 +252,10 @@ export default function SessionPlayPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [pageTurns.length, activePlayerId, composing, floorRound?.status]);
 
-  // The page feels the house: poll the live spectator count.
+  // The page feels the house: poll the live spectator count. The dark
+  // gathers on draft too — the audience arrives before the candle is lit.
   useEffect(() => {
-    if (!storyId || !sessionId || sessionStatus !== "active") {
+    if (!storyId || !sessionId || !["draft", "active"].includes(sessionStatus)) {
       const t = setTimeout(() => setHouseCount(0), 0);
       return () => clearTimeout(t);
     }
@@ -401,6 +471,86 @@ export default function SessionPlayPage() {
       ? floorRound
       : null;
 
+  // ── The question on the unlit page (lobby rounds) ──────────
+  const lobbyRound = sessionStatus === "draft" && isLobbyRound(liveRound) ? liveRound : null;
+
+  const warmupAnswers: WarmupAnswer[] = useMemo(() => {
+    if (!lobbyRound || lobbyRound.mode !== "warmup") return [];
+    return lobbyRound.submissions.map((s) => ({
+      id: s.id,
+      authorName: s.characterName?.split(" ")[0] ?? s.user.displayName ?? "?",
+      ink: s.userId ? getPlayerInk(s.userId, activePlayerUserIds) : "var(--ink-faded)",
+      content: s.content,
+      isMine: s.isMine,
+      lifted: lobbyRound.selectedSubmissionId === s.id,
+    }));
+  }, [lobbyRound, activePlayerUserIds]);
+
+  const temperatureOptions: TemperatureOption[] = useMemo(() => {
+    if (!lobbyRound || lobbyRound.mode !== "temperature") return [];
+    return lobbyRound.submissions.map((s) => ({
+      id: s.id,
+      content: s.content,
+      castLeanCount: s.voteCount,
+      audienceLeanCount: s.audiencePulseCount,
+      isMyLean: lobbyRound.myVoteSubmissionId === s.id,
+    }));
+  }, [lobbyRound]);
+
+  const onQuestionCall = useCallback(
+    async (q: { prompt: string; mode: "warmup" | "temperature"; options?: string[] }) => {
+      try {
+        await createFloorRound(
+          q.prompt,
+          q.mode === "temperature"
+            ? { mode: "temperature", options: q.options }
+            : { mode: "warmup" },
+        );
+        setComposing(null);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to leave the question");
+      }
+    },
+    [createFloorRound, showToast],
+  );
+
+  const onWarmupAnswer = useCallback(
+    async (content: string) => {
+      if (!lobbyRound || !myCharacter) return;
+      try {
+        await submitFloorResponse(lobbyRound.id, {
+          characterId: myCharacter.id,
+          type: "dialogue",
+          content,
+        });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to add your line");
+      }
+    },
+    [lobbyRound, myCharacter, submitFloorResponse, showToast],
+  );
+
+  const onLift = useCallback(
+    async (answerId: string | null) => {
+      if (!lobbyRound) return;
+      try {
+        await updateFloorRound(lobbyRound.id, { liftSubmissionId: answerId });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to lift the line");
+      }
+    },
+    [lobbyRound, updateFloorRound, showToast],
+  );
+
+  const onLobbyCallOff = useCallback(async () => {
+    if (!lobbyRound) return;
+    try {
+      await updateFloorRound(lobbyRound.id, { status: "cancelled" });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to call it off");
+    }
+  }, [lobbyRound, updateFloorRound, showToast]);
+
   const voteOptions: VoteOption[] = useMemo(() => {
     if (!liveRound) return [];
     return liveRound.submissions.map((s) => ({
@@ -534,6 +684,26 @@ export default function SessionPlayPage() {
     }
   }, [updateSession, showToast]);
 
+  // The one-shot gathering call: tell the story's followers the table is
+  // gathering (and surface the draft on Browse as "about to begin").
+  const [gatheringSent, setGatheringSent] = useState(false);
+  const gatheringDone = gatheringSent || !!campaignSession?.gatheringCalledAt;
+  const onGathering = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/stories/${storyId}/campaign/sessions/${sessionId}/gathering`,
+        { method: "POST" },
+      );
+      if (!res.ok && res.status !== 409) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error?.message ?? "Failed to send the word");
+      }
+      setGatheringSent(true);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to send the word");
+    }
+  }, [storyId, sessionId, showToast]);
+
   // The Director's failsafe: the pen never strands the table. Taking it
   // back is the same server move as passing it — to no one.
   const onTakeBack = useCallback(async () => {
@@ -550,12 +720,21 @@ export default function SessionPlayPage() {
         status: "completed",
         epilogue: epilogueText.trim() || undefined,
         cliffhanger: cliffhangerText.trim() || undefined,
+        // Settle the audience's slips: checked came true, the rest go false.
+        ...(openWagers.length > 0
+          ? {
+              wagerResults: openWagers.map((w) => ({
+                id: w.id,
+                cameTrue: !!wagerChecks[w.id],
+              })),
+            }
+          : {}),
       });
       setShowEndModal(false);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to end the session");
     }
-  }, [updateSession, epilogueText, cliffhangerText, showToast]);
+  }, [updateSession, epilogueText, cliffhangerText, openWagers, wagerChecks, showToast]);
 
   const onMove = useCallback((key: string) => {
     if (key === "roll" || key === "vote" || key === "stranger") setComposing(key);
@@ -587,23 +766,87 @@ export default function SessionPlayPage() {
     );
   }
 
+  // ── The table before the light ─────────────────────────────
+  const castForPresence = rosterCharacters.length > 0 ? rosterCharacters : activeChars;
+  const tableUserIds = [gmUserId, ...castForPresence.map((c) => c.userId)];
+  const presentCount = tableUserIds.filter((id) => id && presentUserIds.has(id)).length;
+  const tableSize = tableUserIds.filter(Boolean).length;
+  const litFraction = tableSize > 0 ? presentCount / tableSize : 1;
+
   // ── The end of the page ────────────────────────────────────
   const endOfPage =
     sessionStatus === "draft" ? (
-      <div className="py-4 text-center">
-        <p className="table-murmur">
-          {isGM
-            ? "the table is set — begin when the cast is ready"
-            : "the Director will begin soon"}
-        </p>
-        {isGM && (
-          <button
-            type="button"
-            onClick={() => void onBegin()}
-            className="wax-seal mt-4 cursor-pointer px-5 py-2 text-[12px] font-bold uppercase tracking-[0.16em]"
-          >
-            Begin the session
-          </button>
+      <div className="space-y-5 py-4">
+        {lobbyRound?.mode === "warmup" && (
+          <WarmupBlock
+            prompt={lobbyRound.prompt}
+            answers={warmupAnswers}
+            canAnswer={!isGM && !!myCharacter && myCharacter.status === "active"}
+            myName={myCharacter?.name.split(" ")[0] ?? null}
+            myInk={myInk}
+            canLift={isGM}
+            onAnswer={(content) => void onWarmupAnswer(content)}
+            onLift={(id) => void onLift(id)}
+            onCallOff={() => void onLobbyCallOff()}
+          />
+        )}
+        {lobbyRound?.mode === "temperature" && (
+          <TemperatureBlock
+            prompt={lobbyRound.prompt}
+            options={temperatureOptions}
+            canLean={!isGM && lobbyRound.isVoteEligible}
+            onLean={(id) => void onVote(id)}
+            canCallOff={isGM}
+            onCallOff={() => void onLobbyCallOff()}
+          />
+        )}
+        {composing === "question" && isGM ? (
+          <LobbyQuestionCall
+            onCommit={(q) => void onQuestionCall(q)}
+            onCancel={() => setComposing(null)}
+          />
+        ) : (
+          <div className="text-center">
+            <p className="table-murmur">
+              {presentCount} of {tableSize} at the table
+            </p>
+            <p className="table-murmur mt-1">
+              {isGM ? "begin when the cast is ready" : "the Director will begin soon"}
+            </p>
+            {isGM && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                {!lobbyRound && (
+                  <button
+                    type="button"
+                    onClick={() => setComposing("question")}
+                    className="table-action cursor-pointer rounded-full border border-border px-4 py-2 text-text-secondary transition-colors hover:border-amber/40 hover:text-amber"
+                  >
+                    Leave a question for the cast
+                  </button>
+                )}
+                {!gatheringDone && (
+                  <button
+                    type="button"
+                    onClick={() => void onGathering()}
+                    className="table-action cursor-pointer rounded-full border border-border px-4 py-2 text-text-secondary transition-colors hover:border-amber/40 hover:text-amber"
+                    title="One notice to your story's followers — the table appears on Browse as about to begin"
+                  >
+                    Let your followers know
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void onBegin()}
+                  className="wax-seal cursor-pointer px-5 py-2 text-[12px] font-bold uppercase tracking-[0.16em]"
+                >
+                  Begin the session
+                </button>
+              </div>
+            )}
+            {isGM && gatheringDone && (
+              <p className="table-murmur mt-2">your followers know</p>
+            )}
+          </div>
         )}
       </div>
     ) : sessionStatus !== "active" ? (
@@ -649,7 +892,7 @@ export default function SessionPlayPage() {
         onResolve={() => void onStrangerResolve()}
         onCallOff={() => void onVoteCallOff()}
       />
-    ) : liveRound ? (
+    ) : liveRound && !isLobbyRound(liveRound) ? (
       <VoteBlock
         prompt={liveRound.prompt}
         options={voteOptions}
@@ -728,13 +971,34 @@ export default function SessionPlayPage() {
         )
       : endOfPage;
 
-  const castForSignature = rosterCharacters.length > 0 ? rosterCharacters : activeChars;
+  const castForSignature = castForPresence;
 
   return (
     <>
       <PageRoom
         leaveHref={`/campaign/${storyId}`}
         houseCount={houseCount}
+        unlit={sessionStatus === "draft"}
+        litFraction={sessionStatus === "draft" ? litFraction : 1}
+        sheetVeil={
+          sessionStatus === "draft" && overture.length > 0 ? (
+            <GhostOverture lines={overture} />
+          ) : undefined
+        }
+        rim={
+          wagers.length > 0 ? (
+            <WagerRim
+              wagers={wagers}
+              sealed={sessionStatus !== "draft"}
+              canHold={false}
+              onHold={() => undefined}
+              canCompose={false}
+              onCompose={async () => undefined}
+              canPull={isGM}
+              onPull={(id) => void onPullWager(id)}
+            />
+          ) : undefined
+        }
         header={
           <>
             <h1 className="font-display text-[21px] font-semibold tracking-tight text-paper">
@@ -757,6 +1021,8 @@ export default function SessionPlayPage() {
           <SignatureLine
             directorYou={isGM}
             directorPen={sessionStatus === "active" && directorWriting}
+            dimAbsent={sessionStatus === "draft"}
+            directorHere={presentUserIds.has(gmUserId)}
             seats={castForSignature.map((c) => ({
               id: c.id,
               name: c.name.split(" ")[0],
@@ -766,12 +1032,18 @@ export default function SessionPlayPage() {
                 sessionStatus === "active" &&
                 !directorWriting &&
                 activePlayerId === c.userId,
+              here: presentUserIds.has(c.userId),
             }))}
             strangerName={strangerName}
             watching={houseCount}
           />
         }
-        overlays={<GoldLight flareCount={flareCount} />}
+        overlays={
+          <>
+            <GoldLight flareCount={flareCount} />
+            {justBegan && <MatchStrike />}
+          </>
+        }
       >
         {/* Beginning the session posts the opening as the first turn, so the
             preview block only shows while the page is still being set. */}
@@ -809,6 +1081,11 @@ export default function SessionPlayPage() {
         setEpilogueText={setEpilogueText}
         cliffhangerText={cliffhangerText}
         setCliffhangerText={setCliffhangerText}
+        wagers={openWagers}
+        wagerChecks={wagerChecks}
+        setWagerCheck={(id, cameTrue) =>
+          setWagerChecks((prev) => ({ ...prev, [id]: cameTrue }))
+        }
         onConfirm={() => void onConfirmEnd()}
         onClose={() => setShowEndModal(false)}
       />

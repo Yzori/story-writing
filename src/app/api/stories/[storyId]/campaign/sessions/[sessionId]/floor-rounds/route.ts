@@ -70,16 +70,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!check.story || !isSessionGm(check.story, campaignSession, session.user.id)) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Only the GM can open the floor" } }, { status: 403 });
     }
-    if (campaignSession.status !== "active") {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Session is not active" } }, { status: 403 });
-    }
-
     const body = await request.json();
     const parsed = createFloorRoundSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message ?? "Invalid input" } },
         { status: 400 },
+      );
+    }
+
+    // A clean lifecycle matrix: lobby modes (warmup/temperature) exist only
+    // on draft sessions, table modes (vote/stranger) only on active ones.
+    // The begin transaction is the single crossing — it resolves any lobby
+    // round as the candle is lit.
+    const lobbyMode = parsed.data.mode === "warmup" || parsed.data.mode === "temperature";
+    if (lobbyMode ? campaignSession.status !== "draft" : campaignSession.status !== "active") {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: lobbyMode
+              ? "The question belongs to the unlit page — the session has begun"
+              : "Session is not active",
+          },
+        },
+        { status: 403 },
       );
     }
 
@@ -131,6 +146,45 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             sourceLabel: strangerName,
           })),
         );
+      });
+    } else if (parsed.data.mode === "temperature") {
+      // The temperature: Director-framed options as ownerless submissions
+      // (the stranger's storage trick), cast leans ride the votes table,
+      // the dark's leans ride the pulses — which is why pulses are forced
+      // on. Non-binding by law: no API path ever resolves it into a turn.
+      const options = parsed.data.options ?? [];
+      await db.transaction(async (tx) => {
+        const [round] = await tx
+          .insert(campaignFloorRounds)
+          .values({
+            sessionId,
+            openedBy: session.user.id,
+            prompt: parsed.data.prompt.trim(),
+            mode: "temperature",
+            audiencePulseEnabled: true,
+          })
+          .returning({ id: campaignFloorRounds.id });
+        await tx.insert(campaignFloorSubmissions).values(
+          options.map((option) => ({
+            roundId: round.id,
+            userId: null,
+            characterId: null,
+            type: "ooc",
+            content: option.trim(),
+            sourceLabel: "the room",
+          })),
+        );
+      });
+    } else if (parsed.data.mode === "warmup") {
+      // The warm-up: one question on the unlit page; the cast answers via
+      // the submissions endpoint. The dark reads but never leans on it —
+      // pulses stay off.
+      await db.insert(campaignFloorRounds).values({
+        sessionId,
+        openedBy: session.user.id,
+        prompt: parsed.data.prompt.trim(),
+        mode: "warmup",
+        audiencePulseEnabled: false,
       });
     } else {
       // One Crossroads table shape: players write competing responses

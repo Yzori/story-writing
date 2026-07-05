@@ -63,6 +63,61 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Warm-up lift: the Director marks one answer to open the story at
+    // begin. The round stays "open" — late arrivals keep answering, and the
+    // begin transaction does the printing. Null un-lifts; re-lifting moves
+    // the mark.
+    if (parsed.data.liftSubmissionId !== undefined) {
+      if (round.mode !== "warmup" || round.status !== "open") {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "Only an open warm-up takes a lift" } },
+          { status: 400 },
+        );
+      }
+      if (parsed.data.liftSubmissionId !== null) {
+        const lifted = await db.query.campaignFloorSubmissions.findFirst({
+          where: and(
+            eq(campaignFloorSubmissions.id, parsed.data.liftSubmissionId),
+            eq(campaignFloorSubmissions.roundId, roundId),
+          ),
+        });
+        if (!lifted) {
+          return NextResponse.json({ error: { code: "NOT_FOUND", message: "Answer not found" } }, { status: 404 });
+        }
+      }
+      await db
+        .update(campaignFloorRounds)
+        .set({ selectedSubmissionId: parsed.data.liftSubmissionId, updatedAt: new Date() })
+        .where(eq(campaignFloorRounds.id, roundId));
+      if (parsed.data.status === undefined) {
+        return NextResponse.json({
+          data: await getVisibleFloorRound(sessionId, session.user.id),
+        });
+      }
+    }
+
+    // Lobby rounds never resolve through this API. A temperature is not a
+    // vote — it only informs; a warm-up prints through the lift + the begin
+    // transaction. The Director may only call either off ("cancelled").
+    if (
+      (round.mode === "temperature" || round.mode === "warmup") &&
+      parsed.data.status !== undefined &&
+      parsed.data.status !== "cancelled"
+    ) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message:
+              round.mode === "temperature"
+                ? "A temperature is never resolved — it only informs"
+                : "The warm-up prints when the session begins",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
     if (parsed.data.status === "voting") {
       if (round.mode !== "vote") {
         return NextResponse.json({ error: { code: "BAD_REQUEST", message: "Only vote rounds can be revealed for voting" } }, { status: 400 });

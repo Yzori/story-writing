@@ -36,20 +36,49 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!campaignSession || campaignSession.storyId !== storyId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
     }
-    if (campaignSession.status !== "active") {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Session is not active" } }, { status: 403 });
-    }
     if (!round || round.sessionId !== sessionId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Floor round not found" } }, { status: 404 });
+    }
+    // Vote rounds live on the active table; temperature leans on the unlit
+    // (draft) one. A cast lean IS a vote row — same slot, no weight: the
+    // temperature never resolves into anything.
+    const requiredStatus = round.mode === "temperature" ? "draft" : "active";
+    if (campaignSession.status !== requiredStatus) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message:
+              round.mode === "temperature"
+                ? "The temperature was taken — the session has begun"
+                : "Session is not active",
+          },
+        },
+        { status: 403 },
+      );
     }
     // v2 single-block vote: the table writes and votes in one open phase, so
     // votes are accepted while the round is "open" as well as the legacy
     // reveal-then-vote "voting" phase.
-    if (round.mode !== "vote" || (round.status !== "open" && round.status !== "voting")) {
+    if (
+      (round.mode !== "vote" && round.mode !== "temperature") ||
+      (round.status !== "open" && round.status !== "voting")
+    ) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Voting is not open" } }, { status: 403 });
     }
     if (check.story && isSessionGm(check.story, campaignSession, session.user.id)) {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "The GM closes voting and canonizes instead of voting" } }, { status: 403 });
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message:
+              round.mode === "temperature"
+                ? "The temperature is for the room — the Director reads it"
+                : "The GM closes voting and canonizes instead of voting",
+          },
+        },
+        { status: 403 },
+      );
     }
     const eligibleVoterIds = await getEligibleFloorVoterIds(sessionId);
     if (!eligibleVoterIds.has(session.user.id)) {

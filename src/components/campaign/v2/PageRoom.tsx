@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import HouseGlimmers from "./HouseGlimmers";
 
 /**
@@ -16,7 +16,15 @@ import HouseGlimmers from "./HouseGlimmers";
  * edges of the dark (one mote per watcher). Money never appears here —
  * gold arrives as light (GoldLight goes through `overlays`).
  *
- * Z-scale: 0 the dark · 10 the sheet · 40 drawers/scrims · 50 modals · 70 toast.
+ * Before a session begins the room can be UNLIT (`unlit`): the sheet sits
+ * near-dark and brightens as the cast arrives (`litFraction` drives the
+ * `--lobby-lit` var; the CSS transition is the "room steps brighter"
+ * mechanic). `sheetVeil` mounts the ghost overture inside the sheet;
+ * `rim` is the dark's own furniture (wager slips) — a layer between the
+ * dark and the sheet whose children opt into pointer-events themselves.
+ *
+ * Z-scale: 0 the dark · 5 the rim · 10 the sheet · 40 drawers/scrims ·
+ * 50 modals · 70 toast.
  */
 export default function PageRoom({
   leaveHref,
@@ -25,6 +33,10 @@ export default function PageRoom({
   children,
   overlays,
   houseCount = 0,
+  unlit = false,
+  litFraction = 1,
+  sheetVeil,
+  rim,
 }: {
   /** Back to the campaign hub — a small bookmark ribbon over the frame. */
   leaveHref?: string;
@@ -38,9 +50,20 @@ export default function PageRoom({
   overlays?: ReactNode;
   /** How many watch from the dark — the dark glimmers with them. */
   houseCount?: number;
+  /** The room before the light: pre-session, the candle is not yet lit. */
+  unlit?: boolean;
+  /** 0..1 — how much of the table has arrived; each arrival brightens the room. */
+  litFraction?: number;
+  /** Mounted inside the sheet, absolute + pointer-events-none (the ghost overture). */
+  sheetVeil?: ReactNode;
+  /** The dark's furniture around the sheet (wager slips). Children opt into pointer-events. */
+  rim?: ReactNode;
 }) {
   return (
-    <div className="adventure-mode manuscript-room fixed inset-0 z-[80] overflow-y-auto text-paper selection:bg-amber/30">
+    <div
+      className={`adventure-mode manuscript-room fixed inset-0 z-[80] overflow-y-auto text-paper selection:bg-amber/30${unlit ? " manuscript-room--unlit" : ""}`}
+      style={{ "--lobby-lit": litFraction } as CSSProperties}
+    >
       {/* The dark — warm air behind the sheet, vignette pooled at the edges,
           and the house glimmering in it. */}
       <div className="pointer-events-none fixed inset-0 z-0">
@@ -48,6 +71,8 @@ export default function PageRoom({
         <div className="absolute inset-0 shadow-[inset_0_0_160px_rgba(0,0,0,0.88)]" />
       </div>
       <HouseGlimmers count={houseCount} />
+
+      {rim && <div className="pointer-events-none fixed inset-0 z-[5]">{rim}</div>}
 
       {leaveHref && (
         <Link
@@ -64,7 +89,8 @@ export default function PageRoom({
 
       {/* The sheet — a single centered column of story. */}
       <div className="relative z-10 mx-auto flex min-h-full w-full max-w-[720px] flex-col px-4 pt-10 sm:px-8">
-        <div className="manuscript-sheet flex flex-1 flex-col rounded-t-md px-6 pb-6 pt-8 sm:px-12 sm:pt-10">
+        <div className="manuscript-sheet relative flex flex-1 flex-col rounded-t-md px-6 pb-6 pt-8 sm:px-12 sm:pt-10">
+          {sheetVeil}
           {header && (
             <div className="mb-8 border-b border-border/60 pb-5 text-center">
               {header}

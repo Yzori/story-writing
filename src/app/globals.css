@@ -2322,6 +2322,144 @@ html.theme-light .candle-air {
   display: none;
 }
 
+/* ── The room before the light (the lobby) ─────────────────────────────
+   Pre-session the candle is not yet lit: the sheet sits near-dark and
+   steps brighter as the table gathers. --lobby-lit (0..1, set by PageRoom
+   from cast arrivals) drives the one mechanic; the transition IS the
+   "someone arrived" moment. */
+.manuscript-room--unlit .manuscript-sheet {
+  filter: brightness(calc(0.38 + var(--lobby-lit, 0) * 0.5));
+  transition: filter 1.8s ease;
+}
+.manuscript-room--unlit .manuscript-sheet::after {
+  animation: none;
+  opacity: 0.2;
+}
+.manuscript-room--unlit .candle-air {
+  animation: none;
+  opacity: 0.15;
+}
+html.theme-light .manuscript-room--unlit .manuscript-sheet {
+  /* Vellum never goes black — the unlit page is merely pale and grey. */
+  filter: brightness(calc(0.84 + var(--lobby-lit, 0) * 0.16)) saturate(0.8);
+}
+
+/* The ghost overture — lines from past sessions drift up the unlit sheet
+   as ghost ink; gilded ones carry their gold into the dark. */
+.ghost-line {
+  position: absolute;
+  bottom: 0;
+  margin: 0;
+  max-width: 58%;
+  color: color-mix(in srgb, var(--ink-strange, #b7c3da) 50%, transparent);
+  opacity: 0;
+  animation: ghost-rise 16s linear infinite;
+}
+.ghost-line--gilded {
+  color: color-mix(in srgb, var(--t-gold) 72%, transparent);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--t-gold) 28%, transparent);
+}
+@keyframes ghost-rise {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.5; }
+  55% { opacity: 0.32; }
+  100% { transform: translateY(-72vh); opacity: 0; }
+}
+html.theme-light .ghost-line {
+  color: rgba(76, 54, 28, 0.32);
+}
+html.theme-light .ghost-line--gilded {
+  color: rgba(168, 130, 44, 0.55);
+  text-shadow: none;
+}
+
+/* The temperature — the room leans and warmth gathers. Cast leans are warm
+   ink dots, the dark's are grey drops; --warmth (0..1, share of leans) sets
+   the gold wash. Never a vote: there is no winner styling on purpose. */
+.lobby-warmth {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--t-gold) calc(var(--warmth, 0) * 14%), transparent),
+    transparent 78%
+  );
+}
+.lean-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--t-gold) 80%, #fff);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--t-gold) 45%, transparent);
+}
+.lean-drop {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: color-mix(in srgb, var(--t-text-tertiary) 70%, transparent);
+}
+
+/* The wager — the audience's slips pinned in the dark at the rim. Smaller,
+   rougher paper than the table's slips; content + held-count only (no
+   names, no amounts — glory, never gold). Begin seals the book: slips dim
+   but stay pinned; the true ones stamp gold at the last line. */
+.wager-slip {
+  display: block;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--t-gold) 18%, var(--t-border));
+  background: linear-gradient(180deg, #1b1e2f 0%, #14172455 100%);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  transition: opacity 1.2s ease, border-color 160ms ease;
+}
+.wager-slip--sealed {
+  opacity: 0.45;
+}
+.wager-slip--true {
+  border-color: color-mix(in srgb, var(--t-gold) 55%, transparent);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.45),
+    0 0 22px color-mix(in srgb, var(--t-gold) 18%, transparent);
+}
+.wager-stamp {
+  display: inline-block;
+  margin-bottom: 2px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--t-gold) 60%, transparent);
+  border-radius: 2px;
+  transform: rotate(-3deg);
+  font-family: var(--font-mono), monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--t-gold);
+}
+html.theme-light .wager-slip {
+  background: #fbf6ec;
+  border-color: rgba(76, 54, 28, 0.16);
+  box-shadow: 0 6px 18px rgba(76, 54, 28, 0.12);
+}
+
+/* The match strike — one flash of warm light across the whole room the
+   instant the session begins, then the candle takes over. */
+.match-strike {
+  background: radial-gradient(
+    62% 46% at 50% 40%,
+    color-mix(in srgb, var(--t-gold) 55%, #fff8e7),
+    color-mix(in srgb, var(--t-gold) 18%, transparent) 46%,
+    transparent 76%
+  );
+  opacity: 0;
+  animation: match-strike 1.6s ease-out forwards;
+}
+@keyframes match-strike {
+  0% { opacity: 0; }
+  10% { opacity: 0.95; }
+  32% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
 /* The felt audience — the dark glimmers with the house. One mote per
    watcher (capped), twinkling at the room's edges, never over the page. */
 .house-glimmer {
@@ -2383,6 +2521,17 @@ html.theme-light .house-glimmer {
   }
   .name-bloom {
     animation: none;
+  }
+  .manuscript-room--unlit .manuscript-sheet {
+    transition: none;
+  }
+  .ghost-line {
+    animation: none;
+    opacity: 0.22;
+    transform: translateY(calc(-1 * var(--ghost-rest, 30vh)));
+  }
+  .match-strike {
+    animation-duration: 0.3s;
   }
 }
 

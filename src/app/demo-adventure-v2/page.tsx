@@ -17,6 +17,13 @@ import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/Stran
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
 import SignatureLine from "@/components/campaign/v2/SignatureLine";
+import GhostOverture from "@/components/campaign/v2/GhostOverture";
+import MatchStrike from "@/components/campaign/v2/MatchStrike";
+import WagerRim from "@/components/campaign/v2/WagerRim";
+import LobbyQuestionCall from "@/components/campaign/v2/LobbyQuestionCall";
+import WarmupBlock, { type WarmupAnswer } from "@/components/campaign/v2/WarmupBlock";
+import TemperatureBlock, { type TemperatureOption } from "@/components/campaign/v2/TemperatureBlock";
+import type { SessionWager } from "@/hooks/use-session-wagers";
 import { composeStrangerLine } from "@/components/campaign/v2/stranger";
 import { composeVoteLine } from "@/components/campaign/v2/votes";
 import {
@@ -29,7 +36,10 @@ import {
   CHARACTERS,
   GM_USER_ID,
   INITIAL_TURNS,
+  LOBBY_QUESTION,
+  LOBBY_WAGERS,
   OPENING_NARRATION,
+  OVERTURE_LINES,
   SESSION_ID,
   STRANGER_NAME,
 } from "./fixtures";
@@ -87,13 +97,57 @@ interface DemoStrangerRound {
   ambientVoices: Record<string, number>;
 }
 
+/** The lobby's question, demo-local — one open round, either mode. */
+type DemoLobbyRound =
+  | {
+      mode: "warmup";
+      prompt: string;
+      answers: Array<{ id: string; userId: string; content: string }>;
+      liftedId: string | null;
+    }
+  | {
+      mode: "temperature";
+      prompt: string;
+      options: Array<{ id: string; content: string }>;
+      /** cast userId → option id */
+      castLeans: Record<string, string>;
+      viewerLean: string | null;
+      ambient: Record<string, number>;
+    };
+
 export default function DemoAdventureV2Page() {
   const [role, setRole] = useState<Role>("gm");
   const [turns, setTurns] = useState<Turn[]>(INITIAL_TURNS);
   // null = the Director writes.
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   // The Director is filling in a roll slip, a vote question, or a ballot.
-  const [composing, setComposing] = useState<"roll" | "vote" | "stranger" | null>(null);
+  const [composing, setComposing] = useState<
+    "roll" | "vote" | "stranger" | "question" | null
+  >(null);
+
+  // ── The Threshold (lobby stage) ────────────────────────────
+  // The demo opens in-session (the smokes drive that machine); the demo bar
+  // steps back through the door to the room before the light.
+  const [stage, setStage] = useState<"lobby" | "session">("session");
+  const [present, setPresent] = useState<Set<string>>(
+    () => new Set([GM_USER_ID, "user-lyra"]),
+  );
+  const [justBegan, setJustBegan] = useState(false);
+  const [lobbyRound, setLobbyRound] = useState<DemoLobbyRound | null>({
+    mode: "warmup",
+    prompt: LOBBY_QUESTION.prompt,
+    answers: LOBBY_QUESTION.answers,
+    liftedId: null,
+  });
+  const [demoWagers, setDemoWagers] = useState<SessionWager[]>(
+    LOBBY_WAGERS.map((w) => ({
+      ...w,
+      status: "open" as const,
+      isMine: false,
+      myHold: false,
+      createdAt: "",
+    })),
+  );
   const [round, setRound] = useState<DemoRound | null>(null);
   const [strangerRound, setStrangerRound] = useState<DemoStrangerRound | null>(null);
   const [replayIds, setReplayIds] = useState<ReadonlySet<string>>(new Set());
@@ -131,6 +185,175 @@ export default function DemoAdventureV2Page() {
     },
     [goldTarget],
   );
+
+  // ── Lobby derivations + hands ──────────────────────────────
+  const tableUserIds = useMemo(
+    () => [GM_USER_ID, ...CHARACTERS.map((c) => c.userId)],
+    [],
+  );
+  const presentCount = tableUserIds.filter((id) => present.has(id)).length;
+  const litFraction = presentCount / tableUserIds.length;
+  const nextArrival = tableUserIds.find((id) => !present.has(id)) ?? null;
+
+  const onLobbyAnswer = useCallback(
+    (content: string) => {
+      setLobbyRound((prev) =>
+        prev?.mode === "warmup"
+          ? {
+              ...prev,
+              answers: [
+                ...prev.answers.filter((a) => a.userId !== role),
+                { id: `wa-${role}-${Date.now()}`, userId: role as string, content },
+              ],
+            }
+          : prev,
+      );
+    },
+    [role],
+  );
+  const onLobbyLift = useCallback((id: string | null) => {
+    setLobbyRound((prev) => (prev?.mode === "warmup" ? { ...prev, liftedId: id } : prev));
+  }, []);
+  const onLobbyQuestion = useCallback(
+    (q: { prompt: string; mode: "warmup" | "temperature"; options?: string[] }) => {
+      setLobbyRound(
+        q.mode === "warmup"
+          ? { mode: "warmup", prompt: q.prompt, answers: [], liftedId: null }
+          : {
+              mode: "temperature",
+              prompt: q.prompt,
+              options: (q.options ?? []).map((o, i) => ({ id: `opt-${i}`, content: o })),
+              castLeans: {},
+              viewerLean: null,
+              ambient: {},
+            },
+      );
+      setComposing(null);
+    },
+    [],
+  );
+  const onTempLean = useCallback(
+    (optionId: string) => {
+      setLobbyRound((prev) => {
+        if (prev?.mode !== "temperature") return prev;
+        if (role === "viewer") {
+          return { ...prev, viewerLean: prev.viewerLean === optionId ? null : optionId };
+        }
+        const castLeans = { ...prev.castLeans };
+        if (castLeans[role as string] === optionId) delete castLeans[role as string];
+        else castLeans[role as string] = optionId;
+        return { ...prev, castLeans };
+      });
+    },
+    [role],
+  );
+
+  // The dark leans on the temperature too — grey drops gather. Demo colour.
+  const tempOpen = stage === "lobby" && lobbyRound?.mode === "temperature";
+  useEffect(() => {
+    if (!tempOpen) return;
+    const id = setInterval(() => {
+      setLobbyRound((prev) => {
+        if (prev?.mode !== "temperature" || prev.options.length === 0) return prev;
+        const total = Object.values(prev.ambient).reduce((a, b) => a + b, 0);
+        if (total >= 7) return prev;
+        const pick = prev.options[Math.floor(Math.random() * prev.options.length)].id;
+        return { ...prev, ambient: { ...prev.ambient, [pick]: (prev.ambient[pick] ?? 0) + 1 } };
+      });
+    }, 2400);
+    return () => clearInterval(id);
+  }, [tempOpen]);
+
+  const onDemoHold = useCallback((id: string) => {
+    setDemoWagers((prev) =>
+      prev.map((w) =>
+        w.id === id && !w.myHold ? { ...w, myHold: true, holdCount: w.holdCount + 1 } : w,
+      ),
+    );
+  }, []);
+  const onDemoCompose = useCallback(async (content: string) => {
+    setDemoWagers((prev) => [
+      ...prev,
+      {
+        id: `w-${Date.now()}`,
+        content,
+        status: "open" as const,
+        holdCount: 0,
+        isMine: true,
+        myHold: false,
+        createdAt: "",
+      },
+    ]);
+  }, []);
+  const onDemoPull = useCallback((id: string) => {
+    setDemoWagers((prev) => prev.filter((w) => w.id !== id));
+  }, []);
+
+  // Begin: the match strikes, the lifted answer opens the story, the lobby
+  // round retires — the same choreography the live begin transaction runs.
+  const onDemoBegin = useCallback(() => {
+    setStage("session");
+    setJustBegan(true);
+    if (lobbyRound?.mode === "warmup" && lobbyRound.liftedId) {
+      const lifted = lobbyRound.answers.find((a) => a.id === lobbyRound.liftedId);
+      const char = CHARACTERS.find((c) => c.userId === lifted?.userId) ?? null;
+      if (lifted) {
+        const id = `t-warm-${Date.now()}`;
+        setTurns((prev) => [
+          ...prev,
+          {
+            id,
+            sessionId: SESSION_ID,
+            userId: lifted.userId,
+            characterId: char?.id ?? null,
+            type: "dialogue",
+            content: lifted.content,
+            metadata: JSON.stringify({ kind: "warmup", prompt: lobbyRound.prompt }),
+            sortOrder: prev.length,
+            createdAt: new Date().toISOString(),
+            user: {
+              id: lifted.userId,
+              displayName: char?.user?.displayName ?? null,
+              avatarUrl: null,
+            },
+            characterName: char?.name ?? null,
+            characterPortrait: null,
+          },
+        ]);
+        setReplayIds((prev) => new Set(prev).add(id));
+      }
+    }
+    setLobbyRound(null);
+  }, [lobbyRound]);
+
+  const lobbyWarmupAnswers: WarmupAnswer[] =
+    lobbyRound?.mode === "warmup"
+      ? lobbyRound.answers.map((a) => {
+          const char = CHARACTERS.find((c) => c.userId === a.userId) ?? null;
+          return {
+            id: a.id,
+            authorName: char?.name.split(" ")[0] ?? "?",
+            ink: getPlayerInk(a.userId, ACTIVE_USER_IDS),
+            content: a.content,
+            isMine: a.userId === role,
+            lifted: lobbyRound.liftedId === a.id,
+          };
+        })
+      : [];
+  const lobbyTempOptions: TemperatureOption[] =
+    lobbyRound?.mode === "temperature"
+      ? lobbyRound.options.map((o) => ({
+          id: o.id,
+          content: o.content,
+          castLeanCount: Object.values(lobbyRound.castLeans).filter((v) => v === o.id).length,
+          audienceLeanCount:
+            (lobbyRound.ambient[o.id] ?? 0) + (lobbyRound.viewerLean === o.id ? 1 : 0),
+          isMyLean:
+            role === "viewer"
+              ? lobbyRound.viewerLean === o.id
+              : lobbyRound.castLeans[role as string] === o.id,
+        }))
+      : [];
 
   // The live slip, if a roll is on the table.
   const pendingRoll = useMemo(() => findOpenRoll(turns), [turns]);
@@ -593,26 +816,45 @@ export default function DemoAdventureV2Page() {
       <PageRoom
         leaveHref="/"
         houseCount={12}
+        unlit={stage === "lobby"}
+        litFraction={stage === "lobby" ? litFraction : 1}
+        sheetVeil={stage === "lobby" ? <GhostOverture lines={OVERTURE_LINES} /> : undefined}
+        rim={
+          <WagerRim
+            wagers={demoWagers}
+            sealed={stage !== "lobby"}
+            canHold={role === "viewer" && stage === "lobby"}
+            onHold={onDemoHold}
+            canCompose={role === "viewer" && stage === "lobby"}
+            onCompose={onDemoCompose}
+            canPull={role === "gm"}
+            onPull={onDemoPull}
+          />
+        }
         header={
           <>
             <h1 className="font-display text-[21px] font-semibold tracking-tight text-paper">
               The Shattered City
             </h1>
             <p className="mt-1.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-text-ghost">
-              session ii — live<span className="text-amber/80"> · 12 watching</span>
+              session ii — {stage === "lobby" ? "preparing" : "live"}
+              <span className="text-amber/80"> · 12 watching</span>
             </p>
           </>
         }
         signature={
           <SignatureLine
             directorYou={role === "gm"}
-            directorPen={writerUserId === GM_USER_ID}
+            directorPen={stage === "session" && writerUserId === GM_USER_ID}
+            dimAbsent={stage === "lobby"}
+            directorHere={present.has(GM_USER_ID)}
             seats={CHARACTERS.map((c) => ({
               id: c.id,
               name: c.name.split(" ")[0],
               ink: getPlayerInk(c.userId, ACTIVE_USER_IDS),
               you: role === c.userId,
-              pen: writerUserId === c.userId,
+              pen: stage === "session" && writerUserId === c.userId,
+              here: present.has(c.userId),
             }))}
             strangerName={STRANGER_NAME}
             watching={12}
@@ -633,6 +875,7 @@ export default function DemoAdventureV2Page() {
         overlays={
           <>
             <GoldLight flareCount={flareCount} />
+            {justBegan && <MatchStrike />}
             {goldTarget && (
               <GoldSlip
                 line={gildLine}
@@ -649,7 +892,9 @@ export default function DemoAdventureV2Page() {
         </p>
 
         <StoryProse
-          turns={turns}
+          // Before the light the page is unwritten — the ghost overture
+          // carries last session; the ink returns when the candle is lit.
+          turns={stage === "lobby" ? [] : turns}
           characters={CHARACTERS}
           gmUserId={GM_USER_ID}
           replayIds={replayIds}
@@ -662,7 +907,70 @@ export default function DemoAdventureV2Page() {
         />
 
         <div className="mt-2 border-t border-dashed border-border/40 pt-5">
-          {pendingRoll ? (
+          {stage === "lobby" ? (
+            <div className="space-y-5 py-4">
+              {lobbyRound?.mode === "warmup" && (
+                <WarmupBlock
+                  prompt={lobbyRound.prompt}
+                  answers={lobbyWarmupAnswers}
+                  canAnswer={isPlayer}
+                  myName={myChar?.name.split(" ")[0] ?? null}
+                  myInk={isPlayer ? getPlayerInk(role as string, ACTIVE_USER_IDS) : ""}
+                  canLift={role === "gm"}
+                  onAnswer={onLobbyAnswer}
+                  onLift={onLobbyLift}
+                  onCallOff={() => setLobbyRound(null)}
+                />
+              )}
+              {lobbyRound?.mode === "temperature" && (
+                <TemperatureBlock
+                  prompt={lobbyRound.prompt}
+                  options={lobbyTempOptions}
+                  canLean={role !== "gm"}
+                  onLean={onTempLean}
+                  canCallOff={role === "gm"}
+                  onCallOff={() => setLobbyRound(null)}
+                />
+              )}
+              {composing === "question" && role === "gm" ? (
+                <LobbyQuestionCall
+                  onCommit={onLobbyQuestion}
+                  onCancel={() => setComposing(null)}
+                />
+              ) : (
+                <div className="text-center">
+                  <p className="table-murmur">
+                    {presentCount} of {tableUserIds.length} at the table
+                  </p>
+                  <p className="table-murmur mt-1">
+                    {role === "gm"
+                      ? "begin when the cast is ready"
+                      : "the Director will begin soon"}
+                  </p>
+                  {role === "gm" && (
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                      {!lobbyRound && (
+                        <button
+                          type="button"
+                          onClick={() => setComposing("question")}
+                          className="table-action cursor-pointer rounded-full border border-border px-4 py-2 text-text-secondary transition-colors hover:border-amber/40 hover:text-amber"
+                        >
+                          Leave a question for the cast
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={onDemoBegin}
+                        className="wax-seal cursor-pointer px-5 py-2 text-[12px] font-bold uppercase tracking-[0.16em]"
+                      >
+                        Begin the session
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : pendingRoll ? (
             <DiceSlip
               key={pendingRoll.turn.id}
               meta={pendingRoll.meta}
@@ -769,6 +1077,54 @@ export default function DemoAdventureV2Page() {
             {r.label}
           </button>
         ))}
+        <span className="px-1 text-text-ghost">·</span>
+        <button
+          type="button"
+          onClick={() => {
+            if (stage === "session") {
+              // Step back through the door: reset the room to before the light.
+              setStage("lobby");
+              setJustBegan(false);
+              setPresent(new Set([GM_USER_ID, "user-lyra"]));
+              setLobbyRound({
+                mode: "warmup",
+                prompt: LOBBY_QUESTION.prompt,
+                answers: LOBBY_QUESTION.answers,
+                liftedId: null,
+              });
+              setDemoWagers(
+                LOBBY_WAGERS.map((w) => ({
+                  ...w,
+                  status: "open" as const,
+                  isMine: false,
+                  myHold: false,
+                  createdAt: "",
+                })),
+              );
+              setComposing(null);
+            } else {
+              onDemoBegin();
+            }
+          }}
+          className="cursor-pointer rounded-full px-2 py-1 text-text-tertiary transition-colors hover:text-paper"
+        >
+          {stage === "session" ? "lobby" : "in session"}
+        </button>
+        {stage === "lobby" && nextArrival && (
+          <button
+            type="button"
+            onClick={() =>
+              setPresent((prev) => {
+                const next = new Set(prev);
+                next.add(nextArrival);
+                return next;
+              })
+            }
+            className="cursor-pointer rounded-full px-2 py-1 text-text-tertiary transition-colors hover:text-paper"
+          >
+            someone arrives
+          </button>
+        )}
       </div>
     </>
   );

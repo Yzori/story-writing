@@ -8,12 +8,20 @@ import { useSpectatorSession } from "@/hooks/use-spectator-session";
 import { useSpectatorPresence } from "@/hooks/use-spectator-presence";
 import { useSpectatorFloorRound } from "@/hooks/use-spectator-floor-round";
 import { useHouseGold } from "@/hooks/use-house-gold";
+import { useCastPresence } from "@/hooks/use-cast-presence";
+import { useSessionWagers } from "@/hooks/use-session-wagers";
 import PageRoom from "@/components/campaign/v2/PageRoom";
+import WagerRim from "@/components/campaign/v2/WagerRim";
+import GhostOverture, { type OvertureLine } from "@/components/campaign/v2/GhostOverture";
+import MatchStrike from "@/components/campaign/v2/MatchStrike";
 import StoryProse, { isSetLine, inkFor } from "@/components/campaign/v2/StoryProse";
 import WaitingLine from "@/components/campaign/v2/WaitingLine";
 import DiceSlip from "@/components/campaign/v2/DiceSlip";
 import VoteBlock, { type VoteOption } from "@/components/campaign/v2/VoteBlock";
 import StrangerBlock, { type StrangerDeed } from "@/components/campaign/v2/StrangerBlock";
+import WarmupBlock, { type WarmupAnswer } from "@/components/campaign/v2/WarmupBlock";
+import TemperatureBlock, { type TemperatureOption } from "@/components/campaign/v2/TemperatureBlock";
+import { isLobbyRound } from "@/components/campaign/v2/lobby";
 import GoldSlip from "@/components/campaign/v2/GoldSlip";
 import GoldLight from "@/components/campaign/v2/GoldLight";
 import SignatureLine from "@/components/campaign/v2/SignatureLine";
@@ -72,6 +80,57 @@ export default function WatchSessionPage() {
     sessionId,
     campaignSession?.status === "active",
   );
+
+  // Pre-session the dark watches the table gather — names ink into the
+  // signature as the cast arrives. Read-only; watchers never heartbeat here.
+  const { presentUserIds } = useCastPresence(storyId, sessionId, {
+    heartbeat: false,
+    enabled: campaignSession?.status === "draft",
+  });
+
+  // The audience's own hand before the candle is lit: wagers pinned at the
+  // rim. Writing needs an account (server-enforced); holding rides the
+  // anonymous token.
+  const { wagers, createWager, holdWager } = useSessionWagers(storyId, sessionId, {
+    token,
+    sessionStatus: campaignSession?.status ?? "draft",
+  });
+  const onHoldWager = useCallback(
+    (wagerId: string) => {
+      void holdWager(wagerId).catch(() => undefined);
+    },
+    [holdWager],
+  );
+
+  // The ghost overture — past sessions drift in the waiting dark.
+  const [overture, setOverture] = useState<OvertureLine[]>([]);
+  useEffect(() => {
+    if (loading || campaignSession?.status !== "draft" || !storyId || !sessionId) return;
+    let cancelled = false;
+    fetch(`/api/stories/${storyId}/campaign/sessions/${sessionId}/spectate/overture`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && Array.isArray(json?.lines)) setOverture(json.lines);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [storyId, sessionId, campaignSession?.status, loading]);
+
+  // The match strike — the dark sees the candle lit the same instant the
+  // table does (the poll/stream delivers the status flip).
+  const [justBegan, setJustBegan] = useState(false);
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !campaignSession?.status) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = campaignSession.status;
+    if (prev === "draft" && campaignSession.status === "active") {
+      const t = setTimeout(() => setJustBegan(true), 0);
+      return () => clearTimeout(t);
+    }
+  }, [campaignSession?.status, loading]);
 
   const spectatorCount = Math.max(pollCount, presenceCount);
   // The gold slip's target: null = closed; { turnId: null } = gold for the
@@ -187,6 +246,33 @@ export default function WatchSessionPage() {
     [sendPulse],
   );
 
+  // ── The question on the unlit page (lobby rounds) ──────────
+  const lobbyRound =
+    campaignSession?.status === "draft" && isLobbyRound(liveRound) ? liveRound : null;
+
+  const warmupAnswers: WarmupAnswer[] = useMemo(() => {
+    if (!lobbyRound || lobbyRound.mode !== "warmup") return [];
+    return lobbyRound.submissions.map((s) => ({
+      id: s.id,
+      authorName: s.characterName?.split(" ")[0] ?? s.user.displayName ?? "?",
+      ink: s.userId ? getPlayerInk(s.userId, activePlayerUserIds) : "var(--ink-faded)",
+      content: s.content,
+      isMine: false,
+      lifted: lobbyRound.selectedSubmissionId === s.id,
+    }));
+  }, [lobbyRound, activePlayerUserIds]);
+
+  const temperatureOptions: TemperatureOption[] = useMemo(() => {
+    if (!lobbyRound || lobbyRound.mode !== "temperature") return [];
+    return lobbyRound.submissions.map((s) => ({
+      id: s.id,
+      content: s.content,
+      castLeanCount: s.voteCount,
+      audienceLeanCount: s.audiencePulseCount,
+      isMyLean: lobbyRound.myAudiencePulseSubmissionId === s.id,
+    }));
+  }, [lobbyRound]);
+
   // The Stranger's ballot — the same pulse machinery, but here the house's
   // choice IS the mechanic. Free by law: gold never buys the story.
   const strangerDeeds: StrangerDeed[] = useMemo(() => {
@@ -210,6 +296,19 @@ export default function WatchSessionPage() {
 
   // The House's hands are only offered to a signed-in watcher of a live page.
   const canGive = sessionStatus === "active" && balance !== null;
+
+  // The table before the light. The spectate feed doesn't name the story
+  // owner, but the presence route only admits the table — so a present user
+  // who owns no character IS the Director.
+  const castUserIds = useMemo(() => characters.map((c) => c.userId), [characters]);
+  const directorHere = useMemo(
+    () => [...presentUserIds].some((id) => !castUserIds.includes(id)),
+    [presentUserIds, castUserIds],
+  );
+  const presentCount =
+    castUserIds.filter((id) => id && presentUserIds.has(id)).length + (directorHere ? 1 : 0);
+  const tableSize = characters.length + 1;
+  const litFraction = tableSize > 0 ? presentCount / tableSize : 1;
 
   const gildLine = useMemo(() => {
     if (!goldTarget?.turnId) return null;
@@ -255,6 +354,27 @@ export default function WatchSessionPage() {
       <PageRoom
         leaveHref={`/campaign/${storyId}`}
         houseCount={spectatorCount}
+        unlit={sessionStatus === "draft"}
+        litFraction={sessionStatus === "draft" ? litFraction : 1}
+        sheetVeil={
+          sessionStatus === "draft" && overture.length > 0 ? (
+            <GhostOverture lines={overture} />
+          ) : undefined
+        }
+        rim={
+          wagers.length > 0 || sessionStatus === "draft" ? (
+            <WagerRim
+              wagers={wagers}
+              sealed={sessionStatus !== "draft"}
+              canHold={!!token}
+              onHold={onHoldWager}
+              canCompose={sessionStatus === "draft"}
+              onCompose={createWager}
+              canPull={false}
+              onPull={() => undefined}
+            />
+          ) : undefined
+        }
         header={
           <>
             <h1 className="font-display text-[21px] font-semibold tracking-tight text-paper">
@@ -272,6 +392,8 @@ export default function WatchSessionPage() {
         signature={
           <SignatureLine
             directorPen={sessionStatus === "active" && directorWriting}
+            dimAbsent={sessionStatus === "draft"}
+            directorHere={directorHere}
             seats={characters.map((c) => ({
               id: c.id,
               name: c.name.split(" ")[0],
@@ -280,6 +402,7 @@ export default function WatchSessionPage() {
                 sessionStatus === "active" &&
                 !directorWriting &&
                 activePlayerId === c.userId,
+              here: presentUserIds.has(c.userId),
             }))}
             strangerName={strangerName}
             watching={spectatorCount}
@@ -304,6 +427,7 @@ export default function WatchSessionPage() {
           <>
             {/* The House: gold arriving anywhere in the room flares the dark. */}
             <GoldLight flareCount={flareCount} />
+            {justBegan && <MatchStrike />}
             {goldTarget && balance !== null && (
               <GoldSlip
                 line={gildLine}
@@ -372,7 +496,38 @@ export default function WatchSessionPage() {
               onResolve={() => undefined}
               onCallOff={() => undefined}
             />
-          ) : liveRound ? (
+          ) : lobbyRound ? (
+            <div className="space-y-5">
+              {lobbyRound.mode === "warmup" ? (
+                <WarmupBlock
+                  prompt={lobbyRound.prompt}
+                  answers={warmupAnswers}
+                  canAnswer={false}
+                  myName={null}
+                  myInk="var(--ink-faded)"
+                  canLift={false}
+                  onAnswer={() => undefined}
+                  onLift={() => undefined}
+                  onCallOff={() => undefined}
+                />
+              ) : (
+                <TemperatureBlock
+                  prompt={lobbyRound.prompt}
+                  options={temperatureOptions}
+                  canLean={!!token}
+                  onLean={onLean}
+                  canCallOff={false}
+                  onCallOff={() => undefined}
+                />
+              )}
+              <div className="text-center">
+                <p className="table-murmur">
+                  {presentCount} of {tableSize} at the table
+                </p>
+                <p className="table-murmur mt-1">the session will begin soon</p>
+              </div>
+            </div>
+          ) : liveRound && !isLobbyRound(liveRound) ? (
             <VoteBlock
               prompt={liveRound.prompt}
               options={voteOptions}
@@ -394,7 +549,12 @@ export default function WatchSessionPage() {
               onCallOff={() => undefined}
             />
           ) : sessionStatus === "draft" ? (
-            <p className="table-murmur py-2 text-center">the table is being set…</p>
+            <div className="py-2 text-center">
+              <p className="table-murmur">
+                {presentCount} of {tableSize} at the table
+              </p>
+              <p className="table-murmur mt-1">the session will begin soon</p>
+            </div>
           ) : (
             <WaitingLine name={writerName} ink={writerInk} />
           )}

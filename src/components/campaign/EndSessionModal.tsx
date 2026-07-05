@@ -8,6 +8,10 @@ interface EndSessionModalProps {
   setEpilogueText: (value: string) => void;
   cliffhangerText: string;
   setCliffhangerText: (value: string) => void;
+  /** The audience's open wagers, if any — the Director settles them here. */
+  wagers?: { id: string; content: string; holdCount: number }[];
+  wagerChecks?: Record<string, boolean>;
+  setWagerCheck?: (id: string, cameTrue: boolean) => void;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -23,6 +27,9 @@ export default function EndSessionModal({
   setEpilogueText,
   cliffhangerText,
   setCliffhangerText,
+  wagers,
+  wagerChecks,
+  setWagerCheck,
   onConfirm,
   onClose,
 }: EndSessionModalProps) {
@@ -109,6 +116,46 @@ export default function EndSessionModal({
             <p className="mt-1 font-mono text-[9.5px] text-text-ghost">
               optional — opens the next session&rsquo;s &ldquo;previously&rdquo;
             </p>
+
+            {wagers && wagers.length > 0 && setWagerCheck && (
+              <>
+                <p className="table-action mt-4 block text-text-ghost">
+                  Which of these came true?
+                </p>
+                <p className="table-murmur mt-1">
+                  the audience pinned these before the session — true ones are
+                  stamped gold, nothing is paid out
+                </p>
+                <div className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+                  {wagers.map((w) => {
+                    const checked = !!wagerChecks?.[w.id];
+                    return (
+                      <label
+                        key={w.id}
+                        className="flex cursor-pointer items-start gap-2.5"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setWagerCheck(w.id, e.target.checked)}
+                          className="mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer accent-[var(--t-gold)]"
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-reading text-[13.5px] italic leading-snug text-text-secondary">
+                            “{w.content}”
+                          </span>
+                          <span className="block font-mono text-[9px] uppercase tracking-[0.12em] text-text-ghost">
+                            {w.holdCount === 0
+                              ? "held by no one"
+                              : `held by ${w.holdCount}`}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
               <span className="font-mono text-[9.5px] tracking-[0.08em] text-text-ghost">

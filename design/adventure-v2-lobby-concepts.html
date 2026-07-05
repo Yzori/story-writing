@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Threshold — lobby concepts for Set in Ink</title>
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     The Threshold — three concepts for the minutes before a
+     session begins. Committed single-theme: this page IS the
+     candlelit dark it argues for; a light variant would be a
+     contradiction, not an omission.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --room-0: #06070d;
+    --room-1: #0a0c14;
+    --sheet: #14172a;
+    --sheet-lit: #1a1d2e;
+    --gold: #e2ac4a;
+    --gold-soft: rgba(226, 172, 74, 0.55);
+    --paper: #f2eddd;
+    --faded: rgba(242, 237, 221, 0.45);
+    --ghost: rgba(242, 237, 221, 0.22);
+    --ink-rose: #fb7185;
+    --ink-indigo: #818cf8;
+    --silver: #b7c3da;
+    --border: rgba(242, 237, 221, 0.1);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(ellipse 1100px 700px at 50% -10%, rgba(226, 172, 74, 0.05), transparent 65%),
+      linear-gradient(180deg, var(--room-1) 0%, var(--room-0) 100%);
+    color: var(--paper);
+    font-family: var(--serif);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 72px 24px 120px;
+  }
+
+  /* ── Header ── */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--gold-soft);
+  }
+  h1 {
+    font-size: clamp(38px, 7vw, 56px);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    margin: 14px 0 0;
+    text-wrap: balance;
+  }
+  .lede {
+    margin: 22px 0 0;
+    font-size: 17px;
+    font-style: italic;
+    color: var(--faded);
+    max-width: 56ch;
+  }
+  .lede em { color: var(--paper); font-style: italic; }
+
+  /* ── Concept sections ── */
+  .concept { margin-top: 96px; }
+  .concept-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 26px;
+  }
+  .numeral {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--gold-soft);
+  }
+  h2 {
+    font-size: 28px;
+    font-weight: 500;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .thesis {
+    margin: 10px 0 24px;
+    font-style: italic;
+    color: var(--faded);
+    max-width: 58ch;
+  }
+
+  /* ── The stage ── */
+  .stage {
+    position: relative;
+    aspect-ratio: 16 / 10.5;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #090b12 0%, #05060b 100%);
+    isolation: isolate;
+  }
+
+  /* the sheet on the table */
+  .sheet {
+    position: absolute;
+    inset: 9% 14% 20%;
+    background: var(--sheet);
+    border: 1px solid rgba(226, 172, 74, 0.08);
+    border-radius: 3px;
+    padding: 5.5% 7%;
+    transition: background 2s ease, box-shadow 2.4s ease, border-color 2s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .stage.lit .sheet {
+    background: var(--sheet-lit);
+    border-color: rgba(226, 172, 74, 0.22);
+    box-shadow:
+      0 0 60px rgba(226, 172, 74, 0.13),
+      0 0 140px rgba(226, 172, 74, 0.07);
+  }
+
+  .sheet-title {
+    text-align: center;
+    font-size: clamp(13px, 2.4vw, 19px);
+    letter-spacing: 0.02em;
+    color: var(--ghost);
+    transition: color 2s ease, text-shadow 2s ease;
+  }
+  .stage.lit .sheet-title {
+    color: var(--paper);
+    text-shadow: 0 0 24px rgba(226, 172, 74, 0.25);
+  }
+  .sheet-sub {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: clamp(7px, 1.2vw, 9px);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(242, 237, 221, 0.16);
+    margin-top: 6px;
+    transition: color 2s ease;
+  }
+  .stage.lit .sheet-sub { color: rgba(226, 172, 74, 0.5); }
+
+  .opening {
+    margin-top: 8%;
+    font-size: clamp(10px, 1.9vw, 14.5px);
+    font-style: italic;
+    line-height: 1.9;
+    color: var(--gold);
+    min-height: 3em;
+  }
+  .opening .caret {
+    display: inline-block;
+    width: 1px;
+    height: 1em;
+    background: var(--gold);
+    vertical-align: -0.15em;
+    margin-left: 1px;
+    opacity: 0;
+  }
+  .stage.writing .opening .caret {
+    opacity: 1;
+    animation: caret-blink 0.9s steps(1) infinite;
+  }
+  @keyframes caret-blink { 50% { opacity: 0; } }
+
+  /* the signature line at the sheet's foot */
+  .foot {
+    margin-top: auto;
+    text-align: center;
+    font-size: clamp(9px, 1.7vw, 13px);
+  }
+  .foot-whisper {
+    font-family: var(--mono);
+    font-size: clamp(6.5px, 1.1vw, 8.5px);
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: rgba(242, 237, 221, 0.18);
+    margin-bottom: 5px;
+  }
+  .seat {
+    font-style: italic;
+    margin: 0 0.55em;
+    color: var(--ghost);
+    transition: color 1.4s ease, text-shadow 1.4s ease, opacity 1.4s ease;
+  }
+  .seat.director { color: var(--gold-soft); }
+  .seat.here { text-shadow: 0 0 14px currentColor; }
+  .seat[data-ink="rose"].here { color: var(--ink-rose); }
+  .seat[data-ink="indigo"].here { color: var(--ink-indigo); }
+  .seat.director.here { color: var(--gold); }
+  .house-line {
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: clamp(6.5px, 1.1vw, 8.5px);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(226, 172, 74, 0);
+    transition: color 1.6s ease;
+  }
+  .stage.house .house-line { color: rgba(226, 172, 74, 0.55); }
+
+  /* watchers = motes at the rim of the dark */
+  .mote {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px 2px rgba(226, 172, 74, 0.35);
+    opacity: 0;
+    transition: opacity 2.2s ease;
+  }
+  .stage.house .mote { opacity: 0.5; animation: mote-breathe 5s ease-in-out infinite; }
+  .mote:nth-child(2) { animation-delay: 1.3s !important; }
+  .mote:nth-child(3) { animation-delay: 2.6s !important; }
+  @keyframes mote-breathe {
+    0%, 100% { opacity: 0.28; }
+    50% { opacity: 0.62; }
+  }
+
+  /* caption bar beneath the glass */
+  .caption {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 10px 16px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--faded);
+    background: linear-gradient(180deg, transparent, rgba(5, 6, 11, 0.85) 40%);
+    min-height: 34px;
+    transition: color 0.6s ease;
+  }
+
+  /* ── Concept I · Striking the Match ── */
+  /* the room brightens by steps as each person arrives */
+  .c1 .ambient {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 42%, rgba(226, 172, 74, 0.1), transparent 70%);
+    opacity: 0;
+    transition: opacity 1.8s ease;
+    pointer-events: none;
+  }
+  .c1[data-arrived="1"] .ambient { opacity: 0.35; }
+  .c1[data-arrived="2"] .ambient { opacity: 0.6; }
+  .c1.lit .ambient { opacity: 1; }
+
+  .c1 .flames {
+    position: absolute;
+    bottom: 9%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 26px;
+  }
+  .flame {
+    width: 5px; height: 8px;
+    border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+    background: linear-gradient(180deg, #f6d78a, var(--gold));
+    box-shadow: 0 0 12px 3px rgba(226, 172, 74, 0.4);
+    opacity: 0;
+    transform: scale(0.2);
+    transition: opacity 1s ease, transform 1s cubic-bezier(0.2, 1.6, 0.4, 1);
+  }
+  .flame.up {
+    opacity: 1;
+    transform: scale(1);
+    animation: flame-sway 2.8s ease-in-out infinite;
+  }
+  @keyframes flame-sway {
+    0%, 100% { transform: scale(1) rotate(-2deg); }
+    50% { transform: scale(1.08) rotate(2deg); }
+  }
+
+  .c1 .match-flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 55% at 50% 45%, rgba(255, 232, 178, 0.85), rgba(226, 172, 74, 0.2) 55%, transparent 75%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .c1.struck .match-flash { animation: match 1.6s ease-out forwards; }
+  @keyframes match {
+    0% { opacity: 0; }
+    8% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── Concept II · The Overture ── */
+  /* the dark remembers: past lines drift as ghost ink while the table gathers */
+  /* z-index lifts the drift above the opaque sheet — the ghosts move
+     through the page, not behind it */
+  .c2 .ghosts { position: absolute; inset: 9% 14% 20%; overflow: hidden; pointer-events: none; z-index: 1; }
+  .ghost {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    font-size: clamp(9px, 1.7vw, 13px);
+    font-style: italic;
+    color: var(--ghost);
+    opacity: 0;
+    animation: ghost-rise 14s linear infinite;
+    text-align: center;
+  }
+  .ghost.gilded {
+    color: rgba(226, 172, 74, 0.55);
+    text-shadow: 0 0 16px rgba(226, 172, 74, 0.25);
+  }
+  .ghost:nth-child(1) { animation-delay: 0s; }
+  .ghost:nth-child(2) { animation-delay: 3.5s; }
+  .ghost:nth-child(3) { animation-delay: 7s; }
+  .ghost:nth-child(4) { animation-delay: 10.5s; }
+  @keyframes ghost-rise {
+    0% { top: 92%; opacity: 0; }
+    12% { opacity: 1; }
+    62% { opacity: 1; }
+    80% { top: 8%; opacity: 0; }
+    100% { top: 8%; opacity: 0; }
+  }
+  .c2.lit .ghost { animation-play-state: paused; transition: opacity 1.6s ease; opacity: 0; }
+
+  .c2 .flourish {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .flourish-name {
+    font-size: clamp(26px, 5.5vw, 44px);
+    font-style: italic;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-shadow: 0 0 30px currentColor;
+  }
+  .flourish-name.signing {
+    animation: sign 2.6s ease-in-out forwards;
+  }
+  @keyframes sign {
+    0% { opacity: 0; max-width: 0; }
+    15% { opacity: 1; }
+    55% { max-width: 12em; opacity: 1; transform: scale(1); }
+    100% { max-width: 12em; opacity: 0; transform: scale(0.6) translateY(38%); }
+  }
+
+  /* ── Concept III · The Table Sets Itself ── */
+  .c3 .sheet {
+    transform-origin: 50% 0%;
+    transform: scaleY(0.075);
+    transition: transform 1.8s cubic-bezier(0.3, 1, 0.3, 1), background 2s ease, box-shadow 2.4s ease, border-color 2s ease;
+  }
+  .c3.unrolled .sheet { transform: scaleY(1); }
+  .c3 .sheet-inner { opacity: 0; transition: opacity 1.4s ease 0.9s; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .c3.unrolled .sheet-inner { opacity: 1; }
+
+  .c3 .table-edge {
+    position: absolute;
+    bottom: 4.5%;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 34px;
+    height: 14%;
+  }
+  .object { opacity: 0; transform: translateY(-26px); transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 1.4, 0.4, 1); }
+  .object.set { opacity: 1; transform: translateY(0); }
+
+  .candle { position: relative; width: 9px; height: 26px; background: linear-gradient(180deg, #d8cfb6, #a89d80); border-radius: 2px 2px 1px 1px; }
+  .candle .wick-flame {
+    position: absolute; top: -9px; left: 50%; transform: translateX(-50%) scale(0);
+    width: 5px; height: 8px;
+    border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+    background: linear-gradient(180deg, #f6d78a, var(--gold));
+    box-shadow: 0 0 14px 4px rgba(226, 172, 74, 0.45);
+    transition: transform 1.1s cubic-bezier(0.2, 1.6, 0.4, 1);
+  }
+  .c3.lit .candle .wick-flame { transform: translateX(-50%) scale(1); animation: flame-sway 2.8s ease-in-out infinite; }
+
+  .well { width: 15px; height: 12px; border-radius: 3px 3px 6px 6px; border: 1px solid rgba(242, 237, 221, 0.25); position: relative; }
+  .well::after {
+    content: "";
+    position: absolute; top: 2px; left: 2px; right: 2px; height: 4px;
+    border-radius: 2px;
+    background: currentColor;
+    box-shadow: 0 0 10px currentColor;
+  }
+  .well.rose { color: var(--ink-rose); }
+  .well.indigo { color: var(--ink-indigo); }
+
+  .die { width: 10px; height: 10px; border-radius: 2.5px; border: 1px solid rgba(242, 237, 221, 0.3); background: #efe9d8; position: relative; }
+  .die::after { content: ""; position: absolute; inset: 3.5px; border-radius: 50%; background: #0a0c14; }
+  .dice-pair { display: flex; gap: 5px; align-items: flex-end; }
+  .dice-pair .die:last-child { transform: rotate(14deg); }
+
+  .quill { width: 46px; height: 14px; position: relative; transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1); }
+  .quill svg { display: block; width: 100%; height: 100%; }
+  .c3.lit .quill { transform: translateY(-58px) rotate(-32deg); }
+
+  /* ── Part two divider ── */
+  .part-two {
+    margin-top: 120px;
+    border-top: 1px solid var(--border);
+    padding-top: 30px;
+  }
+  .part-two h2 { font-size: 24px; font-weight: 500; margin: 12px 0 0; }
+  .part-two p { color: var(--faded); font-style: italic; max-width: 58ch; }
+
+  /* ── Concept IV · Voices in the Dark ── */
+  /* the sheet narrows so the dark has real width for the voices */
+  .c4 .sheet { inset: 9% 27% 20%; }
+  .voice {
+    position: absolute;
+    width: 22%;
+    font-size: clamp(8.5px, 1.5vw, 12px);
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--faded);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 1.1s ease, transform 1.1s ease;
+  }
+  .voice .who {
+    display: block;
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 0.68em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .voice.said { opacity: 1; transform: none; }
+  .voice.rose .who { color: var(--ink-rose); }
+  .voice.indigo .who { color: var(--ink-indigo); }
+  .voice.gold .who { color: var(--gold-soft); }
+  .voice.dark .who { color: rgba(242, 237, 221, 0.3); }
+  /* the hush: lit room silences every voice */
+  .c4.lit .voice { opacity: 0; transform: translateY(-8px); }
+  .say-strip {
+    position: absolute;
+    left: 14%; right: 14%; bottom: 10.5%;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 7px 12px;
+    font-family: var(--mono);
+    font-size: clamp(7px, 1.2vw, 9px);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(242, 237, 221, 0.28);
+    transition: opacity 1.4s ease;
+  }
+  .c4.lit .say-strip { opacity: 0; }
+
+  /* ── Concept V · The Wager ── */
+  .c5 .sheet { inset: 9% 30% 20%; }
+  .slip {
+    position: absolute;
+    width: 25%;
+    background: rgba(242, 237, 221, 0.055);
+    border: 1px solid rgba(242, 237, 221, 0.14);
+    border-radius: 3px;
+    padding: 9px 11px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.9s ease, transform 0.9s ease, border-color 1.2s ease, box-shadow 1.2s ease;
+  }
+  .slip.pinned { opacity: 1; transform: none; }
+  .slip .q {
+    display: block;
+    font-style: italic;
+    font-size: clamp(9px, 1.6vw, 12.5px);
+    color: var(--paper);
+    line-height: 1.5;
+  }
+  .slip .tally {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: clamp(6.5px, 1.1vw, 8.5px);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faded);
+  }
+  .c5.lit .slip { opacity: 0.4; }
+  .c5.lit.settled .slip { opacity: 0.55; }
+  .c5.lit.settled .slip.true {
+    opacity: 1;
+    border-color: rgba(226, 172, 74, 0.55);
+    box-shadow: 0 0 26px rgba(226, 172, 74, 0.16);
+  }
+  .slip .stamp {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: clamp(6.5px, 1.1vw, 8.5px);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0;
+    transform: rotate(-4deg) scale(1.5);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+  .slip.true .stamp { opacity: 1; transform: rotate(-4deg) scale(1); }
+
+  /* ── Concept VI · The Warm-up ── */
+  .wprompt {
+    text-align: center;
+    font-style: italic;
+    font-size: clamp(9px, 1.7vw, 13px);
+    color: var(--ghost);
+    margin-top: 5%;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+  }
+  .wprompt.up { opacity: 1; }
+  .wanswer {
+    text-align: center;
+    font-style: italic;
+    font-size: clamp(9.5px, 1.8vw, 13.5px);
+    margin-top: 2.5%;
+    opacity: 0;
+    transition: opacity 1.2s ease, text-shadow 1.2s ease;
+  }
+  .wanswer.rose { color: var(--ink-rose); }
+  .wanswer.indigo { color: var(--ink-indigo); }
+  .wanswer.up { opacity: 1; }
+  .wanswer.chosen { text-shadow: 0 0 18px currentColor; }
+  .c6.lit .wanswer { opacity: 0.16; }
+  .c6.lit .wanswer.chosen { opacity: 1; }
+  .c6.lit .wprompt { opacity: 0.16; }
+
+  /* ── Concept VII · The Temperature ── */
+  /* the pulse block is tall — the sheet grows and the gaps tighten
+     so the signature foot stays on the paper */
+  .c7 .sheet { inset: 6.5% 14% 14%; }
+  .c7 .opening { margin-top: 3.5%; min-height: 2em; }
+  .pulse { margin-top: 3.5%; display: grid; gap: 1.4%; }
+  .pulse-q {
+    text-align: center;
+    font-style: italic;
+    font-size: clamp(9px, 1.7vw, 13px);
+    color: var(--ghost);
+    opacity: 0;
+    transition: opacity 1.2s ease;
+    margin-bottom: 1%;
+  }
+  .pulse-q.up { opacity: 1; }
+  .pulse-opt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-style: italic;
+    font-size: clamp(9.5px, 1.8vw, 13.5px);
+    color: var(--faded);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 1.1% 2%;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: opacity 1s ease, transform 1s ease, color 1.2s ease, background 1.2s ease, border-color 1.2s ease, box-shadow 1.2s ease;
+  }
+  .pulse-opt.up { opacity: 1; transform: none; }
+  /* warmth gathers where the room leans */
+  .pulse-opt.warm {
+    color: var(--paper);
+    background: rgba(226, 172, 74, 0.07);
+    border-color: rgba(226, 172, 74, 0.22);
+    box-shadow: 0 0 20px rgba(226, 172, 74, 0.09);
+  }
+  .dots { display: inline-flex; gap: 4px; }
+  .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    opacity: 0;
+    transform: scale(0.3);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 1.5, 0.4, 1);
+  }
+  .dot.rose { background: var(--ink-rose); box-shadow: 0 0 6px var(--ink-rose); }
+  .dot.indigo { background: var(--ink-indigo); box-shadow: 0 0 6px var(--ink-indigo); }
+  .dot.grey { background: rgba(242, 237, 221, 0.45); }
+  .dot.in { opacity: 1; transform: none; }
+  .pcount {
+    font-family: var(--mono);
+    font-size: clamp(6.5px, 1.1vw, 8.5px);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faded);
+  }
+  .c7.lit .pulse-opt:not(.warm) { opacity: 0.22; }
+  .c7.lit .pulse-q { opacity: 0.22; }
+
+  /* ── Controls + notes ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .play {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(226, 172, 74, 0.08);
+    border: 1px solid rgba(226, 172, 74, 0.35);
+    border-radius: 3px;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .play:hover { background: rgba(226, 172, 74, 0.16); border-color: rgba(226, 172, 74, 0.6); }
+  .play:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .play[disabled] { opacity: 0.45; cursor: default; }
+  .controls .hint {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(242, 237, 221, 0.28);
+  }
+
+  .notes {
+    margin-top: 26px;
+    display: grid;
+    gap: 12px;
+    font-size: 15px;
+  }
+  .note { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: baseline; }
+  .note dt {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold-soft);
+    margin: 0;
+  }
+  .note dd { margin: 0; color: rgba(242, 237, 221, 0.78); }
+
+  /* ── Verdict ── */
+  .verdict {
+    margin-top: 110px;
+    border-top: 1px solid var(--border);
+    padding-top: 30px;
+  }
+  .verdict h2 { font-size: 24px; }
+  .verdict p { color: rgba(242, 237, 221, 0.78); max-width: 62ch; }
+  .verdict strong { color: var(--paper); font-weight: 600; }
+  .verdict .machinery {
+    margin-top: 26px;
+    padding: 18px 22px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 14px;
+    color: var(--faded);
+  }
+  .verdict .machinery .eyebrow { display: block; margin-bottom: 8px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">adventure v2 · before the session begins</p>
+    <h1>The Threshold</h1>
+    <p class="lede">
+      Today, beginning a session is a status flip behind one button. But the minutes before
+      a story starts are the oldest theatre there is — the house lights, the hush, the match.
+      Six concepts in two parts — three ways to <em>stage</em> the wait, then three things to
+      <em>do</em> together inside it — each played on the same miniature stage:
+      <em>the cast arrives, the dark gathers, the Director begins.</em>
+    </p>
+  </header>
+
+  <!-- ═══════════ I · STRIKING THE MATCH ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">I</span>
+      <h2>Striking the Match</h2>
+    </div>
+    <p class="thesis">
+      The room assembles itself out of light. Every arrival is one small flame at the table's
+      edge and one step brighter; beginning the session is a struck match — the candle catches,
+      the page warms, and the first line writes itself in wet ink.
+    </p>
+
+    <div class="stage c1" id="stage1" data-arrived="0">
+      <div class="ambient"></div>
+      <div class="mote" style="top: 18%; left: 7%;"></div>
+      <div class="mote" style="top: 64%; left: 4%;"></div>
+      <div class="mote" style="top: 30%; right: 5%;"></div>
+      <div class="sheet">
+        <div class="sheet-title">The Hollow Crown</div>
+        <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+        <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+        <div class="foot">
+          <div class="foot-whisper">at the table</div>
+          <span class="seat director">the Director</span>
+          <span class="seat" data-ink="rose">Lyra</span>
+          <span class="seat" data-ink="indigo">Vael</span>
+          <div class="house-line">3 watching from the dark</div>
+        </div>
+      </div>
+      <div class="flames">
+        <div class="flame" data-flame="0"></div>
+        <div class="flame" data-flame="1"></div>
+        <div class="flame" data-flame="2"></div>
+      </div>
+      <div class="match-flash"></div>
+      <div class="caption" id="cap1">the room is dark — the table is set for three</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play1">Play the arc</button>
+      <span class="hint">~16 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>Near-black. The page is barely legible — you can see there <em>will</em> be a story, not what it says. Each cast arrival inks their name into the signature line, lights one flame, and lifts the whole room a step. Watchers gather as motes at the rim.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>One bright match-strike flash, then the candle pool blooms across the sheet over ~2 seconds, the title illuminates, and the Director&rsquo;s opening flows in as live ink. Nobody misses the moment it starts.</dd></div>
+      <div class="note"><dt>the cost</dt><dd>Cheapest of the three — it&rsquo;s a choreography of the light-pass layers we already shipped, gated on session status. No new objects.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ II · THE OVERTURE ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">II</span>
+      <h2>The Overture</h2>
+    </div>
+    <p class="thesis">
+      The dark remembers. While the table gathers, lines from past sessions drift up through
+      the unlit page like ghost ink — gilded lines still glowing — so the waiting room quietly
+      replays the story so far. Arriving means signing: your name flourishes across the page
+      in your ink, then settles into the signature line.
+    </p>
+
+    <div class="stage c2" id="stage2">
+      <div class="mote" style="top: 22%; left: 6%;"></div>
+      <div class="mote" style="top: 58%; right: 4%;"></div>
+      <div class="mote" style="top: 76%; left: 9%;"></div>
+      <div class="ghosts">
+        <div class="ghost">The ferryman counted the coins twice, then looked at neither of them.</div>
+        <div class="ghost gilded">&ldquo;Whatever you buried under the chapel,&rdquo; Lyra said, &ldquo;it kept the receipt.&rdquo;</div>
+        <div class="ghost">— Vael rolled: 3 + 4 = 7. It holds — at a price.</div>
+        <div class="ghost">The crown was hollow. It had always been hollow. That was the point of it.</div>
+      </div>
+      <div class="sheet">
+        <div class="sheet-title">The Hollow Crown</div>
+        <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+        <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+        <div class="foot">
+          <div class="foot-whisper">at the table</div>
+          <span class="seat director">the Director</span>
+          <span class="seat" data-ink="rose">Lyra</span>
+          <span class="seat" data-ink="indigo">Vael</span>
+          <div class="house-line">3 watching from the dark</div>
+        </div>
+      </div>
+      <div class="flourish"><div class="flourish-name" id="flourish2"></div></div>
+      <div class="caption" id="cap2">while the table gathers, the page remembers</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play2">Play the arc</button>
+      <span class="hint">~18 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>The gathering dark is <em>alive</em>: a slow drift of the last session&rsquo;s best lines — the &ldquo;previously, at this table&rdquo; we already owe the arrival plan, played as atmosphere instead of a recap card. Early watchers get something to actually watch; late-joining players re-absorb the story without reading back.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>The ghosts sink into the paper, the light warms, and fresh ink begins where the memory left off. Beginning literally reads as &ldquo;the past settles, the present starts writing.&rdquo;</dd></div>
+      <div class="note"><dt>the cost</dt><dd>Middle. The drift is CSS; the substance needs a &ldquo;lines worth remembering&rdquo; pick (gilded lines first, else last session&rsquo;s closing lines) — which is the same selection the Previously strip needs anyway.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ III · THE TABLE SETS ITSELF ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">III</span>
+      <h2>The Table Sets Itself</h2>
+    </div>
+    <p class="thesis">
+      Arrival is physical. The stage is a bare table; when the first player arrives the sheet
+      unrolls, and each arriving writer&rsquo;s inkwell lands on the wood in their colour. The dice
+      settle. The quill lies waiting. Beginning lifts the quill and lights the candle.
+    </p>
+
+    <div class="stage c3" id="stage3">
+      <div class="mote" style="top: 20%; left: 6%;"></div>
+      <div class="mote" style="top: 52%; right: 5%;"></div>
+      <div class="mote" style="top: 74%; left: 10%;"></div>
+      <div class="sheet">
+        <div class="sheet-inner">
+          <div class="sheet-title">The Hollow Crown</div>
+          <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+          <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+          <div class="foot">
+            <div class="foot-whisper">at the table</div>
+            <span class="seat director">the Director</span>
+            <span class="seat" data-ink="rose">Lyra</span>
+            <span class="seat" data-ink="indigo">Vael</span>
+            <div class="house-line">3 watching from the dark</div>
+          </div>
+        </div>
+      </div>
+      <div class="table-edge">
+        <div class="object candle" data-obj="candle"><div class="wick-flame"></div></div>
+        <div class="object well rose" data-obj="well-rose"></div>
+        <div class="object quill" data-obj="quill">
+          <svg viewBox="0 0 46 14" aria-hidden="true">
+            <path d="M1 12 Q 14 11, 28 6 Q 38 2.5, 45 1 Q 36 8, 26 10.5 Q 12 13.5, 1 12 Z" fill="#cfc8b4" opacity="0.85"/>
+          </svg>
+        </div>
+        <div class="object well indigo" data-obj="well-indigo"></div>
+        <div class="object dice-pair" data-obj="dice"><div class="die"></div><div class="die"></div></div>
+      </div>
+      <div class="caption" id="cap3">a bare table in the dark</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play3">Play the arc</button>
+      <span class="hint">~17 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>A still life assembling. Objects only appear when their person does — the Director&rsquo;s arrival unrolls the sheet, each player&rsquo;s inkwell drops onto the wood in their ink, the dice settle when the table is quorate. You read readiness off the tabletop, not a roster.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>The candle lights and the quill rises off the wood to the page — the one object that was conspicuously idle goes to work. Then the opening writes.</dd></div>
+      <div class="note"><dt>the cost</dt><dd>Highest — it introduces drawn objects to a surface that currently has none, and they should be beautiful or absent. But the objects could later carry meaning during play (the dice ARE these dice; gilding could gild the wood).</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ PART TWO ═══════════ -->
+  <section class="part-two">
+    <p class="eyebrow">part two · the room is not silent</p>
+    <h2>What people do while they wait</h2>
+    <p>
+      The first three concepts stage the wait — but nobody in them ever <em>does</em> anything
+      except arrive. These three put hands in the gathering: talking, betting, writing.
+      Each ends the same way: the candle lights, and whatever the room was doing
+      resolves into the story beginning. They layer onto any skin from part one.
+    </p>
+  </section>
+
+  <!-- ═══════════ IV · VOICES IN THE DARK ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">IV</span>
+      <h2>Voices in the Dark</h2>
+    </div>
+    <p class="thesis">
+      A real pre-game chat — but built as murmurs, not a chat panel. Voices appear in the dark
+      around the unlit page, each in its owner&rsquo;s ink; the audience murmurs in grey. Nothing is
+      logged, nothing compiles, everything fades. When the Director begins, the room <em>hushes</em> —
+      the voices drift out, and only the page speaks.
+    </p>
+
+    <div class="stage c4" id="stage4">
+      <div class="mote" style="top: 20%; left: 10%;"></div>
+      <div class="mote" style="top: 70%; right: 8%;"></div>
+      <div class="mote" style="top: 40%; right: 4%;"></div>
+      <div class="voice indigo" style="top: 15%; left: 2.5%;"><span class="who">Vael</span>can&rsquo;t stay past midnight — so let&rsquo;s not linger at the docks</div>
+      <div class="voice rose" style="top: 40%; left: 2.5%;"><span class="who">Lyra</span>last time we ALMOST died. tonight we finish it</div>
+      <div class="voice dark" style="top: 24%; right: 2.5%;"><span class="who">from the dark</span>called it — they&rsquo;re going to trust the ferryman</div>
+      <div class="voice gold" style="top: 52%; right: 2.5%;"><span class="who">the Director</span>bring rope.</div>
+      <div class="sheet">
+        <div class="sheet-title">The Hollow Crown</div>
+        <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+        <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+        <div class="foot">
+          <div class="foot-whisper">at the table</div>
+          <span class="seat director">the Director</span>
+          <span class="seat" data-ink="rose">Lyra</span>
+          <span class="seat" data-ink="indigo">Vael</span>
+          <div class="house-line">3 watching from the dark</div>
+        </div>
+      </div>
+      <div class="say-strip">say something into the dark…</div>
+      <div class="caption" id="cap4">the doors are open — the room can talk</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play4">Play the arc</button>
+      <span class="hint">~17 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>Cast and audience actually meet: banter, logistics, trash talk, anticipation — the green-room half of every good table. Voices live in the dark <em>around</em> the page, never on it, and fade like breath; there is no scrollback and no transcript. What&rsquo;s said before the candle is lit stays in the dark.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>The hush is the ceremony: beginning silences the room mid-sentence. The chat doesn&rsquo;t close — it <em>exhales</em>. That single moment teaches the in-session rule (the page is the only voice) better than any coach mark could.</dd></div>
+      <div class="note"><dt>the honest risk</dt><dd>&ldquo;Why can&rsquo;t we talk during play?&rdquo; is one question closer. The hush answers it with theatre — curtain up, house quiet — but it is a chat feature returning to a surface we deliberately stripped of one. Ephemerality is the fence: no history means it can never become a second story channel.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ V · THE WAGER ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">V</span>
+      <h2>The Wager</h2>
+    </div>
+    <p class="thesis">
+      Before the session, the dark places its bets: one-line predictions about tonight, pinned
+      at the room&rsquo;s rim. They cost nothing and pay nothing — glory only. When the last line is
+      written, the slips settle: the ones that came true are stamped in gold.
+    </p>
+
+    <div class="stage c5" id="stage5">
+      <div class="mote" style="top: 22%; left: 12%;"></div>
+      <div class="mote" style="top: 66%; right: 10%;"></div>
+      <div class="mote" style="top: 82%; left: 16%;"></div>
+      <div class="slip" style="top: 15%; left: 2.5%;" id="slip5a">
+        <span class="q">They&rsquo;ll board the ferry without paying.</span>
+        <span class="tally" id="tally5a">2 hold this wager</span>
+      </div>
+      <div class="slip" style="top: 42%; right: 2.5%;" id="slip5b">
+        <span class="q">Someone lies to the ferryman.</span>
+        <span class="tally">6 hold this wager</span>
+        <span class="stamp">— came true</span>
+      </div>
+      <div class="sheet">
+        <div class="sheet-title">The Hollow Crown</div>
+        <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+        <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+        <div class="foot">
+          <div class="foot-whisper">at the table</div>
+          <span class="seat director">the Director</span>
+          <span class="seat" data-ink="rose">Lyra</span>
+          <span class="seat" data-ink="indigo">Vael</span>
+          <div class="house-line">3 watching from the dark</div>
+        </div>
+      </div>
+      <div class="caption" id="cap5">outside the page, the dark places its wagers</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play5">Play the arc</button>
+      <span class="hint">~19 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>The audience gets a <em>stake</em> in the night before it starts — a reason to arrive early, and a reason to stay to the end (your wager settles at the last line). Cast can see the slips: knowing the dark expects a betrayal is delicious pressure. Watchers who&rsquo;d never gild will still bet.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>Beginning seals the book — no wagers after the candle. Slips dim to the rim during play, then settle when the session ends: gold stamps for the ones that came true, marked by the Director in one tap at the close.</dd></div>
+      <div class="note"><dt>the law</dt><dd>Free, always — glory, not gold. A paid wager would be the House buying outcomes through the side door, so this stays permanently ungildable. Retention engine dressed as a parlour game; it also seeds the next session (&ldquo;unsettled wagers carry over&rdquo;).</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ VI · THE WARM-UP ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">VI</span>
+      <h2>The Warm-up</h2>
+    </div>
+    <p class="thesis">
+      The Director leaves one question on the unlit page — &ldquo;one line: what did your character
+      dream last night?&rdquo; Arriving players answer in their ink. The Director can lift the best
+      answer, and when the candle lights, <em>it becomes the opening line</em>. The wait writes the story.
+    </p>
+
+    <div class="stage c6" id="stage6">
+      <div class="mote" style="top: 24%; left: 7%;"></div>
+      <div class="mote" style="top: 60%; right: 5%;"></div>
+      <div class="mote" style="top: 78%; left: 11%;"></div>
+      <div class="sheet">
+        <div class="sheet-title">The Hollow Crown</div>
+        <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+        <div class="wprompt" id="wprompt6">before we begin — one line: what did your character dream last night?</div>
+        <div class="wanswer rose" id="wans6a">&ldquo;Drowning, but warm.&rdquo;</div>
+        <div class="wanswer indigo" id="wans6b">&ldquo;The crown again. It fit.&rdquo;</div>
+        <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+        <div class="foot">
+          <div class="foot-whisper">at the table</div>
+          <span class="seat director">the Director</span>
+          <span class="seat" data-ink="rose">Lyra</span>
+          <span class="seat" data-ink="indigo">Vael</span>
+          <div class="house-line">3 watching from the dark</div>
+        </div>
+      </div>
+      <div class="caption" id="cap6">a question waits on the unlit page</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play6">Play the arc</button>
+      <span class="hint">~17 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>Arriving means <em>writing</em> — a one-line answer, in character, in your ink, on the page everyone can see. It&rsquo;s an icebreaker, a voice warm-up, and a re-entry into character after a week away, in a single gesture. Watchers see the answers accumulate: the show has already started, softly.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>The Director taps the line that sings; the candle lights; the opening grows out of the chosen answer. Nothing else on the platform could do this — the lobby literally feeds the manuscript. Unchosen answers fade with the dark; the chosen one is the only survivor.</dd></div>
+      <div class="note"><dt>the cost</dt><dd>Needs one Director input (the question — with a default deck so it&rsquo;s zero-effort: &ldquo;what did you dream / what&rsquo;s in your pocket / what do you fear tonight&rdquo;), one answer slot per player, one pick. Smallest of the three social concepts, and the most on-brand for a writing platform.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ VII · THE TEMPERATURE ═══════════ -->
+  <section class="concept">
+    <div class="concept-head">
+      <span class="numeral">VII</span>
+      <h2>The Temperature</h2>
+    </div>
+    <p class="thesis">
+      The Director takes the room&rsquo;s temperature before lighting the candle: one question, a few
+      options, and everyone present — cast in their inks, the dark in grey — leans. Warmth
+      gathers where the room leans. It measures the night; it never decides the story.
+      The Director begins <em>knowing</em>.
+    </p>
+
+    <div class="stage c7" id="stage7">
+      <div class="mote" style="top: 22%; left: 7%;"></div>
+      <div class="mote" style="top: 58%; right: 5%;"></div>
+      <div class="mote" style="top: 78%; left: 11%;"></div>
+      <div class="sheet">
+        <div class="sheet-title">The Hollow Crown</div>
+        <div class="sheet-sub">session two — the ferry at world&rsquo;s edge</div>
+        <div class="pulse">
+          <div class="pulse-q" id="pq7">the Director asks — tonight: blood, or banter?</div>
+          <div class="pulse-opt" id="popt7a">
+            <span class="dots"><span class="dot rose"></span><span class="dot grey"></span><span class="dot grey"></span><span class="dot grey"></span></span>
+            blood
+            <span class="pcount" id="pc7a"></span>
+          </div>
+          <div class="pulse-opt" id="popt7b">
+            <span class="dots"></span>
+            banter
+            <span class="pcount"></span>
+          </div>
+          <div class="pulse-opt" id="popt7c">
+            <span class="dots"><span class="dot indigo"></span></span>
+            both — in that order
+            <span class="pcount" id="pc7c"></span>
+          </div>
+        </div>
+        <div class="opening"><span class="typed"></span><span class="caret"></span></div>
+        <div class="foot">
+          <div class="foot-whisper">at the table</div>
+          <span class="seat director">the Director</span>
+          <span class="seat" data-ink="rose">Lyra</span>
+          <span class="seat" data-ink="indigo">Vael</span>
+          <div class="house-line">3 watching from the dark</div>
+        </div>
+      </div>
+      <div class="caption" id="cap7">the Director takes the room&rsquo;s temperature</div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play7">Play the arc</button>
+      <span class="hint">~16 seconds</span>
+    </div>
+
+    <dl class="notes">
+      <div class="note"><dt>the wait</dt><dd>Leaning is the lightest possible gesture — one tap, no words to find, no chat to moderate — but every tap is <em>visible connection</em>: your ink lands on the page next to your tablemates&rsquo;, and the dark&rsquo;s grey drops gather beside yours. The room literally watches itself agree, split, or surprise the Director.</dd></div>
+      <div class="note"><dt>the begin</dt><dd>Beginning closes the question. The warm option keeps its heat as the candle lights — the Director walks into the night knowing the table wants blood, and the audience knows the Director knows. Nothing prints to the story; the temperature is backstage truth, not canon.</dd></div>
+      <div class="note"><dt>not a vote</dt><dd>Deliberately non-binding, and it must stay that way: a vote decides, a temperature informs. No winner is enacted, so it never collides with crossroads law or &ldquo;gold never votes.&rdquo; Mechanically it&rsquo;s the ballot machinery in its third hood (Director-framed options + free leans from everyone) — cheap to build, and it shares one composer with VI: the Director&rsquo;s pre-game question, answered in ink <em>or</em> by leaning.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═══════════ VERDICT ═══════════ -->
+  <section class="verdict">
+    <p class="eyebrow">my recommendation</p>
+    <h2>A skin from part one, one question with two answers from part two</h2>
+    <p>
+      The threshold has two layers and they compose freely. <strong>The skin:</strong> build I
+      (arrival-as-light, the match-strike begin) with II&rsquo;s ghost ink drifting in the waiting
+      dark — cheapest wow, and the overture doubles as the &ldquo;previously&rdquo; recap we already owe.
+      <strong>The hands:</strong> chat (IV) is out — the owner&rsquo;s call, and the right one: it&rsquo;s
+      the only concept here that needs moderation and competes with Discord. Its replacement is
+      better: <strong>VI and VII are one feature</strong> — the Director leaves a question on the
+      unlit page, answered either in a line of your ink (the warm-up) or by leaning on an option
+      (the temperature). One composer, two modes; cast answers in ink, everyone leans in drops.
+      And <strong>V (the wager) belongs in the core build after all</strong> — it is the
+      audience&rsquo;s own game, and its settle step rides the end-of-session modal that already
+      exists: epilogue, cliffhanger, and now <em>which wagers came true</em>.
+    </p>
+    <div class="machinery">
+      <span class="eyebrow">the audience&rsquo;s night — the thread, start to finish</span>
+      <strong>Arriving is light:</strong> every watcher who shows up early is a mote at the rim
+      and a rising count the cast can feel — presence is participation before a single tap.
+      <strong>The temperature:</strong> the dark&rsquo;s grey drops land beside the cast&rsquo;s ink;
+      the audience helps set the tone of the night before it starts.
+      <strong>The wager:</strong> theirs alone — the cast plays the night, the dark bets on it,
+      and stays to the last line to see the slips settle in gold.
+      <strong>The hush:</strong> when the candle lights, the room changing state is something
+      that happens <em>to them too</em> — then their in-play hands take over (lean, gild,
+      the Stranger&rsquo;s ballots). And if the story keeps a chair for the dark, the threshold
+      gains a flourish later: a warm-up question addressed <em>to the Stranger</em>, answered
+      by the house in moon-silver.
+    </div>
+    <div class="machinery">
+      <span class="eyebrow">under the skin — identical for every combination</span>
+      Cast presence rides the existing 5-second session poll (one lastSeen upsert). The watch
+      page gets a real pre-session state instead of an empty sheet. Followers can be told
+      &ldquo;the table is gathering&rdquo; before the begin notification, and the Browse live row can show
+      gathering tables as &ldquo;about to begin.&rdquo; The Director&rsquo;s begin control becomes a readiness
+      line: <em>&ldquo;Lyra and Vael are at the table · 3 watching from the dark.&rdquo;</em> Wagers,
+      warm-up answers, and leans are session-scoped rows that never touch turns or compile;
+      the warm-up answer the Director lifts becomes plain opening text; wagers settle inside
+      the existing end-of-session modal. Spectator presence must run on draft sessions (today
+      it only heartbeats while active) — that one change powers the motes, the counts, and
+      the door.
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var OPENING = "The lantern above the ferry door had not been lit in nine years. Tonight, someone had lit it.";
+  // The narrow-sheet stages (IV, V) fit one sentence before the signature line.
+  var OPENING_SHORT = "The lantern above the ferry door had not been lit in nine years.";
+
+  function typeInto(stage, text, done) {
+    var el = stage.querySelector(".typed");
+    el.textContent = "";
+    stage.classList.add("writing");
+    if (reduced) {
+      el.textContent = text;
+      stage.classList.remove("writing");
+      if (done) done();
+      return;
+    }
+    var i = 0;
+    var t = setInterval(function () {
+      i += 1;
+      el.textContent = text.slice(0, i);
+      if (i >= text.length) {
+        clearInterval(t);
+        stage.classList.remove("writing");
+        if (done) done();
+      }
+    }, 34);
+    stage._typer = t;
+  }
+
+  function runTimeline(stage, cap, btn, steps, resetFn) {
+    if (btn.disabled) return;
+    resetFn();
+    btn.disabled = true;
+    var timers = [];
+    if (reduced) {
+      // Jump straight to the final state.
+      steps.forEach(function (s) { s.fn(); });
+      btn.disabled = false;
+      btn.textContent = "Play it again";
+      return;
+    }
+    steps.forEach(function (s) {
+      timers.push(setTimeout(function () {
+        if (s.caption) cap.textContent = s.caption;
+        s.fn();
+      }, s.t));
+    });
+    var total = steps[steps.length - 1].t + 4500;
+    timers.push(setTimeout(function () {
+      btn.disabled = false;
+      btn.textContent = "Play it again";
+    }, total));
+    stage._timers = timers;
+  }
+
+  function clearStage(stage) {
+    (stage._timers || []).forEach(clearTimeout);
+    if (stage._typer) clearInterval(stage._typer);
+    stage.querySelector(".typed").textContent = "";
+    stage.classList.remove("lit", "house", "writing", "struck", "unrolled");
+    stage.querySelectorAll(".seat").forEach(function (s) { s.classList.remove("here"); });
+  }
+
+  // ── I · Striking the Match ──
+  var s1 = document.getElementById("stage1");
+  var cap1 = document.getElementById("cap1");
+  var play1 = document.getElementById("play1");
+  play1.addEventListener("click", function () {
+    runTimeline(s1, cap1, play1, [
+      { t: 400, caption: "the room is dark — the table is set for three", fn: function () {
+        s1.dataset.arrived = "0";
+        s1.querySelector('.seat.director').classList.add("here");
+        s1.querySelector('[data-flame="0"]').classList.add("up");
+      } },
+      { t: 2200, caption: "Lyra arrives — one flame more", fn: function () {
+        s1.dataset.arrived = "1";
+        s1.querySelector('[data-ink="rose"]').classList.add("here");
+        s1.querySelector('[data-flame="1"]').classList.add("up");
+      } },
+      { t: 4600, caption: "Vael arrives — the room lifts again", fn: function () {
+        s1.dataset.arrived = "2";
+        s1.querySelector('[data-ink="indigo"]').classList.add("here");
+        s1.querySelector('[data-flame="2"]').classList.add("up");
+      } },
+      { t: 7000, caption: "the dark gathers — 3 watching", fn: function () {
+        s1.classList.add("house");
+      } },
+      { t: 9600, caption: "the Director strikes the match", fn: function () {
+        s1.classList.add("struck");
+      } },
+      { t: 10300, caption: "the candle catches", fn: function () {
+        s1.classList.add("lit");
+      } },
+      { t: 12000, caption: "the session has begun", fn: function () {
+        typeInto(s1, OPENING);
+      } }
+    ], function () {
+      clearStage(s1);
+      s1.dataset.arrived = "0";
+      s1.querySelectorAll(".flame").forEach(function (f) { f.classList.remove("up"); });
+      cap1.textContent = "the room is dark — the table is set for three";
+    });
+  });
+
+  // ── II · The Overture ──
+  var s2 = document.getElementById("stage2");
+  var cap2 = document.getElementById("cap2");
+  var play2 = document.getElementById("play2");
+  var flourish = document.getElementById("flourish2");
+  function sign(name, color, after) {
+    flourish.classList.remove("signing");
+    // restart the CSS animation
+    void flourish.offsetWidth;
+    flourish.textContent = name;
+    flourish.style.color = color;
+    flourish.classList.add("signing");
+    if (after) setTimeout(after, 2400);
+  }
+  play2.addEventListener("click", function () {
+    runTimeline(s2, cap2, play2, [
+      { t: 400, caption: "while the table gathers, the page remembers", fn: function () {
+        s2.querySelector('.seat.director').classList.add("here");
+      } },
+      { t: 2400, caption: "Lyra signs the page", fn: function () {
+        sign("Lyra", "var(--ink-rose)", function () {
+          s2.querySelector('[data-ink="rose"]').classList.add("here");
+        });
+      } },
+      { t: 5800, caption: "Vael signs the page", fn: function () {
+        sign("Vael", "var(--ink-indigo)", function () {
+          s2.querySelector('[data-ink="indigo"]').classList.add("here");
+        });
+      } },
+      { t: 9200, caption: "the dark gathers — 3 watching", fn: function () {
+        s2.classList.add("house");
+      } },
+      { t: 11800, caption: "the ghosts settle into the paper", fn: function () {
+        s2.classList.add("lit");
+      } },
+      { t: 13600, caption: "fresh ink — the session has begun", fn: function () {
+        typeInto(s2, OPENING);
+      } }
+    ], function () {
+      clearStage(s2);
+      flourish.classList.remove("signing");
+      flourish.textContent = "";
+      cap2.textContent = "while the table gathers, the page remembers";
+    });
+  });
+
+  // ── III · The Table Sets Itself ──
+  var s3 = document.getElementById("stage3");
+  var cap3 = document.getElementById("cap3");
+  var play3 = document.getElementById("play3");
+  function setObj(name) {
+    s3.querySelector('[data-obj="' + name + '"]').classList.add("set");
+  }
+  play3.addEventListener("click", function () {
+    runTimeline(s3, cap3, play3, [
+      { t: 400, caption: "the Director arrives — the sheet unrolls", fn: function () {
+        setObj("candle");
+        setObj("quill");
+        s3.classList.add("unrolled");
+        s3.querySelector('.seat.director').classList.add("here");
+      } },
+      { t: 3000, caption: "Lyra arrives — her inkwell lands", fn: function () {
+        setObj("well-rose");
+        s3.querySelector('[data-ink="rose"]').classList.add("here");
+      } },
+      { t: 5400, caption: "Vael arrives — the table is quorate", fn: function () {
+        setObj("well-indigo");
+        setObj("dice");
+        s3.querySelector('[data-ink="indigo"]').classList.add("here");
+      } },
+      { t: 7800, caption: "the dark gathers — 3 watching", fn: function () {
+        s3.classList.add("house");
+      } },
+      { t: 10200, caption: "the candle lights — the quill rises", fn: function () {
+        s3.classList.add("lit");
+      } },
+      { t: 12200, caption: "the session has begun", fn: function () {
+        typeInto(s3, OPENING);
+      } }
+    ], function () {
+      clearStage(s3);
+      s3.querySelectorAll(".object").forEach(function (o) { o.classList.remove("set"); });
+      cap3.textContent = "a bare table in the dark";
+    });
+  });
+
+  // ── IV · Voices in the Dark ──
+  var s4 = document.getElementById("stage4");
+  var cap4 = document.getElementById("cap4");
+  var play4 = document.getElementById("play4");
+  var voices4 = s4.querySelectorAll(".voice");
+  play4.addEventListener("click", function () {
+    runTimeline(s4, cap4, play4, [
+      { t: 400, caption: "the doors are open — the room can talk", fn: function () {
+        s4.querySelector('.seat.director').classList.add("here");
+        s4.classList.add("house");
+      } },
+      { t: 1800, caption: "Vael arrives, talking already", fn: function () {
+        s4.querySelector('[data-ink="indigo"]').classList.add("here");
+        voices4[0].classList.add("said");
+      } },
+      { t: 4200, caption: "Lyra arrives", fn: function () {
+        s4.querySelector('[data-ink="rose"]').classList.add("here");
+        voices4[1].classList.add("said");
+      } },
+      { t: 6600, caption: "the dark murmurs too", fn: function () {
+        voices4[2].classList.add("said");
+      } },
+      { t: 9000, caption: "the Director has the last word", fn: function () {
+        voices4[3].classList.add("said");
+      } },
+      { t: 11400, caption: "the candle lights — the room hushes", fn: function () {
+        s4.classList.add("lit");
+      } },
+      { t: 13200, caption: "only the page speaks now", fn: function () {
+        typeInto(s4, OPENING_SHORT);
+      } }
+    ], function () {
+      clearStage(s4);
+      voices4.forEach(function (v) { v.classList.remove("said"); });
+      cap4.textContent = "the doors are open — the room can talk";
+    });
+  });
+
+  // ── V · The Wager ──
+  var s5 = document.getElementById("stage5");
+  var cap5 = document.getElementById("cap5");
+  var play5 = document.getElementById("play5");
+  play5.addEventListener("click", function () {
+    runTimeline(s5, cap5, play5, [
+      { t: 400, caption: "outside the page, the dark places its wagers", fn: function () {
+        s5.classList.add("house");
+        s5.querySelector('.seat.director').classList.add("here");
+        s5.querySelector('[data-ink="rose"]').classList.add("here");
+        s5.querySelector('[data-ink="indigo"]').classList.add("here");
+        document.getElementById("slip5a").classList.add("pinned");
+      } },
+      { t: 3000, caption: "a second wager is pinned", fn: function () {
+        document.getElementById("slip5b").classList.add("pinned");
+      } },
+      { t: 5400, caption: "the odds move while the table gathers", fn: function () {
+        document.getElementById("tally5a").textContent = "5 hold this wager";
+      } },
+      { t: 7800, caption: "the candle lights — the book is sealed", fn: function () {
+        s5.classList.add("lit");
+      } },
+      { t: 9600, caption: "the session plays out…", fn: function () {
+        typeInto(s5, OPENING_SHORT);
+      } },
+      { t: 14400, caption: "hours later — the last line is written", fn: function () {
+        s5.classList.add("settled");
+      } },
+      { t: 16000, caption: "the dark called it — glory, not gold", fn: function () {
+        document.getElementById("slip5b").classList.add("true");
+      } }
+    ], function () {
+      clearStage(s5);
+      s5.classList.remove("settled");
+      document.getElementById("slip5a").classList.remove("pinned");
+      document.getElementById("slip5b").classList.remove("pinned", "true");
+      document.getElementById("tally5a").textContent = "2 hold this wager";
+      cap5.textContent = "outside the page, the dark places its wagers";
+    });
+  });
+
+  // ── VI · The Warm-up ──
+  var s6 = document.getElementById("stage6");
+  var cap6 = document.getElementById("cap6");
+  var play6 = document.getElementById("play6");
+  var OPENING6 = "Drowning, but warm. Lyra woke with the taste of river water still on her tongue — and the ferry was waiting.";
+  play6.addEventListener("click", function () {
+    runTimeline(s6, cap6, play6, [
+      { t: 400, caption: "a question waits on the unlit page", fn: function () {
+        s6.querySelector('.seat.director').classList.add("here");
+        document.getElementById("wprompt6").classList.add("up");
+      } },
+      { t: 2600, caption: "Lyra arrives and answers in her ink", fn: function () {
+        s6.querySelector('[data-ink="rose"]').classList.add("here");
+        document.getElementById("wans6a").classList.add("up");
+      } },
+      { t: 5200, caption: "Vael answers", fn: function () {
+        s6.querySelector('[data-ink="indigo"]').classList.add("here");
+        document.getElementById("wans6b").classList.add("up");
+      } },
+      { t: 7600, caption: "the dark gathers — 3 watching", fn: function () {
+        s6.classList.add("house");
+      } },
+      { t: 9400, caption: "the Director lifts Lyra's line", fn: function () {
+        document.getElementById("wans6a").classList.add("chosen");
+      } },
+      { t: 11200, caption: "the candle lights — her dream becomes the opening", fn: function () {
+        s6.classList.add("lit");
+      } },
+      { t: 12800, caption: "the wait wrote the first line", fn: function () {
+        typeInto(s6, OPENING6);
+      } }
+    ], function () {
+      clearStage(s6);
+      document.getElementById("wprompt6").classList.remove("up");
+      document.getElementById("wans6a").classList.remove("up", "chosen");
+      document.getElementById("wans6b").classList.remove("up");
+      cap6.textContent = "a question waits on the unlit page";
+    });
+  });
+
+  // ── VII · The Temperature ──
+  var s7 = document.getElementById("stage7");
+  var cap7 = document.getElementById("cap7");
+  var play7 = document.getElementById("play7");
+  function dotIn(optId, idx) {
+    var dots = document.getElementById(optId).querySelectorAll(".dot");
+    if (dots[idx]) dots[idx].classList.add("in");
+  }
+  play7.addEventListener("click", function () {
+    runTimeline(s7, cap7, play7, [
+      { t: 400, caption: "the Director takes the room's temperature", fn: function () {
+        s7.querySelector('.seat.director').classList.add("here");
+        document.getElementById("pq7").classList.add("up");
+        ["popt7a", "popt7b", "popt7c"].forEach(function (id) {
+          document.getElementById(id).classList.add("up");
+        });
+      } },
+      { t: 2600, caption: "Lyra leans — blood", fn: function () {
+        s7.querySelector('[data-ink="rose"]').classList.add("here");
+        dotIn("popt7a", 0);
+        document.getElementById("pc7a").textContent = "1";
+      } },
+      { t: 5000, caption: "Vael leans — both, in that order", fn: function () {
+        s7.querySelector('[data-ink="indigo"]').classList.add("here");
+        dotIn("popt7c", 0);
+        document.getElementById("pc7c").textContent = "1";
+      } },
+      { t: 7400, caption: "the dark leans too", fn: function () {
+        s7.classList.add("house");
+        dotIn("popt7a", 1);
+        dotIn("popt7a", 2);
+        dotIn("popt7a", 3);
+        document.getElementById("pc7a").textContent = "4 lean this way";
+        document.getElementById("popt7a").classList.add("warm");
+      } },
+      { t: 10200, caption: "the candle lights — the Director begins, knowing", fn: function () {
+        s7.classList.add("lit");
+      } },
+      { t: 12000, caption: "the room wanted blood — the room gets blood", fn: function () {
+        typeInto(s7, OPENING_SHORT);
+      } }
+    ], function () {
+      clearStage(s7);
+      document.getElementById("pq7").classList.remove("up");
+      ["popt7a", "popt7b", "popt7c"].forEach(function (id) {
+        var opt = document.getElementById(id);
+        opt.classList.remove("up", "warm");
+        opt.querySelectorAll(".dot").forEach(function (d) { d.classList.remove("in"); });
+      });
+      document.getElementById("pc7a").textContent = "";
+      document.getElementById("pc7c").textContent = "";
+      cap7.textContent = "the Director takes the room's temperature";
+    });
+  });
+})();
+</script>
+</body>
+</html>

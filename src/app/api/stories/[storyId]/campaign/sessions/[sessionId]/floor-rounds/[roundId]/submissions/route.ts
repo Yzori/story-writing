@@ -37,22 +37,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!campaignSession || campaignSession.storyId !== storyId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Session not found" } }, { status: 404 });
     }
-    if (campaignSession.status !== "active") {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Session is not active" } }, { status: 403 });
-    }
     if (!round || round.sessionId !== sessionId) {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Floor round not found" } }, { status: 404 });
     }
-    if (round.status !== "open") {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Submissions are closed" } }, { status: 403 });
-    }
-    if (round.mode !== "vote") {
-      // Stranger ballots arrive with their deeds — the Director framed them
-      // when the round opened, and nothing reaches the house they didn't write.
+    // Warm-up answers belong to the unlit page (draft); vote lines to the
+    // live one. Stranger/temperature options arrive with their round — the
+    // Director framed them, and nothing reaches the room they didn't write.
+    if (round.mode !== "vote" && round.mode !== "warmup") {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "The Stranger's deeds are set when the ballot opens" } },
+        { error: { code: "FORBIDDEN", message: "This round's lines are set when it opens" } },
         { status: 403 },
       );
+    }
+    const requiredStatus = round.mode === "warmup" ? "draft" : "active";
+    if (campaignSession.status !== requiredStatus) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message:
+              round.mode === "warmup" ? "The question closed when the session began" : "Session is not active",
+          },
+        },
+        { status: 403 },
+      );
+    }
+    if (round.status !== "open") {
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Submissions are closed" } }, { status: 403 });
     }
 
     const body = await request.json();
@@ -60,6 +71,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message ?? "Invalid input" } },
+        { status: 400 },
+      );
+    }
+    if (round.mode === "warmup" && parsed.data.content.trim().length > 280) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "One line is plenty — keep it under 280 characters" } },
         { status: 400 },
       );
     }

@@ -18,6 +18,8 @@ export interface SignatureSeat {
   you?: boolean;
   /** This hand holds the pen right now. */
   pen?: boolean;
+  /** Actually present (fresh heartbeat). Only read when `dimAbsent` is set. */
+  here?: boolean;
 }
 
 function YouTag() {
@@ -31,13 +33,17 @@ function YouTag() {
 export default function SignatureLine({
   directorYou = false,
   directorPen = false,
+  directorHere = true,
   seats,
   strangerName,
   watching = 0,
   trailing,
+  dimAbsent = false,
 }: {
   directorYou?: boolean;
   directorPen?: boolean;
+  /** Only read when `dimAbsent` is set. */
+  directorHere?: boolean;
   seats: SignatureSeat[];
   /** The chair left for the dark, if this story keeps one. */
   strangerName?: string | null;
@@ -45,7 +51,14 @@ export default function SignatureLine({
   watching?: number;
   /** Extra murmur content (the watcher's own line, the gold chip). */
   trailing?: ReactNode;
+  /**
+   * Lobby mode: seats that haven't arrived render as faint waiting lines;
+   * a name blooms when its owner takes their seat (the key remount rides
+   * the existing .name-bloom animation, same as WaitingLine).
+   */
+  dimAbsent?: boolean;
 }) {
+  const absentClass = " opacity-25";
   return (
     <div className="text-center">
       <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-text-ghost">
@@ -53,24 +66,32 @@ export default function SignatureLine({
       </p>
       <div className="mt-2.5 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1.5 font-reading text-[14px] font-medium leading-normal">
         <span
-          className="inline-flex items-baseline gap-1.5"
+          key={dimAbsent ? `gm-${directorHere}` : "gm"}
+          className={`inline-flex items-baseline gap-1.5${
+            dimAbsent ? (directorHere ? " name-bloom" : absentClass) : ""
+          }`}
           style={{ color: "var(--ink-gm)" }}
         >
           {directorPen && <PenMark ink="var(--ink-gm)" />}
           ✦ the Director
           {directorYou && <YouTag />}
         </span>
-        {seats.map((s) => (
-          <span
-            key={s.id}
-            className="inline-flex items-baseline gap-1.5"
-            style={{ color: s.ink }}
-          >
-            {s.pen && <PenMark ink={s.ink} />}
-            {s.name}
-            {s.you && <YouTag />}
-          </span>
-        ))}
+        {seats.map((s) => {
+          const absent = dimAbsent && !s.here;
+          return (
+            <span
+              key={dimAbsent ? `${s.id}-${s.here ? "here" : "away"}` : s.id}
+              className={`inline-flex items-baseline gap-1.5${
+                dimAbsent ? (absent ? absentClass : " name-bloom") : ""
+              }`}
+              style={{ color: s.ink }}
+            >
+              {s.pen && <PenMark ink={s.ink} />}
+              {s.name}
+              {s.you && <YouTag />}
+            </span>
+          );
+        })}
         {strangerName && (
           <span
             style={{ color: "var(--ink-strange)" }}

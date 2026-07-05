@@ -344,9 +344,12 @@ export function useCampaignSession(storyId: string, sessionId: string) {
     prompt: string,
     opts?: {
       audiencePulseEnabled?: boolean;
-      /** "stranger" opens the house's ballot: Director-framed deeds, audience votes. */
-      mode?: "vote" | "stranger";
+      /** "stranger" opens the house's ballot: Director-framed deeds, audience votes.
+       *  Lobby modes (draft only): "warmup" (answered in a line) and
+       *  "temperature" (2–4 options, the room leans; non-binding). */
+      mode?: "vote" | "stranger" | "warmup" | "temperature";
       deeds?: string[];
+      options?: string[];
     },
   ) => {
     const json = await campaignJsonRequest<FloorRound>(
@@ -358,6 +361,7 @@ export function useCampaignSession(storyId: string, sessionId: string) {
           audiencePulseEnabled: !!opts?.audiencePulseEnabled,
           ...(opts?.mode ? { mode: opts.mode } : {}),
           ...(opts?.deeds ? { deeds: opts.deeds } : {}),
+          ...(opts?.options ? { options: opts.options } : {}),
         },
         fallbackError: "Failed to open the vote",
       },
@@ -396,7 +400,15 @@ export function useCampaignSession(storyId: string, sessionId: string) {
   }, [floorRoundsUrl]);
 
   const updateFloorRound = useCallback(
-    async (roundId: string, body: { status: "voting" | "closed" | "resolved" | "cancelled"; selectedSubmissionId?: string }) => {
+    async (
+      roundId: string,
+      body: {
+        status?: "voting" | "closed" | "resolved" | "cancelled";
+        selectedSubmissionId?: string;
+        /** Warm-up lift: the marked answer opens the story at begin. Null un-lifts. */
+        liftSubmissionId?: string | null;
+      },
+    ) => {
       const json = await campaignJsonRequest<FloorRound | null>(
         `${floorRoundsUrl}/${roundId}`,
         {

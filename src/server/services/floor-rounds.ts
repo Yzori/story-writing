@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   campaignSessions,
@@ -194,11 +194,16 @@ export async function getAudiencePulseFloorRound(
   // v2 rounds live their whole life in "open" (single-block: writing and
   // voting happen together), so the audience must see them there — the old
   // ["voting","closed"] gate belonged to the two-phase reveal pipeline and
-  // left watchers blind to every live v2 ballot.
+  // left watchers blind to every live v2 ballot. Warm-up rounds keep pulses
+  // off (the dark reads the question but never leans on an answer), yet the
+  // watch page still shows them — hence the widened filter.
   const round = await db.query.campaignFloorRounds.findFirst({
     where: and(
       eq(campaignFloorRounds.sessionId, sessionId),
-      eq(campaignFloorRounds.audiencePulseEnabled, true),
+      or(
+        eq(campaignFloorRounds.audiencePulseEnabled, true),
+        eq(campaignFloorRounds.mode, "warmup"),
+      ),
       inArray(campaignFloorRounds.status, ["open", "voting", "closed"]),
     ),
     orderBy: [desc(campaignFloorRounds.updatedAt), desc(campaignFloorRounds.createdAt)],

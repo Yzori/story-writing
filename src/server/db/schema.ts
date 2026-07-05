@@ -1341,6 +1341,10 @@ export const campaignSessions = pgTable("campaign_sessions", {
   takeoverProposerId: uuid("takeover_proposer_id").references(() => users.id, { onDelete: "set null" }),
   sortOrder: integer("sort_order").notNull().default(0),
   status: text("status").notNull().default("active"), // 'draft' | 'active' | 'completed' | 'archived'
+  // The Director's one-shot "let your followers know" from the lobby. Set
+  // once per session (atomic WHERE gathering_called_at IS NULL); Live-now
+  // lists gathering drafts within a 2h freshness window off this timestamp.
+  gatheringCalledAt: timestamp("gathering_called_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -2024,6 +2028,38 @@ export const spectatorPresence = pgTable(
     unique("spectator_presence_session_token_unique").on(table.sessionId, table.token),
     index("idx_spectator_presence_session").on(table.sessionId),
     index("idx_spectator_presence_heartbeat").on(table.lastHeartbeat),
+  ]
+);
+
+// ── Cast Presence ───────────────────────────────────────────
+// Who of the table has actually taken their seat. The spectator twin above
+// counts the dark by anonymous token; this counts the cast by user. Heartbeat
+// runs on draft AND active sessions — the lobby needs arrivals, and the
+// in-session signature can read the same rows later. Rows age out (<45s is
+// "here"); no delete-on-leave needed.
+
+export const campaignCastPresence = pgTable(
+  "campaign_cast_presence",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("campaign_cast_presence_session_user_unique").on(table.sessionId, table.userId),
+    index("idx_campaign_cast_presence_session").on(table.sessionId, table.lastHeartbeat),
   ]
 );
 
@@ -2788,6 +2824,85 @@ export const campaignGoldRelations = relations(campaignGold, ({ one }) => ({
   from: one(users, {
     fields: [campaignGold.fromUserId],
     references: [users.id],
+  }),
+}));
+
+// ── The Wager — audience predictions on the unlit page ───────
+// Free slips pinned at the rim before a session begins ("I think this
+// happens"). Glory, never gold: no payout, no drops, and no author names
+// leave the server — the room shows only content + held count. Begin seals
+// the book (no new slips/holds after draft); the Director settles them at
+// session end (status 'open' → 'true' | 'false'). Holds are anonymous,
+// token-keyed like audience pulses; a holder's account deletion keeps the
+// held count (user_id set null), an author's deletion takes the slip.
+
+export const campaignWagers = pgTable(
+  "campaign_wagers",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => campaignSessions.id, { onDelete: "cascade" }),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    status: text("status").notNull().default("open"), // 'open' | 'true' | 'false'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_campaign_wagers_session").on(table.sessionId, table.createdAt),
+  ]
+);
+
+export const campaignWagersRelations = relations(campaignWagers, ({ one, many }) => ({
+  session: one(campaignSessions, {
+    fields: [campaignWagers.sessionId],
+    references: [campaignSessions.id],
+  }),
+  story: one(stories, {
+    fields: [campaignWagers.storyId],
+    references: [stories.id],
+  }),
+  author: one(users, {
+    fields: [campaignWagers.userId],
+    references: [users.id],
+  }),
+  holds: many(campaignWagerHolds),
+}));
+
+export const campaignWagerHolds = pgTable(
+  "campaign_wager_holds",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    wagerId: uuid("wager_id")
+      .notNull()
+      .references(() => campaignWagers.id, { onDelete: "cascade" }),
+    token: text("token").notNull(), // client-generated UUID, same as audience pulses
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("campaign_wager_holds_wager_token_unique").on(table.wagerId, table.token),
+    index("idx_campaign_wager_holds_wager").on(table.wagerId),
+  ]
+);
+
+export const campaignWagerHoldsRelations = relations(campaignWagerHolds, ({ one }) => ({
+  wager: one(campaignWagers, {
+    fields: [campaignWagerHolds.wagerId],
+    references: [campaignWagers.id],
   }),
 }));
 

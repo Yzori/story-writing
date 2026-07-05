@@ -3,7 +3,10 @@
 // Corvin Ashe (fixture player, deliberately OFFLINE — the AFK case), and a
 // freshly registered watcher (100 starter drops funds the gold gestures).
 // Proves live: pen-pass notification + dampener, Director stall failsafe,
-// Stranger ballot on real floor rounds, gold gild/table-gold with splits.
+// Stranger ballot on real floor rounds, gold gild/table-gold with splits,
+// and the Threshold: warm-up answered + lifted pre-begin (the lifted line
+// opens the story), a wager pinned + anonymously held (sealed at begin,
+// settled to a gold stamp through the real EndSessionModal).
 //
 // Usage: `npx next dev` on :3000 (AUTH_TRUST_HOST not needed there),
 // migrations 0051+0052 applied, then `node scripts/adventure-v2-live-e2e.mjs`.
@@ -141,6 +144,48 @@ log("roster set (Vael + Corvin present):", roster.status === 200);
 const PLAY = `${BASE}/campaign/${STORY_ID}/play/${SESSION_ID}`;
 const WATCH = `${BASE}/campaign/${STORY_ID}/watch/${SESSION_ID}`;
 
+// ── 0. The Threshold (lobby) ───────────────────────────────
+// Before the light: the Director leaves a warm-up, Vael answers, the line
+// is lifted; the watcher pins a wager and a second (anonymous) token holds
+// it. Begin must print the lifted line right after the opening, resolve the
+// lobby round, and seal the book.
+const wagersUrl = `/api/stories/${STORY_ID}/campaign/sessions/${SESSION_ID}/wagers`;
+const floorUrl = `/api/stories/${STORY_ID}/campaign/sessions/${SESSION_ID}/floor-rounds`;
+
+const warmup = await jfetch(gm, floorUrl, {
+  method: "POST",
+  body: { prompt: "what did your character dream last night?", mode: "warmup" },
+});
+if (!warmup.json?.data?.id) throw new Error("warmup open failed: " + JSON.stringify(warmup));
+const warmupId = warmup.json.data.id;
+const answered = await jfetch(vael, `${floorUrl}/${warmupId}/submissions`, {
+  method: "POST",
+  body: {
+    characterId: VAEL_CHAR,
+    type: "dialogue",
+    content: "Of a door underwater, and someone knocking from the other side.",
+  },
+});
+const answerId = answered.json?.data?.submissions?.find((s) => s.userId)?.id;
+if (!answerId) throw new Error("warmup answer failed: " + JSON.stringify(answered));
+const lifted = await jfetch(gm, `${floorUrl}/${warmupId}`, {
+  method: "PATCH",
+  body: { liftSubmissionId: answerId },
+});
+log("LOBBY LIVE: warm-up answered + lifted:", lifted.status === 200);
+
+const pinned = await jfetch(watcher, wagersUrl, {
+  method: "POST",
+  body: { content: "Someone lies to the ferryman." },
+});
+const wagerId = pinned.json?.data?.find((w) => w.isMine)?.id;
+if (!wagerId) throw new Error("wager pin failed: " + JSON.stringify(pinned));
+const held = await jfetch(watcher, `${wagersUrl}/${wagerId}/holds`, {
+  method: "POST",
+  body: { token: `anon-hold-${ts}` },
+});
+log("LOBBY LIVE: wager pinned + anonymously held:", held.status === 200);
+
 // ── Begin ──────────────────────────────────────────────────
 // Begin via the same PATCH the button fires (dev hydration makes the click
 // itself flaky to automate; the route is what we're proving).
@@ -150,13 +195,29 @@ const begun = await jfetch(
   { method: "PATCH", body: { status: "active" } },
 );
 if (begun.status !== 200) throw new Error("begin failed: " + JSON.stringify(begun));
+
+// The begin transaction's lobby duties, proven on the real stack:
+const roundAfter = await jfetch(gm, floorUrl);
+log(
+  "LOBBY LIVE: lobby round resolved at begin (no live round):",
+  roundAfter.json?.data === null,
+);
+const sealedTry = await jfetch(watcher, wagersUrl, {
+  method: "POST",
+  body: { content: "Too late." },
+});
+log("LOBBY LIVE: book sealed at begin (wager 403):", sealedTry.status === 403);
 await gm.goto(PLAY, { waitUntil: "domcontentloaded" });
 await gm.waitForSelector("text=one door, and tonight it stands open", { timeout: 15000 });
 log("session live; opening printed");
+await gm.waitForSelector("p:has-text('door underwater')", { timeout: 15000 });
+log("LOBBY LIVE: lifted answer printed after the opening");
 
 await watcher.goto(WATCH, { waitUntil: "domcontentloaded" });
 await watcher.waitForSelector("text=you are in the dark", { timeout: 15000 });
 log("watcher in the dark");
+await watcher.waitForSelector(".wager-slip--sealed", { timeout: 15000 });
+log("LOBBY LIVE: sealed slip pinned at the watcher's rim");
 
 await vael.goto(PLAY, { waitUntil: "domcontentloaded" });
 try {
@@ -298,17 +359,27 @@ await watcher.getByRole("button", { name: "Leave gold", exact: true }).click();
 await watcher.waitForSelector(".gold-flare", { timeout: 10000 });
 log("gold left for the table");
 
-// ── 5. End the session ─────────────────────────────────────
+// ── 5. End the session (and settle the wager) ──────────────
 await gm.locator("textarea").fill("/");
 await gm.waitForSelector("text=End the session", { timeout: 10000 });
 await gm.getByRole("button", { name: "End the session" }).first().click();
 await gm.getByLabel("Closing line (optional)").fill(
   "The candle holds. What it now lights was not on the first page.",
 );
+await gm.waitForSelector("text=Which of these came true?", { timeout: 10000 });
+await gm
+  .locator("label", { hasText: "Someone lies to the ferryman" })
+  .locator("input[type=checkbox]")
+  .check();
+log("LOBBY LIVE: end modal lists the wager; checked as true");
 await gm.getByRole("button", { name: "End the session" }).last().click();
 await gm.waitForSelector("text=this session is written", { timeout: 15000 });
 log("session ended: 'this session is written'");
 await gm.screenshot({ path: SHOT("6-written") });
+
+await watcher.waitForSelector("text=it came true", { timeout: 30000 });
+log("LOBBY LIVE: true wager stamped gold in the dark");
+await watcher.screenshot({ path: SHOT("7-wager-stamped") });
 
 await browser.close();
 console.log("SESSION_ID=" + SESSION_ID);

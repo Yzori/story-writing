@@ -357,6 +357,25 @@ export const updateCampaignSessionSchema = z.object({
   closingMood: z.string().max(50).optional(),
   status: z.enum(["draft", "active", "completed", "archived"]).optional(),
   activePlayerId: z.string().uuid().nullable().optional(),
+  // Settling the audience's wagers rides the same end-of-session PATCH as
+  // the epilogue: checked slips came true, everything else left open goes
+  // false. NOT a session column — the route destructures it out before the
+  // UPDATE ... SET spread.
+  wagerResults: z
+    .array(z.object({ id: z.string().uuid(), cameTrue: z.boolean() }))
+    .max(50)
+    .optional(),
+});
+
+// The audience's wager — one short prediction, pinned at the rim. Signed-in
+// to write (free text needs a name behind it server-side, even though no
+// name ever leaves the room); anonymous token to hold.
+export const createWagerSchema = z.object({
+  content: z.string().min(1, "Write the wager first").max(120),
+});
+
+export const createWagerHoldSchema = z.object({
+  token: z.string().min(1).max(200),
 });
 
 // ── Campaign Turns ─────────────────────────────────────────
@@ -385,12 +404,18 @@ export const createCampaignTurnSchema = z
 // resurrection of GM-authored options: the Director frames 2–4 deeds for the
 // audience-played Stranger and the house's pulses are the ballot. Deeds
 // arrive with the round — the submissions endpoint stays closed to it.
+// Lobby modes (draft sessions only): "warmup" — the Director leaves one
+// question, the cast answers in a line, one lifted answer may open the
+// story; "temperature" — the Director poses 2–4 options and the room leans.
+// A temperature is NOT a vote: non-binding forever, prints nothing, never
+// resolvable via the API (the begin transaction closes it).
 export const createFloorRoundSchema = z
   .object({
     prompt: z.string().min(1, "Prompt is required").max(1000),
     audiencePulseEnabled: z.boolean().optional().default(false),
-    mode: z.enum(["vote", "stranger"]).optional().default("vote"),
+    mode: z.enum(["vote", "stranger", "warmup", "temperature"]).optional().default("vote"),
     deeds: z.array(z.string().min(1).max(500)).max(4).optional(),
+    options: z.array(z.string().min(1).max(120)).max(4).optional(),
   })
   .refine(
     (data) => data.mode !== "stranger" || (data.deeds && data.deeds.length >= 2),
@@ -398,12 +423,25 @@ export const createFloorRoundSchema = z
   )
   .refine((data) => data.mode === "stranger" || !data.deeds, {
     message: "Only Stranger rounds carry deeds",
+  })
+  .refine(
+    (data) => data.mode !== "temperature" || (data.options && data.options.length >= 2),
+    { message: "A temperature needs at least two options to lean between" },
+  )
+  .refine((data) => data.mode === "temperature" || !data.options, {
+    message: "Only temperature rounds carry options",
   });
 
-export const updateFloorRoundSchema = z.object({
-  status: z.enum(["voting", "closed", "resolved", "cancelled"]),
-  selectedSubmissionId: z.string().uuid().optional(),
-});
+export const updateFloorRoundSchema = z
+  .object({
+    status: z.enum(["voting", "closed", "resolved", "cancelled"]).optional(),
+    selectedSubmissionId: z.string().uuid().optional(),
+    // Warm-up lift: mark one answer to open the story at begin. Null un-lifts.
+    liftSubmissionId: z.string().uuid().nullable().optional(),
+  })
+  .refine((data) => data.status !== undefined || data.liftSubmissionId !== undefined, {
+    message: "Nothing to update",
+  });
 
 export const createFloorSubmissionSchema = z.object({
   characterId: z.string().uuid(),

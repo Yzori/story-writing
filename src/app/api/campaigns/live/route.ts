@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, users, campaignSessions, spectatorPresence } from "@/server/db/schema";
-import { eq, and, isNull, gt, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, gt, desc, inArray, or, sql } from "drizzle-orm";
 import { applyRateLimit } from "@/server/api-utils";
 
 /**
  * GET /api/campaigns/live
- * Public endpoint. Adventures with a session being played right now —
- * powers the "Live now" row on Browse. Ordered by most recent activity.
+ * Public endpoint. Adventures with a session being played right now — plus
+ * tables that are GATHERING: draft sessions whose Director pressed "let
+ * your followers know" within the last 2 hours ("about to begin" on the
+ * Browse row; the window keeps abandoned drafts off it without a cron).
+ * Ordered by most recent activity.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -27,6 +30,7 @@ export async function GET(request: NextRequest) {
         authorName: users.displayName,
         sessionId: campaignSessions.id,
         sessionTitle: campaignSessions.title,
+        sessionStatus: campaignSessions.status,
         lastActivityAt: campaignSessions.updatedAt,
       })
       .from(campaignSessions)
@@ -34,7 +38,14 @@ export async function GET(request: NextRequest) {
       .innerJoin(users, eq(stories.userId, users.id))
       .where(
         and(
-          eq(campaignSessions.status, "active"),
+          or(
+            eq(campaignSessions.status, "active"),
+            and(
+              eq(campaignSessions.status, "draft"),
+              isNotNull(campaignSessions.gatheringCalledAt),
+              gt(campaignSessions.gatheringCalledAt, sql`now() - interval '2 hours'`)
+            )
+          ),
           eq(stories.isPublic, true),
           isNull(stories.deletedAt)
         )

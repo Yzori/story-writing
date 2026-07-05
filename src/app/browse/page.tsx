@@ -85,6 +85,8 @@ type LiveTable = {
   authorName: string | null;
   sessionId: string;
   sessionTitle: string;
+  /** "active" = playing now; "draft" = the table is gathering. */
+  sessionStatus: string;
   spectatorCount: number;
 };
 
@@ -431,13 +433,22 @@ function LiveTableCard({ table }: { table: LiveTable }) {
         </p>
         <p className="mt-0.5 truncate text-[11px] text-text-secondary">{table.authorName || "Anonymous"}</p>
         <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-ghost">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose/60" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose" />
-          </span>
-          {table.spectatorCount > 0
-            ? `${table.spectatorCount} watching · Watch`
-            : "Playing now · Watch"}
+          {table.sessionStatus === "draft" ? (
+            // Gathering — a steady ember, not yet the live ping.
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber" />
+            </span>
+          ) : (
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose/60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose" />
+            </span>
+          )}
+          {table.sessionStatus === "draft"
+            ? "About to begin · Watch"
+            : table.spectatorCount > 0
+              ? `${table.spectatorCount} watching · Watch`
+              : "Playing now · Watch"}
         </p>
       </div>
     </Link>

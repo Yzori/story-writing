@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { campaignSessions, campaignTurns, playerCharacters, follows } from "@/server/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import {
+  campaignFloorRounds,
+  campaignFloorSubmissions,
+  campaignSessions,
+  campaignTurns,
+  campaignWagers,
+  playerCharacters,
+  follows,
+} from "@/server/db/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
 import { applyRateLimit } from "@/server/api-utils";
@@ -108,7 +116,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const updateData: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+    // wagerResults is a settle instruction, not a session column — it must
+    // never reach the UPDATE ... SET spread below.
+    const { wagerResults, ...sessionFields } = parsed.data;
+    const updateData: Record<string, unknown> = { ...sessionFields, updatedAt: new Date() };
     // Clear active player when session ends
     if (parsed.data.status === "completed") {
       updateData.activePlayerId = null;
@@ -160,6 +171,101 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
               metadata: JSON.stringify({ opening: true }),
               sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
             });
+        }
+
+        // The lobby retires as the candle is lit. Lobby rounds (warm-up /
+        // temperature) must end 'resolved' — never 'closed', which the
+        // floor-round creation pre-check treats as still-live and would 409
+        // the Director's first in-session move. A lifted warm-up answer
+        // prints right after the opening, in the answerer's own ink; a
+        // missing or ownerless lift skips the print but still resolves —
+        // the ceremony never aborts over a lobby nicety.
+        if (isFirstTransitionToActive) {
+          const lobbyRounds = await tx
+            .select({
+              id: campaignFloorRounds.id,
+              mode: campaignFloorRounds.mode,
+              selectedSubmissionId: campaignFloorRounds.selectedSubmissionId,
+              prompt: campaignFloorRounds.prompt,
+            })
+            .from(campaignFloorRounds)
+            .where(
+              and(
+                eq(campaignFloorRounds.sessionId, sessionId),
+                inArray(campaignFloorRounds.status, ["open", "voting"]),
+                inArray(campaignFloorRounds.mode, ["warmup", "temperature"]),
+              ),
+            );
+          for (const lobbyRound of lobbyRounds) {
+            if (lobbyRound.mode === "warmup" && lobbyRound.selectedSubmissionId) {
+              const [lifted] = await tx
+                .select()
+                .from(campaignFloorSubmissions)
+                .where(eq(campaignFloorSubmissions.id, lobbyRound.selectedSubmissionId));
+              if (lifted && lifted.userId) {
+                await tx.insert(campaignTurns).values({
+                  sessionId,
+                  userId: lifted.userId,
+                  characterId: lifted.characterId,
+                  type: lifted.type,
+                  content: lifted.content,
+                  metadata: JSON.stringify({
+                    kind: "warmup",
+                    floorRoundId: lobbyRound.id,
+                    floorSubmissionId: lifted.id,
+                    prompt: lobbyRound.prompt,
+                  }),
+                  sortOrder: sql<number>`coalesce((select max(${campaignTurns.sortOrder}) from ${campaignTurns} where ${campaignTurns.sessionId} = ${sessionId}), -1) + 1`,
+                });
+                await tx
+                  .update(campaignFloorSubmissions)
+                  .set({ status: "selected" })
+                  .where(eq(campaignFloorSubmissions.id, lifted.id));
+              }
+            }
+          }
+          if (lobbyRounds.length > 0) {
+            await tx
+              .update(campaignFloorRounds)
+              .set({ status: "resolved", updatedAt: new Date() })
+              .where(
+                inArray(
+                  campaignFloorRounds.id,
+                  lobbyRounds.map((r) => r.id),
+                ),
+              );
+          }
+        }
+
+        // Settle the audience's wagers on the active→completed transition:
+        // slips the Director checked came true (stamped gold on the watch
+        // page); every other still-open slip goes false. Glory, never gold —
+        // nothing is paid out.
+        if (parsed.data.status === "completed" && locked?.status === "active") {
+          const trueIds = (wagerResults ?? [])
+            .filter((w) => w.cameTrue)
+            .map((w) => w.id);
+          if (trueIds.length > 0) {
+            await tx
+              .update(campaignWagers)
+              .set({ status: "true" })
+              .where(
+                and(
+                  eq(campaignWagers.sessionId, sessionId),
+                  eq(campaignWagers.status, "open"),
+                  inArray(campaignWagers.id, trueIds),
+                ),
+              );
+          }
+          await tx
+            .update(campaignWagers)
+            .set({ status: "false" })
+            .where(
+              and(
+                eq(campaignWagers.sessionId, sessionId),
+                eq(campaignWagers.status, "open"),
+              ),
+            );
         }
 
         const [row] = await tx

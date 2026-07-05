@@ -258,3 +258,51 @@ export function viewAsToUserId(view: ViewAs): string | null {
     default: return null;
   }
 }
+
+// ── The Threshold (lobby stage) ─────────────────────────────
+// Ghost overture: lines from "past sessions" drifting in the unlit room.
+export const OVERTURE_LINES = [
+  {
+    id: "ghost-1",
+    content: "The bell above the harbor rang nine times, and the ninth was not the bell.",
+    gilded: true,
+    sessionTitle: "session i",
+  },
+  {
+    id: "ghost-2",
+    content: "Lyra kept her hand on the rail and her eyes on the thing wearing the ferryman's coat.",
+    gilded: false,
+    sessionTitle: "session i",
+  },
+  {
+    id: "ghost-3",
+    content: "“We don't bury anything here,” the Gravekeeper said. “We introduce it to the ground.”",
+    gilded: true,
+    sessionTitle: "session i",
+  },
+  {
+    id: "ghost-4",
+    content: "Kaelen counted the coins twice. The second count came up different.",
+    gilded: false,
+    sessionTitle: "session i",
+  },
+];
+
+// The question waiting on the unlit page (warm-up, one answer already in).
+export const LOBBY_QUESTION = {
+  prompt: "what did your character dream last night?",
+  answers: [
+    {
+      id: "wa-1",
+      userId: "user-lyra",
+      content: "Of a door underwater, and someone knocking from the other side.",
+    },
+  ],
+};
+
+// Slips the audience pinned at the rim before the light.
+export const LOBBY_WAGERS = [
+  { id: "w-1", content: "Someone lies to the ferryman.", holdCount: 6 },
+  { id: "w-2", content: "The Gravekeeper knows Lyra's name.", holdCount: 3 },
+  { id: "w-3", content: "Nobody opens the vault tonight.", holdCount: 1 },
+];

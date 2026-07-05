@@ -35,6 +35,9 @@ export interface CampaignSession {
   actingGmId: string | null;
   takeoverProposerId: string | null;
   status: string;
+  /** When the Director sent the one-shot "the table is gathering" word
+   *  (ISO string). Null until sent; drives the lobby button's spent state. */
+  gatheringCalledAt?: string | null;
 }
 
 export interface RollRequest {
@@ -92,7 +95,11 @@ export interface SessionRosterEntry {
 // votes, the GM canonizes. (Legacy rows may carry "gm_pick"/"house_fork"
 // modes.) Mode "stranger" is the house's ballot: Director-framed deeds for
 // the audience-played Stranger, chosen by audience pulse alone.
-export type FloorRoundMode = "vote" | "stranger";
+// Lobby modes live only on draft sessions: "warmup" (the Director's
+// question, answered in a line of your ink; one lifted answer may open the
+// story) and "temperature" (2–4 options, the room leans; non-binding
+// forever, prints nothing — closed by the begin transaction).
+export type FloorRoundMode = "vote" | "stranger" | "warmup" | "temperature";
 export type FloorRoundStatus = "open" | "voting" | "closed" | "resolved" | "cancelled";
 
 export interface FloorSubmission {
