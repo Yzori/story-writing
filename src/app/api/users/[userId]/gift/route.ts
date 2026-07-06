@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
+import { CREATOR_SHARE } from "@/lib/constants";
 
 type RouteParams = { params: Promise<{ userId: string }> };
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const giverId = session.user.id;
-    const creatorShare = Math.floor(amount * 0.7);
+    const creatorShare = Math.floor(amount * CREATOR_SHARE);
 
     // Atomic: debit giver, credit writer, log
     const result = await db.transaction(async (tx) => {

@@ -4,12 +4,12 @@ import {
   stories,
   users,
   storyDonations,
-  inkDropTransactions,
 } from "@/server/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
+import { distributeEarnings } from "@/server/services/ink-drops";
 
 const PRESET_AMOUNTS = [10, 25, 50, 100, 250];
 
@@ -122,9 +122,8 @@ export async function POST(
     }
 
     const userId = session.user.id;
-    const creatorShare = Math.floor(amount * 0.7);
 
-    // Atomic: debit donor, credit creator, log
+    // Atomic: debit donor, pay out to the maker(s), log
     const result = await db.transaction(async (tx) => {
       const [donor] = await tx.execute(
         sql`SELECT ink_drop_balance FROM users WHERE id = ${userId} FOR UPDATE`
@@ -140,16 +139,13 @@ export async function POST(
         sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${amount} WHERE id = ${userId}`
       );
 
-      // Credit creator (70%)
-      await tx.execute(
-        sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${story.userId}`
-      );
-
-      // Log transaction
-      await tx.insert(inkDropTransactions).values({
+      // Pay out — honors the story's signed agreement splits if one is active,
+      // else all to the owner. Credits balances and logs the ledger rows.
+      await distributeEarnings(tx, {
+        storyId,
+        ownerId: story.userId,
         fromUserId: userId,
-        toUserId: story.userId,
-        amount,
+        gross: amount,
         type: "donation",
         message: message || `Donation for "${story.title}"`,
       });

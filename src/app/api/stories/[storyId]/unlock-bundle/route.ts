@@ -4,13 +4,13 @@ import {
   chapters,
   stories,
   contentUnlocks,
-  inkDropTransactions,
   users,
 } from "@/server/db/schema";
 import { eq, and, sql, ne, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
+import { distributeEarnings } from "@/server/services/ink-drops";
 
 // GET — calculate bundle price for a story
 export async function GET(
@@ -175,7 +175,7 @@ export async function POST(
       (sum, c) => sum + (TIER_PRICES[c.gatingTier] ?? 0),
       0
     );
-    const bundlePrice = Math.floor(fullPrice * 0.7);
+    const bundlePrice = Math.floor(fullPrice * 0.7); // 30% discount (not the creator share)
 
     // Atomic transaction
     const result = await db.transaction(async (tx) => {
@@ -196,18 +196,13 @@ export async function POST(
         .set({ inkDropBalance: sql`${users.inkDropBalance} - ${bundlePrice}` })
         .where(eq(users.id, userId));
 
-      // Credit creator (70%)
-      const creatorShare = Math.floor(bundlePrice * 0.7);
-      await tx
-        .update(users)
-        .set({ inkDropBalance: sql`${users.inkDropBalance} + ${creatorShare}` })
-        .where(eq(users.id, story.userId));
-
-      // Log transaction
-      await tx.insert(inkDropTransactions).values({
+      // Pay out — honors the story's signed agreement splits if one is active,
+      // else all to the owner. (bundlePrice already carries the 30% discount.)
+      await distributeEarnings(tx, {
+        storyId,
+        ownerId: story.userId,
         fromUserId: userId,
-        toUserId: story.userId,
-        amount: bundlePrice,
+        gross: bundlePrice,
         type: "unlock",
         message: `Bundle unlock (${toUnlock.length} chapters, 30% discount)`,
       });

@@ -4,13 +4,11 @@ import {
   crossroads,
   crossroadsVotes,
   stories,
-  users,
-  inkDropTransactions,
 } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
-import { createNotification } from "@/server/services/notifications";
+import { distributeEarnings } from "@/server/services/ink-drops";
 
 // POST — vote on a crossroad (spend drops)
 export async function POST(
@@ -91,7 +89,6 @@ export async function POST(
     }
 
     const userId = session.user.id;
-    const creatorShare = Math.floor(amount * 0.7);
 
     // Get story owner for payout
     const [story] = await db
@@ -122,16 +119,13 @@ export async function POST(
         sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${amount} WHERE id = ${userId}`
       );
 
-      // Credit creator (70%)
-      await tx.execute(
-        sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${story.userId}`
-      );
-
-      // Log transaction
-      await tx.insert(inkDropTransactions).values({
+      // Pay out — honors the story's signed agreement splits if one is active,
+      // else all to the owner. Credits balances and logs the ledger rows.
+      await distributeEarnings(tx, {
+        storyId,
+        ownerId: story.userId,
         fromUserId: userId,
-        toUserId: story.userId,
-        amount,
+        gross: amount,
         type: "crossroads",
         message: `Crossroad vote: "${options[optionIndex].label}"`,
       });

@@ -4,13 +4,13 @@ import {
   chapters,
   stories,
   contentUnlocks,
-  inkDropTransactions,
   users,
 } from "@/server/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
+import { distributeEarnings } from "@/server/services/ink-drops";
 
 // GET — check if chapter is unlocked for current user + gating info
 export async function GET(
@@ -220,18 +220,13 @@ export async function POST(
         .set({ inkDropBalance: sql`${users.inkDropBalance} - ${price}` })
         .where(eq(users.id, userId));
 
-      // Credit creator (70%)
-      const creatorShare = Math.floor(price * 0.7);
-      await tx
-        .update(users)
-        .set({ inkDropBalance: sql`${users.inkDropBalance} + ${creatorShare}` })
-        .where(eq(users.id, story.userId));
-
-      // Log transaction
-      await tx.insert(inkDropTransactions).values({
+      // Pay out — honors the story's signed agreement splits if one is active,
+      // else all to the owner. Credits balances and logs the ledger rows.
+      await distributeEarnings(tx, {
+        storyId,
+        ownerId: story.userId,
         fromUserId: userId,
-        toUserId: story.userId,
-        amount: price,
+        gross: price,
         type: "unlock",
         message: `Chapter unlock (${chapter.gatingTier})`,
       });

@@ -4,7 +4,7 @@ import { stories, chapters, contentUnlocks } from "@/server/db/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
-import { TIER_PRICES } from "@/lib/constants";
+import { TIER_PRICES, CREATOR_SHARE } from "@/lib/constants";
 
 // GET — get story monetization settings + chapter gating overview
 export async function GET(
@@ -75,7 +75,7 @@ export async function GET(
       stats: {
         totalUnlocks: Number(stats?.totalUnlocks ?? 0),
         totalDrops: Number(stats?.totalDrops ?? 0),
-        creatorRevenue: Math.floor(Number(stats?.totalDrops ?? 0) * 0.7),
+        creatorRevenue: Math.floor(Number(stats?.totalDrops ?? 0) * CREATOR_SHARE),
       },
     });
   } catch (error) {

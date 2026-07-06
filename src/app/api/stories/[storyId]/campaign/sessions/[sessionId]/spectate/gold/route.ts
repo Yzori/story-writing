@@ -6,7 +6,6 @@ import {
   campaignTurns,
   campaignGold,
   playerCharacters,
-  inkDropTransactions,
   users,
 } from "@/server/db/schema";
 import { eq, and, gt, isNull, isNotNull, sql } from "drizzle-orm";
@@ -15,6 +14,7 @@ import { houseGoldSchema } from "@/lib/validations";
 import { isStoryTurnType } from "@/lib/campaign-turns";
 import { auth } from "@/server/auth";
 import { createNotification } from "@/server/services/notifications";
+import { distributeEarnings } from "@/server/services/ink-drops";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -129,16 +129,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Even split of the gross gesture, remainder to the Director; each share
-    // is then paid out at the same rate every other earning uses, so the
-    // earnings ledger reads gold rows exactly like tips and gifts.
-    const base = Math.floor(amount / recipients.length);
-    const remainder = amount - base * recipients.length;
-    const shares = recipients.map((userId) => ({
-      userId,
-      gross: base + (userId === story.userId ? remainder : 0),
-    }));
-
     const result = await db.transaction(async (tx) => {
       const [sender] = await tx
         .select({ inkDropBalance: users.inkDropBalance })
@@ -155,24 +145,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .set({ inkDropBalance: sql`${users.inkDropBalance} - ${amount}` })
         .where(eq(users.id, session.user.id));
 
-      for (const share of shares) {
-        if (share.gross <= 0) continue;
-        const credited = Math.floor(share.gross * 0.7);
-        if (credited > 0) {
-          await tx
-            .update(users)
-            .set({ inkDropBalance: sql`${users.inkDropBalance} + ${credited}` })
-            .where(eq(users.id, share.userId));
-        }
-        await tx.insert(inkDropTransactions).values({
-          fromUserId: session.user.id,
-          toUserId: share.userId,
-          sessionId,
-          amount: share.gross,
-          type: "gold",
-          message: turnId ? "a line set in gold" : null,
-        });
-      }
+      // Gold honors the story's signed agreement when one is active; with no
+      // agreement it falls back to an even split across the cast (remainder to
+      // the Director). Either way each share pays out at the standard rate, so
+      // the earnings ledger reads gold rows exactly like tips and gifts.
+      const { shares } = await distributeEarnings(tx, {
+        storyId,
+        ownerId: story.userId,
+        fromUserId: session.user.id,
+        gross: amount,
+        type: "gold",
+        message: turnId ? "a line set in gold" : null,
+        sessionId,
+        fallbackRecipients: recipients,
+      });
 
       const [gold] = await tx
         .insert(campaignGold)
@@ -190,7 +176,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .from(users)
         .where(eq(users.id, session.user.id));
 
-      return { newBalance: updated.inkDropBalance, goldId: gold.id };
+      return { newBalance: updated.inkDropBalance, goldId: gold.id, shares };
     });
 
     if ("error" in result) {
@@ -202,15 +188,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Fire-and-forget: the cast learns the house left gold. No sender name —
     // gold from the dark is anonymous light.
-    for (const share of shares) {
-      const credited = Math.floor(share.gross * 0.7);
-      if (credited <= 0) continue;
+    for (const share of result.shares) {
+      if (share.credited <= 0) continue;
       createNotification(
         share.userId,
         "tip",
         turnId
-          ? `The audience set a line in gold in "${campaignSession.title}" — ${credited} Ink Drops to you`
-          : `The audience left gold at the table in "${campaignSession.title}" — ${credited} Ink Drops to you`,
+          ? `The audience set a line in gold in "${campaignSession.title}" — ${share.credited} Ink Drops to you`
+          : `The audience left gold at the table in "${campaignSession.title}" — ${share.credited} Ink Drops to you`,
         `/campaign/${storyId}/watch/${sessionId}`
       );
     }

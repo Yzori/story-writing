@@ -12,6 +12,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
+import { CREATOR_SHARE } from "@/lib/constants";
 
 // GET — get commission details + messages
 export async function GET(
@@ -264,7 +265,7 @@ export async function PATCH(
         }
 
         const payout = commission.agreedPrice!;
-        const creatorShare = Math.floor(payout * 0.7);
+        const creatorShare = Math.floor(payout * CREATOR_SHARE);
 
         const result = await db.transaction(async (tx) => {
           const [completed] = await tx.update(commissions).set({

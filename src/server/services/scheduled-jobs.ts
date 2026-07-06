@@ -12,6 +12,7 @@ import {
 import { eq, and, lte, sql, isNull, inArray, gte, or } from "drizzle-orm";
 import { createNotification } from "./notifications";
 import { sendEmail, digestEmail, type DigestItem } from "./email";
+import { CREATOR_SHARE } from "@/lib/constants";
 
 /**
  * Process Circle subscription renewals.
@@ -43,7 +44,7 @@ export async function processCircleRenewals(): Promise<{
     for (const sub of dueSubs) {
       try {
         const price = sub.priceAtSubscription;
-        const creatorShare = Math.floor(price * 0.7);
+        const creatorShare = Math.floor(price * CREATOR_SHARE);
 
         const result = await db.transaction(async (tx) => {
           // Lock reader row and check balance
@@ -156,7 +157,7 @@ export async function processCommissionAutoComplete(): Promise<{
         if (!commission.agreedPrice) continue;
 
         const payout = commission.agreedPrice;
-        const creatorShare = Math.floor(payout * 0.7);
+        const creatorShare = Math.floor(payout * CREATOR_SHARE);
 
         await db.transaction(async (tx) => {
           // Release vault to artisan (70%)

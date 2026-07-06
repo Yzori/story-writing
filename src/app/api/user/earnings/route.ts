@@ -4,9 +4,10 @@ import { inkDropTransactions, users } from "@/server/db/schema";
 import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { CREATOR_SHARE } from "@/lib/constants";
 
 const EARNING_TYPES = ["tip", "unlock", "circle", "commission", "donation", "crossroads", "gold"];
-const CREATOR_SHARE_SQL = sql<number>`floor(${inkDropTransactions.amount} * 0.7)`;
+const CREATOR_SHARE_SQL = sql<number>`floor(${inkDropTransactions.amount} * ${CREATOR_SHARE})`;
 
 /**
  * GET /api/user/earnings
@@ -143,7 +144,7 @@ export async function GET(request: NextRequest) {
       recentTips: recentTips.map((t) => ({
         id: t.id,
         from: t.fromDisplayName || t.fromName || "Anonymous",
-        amount: Math.floor(t.amount * 0.7),
+        amount: Math.floor(t.amount * CREATOR_SHARE),
         grossAmount: t.amount,
         message: t.message,
         type: t.type,

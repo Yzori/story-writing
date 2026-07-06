@@ -10,6 +10,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
+import { CREATOR_SHARE } from "@/lib/constants";
 
 // POST — subscribe to a creator's circle
 export async function POST(
@@ -92,7 +93,7 @@ export async function POST(
       );
 
       // Credit creator (70% — platform takes 30%)
-      const creatorShare = Math.floor(price * 0.7);
+      const creatorShare = Math.floor(price * CREATOR_SHARE);
       await tx.execute(
         sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${creatorId}`
       );

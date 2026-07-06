@@ -12,6 +12,13 @@ export function dropsToUsd(drops: number): string {
   return (drops * DROPS_TO_USD).toFixed(2);
 }
 
+// ── Creator revenue share ───────────────────────────────────
+// The platform keeps 1 - CREATOR_SHARE; the maker(s) keep this fraction of
+// every gross payment (unlocks, donations, gold, subscriptions, …). Single
+// source of truth — every payout site and the earnings report must use it.
+
+export const CREATOR_SHARE = 0.7;
+
 // ── Chapter gating tier prices (in Ink Drops) ───────────────
 
 export const TIER_PRICES: Record<string, number> = {
