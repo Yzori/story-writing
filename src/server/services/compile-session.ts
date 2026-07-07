@@ -230,6 +230,24 @@ function groupAuthorAttrs(
 
 const CODA_HR = `<hr style="border-color:rgba(243,180,97,0.18); margin-top:2em">`;
 
+// The byline — a designed chapter opening. Sits above the opening line, in the
+// body itself so it survives export and sharing (the title is the chapter's
+// own; this names the hands). Humans, not characters — "by the table".
+function renderByline(contributors: CompileContributor[] | undefined): string {
+  if (!contributors || contributors.length === 0) return "";
+  const names = contributors.map((c) => c.displayName);
+  let who: string;
+  if (names.length === 1) {
+    who = esc(names[0]);
+  } else if (names.length === 2) {
+    who = `the table — ${esc(names[0])} and ${esc(names[1])}`;
+  } else {
+    const last = names[names.length - 1];
+    who = `the table — ${names.slice(0, -1).map(esc).join(", ")}, and ${esc(last)}`;
+  }
+  return `<p style="text-align:center; font-style:italic; opacity:0.75; margin-bottom:1.5em">by ${who}</p>`;
+}
+
 function renderColophon(
   contributors: CompileContributor[] | undefined,
   split: CompileSplit | null | undefined
@@ -279,6 +297,10 @@ export function compileSessionToHTML(options: CompileOptions): string {
   const { sessionOpening, turns, marks = [], contributors, split, gmUserId } = options;
   const gilded = new Set(options.gildedTurnIds ?? []);
   const parts: string[] = [];
+
+  // Byline first — the designed opening, the hands named up top.
+  const byline = renderByline(contributors);
+  if (byline) parts.push(byline);
 
   // Opening narration as a blockquote — the Director's hand.
   if (sessionOpening) {

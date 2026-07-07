@@ -151,3 +151,50 @@ describe("colophon", () => {
     expect(html).not.toContain("The hands that made this");
   });
 });
+
+describe("byline (slice E)", () => {
+  it("names the table up top, humans not characters", () => {
+    const html = compileSessionToHTML({
+      sessionTitle: "T",
+      sessionOpening: "It begins.",
+      gmUserId: GM,
+      turns: [turn({ userId: GM, content: "x" })],
+      contributors,
+    });
+    expect(html).toContain("by the table — Aldric, Mara, and Jai");
+    // Byline comes before the opening blockquote.
+    expect(html.indexOf("by the table")).toBeLessThan(html.indexOf("<blockquote"));
+  });
+
+  it("reads naturally with two hands", () => {
+    const html = compileSessionToHTML({
+      sessionTitle: "T",
+      sessionOpening: null,
+      gmUserId: GM,
+      turns: [turn({ userId: GM, content: "x" })],
+      contributors: contributors.slice(0, 2),
+    });
+    expect(html).toContain("by the table — Aldric and Mara");
+  });
+
+  it("credits a solo author plainly", () => {
+    const html = compileSessionToHTML({
+      sessionTitle: "T",
+      sessionOpening: null,
+      gmUserId: GM,
+      turns: [turn({ userId: GM, content: "x" })],
+      contributors: contributors.slice(0, 1),
+    });
+    expect(html).toContain("by Aldric");
+    expect(html).not.toContain("the table");
+  });
+
+  it("has no byline without contributors", () => {
+    const html = compileSessionToHTML({
+      sessionTitle: "T",
+      sessionOpening: "It begins.",
+      turns: [turn({ userId: GM, content: "x" })],
+    });
+    expect(html).not.toMatch(/>by /);
+  });
+});
