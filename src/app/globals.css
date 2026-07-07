@@ -934,6 +934,35 @@ body::after {
 
 .typography-line-compact.tiptap-editor p,
 .typography-line-compact .tiptap-editor p,
+/* "Show the hands" — the co-author reveal (compile spec slice C). Tints each
+   authored block by its hand and labels it. Off unless the reader opts in;
+   --hand is set per block by CoAuthorReveal. */
+body.reveal-hands [data-author-name] {
+  box-shadow: inset 3px 0 0 var(--hand, var(--border));
+  padding-left: 1.1rem;
+  border-radius: 2px;
+}
+body.reveal-hands [data-author-name]::before {
+  content: attr(data-author-name);
+  display: block;
+  font-family: ui-monospace, "IBM Plex Mono", monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hand);
+  opacity: 0.75;
+  margin-bottom: 0.2rem;
+}
+/* A continued hand keeps its colored border but drops the repeated label. */
+body.reveal-hands [data-author-name].same-hand::before {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  body.reveal-hands [data-author-name] {
+    transition: box-shadow 0.25s ease, padding 0.25s ease;
+  }
+}
+
 .novel-reader.typography-line-compact {
   line-height: 1.6;
 }

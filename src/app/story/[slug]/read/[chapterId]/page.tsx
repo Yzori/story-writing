@@ -18,6 +18,7 @@ import IllustratedReader from "@/components/reader/IllustratedReader";
 import SceneClip from "@/components/reader/SceneClip";
 import ClipSelectionFAB from "@/components/reader/ClipSelectionFAB";
 import ChapterLockScreen from "@/components/reader/ChapterLockScreen";
+import CoAuthorReveal from "@/components/reader/CoAuthorReveal";
 import SupportFooter from "@/components/story/SupportFooter";
 import KeepYourPlaceCard from "@/components/reader/KeepYourPlaceCard";
 import { saveAnonPlace, readAnonPlace } from "@/lib/anon-reader";
@@ -515,6 +516,9 @@ export default function ChapterReadPage() {
 
   return (
     <div className="min-h-screen w-screen flex flex-col bg-void relative">
+      {storyFormat === "novel" && activeChapter && (
+        <CoAuthorReveal chapterId={chapterId} />
+      )}
       <div className="h-screen w-screen flex flex-col overflow-hidden relative flex-shrink-0">
         <ReaderToolbar
           storyTitle={storyTitle}
