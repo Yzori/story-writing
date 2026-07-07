@@ -145,6 +145,17 @@ describe("summarizeSession", () => {
     expect(r.trailingSilenceMs).toBe(20 * 60_000);
   });
 
+  it("counts table-voice passages for the book-voice heads-up", () => {
+    const turns = [
+      turn(GM, 0, "narration", "The bell tolls beneath you.", null), // table-voice
+      turn(P1, 1, "action", "Vael leans over the water.", "Vael"), // player, clean
+      turn(GM, 2, "narration", "Corvin tears his hand back.", null), // clean narration
+      turn(GM, 3, "consequence", "The cold climbs your wrist.", null), // table-voice
+    ];
+    const r = summarizeSession(makeSession(), GM, turns);
+    expect(r.tableVoicePassages).toBe(2);
+  });
+
   it("clamps out-of-order same-instant inserts to a non-negative gap", () => {
     // A resolution can append a record line and a passage at the same instant,
     // occasionally out of clock order. Must not produce a negative gap.

@@ -138,6 +138,18 @@ function Readout({ r }: { r: SessionReadout }) {
         </p>
       )}
 
+      {/* A book-voice heads-up — detection only; the author holds the pen. */}
+      {r.tableVoicePassages > 0 && (
+        <p className="mt-8 rounded-xl border border-amber/20 bg-amber/[0.04] px-4 py-3 text-sm text-text-secondary">
+          <span className="font-medium text-amber">Before you publish:</span>{" "}
+          {r.tableVoicePassages}{" "}
+          {r.tableVoicePassages === 1 ? "passage addresses" : "passages address"}{" "}
+          the table as &ldquo;you.&rdquo; That reads at the table, but a reader
+          meets the book later — you may want to smooth those into narration in
+          the draft.
+        </p>
+      )}
+
       {/* Who carried it, who went quiet. */}
       <h2 className="mb-3 mt-8 text-sm uppercase tracking-wide text-text-ghost">
         The table

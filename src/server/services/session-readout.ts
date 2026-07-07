@@ -4,6 +4,7 @@ import { campaignTurns, playerCharacters } from "@/server/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { countWords } from "@/lib/utils";
 import { isStoryTurnType, isLogTurnType } from "@/lib/campaign-turns";
+import { countTableVoicePassages } from "@/lib/table-voice";
 
 /**
  * Post-session readout — the playtest instrument.
@@ -85,6 +86,9 @@ export type SessionReadout = {
   stallCount: number;
   stalls: ReadoutStall[];
   authors: ReadoutAuthor[];
+  // Narration passages that address the table as "you" — table-voice a reader
+  // trips on. A book-voice heads-up for the human, never an auto-fix.
+  tableVoicePassages: number;
 };
 
 type SessionShape = {
@@ -233,6 +237,7 @@ export function summarizeSession(
     stallCount: stalls.length,
     stalls: stalls.slice(0, TOP_STALLS),
     authors,
+    tableVoicePassages: countTableVoicePassages(turns),
   };
 }
 

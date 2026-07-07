@@ -66,6 +66,29 @@ export default function Quill({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Once, for the Director: the convention that keeps table-voice out of the
+  // book. Prevention at the source — the compiled draft still flags any that
+  // slip through (the readout's book-voice heads-up). No AI, just a reminder.
+  const [showBookVoiceTip, setShowBookVoiceTip] = useState(false);
+  useEffect(() => {
+    if (!isGM || typeof window === "undefined") return;
+    try {
+      if (!window.localStorage.getItem("quiloria:book-voice-tip")) {
+        setShowBookVoiceTip(true);
+      }
+    } catch {
+      /* private mode — just skip the tip */
+    }
+  }, [isGM]);
+  const dismissBookVoiceTip = () => {
+    setShowBookVoiceTip(false);
+    try {
+      window.localStorage.setItem("quiloria:book-voice-tip", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   // Auto-grow with the ink.
   useEffect(() => {
     const el = textareaRef.current;
@@ -172,6 +195,23 @@ export default function Quill({
 
   return (
     <div className="relative" data-turn-id="the-quill" ref={rootRef}>
+      {isGM && showBookVoiceTip && (
+        <p className="mb-3 flex items-start gap-2 rounded-lg border border-border/50 bg-elevated/40 px-3 py-2 text-[13px] leading-snug text-text-secondary">
+          <span>
+            You&rsquo;re writing a book as you go — describe the scene for a
+            reader. &ldquo;The door opens on them,&rdquo; not &ldquo;on
+            you.&rdquo;
+          </span>
+          <button
+            type="button"
+            onClick={dismissBookVoiceTip}
+            className="ml-auto shrink-0 cursor-pointer text-lg leading-none text-text-ghost hover:text-text-secondary"
+            aria-label="Dismiss tip"
+          >
+            &times;
+          </button>
+        </p>
+      )}
       <div className="font-reading text-[16px] leading-[1.85] sm:text-[17px]">
         {leadIn && (
           <span className="font-semibold" style={{ color: ink }}>
