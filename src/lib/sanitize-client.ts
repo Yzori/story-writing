@@ -18,6 +18,7 @@ const ALLOWED_ATTR = [
   "data-scene-break", "data-scene-break-style", "data-scene-break-label",
   "data-story-moment", "data-mood",
   "data-gilded",
+  "data-author", "data-author-name",
   "src", "alt", "width", "height", "loading",
   "id",
 ];

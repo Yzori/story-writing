@@ -24,6 +24,25 @@ export interface CompileMark {
   text: string;
 }
 
+/** One hand that made the book — for the colophon and the block stamps. */
+export interface CompileContributor {
+  userId: string;
+  /** In-book identity: a character's name, or "the Director". */
+  role: string;
+  /** The human behind it. */
+  displayName: string;
+  /** Words this hand contributed (story turns only). */
+  words: number;
+  isDirector: boolean;
+}
+
+/** How the take is split — the same resolution distributeEarnings pays from. */
+export interface CompileSplit {
+  shares: { userId: string; percent: number }[];
+  usedAgreement: boolean;
+  ownerId: string;
+}
+
 export interface CompileOptions {
   sessionTitle: string;
   sessionOpening: string | null;
@@ -36,6 +55,15 @@ export interface CompileOptions {
    * published chapter — the paid applause outlives the session.
    */
   gildedTurnIds?: string[];
+  /**
+   * The hands that made this — drives the block provenance stamps and the
+   * colophon. When present, the book knows (and shows) it was co-authored.
+   */
+  contributors?: CompileContributor[];
+  /** How earnings split — shown in the colophon beside the contributions. */
+  split?: CompileSplit | null;
+  /** The running GM's userId, for stamping narration blocks as the Director. */
+  gmUserId?: string | null;
 }
 
 // ── Dialogue verb cycle ──────────────────────────────────────
@@ -60,8 +88,11 @@ function shouldMerge(prev: CompileTurn, next: CompileTurn): boolean {
     playerProseTypes.includes(next.type)
   )
     return true;
-  // Description merges into preceding narration
-  if (gmTypes.includes(prev.type) && next.type === "description") return true;
+  // Description merges into preceding narration — but only the same author's,
+  // so every compiled paragraph stays single-author (the invariant the
+  // provenance stamp relies on). A player's description starts its own block.
+  if (gmTypes.includes(prev.type) && next.type === "description" && prev.userId === next.userId)
+    return true;
   // Reaction merges only with same character's preceding turn
   if (
     next.type === "reaction" &&
@@ -176,6 +207,60 @@ const MARK_PHRASE: Record<CompileMark["kind"], (name: string, text: string) => s
   memory: (name, text) => `${name} kept that moment — ${text}`,
 };
 
+// ── Provenance ───────────────────────────────────────────────
+
+// Every compiled paragraph is single-author (shouldMerge only groups a hand
+// with itself), so a block wears exactly one author. Stamp it, invisibly, so
+// the book stays machine-readable about who wrote what.
+function authorAttrs(userId: string, name: string): string {
+  return ` data-author="${esc(userId)}" data-author-name="${esc(name)}"`;
+}
+
+function groupAuthorAttrs(
+  group: CompileTurn[],
+  gmUserId: string | null | undefined
+): string {
+  const t = group[0];
+  const name =
+    t.characterName ?? (gmUserId && t.userId === gmUserId ? "the Director" : "a writer");
+  return authorAttrs(t.userId, name);
+}
+
+// ── The colophon — the hands that made this, and how the take splits ──
+
+const CODA_HR = `<hr style="border-color:rgba(243,180,97,0.18); margin-top:2em">`;
+
+function renderColophon(
+  contributors: CompileContributor[] | undefined,
+  split: CompileSplit | null | undefined
+): string {
+  if (!contributors || contributors.length === 0) return "";
+
+  const nameFor = (userId: string) =>
+    contributors.find((c) => c.userId === userId)?.displayName ?? "a writer";
+
+  const lines = contributors.map((c) => {
+    const words = `${c.words.toLocaleString()} ${c.words === 1 ? "word" : "words"}`;
+    return `<p style="text-align:center; margin:0.15em 0"><em>${esc(c.role)}</em> — <strong>${esc(c.displayName)}</strong> · ${words}</p>`;
+  });
+
+  let splitLine = "";
+  if (split && split.shares.length > 0) {
+    if (split.usedAgreement) {
+      const parts = split.shares
+        .filter((s) => s.percent > 0)
+        .map((s) => `${esc(nameFor(s.userId))} ${Math.round(s.percent)}%`);
+      splitLine = `<p style="text-align:center; font-size:0.9em; margin-top:0.7em"><em>The take is split as signed — ${parts.join(" · ")}.</em></p>`;
+    } else if (split.shares.length > 1) {
+      splitLine = `<p style="text-align:center; font-size:0.9em; margin-top:0.7em"><em>No split was signed — the take is shared evenly among the table.</em></p>`;
+    } else {
+      splitLine = `<p style="text-align:center; font-size:0.9em; margin-top:0.7em"><em>No split was signed — the take goes to ${esc(nameFor(split.ownerId))}.</em></p>`;
+    }
+  }
+
+  return `${CODA_HR}\n<p style="text-align:center"><strong>The hands that made this</strong></p>\n${lines.join("\n")}\n${splitLine}`;
+}
+
 function renderMarksCoda(marks: CompileMark[]): string {
   if (marks.length === 0) return "";
   const lines = marks
@@ -191,13 +276,14 @@ function renderMarksCoda(marks: CompileMark[]): string {
 }
 
 export function compileSessionToHTML(options: CompileOptions): string {
-  const { sessionOpening, turns, marks = [] } = options;
+  const { sessionOpening, turns, marks = [], contributors, split, gmUserId } = options;
   const gilded = new Set(options.gildedTurnIds ?? []);
   const parts: string[] = [];
 
-  // Opening narration as a blockquote
+  // Opening narration as a blockquote — the Director's hand.
   if (sessionOpening) {
-    parts.push(`<blockquote><em>${esc(sessionOpening)}</em></blockquote>`);
+    const openAttrs = gmUserId ? authorAttrs(gmUserId, "the Director") : "";
+    parts.push(`<blockquote${openAttrs}><em>${esc(sessionOpening)}</em></blockquote>`);
   }
 
   // Filter out non-story turns, plus the activation-inserted opening turn
@@ -213,6 +299,8 @@ export function compileSessionToHTML(options: CompileOptions): string {
   const paragraphs = groupIntoParagraphs(storyTurns);
 
   for (const group of paragraphs) {
+    const stamp = groupAuthorAttrs(group, gmUserId);
+
     // Scene-break turns render as an HR with optional title
     if (group[0].type === "scene-break") {
       const meta = parseSceneBreakMetadata(group[0].metadata);
@@ -221,14 +309,14 @@ export function compileSessionToHTML(options: CompileOptions): string {
       if (meta?.cinematic) {
         const text = group[0].content || title;
         if (text) {
-          parts.push(`<p style="text-align:center"><em>${esc(text)}</em></p>`);
+          parts.push(`<p style="text-align:center"${stamp}><em>${esc(text)}</em></p>`);
         }
         continue;
       }
 
       if (title) {
         parts.push(
-          `<p style="text-align:center"><em>\u2014 ${esc(title)} \u2014</em></p><hr>`
+          `<p style="text-align:center"${stamp}><em>\u2014 ${esc(title)} \u2014</em></p><hr>`
         );
       } else {
         parts.push("<hr>");
@@ -243,7 +331,7 @@ export function compileSessionToHTML(options: CompileOptions): string {
         ? "font-size:1.15em; font-weight:600"
         : "";
       parts.push(
-        `<div class="story-moment" data-story-moment="true" data-mood="${esc(meta?.mood ?? "ominous")}"><p style="text-align:center; ${majorStyle}"><em>${esc(group[0].content)}</em></p>${subtext ? `<p style="text-align:center"><span style="font-size:0.88em"><em>${esc(subtext)}</em></span></p>` : ""}</div>`
+        `<div class="story-moment" data-story-moment="true" data-mood="${esc(meta?.mood ?? "ominous")}"${stamp}><p style="text-align:center; ${majorStyle}"><em>${esc(group[0].content)}</em></p>${subtext ? `<p style="text-align:center"><span style="font-size:0.88em"><em>${esc(subtext)}</em></span></p>` : ""}</div>`
       );
       continue;
     }
@@ -259,7 +347,7 @@ export function compileSessionToHTML(options: CompileOptions): string {
           ? `<figcaption><em>${esc(caption)}</em></figcaption>`
           : "";
         parts.push(
-          `<figure><img src="${esc(imageUrl)}" alt="${esc(caption || "Illustration")}" style="max-width:100%;border-radius:12px" />${figcaption}</figure>`
+          `<figure${stamp}><img src="${esc(imageUrl)}" alt="${esc(caption || "Illustration")}" style="max-width:100%;border-radius:12px" />${figcaption}</figure>`
         );
       }
       continue;
@@ -267,7 +355,7 @@ export function compileSessionToHTML(options: CompileOptions): string {
 
     // Normal paragraph: assemble turn fragments. A gilded turn's fragment
     // keeps its gold leaf ([data-gilded] styling in globals.css).
-    let html = "<p>";
+    let html = `<p${stamp}>`;
     for (let ti = 0; ti < group.length; ti++) {
       const fragment = renderTurn(group[ti], ti, group);
       html += gilded.has(group[ti].id)
@@ -281,6 +369,10 @@ export function compileSessionToHTML(options: CompileOptions): string {
 
   const coda = renderMarksCoda(marks);
   if (coda) parts.push(coda);
+
+  // The colophon last: the hands that made this, and how the take splits.
+  const colophon = renderColophon(contributors, split);
+  if (colophon) parts.push(colophon);
 
   return parts.join("\n");
 }

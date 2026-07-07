@@ -2,16 +2,113 @@ import "server-only";
 import { db } from "@/server/db";
 import {
   chapters,
+  stories,
+  users,
+  agreements,
   campaignSessions,
   campaignTurns,
   campaignGold,
   characterMarks,
   playerCharacters,
 } from "@/server/db/schema";
-import { eq, and, asc, isNull, isNotNull, sql } from "drizzle-orm";
-import { compileSessionToHTML } from "@/server/services/compile-session";
+import { eq, and, asc, desc, inArray, isNull, isNotNull, sql } from "drizzle-orm";
+import {
+  compileSessionToHTML,
+  type CompileContributor,
+  type CompileSplit,
+} from "@/server/services/compile-session";
+import { resolveSplitRecipients } from "@/server/services/ink-drops";
 import { countWords } from "@/lib/utils";
 import { isStoryTurnType } from "@/lib/campaign-turns";
+import { safeParseJson } from "@/lib/safe-json";
+
+type ColophonTurn = { userId: string; type: string; content: string; characterName: string | null };
+
+/**
+ * Build the colophon data — the hands that made the book and how the take
+ * splits. Word counts come from story turns; display names from users; the
+ * split is resolved the SAME way distributeEarnings pays it (via the shared
+ * resolveSplitRecipients), so the receipt on the page can't drift from the pay.
+ */
+async function buildColophon(
+  storyId: string,
+  session: typeof campaignSessions.$inferSelect,
+  turns: ColophonTurn[]
+): Promise<{ contributors: CompileContributor[]; split: CompileSplit | null; gmUserId: string }> {
+  const [story] = await db
+    .select({ ownerId: stories.userId })
+    .from(stories)
+    .where(eq(stories.id, storyId))
+    .limit(1);
+  const ownerId = story?.ownerId ?? session.storyId;
+  const gmUserId = session.actingGmId ?? ownerId;
+
+  // Words + character per author, over story turns only.
+  const byUser = new Map<string, { words: number; characterName: string | null }>();
+  for (const t of turns) {
+    if (!isStoryTurnType(t.type)) continue;
+    const cur = byUser.get(t.userId) ?? { words: 0, characterName: null };
+    cur.words += countWords(t.content);
+    if (!cur.characterName && t.characterName) cur.characterName = t.characterName;
+    byUser.set(t.userId, cur);
+  }
+
+  const userIds = [...byUser.keys()];
+  const nameRows = userIds.length
+    ? await db
+        .select({ id: users.id, name: users.name, displayName: users.displayName })
+        .from(users)
+        .where(inArray(users.id, userIds))
+    : [];
+  const displayNameOf = (userId: string) => {
+    const r = nameRows.find((n) => n.id === userId);
+    return r?.displayName || r?.name || "a writer";
+  };
+
+  const contributors: CompileContributor[] = userIds
+    .map((userId) => {
+      const info = byUser.get(userId)!;
+      const isDirector = userId === gmUserId;
+      return {
+        userId,
+        role: info.characterName ?? (isDirector ? "the Director" : "a writer"),
+        displayName: displayNameOf(userId),
+        words: info.words,
+        isDirector,
+      };
+    })
+    // Director first, then the players by contribution.
+    .sort((a, b) => (a.isDirector === b.isDirector ? b.words - a.words : a.isDirector ? -1 : 1));
+
+  // The split, resolved exactly as the ledger pays it.
+  const [agreement] = await db
+    .select({ splits: agreements.splits })
+    .from(agreements)
+    .where(and(eq(agreements.storyId, storyId), eq(agreements.status, "active")))
+    .orderBy(desc(agreements.version))
+    .limit(1);
+  const validSplits = (agreement
+    ? safeParseJson<{ userId: string; percent: number }[]>(agreement.splits, [])
+    : []
+  ).filter((s) => typeof s?.userId === "string" && s.percent > 0);
+
+  const { recipients, usedAgreement } = resolveSplitRecipients(
+    validSplits,
+    userIds,
+    ownerId
+  );
+  const totalWeight = recipients.reduce((sum, r) => sum + r.weight, 0) || 1;
+  const split: CompileSplit = {
+    usedAgreement,
+    ownerId,
+    shares: recipients.map((r) => ({
+      userId: r.userId,
+      percent: (r.weight / totalWeight) * 100,
+    })),
+  };
+
+  return { contributors, split, gmUserId };
+}
 
 type CompileResult =
   | { status: "compiled" | "already"; chapterId: string }
@@ -73,6 +170,8 @@ export async function compileSessionToChapter(
     .from(campaignGold)
     .where(and(eq(campaignGold.sessionId, sessionId), isNotNull(campaignGold.turnId)));
 
+  const { contributors, split, gmUserId } = await buildColophon(storyId, session, turns);
+
   const compiledHTML = compileSessionToHTML({
     sessionTitle: session.title,
     sessionOpening: session.opening,
@@ -89,6 +188,9 @@ export async function compileSessionToChapter(
     gildedTurnIds: gildedRows
       .map((r) => r.turnId)
       .filter((id): id is string => !!id),
+    contributors,
+    split,
+    gmUserId,
   });
 
   const [maxResult] = await db

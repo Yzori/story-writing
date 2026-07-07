@@ -141,6 +141,35 @@ export function allocateShares(
  * The caller owns debiting the payer and any balance check; this only
  * distributes the credit. Must run inside the caller's transaction.
  */
+/**
+ * Precedence for who shares a story's earnings — shared by `distributeEarnings`
+ * (which pays) and the compiled book's colophon (which *shows* the same split):
+ *   1. a signed active agreement's splits, by percent;
+ *   2. else an even split across the fallback recipients (e.g. the cast);
+ *   3. else the owner takes all.
+ * Weights are percents for (1), 1-each for (2) and (3). Pure so both callers
+ * resolve identically and the receipt on the page can never drift from the pay.
+ */
+export function resolveSplitRecipients(
+  validSplits: { userId: string; percent: number }[],
+  fallbackRecipients: string[] | undefined,
+  ownerId: string,
+): { recipients: { userId: string; weight: number }[]; usedAgreement: boolean } {
+  if (validSplits.length > 0) {
+    return {
+      recipients: validSplits.map((s) => ({ userId: s.userId, weight: s.percent })),
+      usedAgreement: true,
+    };
+  }
+  if (fallbackRecipients && fallbackRecipients.length > 0) {
+    return {
+      recipients: [...new Set(fallbackRecipients)].map((userId) => ({ userId, weight: 1 })),
+      usedAgreement: false,
+    };
+  }
+  return { recipients: [{ userId: ownerId, weight: 1 }], usedAgreement: false };
+}
+
 export async function distributeEarnings(
   tx: DrizzleTx,
   opts: {
@@ -183,20 +212,11 @@ export async function distributeEarnings(
     (s) => typeof s?.userId === "string" && s.percent > 0
   );
 
-  let recipients: { userId: string; weight: number }[];
-  let usedAgreement = false;
-
-  if (validSplits.length > 0) {
-    recipients = validSplits.map((s) => ({ userId: s.userId, weight: s.percent }));
-    usedAgreement = true;
-  } else if (fallbackRecipients && fallbackRecipients.length > 0) {
-    recipients = [...new Set(fallbackRecipients)].map((userId) => ({
-      userId,
-      weight: 1,
-    }));
-  } else {
-    recipients = [{ userId: ownerId, weight: 1 }];
-  }
+  const { recipients, usedAgreement } = resolveSplitRecipients(
+    validSplits,
+    fallbackRecipients,
+    ownerId,
+  );
 
   const shares = allocateShares(gross, recipients, ownerId);
 
