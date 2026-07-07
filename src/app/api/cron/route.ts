@@ -4,6 +4,7 @@ import {
   processCommissionAutoComplete,
   resetAIUsageCounters,
   processEmailDigests,
+  processCampaignAbandonment,
 } from "@/server/services/scheduled-jobs";
 
 /**
@@ -26,12 +27,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [renewalResults, autoCompleteResults, aiResetResults, digestResults] = await Promise.all([
-      processCircleRenewals(),
-      processCommissionAutoComplete(),
-      resetAIUsageCounters(),
-      processEmailDigests(),
-    ]);
+    const [renewalResults, autoCompleteResults, aiResetResults, digestResults, abandonmentResults] =
+      await Promise.all([
+        processCircleRenewals(),
+        processCommissionAutoComplete(),
+        resetAIUsageCounters(),
+        processEmailDigests(),
+        processCampaignAbandonment(),
+      ]);
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
@@ -39,6 +42,7 @@ export async function POST(request: NextRequest) {
       autoComplete: autoCompleteResults,
       aiReset: aiResetResults,
       digests: digestResults,
+      abandonment: abandonmentResults,
     });
   } catch (error) {
     console.error("Cron job error:", error);

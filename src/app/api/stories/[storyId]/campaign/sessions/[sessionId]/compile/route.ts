@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
-import {
-  chapters,
-  campaignSessions,
-  campaignTurns,
-  campaignGold,
-  characterMarks,
-  playerCharacters,
-} from "@/server/db/schema";
-import { eq, and, asc, isNull, isNotNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
-import { compileSessionToHTML } from "@/server/services/compile-session";
-import { countWords } from "@/lib/utils";
-import { isStoryTurnType } from "@/lib/campaign-turns";
+import { compileSessionToChapter } from "@/server/services/compile-session-to-chapter";
 import { verifySessionGmAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
@@ -78,42 +66,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Prevent duplicate compilation
-    if (campaignSession.chapterId) {
-      return NextResponse.json(
-        {
-          data: {
-            chapterId: campaignSession.chapterId,
-            message: "Session already compiled",
-          },
-        },
-        { status: 200 }
-      );
-    }
+    const result = await compileSessionToChapter(storyId, campaignSession);
 
-    // Load all turns for the session with character names
-    const turns = await db
-      .select({
-        id: campaignTurns.id,
-        userId: campaignTurns.userId,
-        type: campaignTurns.type,
-        content: campaignTurns.content,
-        metadata: campaignTurns.metadata,
-        characterName: playerCharacters.name,
-      })
-      .from(campaignTurns)
-      .leftJoin(
-        playerCharacters,
-        eq(campaignTurns.characterId, playerCharacters.id)
-      )
-      .where(eq(campaignTurns.sessionId, sessionId))
-      .orderBy(asc(campaignTurns.sortOrder));
-
-    // Check if there are any story turns (not just OOC/rolls). Delegates the
-    // membership test to the shared predicate so adding a new turn type only
-    // requires editing src/lib/campaign-turns.ts.
-    const hasStoryContent = turns.some((t) => isStoryTurnType(t.type)) || campaignSession.opening;
-    if (!hasStoryContent) {
+    if (result.status === "no-content") {
       return NextResponse.json(
         {
           error: {
@@ -125,110 +80,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Marks created during THIS session — included as an italic coda at
-    // the end of the compiled chapter ("Aria carried it from then on — …").
-    const sessionMarks = await db
-      .select({
-        kind: characterMarks.kind,
-        text: characterMarks.text,
-        characterName: playerCharacters.name,
-      })
-      .from(characterMarks)
-      .leftJoin(playerCharacters, eq(characterMarks.characterId, playerCharacters.id))
-      .where(and(eq(characterMarks.sessionId, sessionId), eq(characterMarks.storyId, storyId)))
-      .orderBy(asc(characterMarks.createdAt));
-
-    // Lines the audience set in gold during play — their shimmer survives
-    // into the chapter as [data-gilded] markup (The House's paid applause).
-    const gildedRows = await db
-      .selectDistinct({ turnId: campaignGold.turnId })
-      .from(campaignGold)
-      .where(
-        and(eq(campaignGold.sessionId, sessionId), isNotNull(campaignGold.turnId))
-      );
-
-    // Compile turns to HTML
-    const compiledHTML = compileSessionToHTML({
-      sessionTitle: campaignSession.title,
-      sessionOpening: campaignSession.opening,
-      turns,
-      marks: sessionMarks
-        .filter((m): m is { kind: string; text: string; characterName: string } =>
-          !!m.characterName && ["scar", "vow", "debt", "memory"].includes(m.kind),
-        )
-        .map((m) => ({
-          kind: m.kind as "scar" | "vow" | "debt" | "memory",
-          text: m.text,
-          characterName: m.characterName,
-        })),
-      gildedTurnIds: gildedRows
-        .map((r) => r.turnId)
-        .filter((id): id is string => !!id),
-    });
-
-    // Determine next sort order for the new chapter
-    const [maxResult] = await db
-      .select({
-        maxOrder: sql<number>`coalesce(max(${chapters.sortOrder}), -1)`,
-      })
-      .from(chapters)
-      .where(and(eq(chapters.storyId, storyId), isNull(chapters.deletedAt)));
-
-    const nextOrder = (maxResult?.maxOrder ?? -1) + 1;
-    const wordCount = countWords(compiledHTML);
-
-    // Create the chapter draft, then atomically claim the session by setting
-    // chapterId only when it's still NULL. Two concurrent compile requests
-    // can both pass the early check at line 86 (chapterId IS NULL), but only
-    // one UPDATE can flip the column. The loser deletes its orphan chapter
-    // and returns the winner's chapterId — same shape as the early-return
-    // duplicate path.
-    const [chapter] = await db
-      .insert(chapters)
-      .values({
-        storyId,
-        title: campaignSession.title,
-        content: compiledHTML,
-        wordCount,
-        sortOrder: nextOrder,
-        status: "draft",
-        sessionId,
-      })
-      .returning();
-
-    const claimed = await db
-      .update(campaignSessions)
-      .set({ chapterId: chapter.id })
-      .where(
-        and(
-          eq(campaignSessions.id, sessionId),
-          isNull(campaignSessions.chapterId),
-        ),
-      )
-      .returning({ chapterId: campaignSessions.chapterId });
-
-    if (claimed.length === 0) {
-      // Lost the race — another request already claimed the session. Roll
-      // back our chapter and return the existing claim.
-      await db.delete(chapters).where(eq(chapters.id, chapter.id));
-      const winner = await db.query.campaignSessions.findFirst({
-        where: eq(campaignSessions.id, sessionId),
-      });
+    if (result.status === "already") {
       return NextResponse.json(
         {
           data: {
-            chapterId: winner?.chapterId,
+            chapterId: result.chapterId,
             message: "Session already compiled",
           },
         },
-        { status: 200 },
+        { status: 200 }
       );
     }
 
     return NextResponse.json(
       {
         data: {
-          chapterId: chapter.id,
+          chapterId: result.chapterId,
           message: "Session compiled to chapter draft",
         },
       },

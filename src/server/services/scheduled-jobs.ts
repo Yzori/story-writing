@@ -8,11 +8,17 @@ import {
   commissions,
   offerings,
   notifications,
+  campaignSessions,
+  campaignTurns,
+  campaignCastPresence,
+  stories,
 } from "@/server/db/schema";
-import { eq, and, lte, sql, isNull, inArray, gte, or } from "drizzle-orm";
+import { eq, and, lte, sql, isNull, inArray, gte, or, desc } from "drizzle-orm";
 import { createNotification } from "./notifications";
 import { sendEmail, digestEmail, type DigestItem } from "./email";
 import { CREATOR_SHARE } from "@/lib/constants";
+import { isAbandoned, SESSION_ABANDON_MS } from "@/lib/campaign-stall";
+import { compileSessionToChapter } from "./compile-session-to-chapter";
 
 /**
  * Process Circle subscription renewals.
@@ -371,4 +377,106 @@ export async function processEmailDigests(): Promise<{
   }
 
   return { daily: dailyCount, weekly: weeklyCount, itemsSent, errors };
+}
+
+/**
+ * Closure guarantee (anti-stall Slice C). Sweep live campaign sessions that
+ * have been abandoned — nothing has happened and nobody has a heartbeat for
+ * the whole abandon window — and seal them: flip active → completed and
+ * compile whatever story exists into a DRAFT chapter. A ghosted session must
+ * never rot in `active` forever; the makers leave with the book even when the
+ * room went dark. Nothing is generated and nothing is published — this only
+ * closes rooms and saves drafts. See ~/.claude/plans/anti-stall-reliability-spec.md.
+ */
+export async function processCampaignAbandonment(): Promise<{
+  sealed: number;
+  compiled: number;
+  errors: number;
+}> {
+  let sealed = 0;
+  let compiled = 0;
+  let errors = 0;
+
+  // Only sessions whose last touch is already past the window are candidates —
+  // a cheap pre-filter before we look at each one's heartbeats.
+  const cutoff = new Date(Date.now() - SESSION_ABANDON_MS);
+  const candidates = await db
+    .select()
+    .from(campaignSessions)
+    .where(
+      and(
+        eq(campaignSessions.status, "active"),
+        lte(campaignSessions.updatedAt, cutoff),
+      ),
+    );
+
+  for (const session of candidates) {
+    try {
+      const [lastTurn] = await db
+        .select({ createdAt: campaignTurns.createdAt })
+        .from(campaignTurns)
+        .where(eq(campaignTurns.sessionId, session.id))
+        .orderBy(desc(campaignTurns.createdAt))
+        .limit(1);
+
+      const [freshest] = await db
+        .select({ lastHeartbeat: campaignCastPresence.lastHeartbeat })
+        .from(campaignCastPresence)
+        .where(eq(campaignCastPresence.sessionId, session.id))
+        .orderBy(desc(campaignCastPresence.lastHeartbeat))
+        .limit(1);
+
+      const lastEventMs = Math.max(
+        lastTurn?.createdAt.getTime() ?? 0,
+        session.createdAt.getTime(),
+      );
+      const abandoned = isAbandoned({
+        now: Date.now(),
+        lastEventMs,
+        lastHeartbeatMs: freshest?.lastHeartbeat.getTime() ?? null,
+      });
+      if (!abandoned) continue;
+
+      // Seal first (closure), then compile — an empty room still closes even
+      // if there is no story to keep. Sealing removes it from the one-active-
+      // per-story set, so a fresh session can start cleanly.
+      await db
+        .update(campaignSessions)
+        .set({ status: "completed", closingMood: "sealed-by-quiet", updatedAt: new Date() })
+        .where(and(eq(campaignSessions.id, session.id), eq(campaignSessions.status, "active")));
+      sealed++;
+
+      const result = await compileSessionToChapter(session.storyId, {
+        ...session,
+        status: "completed",
+      });
+      if (result.status === "compiled") compiled++;
+
+      // Tell the maker they weren't stranded: the room went quiet, but the
+      // book is saved. Only when there's actually a draft to point them to —
+      // an empty abandoned session seals silently. Recipient = whoever was
+      // running it (acting GM, else the story owner).
+      if (result.status === "compiled" || result.status === "already") {
+        const [story] = await db
+          .select({ userId: stories.userId })
+          .from(stories)
+          .where(eq(stories.id, session.storyId))
+          .limit(1);
+        const recipient = session.actingGmId ?? story?.userId;
+        if (recipient) {
+          await createNotification(
+            recipient,
+            "sealed",
+            `The table went quiet in "${session.title}" — the session is sealed and your chapter is saved as a draft`,
+            `/write/${session.storyId}`,
+          );
+        }
+      }
+    } catch (err) {
+      console.error(`processCampaignAbandonment session ${session.id} error:`, err);
+      errors++;
+    }
+  }
+
+  return { sealed, compiled, errors };
 }

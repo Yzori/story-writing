@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCampaignSession } from "@/hooks/use-campaign-session";
 import { useHouseGold } from "@/hooks/use-house-gold";
 import { useCastPresence } from "@/hooks/use-cast-presence";
+import { usePenIdle } from "@/hooks/use-pen-idle";
 import { useSessionWagers } from "@/hooks/use-session-wagers";
 import PageRoom from "@/components/campaign/v2/PageRoom";
 import GoldLight from "@/components/campaign/v2/GoldLight";
@@ -325,6 +326,17 @@ export default function SessionPlayPage() {
       ? getPlayerInk(currentUserId, activePlayerUserIds)
       : "var(--ink-faded)";
   const myCharGone = !isGM && !!myCharacter && myCharacter.status !== "active";
+
+  // The soft clock: how long since the table last moved. Feeds the Director's
+  // stall signal (route around a quiet holder) and a gentle nudge to a player
+  // holding the pen. Detection only — nothing here moves the pen or writes.
+  const lastEventAt = turns.length ? turns[turns.length - 1].createdAt : null;
+  const { tier: penTier, idleMs: penIdleMs } = usePenIdle(
+    lastEventAt,
+    sessionStatus === "active",
+  );
+  const penStalled = penTier === "stall";
+  const penStallNote = `still for ${Math.floor(penIdleMs / 60000)}m`;
 
   // If the pen arrives while the tab is elsewhere, the title taps the
   // writer's shoulder; it clears the moment they look.
@@ -925,16 +937,25 @@ export default function SessionPlayPage() {
         the story goes on — {myCharacter?.name.split(" ")[0]}&rsquo;s part in it is written
       </p>
     ) : iAmWriting ? (
-      <Quill
-        isGM={isGM}
-        myCharName={myCharacter?.name.split(" ")[0] ?? null}
-        ink={myInk}
-        characters={characters}
-        onCommit={commit}
-        moves={isGM ? directorMoves : undefined}
-        onMove={onMove}
-        strangerName={isGM ? strangerName : null}
-      />
+      <>
+        {/* A player holding the pen who has gone quiet gets one soft, private
+            nudge — the Director sees nothing of it. */}
+        {!isGM && penStalled && (
+          <p className="table-murmur mb-1 text-center text-text-secondary">
+            the table&rsquo;s waiting on you — your turn when you&rsquo;re ready
+          </p>
+        )}
+        <Quill
+          isGM={isGM}
+          myCharName={myCharacter?.name.split(" ")[0] ?? null}
+          ink={myInk}
+          characters={characters}
+          onCommit={commit}
+          moves={isGM ? directorMoves : undefined}
+          onMove={onMove}
+          strangerName={isGM ? strangerName : null}
+        />
+      </>
     ) : (
       <div>
         <WaitingLine name={writerName} ink={writerInk} />
@@ -945,6 +966,8 @@ export default function SessionPlayPage() {
             writerName={writerName}
             onTakeBack={() => void onTakeBack()}
             onEnd={() => setShowEndModal(true)}
+            stalled={penStalled}
+            stallNote={penStallNote}
           />
         )}
       </div>
