@@ -12,6 +12,8 @@ import {
   campaignTurns,
   campaignCastPresence,
   stories,
+  adventures,
+  adventureSeats,
 } from "@/server/db/schema";
 import { eq, and, lte, sql, isNull, inArray, gte, or, desc } from "drizzle-orm";
 import { createNotification } from "./notifications";
@@ -19,6 +21,7 @@ import { sendEmail, digestEmail, type DigestItem } from "./email";
 import { CREATOR_SHARE } from "@/lib/constants";
 import { isAbandoned, SESSION_ABANDON_MS } from "@/lib/campaign-stall";
 import { compileSessionToChapter } from "./compile-session-to-chapter";
+import { compileAdventure } from "./compile-adventure";
 
 /**
  * Process Circle subscription renewals.
@@ -479,4 +482,135 @@ export async function processCampaignAbandonment(): Promise<{
   }
 
   return { sealed, compiled, errors };
+}
+
+// ── Adventures ("the table") deadlines ──────────────────────
+
+const ADVENTURE_IDLE_ABANDON_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * Pace enforcement for Adventures. Overdue spotlight → nudge the
+ * holder ("the table is waiting"); past twice the turn window → tell
+ * the Director so they can pass the spotlight on; idle 14 days →
+ * abandoned + compile what exists. Nudges dedupe against the
+ * notifications table (one per spotlight grant), so the cron cadence
+ * doesn't matter.
+ */
+export async function processAdventureDeadlines(): Promise<{
+  nudgedWriters: number;
+  nudgedDirectors: number;
+  abandoned: number;
+  errors: number;
+}> {
+  let nudgedWriters = 0;
+  let nudgedDirectors = 0;
+  let abandoned = 0;
+  let errors = 0;
+  const now = Date.now();
+
+  const overdue = await db
+    .select()
+    .from(adventures)
+    .where(
+      and(
+        eq(adventures.status, "running"),
+        lte(adventures.spotlightDueAt, new Date(now)),
+      ),
+    );
+
+  for (const adventure of overdue) {
+    try {
+      if (!adventure.spotlightSeatId || !adventure.spotlightDueAt || !adventure.spotlightSince) continue;
+      const seatRows = await db
+        .select()
+        .from(adventureSeats)
+        .where(eq(adventureSeats.adventureId, adventure.id));
+      const holder = seatRows.find((s) => s.id === adventure.spotlightSeatId);
+      const director = seatRows.find((s) => s.role === "director");
+      const href = `/adventures/${adventure.id}`;
+
+      // One nudge per spotlight grant: skip anyone already told since
+      // the spotlight landed on this holder.
+      const since = adventure.spotlightSince;
+      const nudge = async (userId: string, message: string) => {
+        const [already] = await db
+          .select({ id: notifications.id })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, userId),
+              eq(notifications.href, href),
+              eq(notifications.message, message),
+              gte(notifications.createdAt, since),
+            ),
+          )
+          .limit(1);
+        if (already) return false;
+        await createNotification(userId, "adventure", message, href);
+        return true;
+      };
+
+      if (holder?.userId) {
+        if (
+          await nudge(
+            holder.userId,
+            "The table is waiting — your turn is overdue",
+          )
+        ) {
+          nudgedWriters++;
+        }
+      }
+
+      const dueMs = adventure.spotlightDueAt.getTime();
+      const grantedMs = adventure.spotlightSince.getTime();
+      const doubleWindow = grantedMs + 2 * (dueMs - grantedMs);
+      if (
+        now > doubleWindow &&
+        director?.userId &&
+        director.userId !== holder?.userId
+      ) {
+        if (
+          await nudge(
+            director.userId,
+            "A turn has gone quiet — you can pass the spotlight on",
+          )
+        ) {
+          nudgedDirectors++;
+        }
+      }
+    } catch (error) {
+      console.error(`Adventure nudge failed for ${adventure.id}:`, error);
+      errors++;
+    }
+  }
+
+  // Idle tables close themselves and keep what was written.
+  const idleCutoff = new Date(now - ADVENTURE_IDLE_ABANDON_MS);
+  const idle = await db
+    .select({ id: adventures.id })
+    .from(adventures)
+    .where(
+      and(
+        eq(adventures.status, "running"),
+        lte(adventures.updatedAt, idleCutoff),
+      ),
+    );
+  for (const adventure of idle) {
+    try {
+      const result = await compileAdventure(adventure.id, "abandoned");
+      if (result.status === "no-content") {
+        // Nothing written — close the empty table without a book.
+        await db
+          .update(adventures)
+          .set({ status: "abandoned", updatedAt: new Date() })
+          .where(and(eq(adventures.id, adventure.id), eq(adventures.status, "running")));
+      }
+      abandoned++;
+    } catch (error) {
+      console.error(`Adventure abandonment failed for ${adventure.id}:`, error);
+      errors++;
+    }
+  }
+
+  return { nudgedWriters, nudgedDirectors, abandoned, errors };
 }

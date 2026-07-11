@@ -18,6 +18,7 @@ import {
   toSpotlightSeat,
   toSpotlightState,
 } from "@/server/services/adventure-table";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
 const CONFLICT = "SPOTLIGHT_CONFLICT";
@@ -111,6 +112,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           )
         );
     });
+
+    if (toSeat.userId) {
+      createNotification(
+        toSeat.userId,
+        "adventure",
+        "You have the spotlight — the page is yours",
+        `/adventures/${adventureId}`
+      );
+    }
 
     return NextResponse.json({ data: { spotlightSeatId: toSeat.id } });
   } catch (error) {

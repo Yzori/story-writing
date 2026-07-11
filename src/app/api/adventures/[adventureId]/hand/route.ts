@@ -11,6 +11,7 @@ import {
   toSpotlightSeat,
   toSpotlightState,
 } from "@/server/services/adventure-table";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
 
@@ -82,6 +83,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           whisper: parsed.data.whisper ?? "",
         })
         .returning();
+      if (ctx.directorSeat?.userId) {
+        const writerName = ctx.mySeat.userName ?? ctx.mySeat.characterName;
+        createNotification(
+          ctx.directorSeat.userId,
+          "adventure",
+          `${writerName} raised a hand — they have the next move`,
+          `/adventures/${adventureId}`
+        );
+      }
       return NextResponse.json({ data: hand }, { status: 201 });
     } catch {
       return NextResponse.json(

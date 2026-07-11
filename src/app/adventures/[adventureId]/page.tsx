@@ -34,6 +34,7 @@ export default function AdventurePlayPage() {
     openScene,
     closeScene,
     start,
+    finish,
     setupSeat,
     mintInvite,
   } = useAdventureTable(adventureId);
@@ -118,6 +119,7 @@ export default function AdventurePlayPage() {
             onOpenScene={openScene}
             onCloseScene={closeScene}
             onStart={start}
+            onFinish={finish}
             onMintInvite={mintInvite}
           />
         )}

@@ -23,6 +23,7 @@ import {
   Gauge,
   Library,
   LogOut,
+  Drama,
   PenLine,
   Search,
   Settings,
@@ -39,7 +40,7 @@ type Door = "read" | "write";
 type Flyout = Door | "you" | null;
 
 const READ_ROUTES = [/^\/read/, /^\/browse/, /^\/library/, /^\/story\//, /^\/showcase/];
-const WRITE_ROUTES = [/^\/dashboard/, /^\/create/, /^\/write\//, /^\/jams/, /^\/creator\//, /^\/commissions/, /^\/campaign/];
+const WRITE_ROUTES = [/^\/dashboard/, /^\/create/, /^\/write\//, /^\/jams/, /^\/creator\//, /^\/commissions/, /^\/adventures/];
 
 function activeDoor(pathname: string | null): Door | null {
   if (!pathname) return null;
@@ -64,6 +65,7 @@ const READ_LINKS: FlyoutLink[] = [
 const WRITE_LINKS: FlyoutLink[] = [
   { href: "/dashboard", label: "The Studio", hint: "your desk", icon: Gauge },
   { href: "/create", label: "Begin a story", hint: "blank page", icon: PenLine },
+  { href: "/adventures", label: "Adventures", hint: "find a table", icon: Drama },
   { href: "/jams", label: "Story Jams", icon: Tent },
 ];
 

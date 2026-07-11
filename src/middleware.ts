@@ -18,7 +18,13 @@ export default async function middleware(req: NextRequest) {
 
   // CSRF protection for API routes with mutating methods
   // Skip CSRF for webhook routes (they use their own signature verification)
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/webhooks/")) {
+  // and the cron endpoint (bearer-secret auth, called headless — CSRF
+  // guards cookie sessions, which cron never carries).
+  if (
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/webhooks/") &&
+    pathname !== "/api/cron"
+  ) {
     const csrfResult = validateCsrf(req);
     if (csrfResult) return csrfResult;
   }

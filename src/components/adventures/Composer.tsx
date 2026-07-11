@@ -32,6 +32,7 @@ export default function Composer({
   onOpenScene,
   onCloseScene,
   onStart,
+  onFinish,
   onMintInvite,
 }: {
   adventure: AdventureView;
@@ -48,6 +49,7 @@ export default function Composer({
   onOpenScene: (title: string, newAct: boolean, opening?: string) => Promise<boolean>;
   onCloseScene: () => Promise<boolean>;
   onStart: () => Promise<boolean>;
+  onFinish: () => Promise<boolean>;
   onMintInvite: () => Promise<string | null>;
 }) {
   const isDirector = mySeat.role === "director";
@@ -76,6 +78,7 @@ export default function Composer({
           onPassSpotlight={onPassSpotlight}
           onOpenScene={onOpenScene}
           onCloseScene={onCloseScene}
+          onFinish={onFinish}
         />
       )}
 
@@ -359,6 +362,7 @@ function DirectorDesk({
   onPassSpotlight,
   onOpenScene,
   onCloseScene,
+  onFinish,
 }: {
   adventure: AdventureView;
   seats: AdventureSeatView[];
@@ -369,6 +373,7 @@ function DirectorDesk({
   onPassSpotlight: (toSeatId: string) => Promise<boolean>;
   onOpenScene: (title: string, newAct: boolean, opening?: string) => Promise<boolean>;
   onCloseScene: () => Promise<boolean>;
+  onFinish: () => Promise<boolean>;
 }) {
   const [sceneTitle, setSceneTitle] = useState("");
   const [newAct, setNewAct] = useState(false);
@@ -581,6 +586,37 @@ function DirectorDesk({
       </div>
 
       <AskTheHouse adventureId={adventure.id} />
+
+      <CloseTheBook onFinish={onFinish} />
+    </div>
+  );
+}
+
+function CloseTheBook({ onFinish }: { onFinish: () => Promise<boolean> }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div className="pt-1 border-t border-border">
+      {!confirming ? (
+        <button
+          onClick={() => setConfirming(true)}
+          className="text-[12px] text-text-ghost hover:text-paper transition-colors"
+        >
+          Close the book — end the adventure and compile it…
+        </button>
+      ) : (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-[12.5px] text-text-secondary">
+            Each act becomes a chapter, credited to the whole table, readable
+            by anyone. There&apos;s no reopening it.
+          </span>
+          <Btn primary onClick={onFinish}>
+            Close the book
+          </Btn>
+          <Btn quiet onClick={() => setConfirming(false)}>
+            Keep playing
+          </Btn>
+        </div>
+      )}
     </div>
   );
 }

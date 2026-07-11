@@ -142,6 +142,7 @@ export function useAdventureTable(adventureId: string) {
           body: JSON.stringify({ action: "close" }),
         }),
       start: () => act("/start", { method: "POST" }),
+      finish: () => act("/finish", { method: "POST" }),
       setupSeat: (characterName: string, characterBrief: string, inkColor: string) =>
         act("/seat", {
           method: "PATCH",

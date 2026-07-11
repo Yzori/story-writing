@@ -122,8 +122,14 @@ export default function CreatePage() {
   // picker on deep links is acceptable.
   useEffect(() => {
     const mode = new URLSearchParams(window.location.search).get("mode");
-    if (mode === "solo" || mode === "co-op" || mode === "campaign") setWritingMode(mode);
-  }, []);
+    // Adventures got a from-scratch home: the old campaign charter is
+    // unlinked, deep links included.
+    if (mode === "campaign") {
+      router.replace("/adventures/new");
+      return;
+    }
+    if (mode === "solo" || mode === "co-op") setWritingMode(mode);
+  }, [router]);
 
   // Story details state
   const [title, setTitle] = useState("");
@@ -244,7 +250,17 @@ export default function CreatePage() {
   // ── Step 1: Mode selection ──────────────────────────────────
 
   if (!writingMode) {
-    return <ModeSelection onSelect={setWritingMode} />;
+    return (
+      <ModeSelection
+        onSelect={(mode) => {
+          if (mode === "campaign") {
+            router.push("/adventures/new");
+            return;
+          }
+          setWritingMode(mode);
+        }}
+      />
+    );
   }
 
   // ── Step 2: Story details ───────────────────────────────────
@@ -1044,9 +1060,9 @@ const MODES = [
   {
     id: "campaign" as WritingMode,
     title: "Adventure",
-    subtitle: "The Tavern",
-    description: "A round table. Dice on wood. A door where no door should be, and names waiting on the other side.",
-    features: ["GM narration & turns", "Character sheets", "Living session lore"],
+    subtitle: "The Table",
+    description: "A small cast around one table: a Director runs the world, writers play its people, an audience reads it live.",
+    features: ["One Director, 2\u20134 writers", "Spotlight turns, raised hands", "Compiles into a finished novel"],
     badge: "New",
     image: "/adventure_mode.png",
     color: "violet",
