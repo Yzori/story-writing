@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   AdventureHandView,
   AdventureSeatView,
@@ -40,7 +40,7 @@ export default function Composer({
   mySeat: AdventureSeatView;
   hasOpenScene: boolean;
   actionError: string | null;
-  onSign: (content: string) => Promise<boolean>;
+  onSign: (content: string, canonizeSuggestionId?: string) => Promise<boolean>;
   onPassSpotlight: (toSeatId: string) => Promise<boolean>;
   onRaiseHand: (whisper: string) => Promise<boolean>;
   onLowerHand: () => Promise<boolean>;
@@ -365,7 +365,7 @@ function DirectorDesk({
   hands: AdventureHandView[];
   haveSpotlight: boolean;
   hasOpenScene: boolean;
-  onSign: (content: string) => Promise<boolean>;
+  onSign: (content: string, canonizeSuggestionId?: string) => Promise<boolean>;
   onPassSpotlight: (toSeatId: string) => Promise<boolean>;
   onOpenScene: (title: string, newAct: boolean, opening?: string) => Promise<boolean>;
   onCloseScene: () => Promise<boolean>;
@@ -373,6 +373,10 @@ function DirectorDesk({
   const [sceneTitle, setSceneTitle] = useState("");
   const [newAct, setNewAct] = useState(false);
   const [showScene, setShowScene] = useState(false);
+  const [weaveInId, setWeaveInId] = useState<string | null>(null);
+  const { suggestions, dismiss, refreshSuggestions } = useSuggestionStack(
+    adventure.id
+  );
   const writers = seats.filter(
     (s) => s.role === "writer" && s.status === "seated"
   );
@@ -398,10 +402,67 @@ function DirectorDesk({
           <p className="text-[10.5px] tracking-[0.24em] uppercase text-gold-dark font-semibold mt-0 mb-2.5">
             The Director&apos;s desk
           </p>
+          {suggestions.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              {suggestions.map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  className={`flex items-start gap-2.5 text-[12.5px] border rounded-lg px-3 py-2 transition-colors ${
+                    weaveInId === suggestion.id
+                      ? "border-lavender/60 bg-lavender/[0.06]"
+                      : "border-border bg-surface"
+                  }`}
+                >
+                  <span className="text-lavender flex-none">✦</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-reading italic text-text">
+                      &ldquo;{suggestion.content}&rdquo;
+                    </span>{" "}
+                    <span className="text-text-ghost">— {suggestion.readerName}</span>
+                  </span>
+                  <button
+                    onClick={() =>
+                      setWeaveInId(
+                        weaveInId === suggestion.id ? null : suggestion.id
+                      )
+                    }
+                    className={`flex-none text-[11px] transition-colors ${
+                      weaveInId === suggestion.id
+                        ? "text-lavender"
+                        : "text-text-ghost hover:text-lavender"
+                    }`}
+                  >
+                    {weaveInId === suggestion.id ? "weaving in" : "weave in"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (weaveInId === suggestion.id) setWeaveInId(null);
+                      dismiss(suggestion.id);
+                    }}
+                    className="flex-none text-[11px] text-text-ghost hover:text-rose transition-colors"
+                  >
+                    let it go
+                  </button>
+                </div>
+              ))}
+              {weaveInId && (
+                <p className="text-[11px] text-lavender m-0">
+                  Your next signed direction credits this reader.
+                </p>
+              )}
+            </div>
+          )}
           <WriteAndSign
             label="Write direction — the world, the weather, the answer to what was just signed."
             buttonLabel="Sign the direction"
-            onSubmit={onSign}
+            onSubmit={async (content) => {
+              const ok = await onSign(content, weaveInId ?? undefined);
+              if (ok) {
+                setWeaveInId(null);
+                refreshSuggestions();
+              }
+              return ok;
+            }}
           />
         </div>
       )}
@@ -518,6 +579,138 @@ function DirectorDesk({
           </div>
         )}
       </div>
+
+      <AskTheHouse adventureId={adventure.id} />
+    </div>
+  );
+}
+
+// ── the Director's suggestion stack + house vote ─────────────
+
+interface DirectorSuggestion {
+  id: string;
+  content: string;
+  readerName: string;
+}
+
+function useSuggestionStack(adventureId: string) {
+  const [suggestions, setSuggestions] = useState<DirectorSuggestion[]>([]);
+
+  const refreshSuggestions = useCallback(async () => {
+    const res = await fetch(`/api/adventures/${adventureId}/suggestions`);
+    const body = await res.json().catch(() => null);
+    if (res.ok && body?.data) setSuggestions(body.data);
+  }, [adventureId]);
+
+  useEffect(() => {
+    (async () => {
+      await refreshSuggestions();
+    })();
+    const interval = setInterval(refreshSuggestions, 15000);
+    return () => clearInterval(interval);
+  }, [refreshSuggestions]);
+
+  const dismiss = useCallback(
+    async (suggestionId: string) => {
+      await fetch(
+        `/api/adventures/${adventureId}/suggestions/${suggestionId}`,
+        { method: "DELETE" }
+      );
+      await refreshSuggestions();
+    },
+    [adventureId, refreshSuggestions]
+  );
+
+  return { suggestions, dismiss, refreshSuggestions };
+}
+
+function AskTheHouse({ adventureId }: { adventureId: string }) {
+  const [open, setOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const ask = async () => {
+    setStatus(null);
+    const res = await fetch(`/api/adventures/${adventureId}/house-vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: question.trim(),
+        options: options.map((o) => o.trim()).filter(Boolean),
+      }),
+    });
+    const body = await res.json().catch(() => null);
+    if (res.ok) {
+      setStatus("The house is voting — it shows on the watch page.");
+      setOpen(false);
+      setQuestion("");
+      setOptions(["", ""]);
+    } else {
+      setStatus(body?.error?.message ?? "Something went wrong.");
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-[10.5px] tracking-[0.24em] uppercase text-gold-dark font-semibold mt-0 mb-2.5">
+        The house
+      </p>
+      {!open ? (
+        <div className="flex items-center gap-3 flex-wrap">
+          <Btn quiet onClick={() => setOpen(true)}>
+            Ask the house a question…
+          </Btn>
+          {status && <span className="text-[12px] text-sage">{status}</span>}
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value.slice(0, 300))}
+            placeholder="Who let go of the bell rope?"
+            className="w-full bg-elevated border border-border rounded-lg px-3 py-2 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
+          />
+          {options.map((option, i) => (
+            <input
+              key={i}
+              value={option}
+              onChange={(e) =>
+                setOptions((prev) =>
+                  prev.map((o, j) => (j === i ? e.target.value.slice(0, 120) : o))
+                )
+              }
+              placeholder={`Answer ${i + 1}`}
+              className="w-full bg-elevated border border-border rounded-lg px-3 py-2 text-[12.5px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
+            />
+          ))}
+          <div className="flex gap-2.5 flex-wrap items-center">
+            {options.length < 4 && (
+              <button
+                onClick={() => setOptions((prev) => [...prev, ""])}
+                className="text-[11.5px] text-text-ghost hover:text-paper transition-colors"
+              >
+                + another answer
+              </button>
+            )}
+            <span className="flex-1" />
+            <Btn
+              primary
+              onClick={ask}
+              disabled={
+                !question.trim() ||
+                options.filter((o) => o.trim()).length < 2
+              }
+            >
+              Put it to the house
+            </Btn>
+            <Btn quiet onClick={() => setOpen(false)}>
+              Never mind
+            </Btn>
+          </div>
+          {status && <p className="text-[12px] text-rose m-0">{status}</p>}
+        </div>
+      )}
     </div>
   );
 }

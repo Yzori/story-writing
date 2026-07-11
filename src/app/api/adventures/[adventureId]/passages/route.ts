@@ -7,6 +7,7 @@ import {
   adventures,
   adventureScenes,
   adventureSeats,
+  adventureSuggestions,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
@@ -23,6 +24,7 @@ import {
   toSpotlightSeat,
   toSpotlightState,
 } from "@/server/services/adventure-table";
+import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
 
@@ -89,6 +91,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   let denyReason: string | null = null;
+  let canonizedReaderId: string | null = null;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -136,6 +139,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const mySeat = ctx.mySeat;
     const directorSeatId = ctx.directorSeat.id;
     const kind = mySeat.role === "director" ? "direction" : "character";
+    const canonizeSuggestionId =
+      mySeat.role === "director" ? (parsed.data.canonizeSuggestionId ?? null) : null;
 
     const created = await db.transaction(async (tx) => {
       // Lock the adventure row: serializes sortOrder and pins the
@@ -184,6 +189,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         })
         .returning();
 
+      // Writing a reader's suggestion in: the passage carries the
+      // credit ("detail from reader ⟨name⟩") via the canonized row.
+      if (canonizeSuggestionId) {
+        const [canonized] = await tx
+          .update(adventureSuggestions)
+          .set({
+            status: "canonized",
+            canonizedPassageId: passage.id,
+            resolvedAt: now,
+          })
+          .where(
+            and(
+              eq(adventureSuggestions.id, canonizeSuggestionId),
+              eq(adventureSuggestions.adventureId, adventureId),
+              eq(adventureSuggestions.status, "waiting")
+            )
+          )
+          .returning({ userId: adventureSuggestions.userId });
+        canonizedReaderId = canonized?.userId ?? null;
+      }
+
       const effects = signPassageEffects(
         toSpotlightSeat(mySeat),
         directorSeatId,
@@ -226,6 +252,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       return passage;
     });
+
+    if (canonizedReaderId) {
+      createNotification(
+        canonizedReaderId,
+        "adventure",
+        "Your suggestion was written into the story — credited to you",
+        `/adventures/${adventureId}/watch`
+      );
+    }
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {

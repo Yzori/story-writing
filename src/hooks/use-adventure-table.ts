@@ -114,10 +114,10 @@ export function useAdventureTable(adventureId: string) {
 
   const actions = useMemo(
     () => ({
-      sign: (content: string) =>
+      sign: (content: string, canonizeSuggestionId?: string) =>
         act("/passages", {
           method: "POST",
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, canonizeSuggestionId }),
         }),
       passSpotlight: (toSeatId: string) =>
         act("/spotlight", {

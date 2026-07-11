@@ -15,18 +15,30 @@ import { sanitizeHtmlClient } from "@/lib/sanitize-client";
  * the in-page "X has the spotlight — writing…" line, and a folio.
  * The page stays pure story — all controls live below it.
  */
+export interface PassageAudience {
+  sparks: number;
+  sparkedByMe: boolean;
+  readerCredit: string | null;
+}
+
 export default function ThePage({
   adventure,
   seats,
   scenes,
   passages,
   mySeatId,
+  audience,
+  onSpark,
 }: {
   adventure: AdventureView;
   seats: AdventureSeatView[];
   scenes: AdventureSceneView[];
   passages: AdventurePassageView[];
+  /** Empty string on the public watch page — nobody is "you". */
   mySeatId: string;
+  /** Watch page only: per-passage sparks + reader credits. */
+  audience?: Map<string, PassageAudience>;
+  onSpark?: (passageId: string, sparked: boolean) => void;
 }) {
   const seatById = new Map(seats.map((s) => [s.id, s] as const));
   const sceneById = new Map(scenes.map((s) => [s.id, s] as const));
@@ -81,6 +93,8 @@ export default function ThePage({
             passage={block.passage}
             seat={seatById.get(block.passage.seatId) ?? null}
             isMine={block.passage.seatId === mySeatId}
+            audience={audience?.get(block.passage.id)}
+            onSpark={onSpark}
           />
         )
       )}
@@ -132,10 +146,14 @@ function Passage({
   passage,
   seat,
   isMine,
+  audience,
+  onSpark,
 }: {
   passage: AdventurePassageView;
   seat: AdventureSeatView | null;
   isMine: boolean;
+  audience?: PassageAudience;
+  onSpark?: (passageId: string, sparked: boolean) => void;
 }) {
   const isDirection = passage.kind !== "character";
   const ink = isDirection ? inkFor("amber") : inkFor(seat?.inkColor ?? "amber");
@@ -157,6 +175,32 @@ function Passage({
               ? `as ${seat.characterName}`
               : "writer"}
         </div>
+        {audience && (audience.sparks > 0 || onSpark) && (
+          <button
+            onClick={
+              onSpark
+                ? () => onSpark(passage.id, !audience.sparkedByMe)
+                : undefined
+            }
+            disabled={!onSpark}
+            className={`font-body text-[10.5px] mt-2 max-md:mt-0 transition-colors ${
+              audience.sparkedByMe
+                ? "text-gold-light"
+                : "text-gold-dark hover:text-gold"
+            } disabled:cursor-default`}
+            title={onSpark ? "Spark this passage" : undefined}
+          >
+            <span
+              aria-hidden
+              className="inline-block w-[6px] h-[6px] rounded-full bg-gold shadow-[0_0_7px_rgba(245,197,94,0.9)] mr-1 align-middle"
+            />
+            {audience.sparks > 0 ? (
+              <b className="font-semibold">{audience.sparks} spark{audience.sparks === 1 ? "" : "s"}</b>
+            ) : (
+              "spark"
+            )}
+          </button>
+        )}
       </div>
       <div className="min-w-0">
         <div
@@ -166,6 +210,11 @@ function Passage({
           // Sanitized on write; sanitized again here for defense in depth.
           dangerouslySetInnerHTML={{ __html: sanitizeHtmlClient(passage.content) }}
         />
+        {audience?.readerCredit && (
+          <div className="font-body text-[10.5px] text-lavender mt-1.5">
+            ✦ detail from reader {audience.readerCredit}
+          </div>
+        )}
         {!isDirection && seat && (
           <div className="flex items-center justify-end gap-2.5 mt-2">
             <svg width="64" height="14" viewBox="0 0 64 14" aria-hidden>

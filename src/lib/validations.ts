@@ -652,6 +652,9 @@ export const createAdventureSchema = z
 
 export const signAdventurePassageSchema = z.object({
   content: z.string().min(1, "Write something first").max(50_000),
+  // Director only: write a reader's suggestion into the story — the
+  // passage carries a credit line and the suggestion is canonized.
+  canonizeSuggestionId: z.string().uuid().optional(),
 });
 
 export const passAdventureSpotlightSchema = z.object({
@@ -683,4 +686,26 @@ export const adventureApplicationSchema = z.object({
 
 export const resolveAdventureApplicationSchema = z.object({
   action: z.enum(["accept", "decline"]),
+});
+
+export const adventureSuggestionSchema = z.object({
+  content: z.string().min(1, "Say something first").max(280),
+});
+
+export const adventureBackingSchema = z.object({
+  seatId: z.string().uuid(),
+});
+
+export const adventureSparkSchema = z.object({
+  passageId: z.string().uuid(),
+});
+
+export const adventurePresenceSchema = z.object({
+  token: z.string().min(16).max(64).regex(/^[a-zA-Z0-9_-]+$/),
+});
+
+export const adventureHouseVoteSchema = z.object({
+  question: z.string().min(1).max(300),
+  options: z.array(z.string().min(1).max(120)).min(2).max(4),
+  closesInHours: z.number().int().min(1).max(168).default(24),
 });

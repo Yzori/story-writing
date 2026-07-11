@@ -2920,6 +2920,12 @@ export const crossroads = pgTable(
     creatorId: uuid("creator_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Scopes a poll to an adventure ("the house votes") — the Director
+    // opens a question to the watching audience. Null = a plain story
+    // crossroads.
+    adventureId: uuid("adventure_id").references(() => adventures.id, {
+      onDelete: "set null",
+    }),
     question: text("question").notNull(),
     options: text("options").notNull().default("[]"), // JSON array of { label: string }
     status: text("status").notNull().default("open"), // 'open' | 'closed' | 'resolved'
@@ -3433,6 +3439,155 @@ export const adventureApplicationsRelations = relations(
     }),
     user: one(users, {
       fields: [adventureApplications.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+// ── Adventures: the audience (Slice 3) ──────────────────────
+
+export const adventureBackings = pgTable(
+  "adventure_backings",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => adventureSeats.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_adventure_backings_adventure").on(table.adventureId),
+    // A reader backs one character per adventure; switching = update.
+    unique("adventure_backings_adventure_user_unique").on(
+      table.adventureId,
+      table.userId
+    ),
+  ]
+);
+
+export const adventureSuggestions = pgTable(
+  "adventure_suggestions",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(), // ≤280 chars, plain text
+    status: text("status").notNull().default("waiting"), // 'waiting' | 'canonized' | 'dismissed'
+    canonizedPassageId: uuid("canonized_passage_id").references(
+      () => adventurePassages.id,
+      { onDelete: "set null" }
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("idx_adventure_suggestions_adventure").on(
+      table.adventureId,
+      table.status
+    ),
+  ]
+);
+
+export const adventurePassageSparks = pgTable(
+  "adventure_passage_sparks",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    passageId: uuid("passage_id")
+      .notNull()
+      .references(() => adventurePassages.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_adventure_passage_sparks_passage").on(table.passageId),
+    unique("adventure_passage_sparks_passage_user_unique").on(
+      table.passageId,
+      table.userId
+    ),
+  ]
+);
+
+export const adventureAudiencePresence = pgTable(
+  "adventure_audience_presence",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    // Anonymous client token — the lantern count needs no accounts.
+    token: text("token").notNull(),
+    lastHeartbeat: timestamp("last_heartbeat", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_adventure_audience_presence").on(
+      table.adventureId,
+      table.lastHeartbeat
+    ),
+    unique("adventure_audience_presence_token_unique").on(
+      table.adventureId,
+      table.token
+    ),
+  ]
+);
+
+export const adventureBackingsRelations = relations(
+  adventureBackings,
+  ({ one }) => ({
+    adventure: one(adventures, {
+      fields: [adventureBackings.adventureId],
+      references: [adventures.id],
+    }),
+    seat: one(adventureSeats, {
+      fields: [adventureBackings.seatId],
+      references: [adventureSeats.id],
+    }),
+    user: one(users, {
+      fields: [adventureBackings.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const adventureSuggestionsRelations = relations(
+  adventureSuggestions,
+  ({ one }) => ({
+    adventure: one(adventures, {
+      fields: [adventureSuggestions.adventureId],
+      references: [adventures.id],
+    }),
+    user: one(users, {
+      fields: [adventureSuggestions.userId],
       references: [users.id],
     }),
   })

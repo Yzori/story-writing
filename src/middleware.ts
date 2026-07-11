@@ -24,9 +24,11 @@ export default async function middleware(req: NextRequest) {
   }
 
   const isPublicCampaignWatch = /^\/campaign\/[^/]+\/watch\/[^/]+\/?$/.test(pathname);
+  // The Adventures watch page is the audience's door — no account needed.
+  const isPublicAdventureWatch = /^\/adventures\/[^/]+\/watch\/?$/.test(pathname);
 
   // Check if the path requires authentication
-  const isProtected = !isPublicCampaignWatch && (
+  const isProtected = !isPublicCampaignWatch && !isPublicAdventureWatch && (
     protectedPaths.some((path) => pathname.startsWith(path))
     || protectedPatterns.some((pattern) => pattern.test(pathname))
   );
