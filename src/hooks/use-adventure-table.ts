@@ -142,6 +142,11 @@ export function useAdventureTable(adventureId: string) {
           body: JSON.stringify({ action: "close" }),
         }),
       start: () => act("/start", { method: "POST" }),
+      setupSeat: (characterName: string, characterBrief: string, inkColor: string) =>
+        act("/seat", {
+          method: "PATCH",
+          body: JSON.stringify({ characterName, characterBrief, inkColor }),
+        }),
       mintInvite: async (): Promise<string | null> => {
         setActionError(null);
         const res = await jsonRequest<{ joinPath: string }>(

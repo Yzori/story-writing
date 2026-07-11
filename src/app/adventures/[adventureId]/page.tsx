@@ -8,7 +8,10 @@ import AdvHeader from "@/components/adventures/AdvHeader";
 import CastBar from "@/components/adventures/CastBar";
 import ThePage from "@/components/adventures/ThePage";
 import Composer from "@/components/adventures/Composer";
+import AsksPanel from "@/components/adventures/AsksPanel";
+import SeatSetup from "@/components/adventures/SeatSetup";
 import TableRules from "@/components/adventures/TableRules";
+import { useSession } from "next-auth/react";
 
 /**
  * At the table — the Adventures play surface. One Director, 2–4
@@ -31,8 +34,10 @@ export default function AdventurePlayPage() {
     openScene,
     closeScene,
     start,
+    setupSeat,
     mintInvite,
   } = useAdventureTable(adventureId);
+  const { data: authSession } = useSession();
 
   if (loading) {
     return (
@@ -67,6 +72,14 @@ export default function AdventurePlayPage() {
 
   const mySeat = state.seats.find((s) => s.id === state.mySeatId) ?? null;
   const hasOpenScene = state.scenes.some((s) => s.status === "open");
+  const needsCharacter =
+    mySeat?.role === "writer" && !mySeat.characterName.trim();
+  const canReviewAsks =
+    mySeat?.role === "director" ||
+    state.adventure.ownerId === authSession?.user?.id;
+  const tableOpen =
+    state.adventure.status === "casting" ||
+    state.adventure.status === "running";
 
   return (
     <div className="min-h-screen bg-void pb-24 [background-image:radial-gradient(1100px_520px_at_50%_-8%,var(--color-gold-glow),transparent_62%)]">
@@ -87,7 +100,9 @@ export default function AdventurePlayPage() {
           mySeatId={state.mySeatId}
         />
 
-        {mySeat && (
+        {needsCharacter && <SeatSetup onSetup={setupSeat} />}
+
+        {mySeat && !needsCharacter && (
           <Composer
             adventure={state.adventure}
             seats={state.seats}
@@ -105,6 +120,10 @@ export default function AdventurePlayPage() {
             onStart={start}
             onMintInvite={mintInvite}
           />
+        )}
+
+        {canReviewAsks && tableOpen && (
+          <AsksPanel adventureId={adventureId} onResolved={() => {}} />
         )}
 
         <TableRules />

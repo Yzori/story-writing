@@ -65,6 +65,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         adventure: {
           id: ctx.adventure.id,
           storyId: ctx.adventure.storyId,
+          ownerId: ctx.adventure.ownerId,
           title: story?.title ?? "",
           premise: ctx.adventure.premise,
           genre: ctx.adventure.genre,

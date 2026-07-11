@@ -3391,3 +3391,49 @@ export const adventureHandsRelations = relations(adventureHands, ({ one }) => ({
     references: [adventureSeats.id],
   }),
 }));
+
+export const adventureApplications = pgTable(
+  "adventure_applications",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seatRole: text("seat_role").notNull(), // 'director' | 'writer'
+    note: text("note").notNull().default(""),
+    status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("idx_adventure_applications_adventure").on(
+      table.adventureId,
+      table.status
+    ),
+    unique("adventure_applications_adventure_user_unique").on(
+      table.adventureId,
+      table.userId
+    ),
+  ]
+);
+
+export const adventureApplicationsRelations = relations(
+  adventureApplications,
+  ({ one }) => ({
+    adventure: one(adventures, {
+      fields: [adventureApplications.adventureId],
+      references: [adventures.id],
+    }),
+    user: one(users, {
+      fields: [adventureApplications.userId],
+      references: [users.id],
+    }),
+  })
+);

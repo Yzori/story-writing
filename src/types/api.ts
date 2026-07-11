@@ -139,7 +139,8 @@ export type NotifType =
   | "candle"
   | "pen"
   | "live"
-  | "sealed";
+  | "sealed"
+  | "adventure";
 
 export interface ApiNotification {
   id: string;

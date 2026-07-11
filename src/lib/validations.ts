@@ -675,3 +675,12 @@ export const adventureSceneSchema = z.discriminatedUnion("action", [
 ]);
 
 export const adventureSeatSetupSchema = z.object(adventureCharacterFields);
+
+export const adventureApplicationSchema = z.object({
+  seatRole: z.enum(["director", "writer"]),
+  note: z.string().max(500).default(""),
+});
+
+export const resolveAdventureApplicationSchema = z.object({
+  action: z.enum(["accept", "decline"]),
+});

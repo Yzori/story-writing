@@ -18,6 +18,7 @@ export type AdventureInk =
 export interface AdventureView {
   id: string;
   storyId: string;
+  ownerId: string;
   title: string;
   premise: string;
   genre: string;

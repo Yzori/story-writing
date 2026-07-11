@@ -114,3 +114,43 @@ export function toSpotlightSeat(
     stepForwardAct: seat.stepForwardAct,
   };
 }
+
+// ── The board (Slice 2) ──────────────────────────────────────
+
+export interface ShowUpRecord {
+  /** Percent of turns signed on time, 0–100; null = no history yet. */
+  onTimePct: number | null;
+  finished: number;
+}
+
+/**
+ * A user's show-up record, computed across every seat they've held:
+ * % of turns signed on time + adventures finished. This is the
+ * anti-ghosting axis the board matches on — no new table, always
+ * derived from what actually happened.
+ */
+export async function showUpRecord(userId: string): Promise<ShowUpRecord> {
+  const rows = await db
+    .select({
+      onTime: adventureSeats.turnsOnTime,
+      late: adventureSeats.turnsLate,
+      status: adventures.status,
+    })
+    .from(adventureSeats)
+    .innerJoin(adventures, eq(adventureSeats.adventureId, adventures.id))
+    .where(eq(adventureSeats.userId, userId));
+
+  let onTime = 0;
+  let late = 0;
+  let finished = 0;
+  for (const row of rows) {
+    onTime += row.onTime;
+    late += row.late;
+    if (row.status === "finished") finished++;
+  }
+  const total = onTime + late;
+  return {
+    onTimePct: total === 0 ? null : Math.round((onTime / total) * 100),
+    finished,
+  };
+}
