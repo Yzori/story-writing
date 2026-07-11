@@ -605,3 +605,73 @@ export const guildProfileSchema = z.object({
 // taught us not to let big data: URIs live in DB columns. URLs only,
 // short data: SVGs accepted as a convenience.
 export const storyMapImageSchema = z.string().max(4096).nullable();
+
+// ── Adventures ("the table") ─────────────────────────────────
+
+export const ADVENTURE_PACES = [
+  "turn-daily",
+  "turn-2-days",
+  "turn-weekly",
+  "live",
+] as const;
+
+// Six distinct inks — the theme aliases violet→lavender and burnt→copper,
+// so offering those would give two writers identical-looking "different" inks.
+export const ADVENTURE_INK_COLORS = [
+  "amber",
+  "rose",
+  "sage",
+  "lavender",
+  "teal",
+  "copper",
+] as const;
+
+const adventureCharacterFields = {
+  characterName: z.string().min(1).max(80),
+  characterBrief: z.string().max(500).default(""),
+  inkColor: z.enum(ADVENTURE_INK_COLORS).default("amber"),
+};
+
+export const createAdventureSchema = z
+  .object({
+    title: z.string().min(1, "Title is required").max(200),
+    premise: z.string().min(1, "Premise is required").max(1000),
+    genre: z.string().min(1, "Genre is required").max(50),
+    pace: z.enum(ADVENTURE_PACES),
+    mySeat: z.enum(["director", "writer"]),
+    writerSeats: z.number().int().min(2).max(4).default(3),
+    boardVisibility: z.enum(["private", "board"]).default("private"),
+    characterName: adventureCharacterFields.characterName.optional(),
+    characterBrief: z.string().max(500).optional(),
+    inkColor: z.enum(ADVENTURE_INK_COLORS).optional(),
+  })
+  .refine((data) => data.mySeat !== "writer" || !!data.characterName, {
+    message: "Writers bring a character to the table",
+    path: ["characterName"],
+  });
+
+export const signAdventurePassageSchema = z.object({
+  content: z.string().min(1, "Write something first").max(50_000),
+});
+
+export const passAdventureSpotlightSchema = z.object({
+  toSeatId: z.string().uuid(),
+});
+
+export const raiseAdventureHandSchema = z.object({
+  whisper: z.string().max(200).optional(),
+});
+
+export const adventureSceneSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("open"),
+    title: z.string().max(200).default(""),
+    newAct: z.boolean().default(false),
+    opening: z.string().max(50_000).optional(),
+  }),
+  z.object({
+    action: z.literal("close"),
+  }),
+]);
+
+export const adventureSeatSetupSchema = z.object(adventureCharacterFields);

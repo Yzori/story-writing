@@ -1,0 +1,922 @@
+<title>Adventures — the table (concept)</title>
+<style>
+  /* ============================================================
+     Quiloria · Adventures — from-scratch concept, pass 2
+     Midnight Scriptorium, committed dark. The table is a table.
+     ============================================================ */
+  :root {
+    --void:    #080C1B;
+    --ink:     #0F1530;
+    --surface: #151C3D;
+    --raised:  #1B234B;
+    --line:    #2B3462;
+    --line-soft: #222A52;
+    --paper:   #F2EBDA;
+    --text:    #C6C2B2;
+    --ghost:   #8B89A0;
+    --gold:    #F5C55E;
+    --gold-hi: #FFE3A1;
+    --gold-dim:#B78F3E;
+    --teal:    #57D2CB;
+    --amber:   #F5AC4E;
+    --lavender:#C2ADFA;
+    --sage:    #A3CE9F;
+    --rose:    #F491AA;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 520px at 50% -8%, rgba(245,197,94,.09), transparent 62%),
+      radial-gradient(800px 640px at 106% 38%, rgba(87,210,203,.05), transparent 58%),
+      radial-gradient(760px 600px at -8% 88%, rgba(194,173,250,.05), transparent 55%),
+      var(--void);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  ::selection { background: rgba(245,197,94,.3); color: var(--paper); }
+  #motes {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+  }
+  .layer { position: relative; z-index: 1; }
+
+  /* ---------- top bar ---------- */
+  .top {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 14px 30px;
+    border-bottom: 1px solid var(--line-soft);
+    background: rgba(8,12,27,.82);
+    position: sticky; top: 0; z-index: 40;
+    backdrop-filter: blur(8px);
+  }
+  .brand { font-family: var(--serif); color: var(--paper); font-size: 17px; }
+  .brand em { font-style: normal; color: var(--gold); }
+  .concept-chip {
+    font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ghost); border: 1px solid var(--line-soft);
+    padding: 3px 11px; border-radius: 999px;
+  }
+  .tabs { margin-left: auto; display: flex; gap: 6px; }
+  .tab {
+    font: 600 13px var(--sans); color: var(--ghost);
+    background: transparent; border: 1px solid transparent;
+    padding: 7px 17px; border-radius: 999px; cursor: pointer;
+  }
+  .tab:hover { color: var(--paper); }
+  .tab[aria-selected="true"] { color: #241A05; background: var(--gold); border-color: var(--gold); }
+  .tab:focus-visible, button:focus-visible, select:focus-visible {
+    outline: 2px solid var(--gold-hi); outline-offset: 2px;
+  }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ============================================================
+     THE TOP — title + cast bar (a program, not an illustration)
+     ============================================================ */
+  .adv-head { text-align: center; padding: 44px 24px 0; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .3em; text-transform: uppercase;
+    color: var(--gold-dim); margin: 0 0 12px;
+  }
+  .adv-title {
+    font-family: var(--serif); font-weight: 500;
+    font-size: clamp(34px, 5vw, 54px);
+    color: var(--paper); margin: 0;
+    letter-spacing: .01em; text-wrap: balance;
+    text-shadow: 0 0 44px rgba(245,197,94,.18);
+  }
+  .adv-meta { margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .chip {
+    font-size: 12px; color: var(--text);
+    border: 1px solid var(--line-soft); border-radius: 999px;
+    padding: 4px 13px; background: rgba(15,21,48,.7); white-space: nowrap;
+  }
+  .chip.gold { color: var(--gold-hi); border-color: rgba(245,197,94,.38); }
+
+  @keyframes flick {
+    0%,100% { opacity: 1; } 42% { opacity: .72; } 58% { opacity: .94; } 71% { opacity: .66; }
+  }
+  @keyframes pool { 50% { opacity: .68; } }
+
+  .castbar {
+    max-width: 980px;
+    margin: 34px auto 0;
+    padding: 0 24px;
+  }
+  .castbar-in {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(27,35,75,.42), rgba(15,21,48,.88));
+    box-shadow: 0 18px 44px rgba(0,0,0,.35);
+    overflow: hidden;
+  }
+  .seat {
+    position: relative;
+    display: flex; align-items: center; gap: 13px;
+    padding: 18px 20px;
+    min-width: 0;
+  }
+  .seat + .seat { border-left: 1px solid var(--line-soft); }
+  .seat.lit {
+    background: radial-gradient(120% 140% at 50% 115%, rgba(87,210,203,.16), transparent 62%);
+  }
+  .seat.lit::after {
+    /* the spotlight, as light on the sill of the seat */
+    content: ""; position: absolute; left: 14%; right: 14%; bottom: 0;
+    height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    box-shadow: 0 0 14px 2px rgba(87,210,203,.5);
+    animation: pool 3.2s ease-in-out infinite;
+  }
+  .pip {
+    width: 42px; height: 42px; flex: none;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font: 600 17px var(--serif); color: #14101F;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45);
+    position: relative;
+  }
+  .pip-gold { background: radial-gradient(circle at 34% 30%, var(--gold-hi), var(--gold) 58%, #C08F35); }
+  .pip-teal { background: radial-gradient(circle at 34% 30%, #B8F3EF, var(--teal) 58%, #2E9A94); }
+  .pip-amber { background: radial-gradient(circle at 34% 30%, #FFD9A0, var(--amber) 58%, #C67F2E); }
+  .pip-lav { background: radial-gradient(circle at 34% 30%, #E6DBFF, var(--lavender) 58%, #8E76D0); }
+  .seat.lit .pip { box-shadow: 0 0 0 2px rgba(87,210,203,.55), 0 0 22px rgba(87,210,203,.4), 0 4px 14px rgba(0,0,0,.45); }
+  .seat .who { min-width: 0; }
+  .seat .nm { font: 600 14px var(--sans); color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seat .nm small { color: var(--ghost); font-weight: 400; }
+  .seat .rl { font-size: 11.5px; color: var(--ghost); line-height: 1.35; }
+  .seat .st { margin-top: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; display: inline-block; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st.writing { color: #0E2B29; background: var(--teal); animation: pool 3.4s ease-in-out infinite; }
+  .st.hand { color: var(--amber); border: 1px solid rgba(245,172,78,.55); background: rgba(245,172,78,.1); }
+  .st.due { color: var(--ghost); border: 1px solid var(--line-soft); }
+  .st.dir { color: var(--gold-hi); border: 1px solid rgba(245,197,94,.4); background: rgba(245,197,94,.08); }
+  /* raised-hand marker on the pip */
+  .hand-mark {
+    position: absolute; right: -4px; top: -5px;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 10px rgba(245,172,78,.8);
+    display: grid; place-items: center;
+    animation: raise 2.1s ease-in-out infinite;
+  }
+  .hand-mark::before { content: ""; width: 2px; height: 7px; background: #241A05; border-radius: 2px; transform: rotate(35deg); }
+  @keyframes raise { 50% { transform: translateY(-2px); } }
+
+  @media (max-width: 860px) {
+    .castbar-in { grid-template-columns: 1fr 1fr; }
+    .seat + .seat { border-left: none; }
+    .seat:nth-child(even) { border-left: 1px solid var(--line-soft); }
+    .seat:nth-child(n+3) { border-top: 1px solid var(--line-soft); }
+  }
+  @media (max-width: 480px) {
+    .castbar-in { grid-template-columns: 1fr; }
+    .seat:nth-child(even) { border-left: none; }
+    .seat + .seat { border-top: 1px solid var(--line-soft); }
+  }
+
+  /* ============================================================
+     MANUSCRIPT + RAIL
+     ============================================================ */
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 44px;
+    max-width: 1180px;
+    margin: 26px auto 0;
+    padding: 0 30px 90px;
+  }
+  @media (max-width: 980px) { .stage { grid-template-columns: minmax(0,1fr); } }
+
+  .manuscript { max-width: 720px; }
+
+  /* ---------- the page ---------- */
+  .page {
+    position: relative;
+    background:
+      radial-gradient(560px 200px at 50% 0%, rgba(245,197,94,.055), transparent 72%),
+      linear-gradient(180deg, #151C3E, #101733);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,227,161,.07),
+      0 1px 0 rgba(255,227,161,.04),
+      0 26px 64px rgba(0,0,0,.5);
+    padding: 36px 46px 26px;
+    font-family: var(--serif);
+    color: var(--paper);
+  }
+  .running-head {
+    text-align: center;
+    font: 500 10px var(--sans);
+    letter-spacing: .3em; text-transform: uppercase;
+    color: var(--ghost);
+    padding-bottom: 13px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .folio {
+    text-align: center;
+    font-family: var(--serif); font-style: italic;
+    font-size: 12.5px; color: var(--ghost);
+    margin-top: 26px;
+  }
+  .scene-mark {
+    display: flex; align-items: center; gap: 16px;
+    margin: 28px 0 30px;
+    font-family: var(--sans); font-size: 11px;
+    letter-spacing: .26em; text-transform: uppercase;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  .scene-mark::before, .scene-mark::after {
+    content: ""; height: 1px; flex: 1;
+    background: linear-gradient(90deg, transparent, rgba(245,197,94,.4));
+  }
+  .scene-mark::after { background: linear-gradient(90deg, rgba(245,197,94,.4), transparent); }
+
+  /* passages: manuscript margin + prose column */
+  .passage {
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 6px 26px;
+    margin: 0 0 30px;
+  }
+  .margin { text-align: right; padding-top: 6px; }
+  .margin .who {
+    font: 700 11px var(--sans);
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  .margin .as {
+    font: 400 10.5px var(--sans);
+    color: var(--ghost); line-height: 1.45; margin-top: 3px;
+  }
+  .margin .sp {
+    font: 400 10.5px var(--sans);
+    color: var(--gold-dim); line-height: 1.5;
+    margin-top: 10px;
+  }
+  .margin .sp b { color: var(--gold-hi); font-weight: 600; }
+  .margin .sp .fleck {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--gold); margin-right: 4px;
+    box-shadow: 0 0 7px rgba(245,197,94,.9);
+    animation: pool 2.8s ease-in-out infinite;
+  }
+  .p-director .margin .who { color: var(--gold); }
+  .p-teal .margin .who { color: var(--teal); }
+  .p-amber .margin .who { color: var(--amber); }
+  .p-lav .margin .who { color: var(--lavender); }
+
+  .prose { font-size: 16.5px; line-height: 1.64; min-width: 0; }
+  .prose p { margin: 0 0 12px; }
+  .p-director .prose p { color: #D5D0BF; }
+  .p-director .to-cast { color: var(--gold-hi); font-style: italic; }
+  .dropcap::first-letter {
+    font-size: 2.9em; float: left; line-height: .8;
+    padding: 3px 9px 0 0;
+    color: var(--gold);
+    text-shadow: 0 0 24px rgba(245,197,94,.35);
+    font-weight: 500;
+  }
+  /* signature flourish closes a cast passage */
+  .sig { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+  .sig svg { flex: none; }
+  .sig .sn { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--ghost); }
+
+  /* in-page "writing now" line */
+  .now-writing {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 36px;
+    font-family: var(--serif); font-style: italic;
+    font-size: 14.5px; color: var(--teal);
+  }
+  .spot-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex: none;
+    background: var(--teal);
+    box-shadow: 0 0 12px 3px rgba(87,210,203,.55);
+    animation: pool 2.4s ease-in-out infinite;
+  }
+  .now-writing .dots i {
+    display: inline-block; width: 3px; height: 3px; border-radius: 50%;
+    background: var(--teal); margin-left: 4px; vertical-align: middle;
+    animation: pool 1.4s ease-in-out infinite;
+  }
+  .now-writing .dots i:nth-child(2) { animation-delay: .25s; }
+  .now-writing .dots i:nth-child(3) { animation-delay: .5s; }
+
+  @media (max-width: 720px) {
+    .page { padding: 26px 22px 20px; }
+    .scene-mark { white-space: normal; letter-spacing: .16em; line-height: 1.7; text-align: center; }
+    .scene-mark::before, .scene-mark::after { min-width: 18px; }
+    .passage { grid-template-columns: 1fr; gap: 4px; }
+    .margin { text-align: left; padding-top: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+    .margin .as, .margin .sp { margin-top: 0; }
+    .margin .as br, .margin .sp br { display: none; }
+  }
+
+  /* ---------- your line (controls under the page) ---------- */
+  .composer {
+    margin-top: 20px;
+    border: 1px solid rgba(245,172,78,.28);
+    border-radius: 14px;
+    background:
+      radial-gradient(420px 110px at 16% 0%, rgba(245,172,78,.08), transparent 72%),
+      rgba(15,21,48,.7);
+    padding: 16px 18px;
+    font-family: var(--sans);
+  }
+  .hand-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .hand-row .spacer { flex: 1; }
+  .btn {
+    font: 600 13.5px var(--sans);
+    border-radius: 11px; padding: 11px 18px;
+    border: 1px solid var(--line);
+    background: var(--surface); color: var(--paper);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--gold); }
+  .btn.primary { background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold); color: #241A05; }
+  .btn.primary:hover { background: var(--gold-hi); }
+  .btn.raised {
+    background: rgba(245,172,78,.15);
+    border-color: var(--amber); color: var(--amber);
+    box-shadow: 0 0 18px rgba(245,172,78,.25), inset 0 0 12px rgba(245,172,78,.08);
+  }
+  .btn.quiet { color: var(--ghost); }
+  .btn.quiet:hover { color: var(--paper); }
+  .whisper {
+    margin-top: 10px;
+    display: flex; align-items: baseline; gap: 12px;
+    border-bottom: 1px dashed rgba(245,172,78,.35);
+    padding: 4px 2px 8px; font-size: 13.5px; color: var(--text);
+  }
+  .whisper .lbl { color: var(--gold-dim); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+  .whisper i { font-family: var(--serif); color: var(--paper); }
+  .hand-hint { margin: 13px 2px 0; font-size: 12.5px; color: var(--ghost); }
+  .hand-hint b { color: var(--text); font-weight: 600; }
+
+  /* ---------- rail ---------- */
+  .rail { display: flex; flex-direction: column; gap: 20px; }
+  .card {
+    background: linear-gradient(180deg, rgba(27,35,75,.5), rgba(15,21,48,.9));
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.3);
+  }
+  .card h3 {
+    margin: 0 0 14px;
+    font: 600 10.5px var(--sans);
+    letter-spacing: .24em; text-transform: uppercase;
+    color: var(--gold-dim);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card h3::after { content: ""; height: 1px; flex: 1; background: linear-gradient(90deg, rgba(245,197,94,.3), transparent); }
+
+  .aud-count { display: flex; align-items: baseline; gap: 10px; }
+  .aud-count .n {
+    font: 500 34px var(--serif); color: var(--gold-hi);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 26px rgba(245,197,94,.35);
+  }
+  .aud-count .lanterns { font-size: 12px; color: var(--ghost); }
+  .lantern-field {
+    position: relative; height: 58px;
+    margin: 14px 0 6px;
+    mask-image: linear-gradient(180deg, black 55%, transparent);
+    -webkit-mask-image: linear-gradient(180deg, black 55%, transparent);
+  }
+  .lantern-field i {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: flick 3s ease-in-out infinite;
+  }
+  .field-note { font-size: 11px; color: var(--ghost); margin-bottom: 2px; }
+
+  .vote { margin-top: 2px; }
+  .vote .q {
+    font-family: var(--serif); font-style: italic;
+    color: var(--paper); font-size: 15px; margin: 0 0 12px;
+  }
+  .opt { margin-bottom: 11px; }
+  .opt .row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; margin-bottom: 4px; }
+  .opt .row .pct { color: var(--gold-hi); font-variant-numeric: tabular-nums; }
+  .opt.lead .row span:first-child { color: var(--paper); font-weight: 600; }
+  .bar { height: 6px; border-radius: 999px; background: rgba(8,12,27,.8); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold-dim), var(--gold) 70%, var(--gold-hi)); box-shadow: 0 0 10px rgba(245,197,94,.4); }
+  .vote .closes { font-size: 11.5px; color: var(--ghost); margin-top: 10px; }
+  .sug { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 12.5px; }
+  .sug b { color: var(--lavender); font-weight: 600; }
+  .backs { margin-top: 2px; }
+  .back-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 0; }
+  .back-row .bd { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .back-row .n { margin-left: auto; color: var(--paper); font-variant-numeric: tabular-nums; }
+  .public-note { font-size: 12.5px; color: var(--ghost); margin: 0; }
+  .public-note code { font-family: var(--mono); font-size: 11.5px; color: var(--gold-hi); }
+
+  /* rules strip */
+  .rules {
+    grid-column: 1 / -1;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px; margin-top: 18px;
+  }
+  .rule {
+    border-top: 1px solid rgba(245,197,94,.25);
+    padding: 14px 4px 0;
+    font-size: 12.5px;
+    color: var(--ghost);
+    background: transparent;
+  }
+  .rule b {
+    display: block;
+    font: 700 11px var(--sans);
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  /* ============================================================
+     FIND A TABLE — the playbill board
+     ============================================================ */
+  .find { max-width: 1120px; margin: 0 auto; padding: 48px 30px 100px; }
+  .find-head { text-align: center; max-width: 66ch; margin: 0 auto; }
+  .find-head h1 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: clamp(30px, 4.4vw, 46px);
+    color: var(--paper); margin: 0 0 12px;
+    text-wrap: balance;
+    text-shadow: 0 0 44px rgba(245,197,94,.16);
+  }
+  .find-head p { color: var(--text); font-size: 15.5px; margin: 0; }
+  .find-head p strong { color: var(--paper); }
+
+  .quickmatch {
+    margin: 30px auto 44px; max-width: 780px;
+    text-align: center;
+    border: 1px solid rgba(245,197,94,.3);
+    background:
+      radial-gradient(480px 120px at 50% 0%, rgba(245,197,94,.08), transparent 75%),
+      rgba(15,21,48,.7);
+    border-radius: 16px; padding: 22px 24px;
+    font-family: var(--serif); font-size: 17px; color: var(--text);
+    box-shadow: 0 14px 34px rgba(0,0,0,.3);
+  }
+  .quickmatch .sentence { line-height: 2.3; }
+  .quickmatch .ph { white-space: nowrap; }
+  .quickmatch select {
+    font: 600 14px var(--sans);
+    color: var(--gold-hi); background: var(--surface);
+    border: 1px solid var(--line); border-bottom-color: var(--gold-dim);
+    border-radius: 9px;
+    padding: 7px 10px; cursor: pointer; margin: 0 4px;
+  }
+  .quickmatch .btn { margin-left: 10px; vertical-align: middle; }
+
+  .board {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 22px;
+  }
+  .bill {
+    position: relative;
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    background: linear-gradient(180deg, rgba(27,35,75,.45), rgba(15,21,48,.92));
+    padding: 26px 24px 22px;
+    display: flex; flex-direction: column; gap: 12px;
+    text-align: center;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  }
+  .bill::before {
+    content: ""; position: absolute; inset: 7px;
+    border: 1px solid rgba(245,197,94,.22);
+    border-radius: 3px; pointer-events: none;
+  }
+  .bill:hover {
+    transform: translateY(-4px);
+    border-color: rgba(245,197,94,.45);
+    box-shadow: 0 22px 48px rgba(0,0,0,.5), 0 0 32px rgba(245,197,94,.09);
+  }
+  .bill .genre {
+    font-size: 10px; letter-spacing: .3em; text-transform: uppercase;
+    color: var(--gold-dim);
+  }
+  .bill h2 {
+    font: 500 24px var(--serif); color: var(--paper); margin: 0;
+    text-wrap: balance;
+  }
+  .bill .orn { color: rgba(245,197,94,.55); font-size: 12px; letter-spacing: .6em; text-indent: .6em; }
+  .bill .premise {
+    font-family: var(--serif); font-style: italic;
+    font-size: 14px; color: var(--text); margin: 0;
+    line-height: 1.6;
+  }
+  .seeking {
+    font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--gold-hi); font-weight: 700;
+    padding: 7px 0;
+    border-top: 1px solid rgba(245,197,94,.2);
+    border-bottom: 1px solid rgba(245,197,94,.2);
+  }
+  .bill .pace { font-size: 12px; color: var(--teal); }
+  .bill .dir-line { font-size: 12px; color: var(--ghost); }
+  .bill .dir-line b { color: var(--paper); font-weight: 600; }
+  .bill .dir-line .show { color: var(--sage); font-weight: 600; }
+  .bill .btn { align-self: center; margin-top: auto; }
+  .bill.own { border-style: dashed; background: rgba(15,21,48,.4); justify-content: center; }
+  .bill.own::before { border-style: dashed; }
+  .bill.own h2 { color: var(--gold-hi); }
+  .own .choice { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  .ghost-note {
+    margin: 40px auto 0; font-size: 13px; color: var(--ghost);
+    max-width: 68ch; text-align: center;
+  }
+  .ghost-note b { color: var(--text); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    #motes { display: none; }
+  }
+</style>
+
+<canvas id="motes" aria-hidden="true"></canvas>
+
+<div class="layer">
+<header class="top">
+  <span class="brand">Quiloria · <em>Adventures</em></span>
+  <span class="concept-chip">Concept mockup</span>
+  <nav class="tabs" role="tablist">
+    <button class="tab" id="tab-play" role="tab" aria-selected="true" onclick="show('play')">At the table</button>
+    <button class="tab" id="tab-find" role="tab" aria-selected="false" onclick="show('find')">Find a table</button>
+  </nav>
+</header>
+
+<!-- ============================ PLAY ============================ -->
+<section class="view active" id="view-play">
+
+  <div class="adv-head">
+    <p class="eyebrow">An adventure · Act II, Scene 4</p>
+    <h1 class="adv-title">The Hollow Lantern</h1>
+    <div class="adv-meta">
+      <span class="chip">One turn a day</span>
+      <span class="chip gold">The audience is in</span>
+    </div>
+  </div>
+
+  <!-- the cast bar: a program, not an illustration -->
+  <div class="castbar">
+    <div class="castbar-in">
+      <div class="seat s-wren">
+        <div class="pip pip-gold">W</div>
+        <div class="who">
+          <div class="nm">Wren</div>
+          <div class="rl">Director</div>
+          <span class="st dir">holds the spotlight</span>
+        </div>
+      </div>
+      <div class="seat s-mira lit">
+        <div class="pip pip-teal">M</div>
+        <div class="who">
+          <div class="nm">Mira</div>
+          <div class="rl">Ilsa Voss, tide-surgeon</div>
+          <span class="st writing">writing now</span>
+        </div>
+      </div>
+      <div class="seat s-sadi">
+        <div class="pip pip-lav">S</div>
+        <div class="who">
+          <div class="nm">Sadi</div>
+          <div class="rl">Pin, pickpocket</div>
+          <span class="st due">turn due in 14h</span>
+        </div>
+      </div>
+      <div class="seat s-jonas">
+        <div class="pip pip-amber">J<span class="hand-mark" title="Hand raised"></span></div>
+        <div class="who">
+          <div class="nm">Jonas <small>(you)</small></div>
+          <div class="rl">Brother Calder, cartographer</div>
+          <span class="st hand">hand raised</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <!-- manuscript -->
+    <div class="manuscript">
+      <div class="page">
+        <div class="running-head">The Hollow Lantern · Act II</div>
+        <div class="scene-mark">Scene Four — The Customs House After Dark</div>
+
+        <div class="passage p-director">
+          <div class="margin">
+            <div class="who">Wren</div>
+            <div class="as">Director</div>
+          </div>
+          <div class="prose">
+            <p class="dropcap">The customs house has been locked since the drowning, but locks in Port Merrow answer to salt before they answer to keys. Inside, the ledgers are stacked like headstones, and one drawer stands open — recently, judging by the dust. On the desk, a letter sealed in grey wax. The harbor bell rings once. No one should be at the rope.</p>
+            <p class="to-cast">Ilsa — you came here for the ledgers. The bell says you're not alone.</p>
+          </div>
+        </div>
+
+        <div class="passage p-teal">
+          <div class="margin">
+            <div class="who">Mira</div>
+            <div class="as">as Ilsa Voss,<br>tide-surgeon</div>
+            <div class="sp"><span class="fleck"></span><b>31 sparks</b><br><em>"eavesdropping is free"</em></div>
+          </div>
+          <div class="prose">
+            <p>Ilsa did not flinch at the bell. Flinching was for people who still believed the harbor could surprise them. She set her bag on the drowned man's desk, unrolled her instruments as if this were any other appointment, and only then let herself look at the letter. Grey wax. The customs office sealed in black, the church in red. Nobody in Port Merrow sealed in grey — nobody living, at least.</p>
+            <p>"You can come out," she said to the dark between the shelves. "I charge for examinations, but eavesdropping is free."</p>
+            <div class="sig">
+              <svg width="64" height="14" viewBox="0 0 64 14"><path d="M2 9 C 14 2, 24 13, 36 7 S 56 3, 62 8" fill="none" stroke="#57D2CB" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>
+              <span class="sn">Mira</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="passage p-lav">
+          <div class="margin">
+            <div class="who">Sadi</div>
+            <div class="as">as Pin,<br>pickpocket</div>
+          </div>
+          <div class="prose">
+            <p>The dark between the shelves sighed, and Pin stepped out of it, hands up, grin first. Getting caught was an art, and the trick was to look like you'd planned it. "In my defense," Pin said, "I was here before you. That makes you the intruder, and me the witness."</p>
+            <div class="sig">
+              <svg width="58" height="14" viewBox="0 0 58 14"><path d="M2 7 C 10 12, 20 2, 30 9 S 50 11, 56 5" fill="none" stroke="#C2ADFA" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>
+              <span class="sn">Sadi</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="passage p-director">
+          <div class="margin">
+            <div class="who">Wren</div>
+            <div class="as">Director</div>
+          </div>
+          <div class="prose">
+            <p>Overhead, the bell rings a second time — then the rope goes slack. Whoever was ringing has let go. Footsteps on the harbor boards, unhurried, coming this way. And the grey seal on the letter, for those close enough to see it, is carrying a watermark: the sigil of the Lighthouse Office, retired these forty years.</p>
+          </div>
+        </div>
+
+        <div class="now-writing">
+          <span class="spot-dot" aria-hidden="true"></span>
+          Mira has the spotlight — writing<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+        <div class="folio">· 48 ·</div>
+      </div>
+
+      <!-- your line -->
+      <div class="composer">
+        <div class="hand-row">
+          <button class="btn raised" id="handBtn" onclick="toggleHand()">Hand raised — waiting on Wren</button>
+          <span class="spacer"></span>
+          <button class="btn quiet" title="Once per act: take the spotlight without waiting.">Step forward · 1 left</button>
+        </div>
+        <div class="whisper">
+          <span class="lbl">To the Director</span>
+          <i id="whisperTxt">Calder knows that watermark — let me open the letter.</i>
+        </div>
+        <p class="hand-hint">You're writing <b style="color:var(--amber)">Brother Calder</b>, defrocked cartographer. Raising your hand tells Wren you have the next move; <b>Step forward</b> takes the spotlight outright — once per act, and the Director has to work with what you write.</p>
+      </div>
+    </div>
+
+    <!-- rail -->
+    <aside class="rail">
+      <div class="card">
+        <h3>The audience</h3>
+        <div class="aud-count">
+          <span class="n">214</span>
+          <span class="lanterns">reading live<br>1,882 all-time</span>
+        </div>
+        <div class="lantern-field" id="lanterns" aria-hidden="true"></div>
+        <div class="field-note">Every lantern is a reader in the room right now.</div>
+      </div>
+
+      <div class="card">
+        <h3>Wren asked the house</h3>
+        <div class="vote">
+          <p class="q">Who let go of the bell rope?</p>
+          <div class="opt lead">
+            <div class="row"><span>The drowned customs officer</span><span class="pct">44%</span></div>
+            <div class="bar"><i style="width:44%"></i></div>
+          </div>
+          <div class="opt">
+            <div class="row"><span>The lighthouse keeper's daughter</span><span class="pct">38%</span></div>
+            <div class="bar"><i style="width:38%"></i></div>
+          </div>
+          <div class="opt">
+            <div class="row"><span>No one — the rope moved alone</span><span class="pct">18%</span></div>
+            <div class="bar"><i style="width:18%"></i></div>
+          </div>
+          <div class="closes">Vote closes in 6 hours · the Director keeps the final word</div>
+        </div>
+        <div class="sug"><b>9 suggestions</b> from readers are waiting for Wren — one may be written into the story, credited to the reader who sent it.</div>
+      </div>
+
+      <div class="card">
+        <h3>Backing the cast</h3>
+        <div class="backs">
+          <div class="back-row"><span class="bd" style="background:var(--lavender)"></span>Backing Pin<span class="n">86</span></div>
+          <div class="back-row"><span class="bd" style="background:var(--teal)"></span>Backing Ilsa<span class="n">61</span></div>
+          <div class="back-row"><span class="bd" style="background:var(--amber)"></span>Backing Calder<span class="n">43</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>The book it becomes</h3>
+        <p class="public-note">Every scene is published the moment it's signed. When the adventure ends, it compiles into a finished novel credited to all five names — readable at <code>quiloria.com/a/hollow-lantern</code>.</p>
+      </div>
+    </aside>
+
+    <!-- table rules -->
+    <div class="rules">
+      <div class="rule"><b>The Director</b> Runs the world: opens scenes, answers the cast, keeps the story moving. Never writes your character.</div>
+      <div class="rule"><b>Raise your hand</b> Tell the Director you have the next move, with a whisper saying what you're holding. They pass the spotlight — or hold it.</div>
+      <div class="rule"><b>Step forward</b> Once per act, take the spotlight without asking. The Director must weave with whatever you write.</div>
+      <div class="rule"><b>The audience</b> Sparks lines, backs characters, votes when the Director opens a question, sends suggestions worth canonizing.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ FIND ============================ -->
+<section class="view" id="view-find">
+  <div class="find">
+    <div class="find-head">
+      <h1>Every story needs a table.</h1>
+      <p>An adventure is written by a small cast — one Director who runs the world, two to four writers who each play a character. Bring friends, or take an open seat from the board. Tables are matched on <strong>pace first</strong>: a table that writes at your speed is a table that finishes.</p>
+    </div>
+
+    <div class="quickmatch">
+      <div class="sentence">
+        <span class="ph">Find me a seat —</span>
+        <span class="ph">I want to <select aria-label="Seat"><option>write a character</option><option>direct</option><option>do either</option></select></span>
+        <span class="ph">in <select aria-label="Genre"><option>any genre</option><option>fantasy</option><option>mystery</option><option>horror</option><option>romance</option><option>science fiction</option></select></span>
+        <span class="ph">at <select aria-label="Pace"><option>one turn a day</option><option>live sessions</option><option>a few turns a week</option></select></span>
+        <span class="ph"><button class="btn primary">Match me</button></span>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="bill">
+        <div class="genre">Gaslamp mystery</div>
+        <h2>Saltmarsh Requiem</h2>
+        <div class="orn">✦</div>
+        <p class="premise">A funeral barge arrives three days early, and the town it was meant for no longer exists. Elegiac, slow-burning, salt in everything.</p>
+        <div class="seeking">Seeking · a Director</div>
+        <div class="pace">One turn a day</div>
+        <div class="dir-line">Three writers seated, premise written, waiting to begin.</div>
+        <button class="btn">Ask to direct</button>
+      </div>
+
+      <div class="bill">
+        <div class="genre">High fantasy</div>
+        <h2>The Glass Caravan</h2>
+        <div class="orn">✦</div>
+        <p class="premise">Merchants cross a desert where mirages are load-bearing. Whatever you describe in detail becomes cargo.</p>
+        <div class="seeking">Seeking · two writers</div>
+        <div class="pace">Live · Thursdays 20:00</div>
+        <div class="dir-line">Directed by <b>Anouk</b> · <span class="show">shows up 96%</span> · 4 adventures finished</div>
+        <button class="btn">Ask for a seat</button>
+      </div>
+
+      <div class="bill">
+        <div class="genre">Cozy mystery</div>
+        <h2>Dead Letters Office</h2>
+        <div class="orn">✦</div>
+        <p class="premise">A postal bureau for mail addressed to the deceased. This week, the deceased started writing back.</p>
+        <div class="seeking">Seeking · one writer</div>
+        <div class="pace">Turn every two days</div>
+        <div class="dir-line">Directed by <b>Ede</b> · <span class="show">shows up 100%</span> · 2 adventures finished</div>
+        <button class="btn">Ask for a seat</button>
+      </div>
+
+      <div class="bill">
+        <div class="genre">Gothic horror</div>
+        <h2>Ninth Wake</h2>
+        <div class="orn">✦</div>
+        <p class="premise">Eight funerals in a mountain village, each stranger than the last. The ninth is yours to prevent. No gore, all dread.</p>
+        <div class="seeking">Seeking · a Director &amp; one writer</div>
+        <div class="pace">One turn a day</div>
+        <div class="dir-line">Started by <b>Liv</b>, who wants to play, not direct.</div>
+        <button class="btn">Ask to join</button>
+      </div>
+
+      <div class="bill own">
+        <div class="genre">Your premise here</div>
+        <h2>Open your own table</h2>
+        <div class="orn">✦</div>
+        <p class="premise">Write a premise, set the pace, choose your seat. Invite friends by link — or post it to this board and let it fill the chairs.</p>
+        <div class="choice">
+          <button class="btn primary">I'll direct</button>
+          <button class="btn">I'll write — find me a Director</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="ghost-note"><b>Why pace comes first:</b> co-written stories don't die of bad writing, they die of waiting. Every table sets a turn rhythm up front; overdue turns are visible to the whole table, the spotlight can flow around an absent writer, and finishing an adventure is what builds your record on this board.</p>
+  </div>
+</section>
+</div>
+
+<script>
+  function show(which) {
+    document.getElementById('view-play').classList.toggle('active', which === 'play');
+    document.getElementById('view-find').classList.toggle('active', which === 'find');
+    document.getElementById('tab-play').setAttribute('aria-selected', which === 'play');
+    document.getElementById('tab-find').setAttribute('aria-selected', which === 'find');
+    window.scrollTo({ top: 0 });
+  }
+
+  var raised = true;
+  function toggleHand() {
+    raised = !raised;
+    var b = document.getElementById('handBtn');
+    var w = document.getElementById('whisperTxt');
+    var mark = document.querySelector('.hand-mark');
+    var st = document.querySelector('.s-jonas .st');
+    if (raised) {
+      b.textContent = 'Hand raised — waiting on Wren';
+      b.classList.add('raised');
+      w.textContent = 'Calder knows that watermark — let me open the letter.';
+      if (mark) mark.style.display = '';
+      if (st) { st.textContent = 'hand raised'; st.className = 'st hand'; }
+    } else {
+      b.textContent = 'Raise your hand — I have the next move';
+      b.classList.remove('raised');
+      w.textContent = 'Add a whisper: tell Wren what you’re holding…';
+      if (mark) mark.style.display = 'none';
+      if (st) { st.textContent = 'listening'; st.className = 'st due'; }
+    }
+  }
+
+  /* scattered lanterns — irregular sizes, depths, flicker */
+  (function () {
+    var field = document.getElementById('lanterns');
+    if (!field) return;
+    for (var i = 0; i < 38; i++) {
+      var l = document.createElement('i');
+      var sz = 2.5 + Math.random() * 4.5;
+      l.style.width = sz.toFixed(1) + 'px';
+      l.style.height = sz.toFixed(1) + 'px';
+      l.style.left = (2 + Math.random() * 94) + '%';
+      l.style.top = (Math.random() * 84) + '%';
+      l.style.opacity = (0.3 + Math.random() * 0.6).toFixed(2);
+      l.style.boxShadow = '0 0 ' + (4 + sz * 1.6).toFixed(0) + 'px rgba(245,197,94,.75)';
+      l.style.animationDelay = (Math.random() * 2900).toFixed(0) + 'ms';
+      l.style.animationDuration = (2200 + Math.random() * 2400).toFixed(0) + 'ms';
+      field.appendChild(l);
+    }
+  })();
+
+  /* drifting candle motes */
+  (function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+    var c = document.getElementById('motes');
+    var ctx = c.getContext('2d');
+    var motes = [];
+    function size() { c.width = window.innerWidth; c.height = window.innerHeight; }
+    window.addEventListener('resize', size); size();
+    for (var i = 0; i < 34; i++) {
+      motes.push({
+        x: Math.random() * c.width,
+        y: Math.random() * c.height,
+        r: 0.6 + Math.random() * 1.5,
+        vy: 0.08 + Math.random() * 0.22,
+        vx: (Math.random() - 0.5) * 0.12,
+        a: 0.06 + Math.random() * 0.16,
+        ph: Math.random() * Math.PI * 2
+      });
+    }
+    function tick(t) {
+      ctx.clearRect(0, 0, c.width, c.height);
+      for (var i = 0; i < motes.length; i++) {
+        var m = motes[i];
+        m.y -= m.vy; m.x += m.vx + Math.sin(t / 2400 + m.ph) * 0.08;
+        if (m.y < -6) { m.y = c.height + 6; m.x = Math.random() * c.width; }
+        if (m.x < -6) m.x = c.width + 6;
+        if (m.x > c.width + 6) m.x = -6;
+        var tw = 0.7 + 0.3 * Math.sin(t / 900 + m.ph);
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(245,197,94,' + (m.a * tw).toFixed(3) + ')';
+        ctx.fill();
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+</script>

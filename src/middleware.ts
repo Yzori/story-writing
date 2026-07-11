@@ -2,7 +2,7 @@ import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import { validateCsrf } from "@/server/csrf";
 
-const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings", "/roster/setup", "/campaign", "/creator"];
+const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings", "/roster/setup", "/campaign", "/creator", "/adventures"];
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];
 const authPages = ["/login", "/register"];
 

@@ -141,7 +141,7 @@ export const stories = pgTable("stories", {
   paragraphSpacing: text("paragraph_spacing").notNull().default("normal"),
   dailyWordTarget: integer("daily_word_target").notNull().default(500),
   feedImpressions: integer("feed_impressions").notNull().default(0),
-  writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign'
+  writingMode: text("writing_mode").notNull().default("solo"), // 'solo' | 'co-op' | 'campaign' | 'adventure'
   campaignSeats: integer("campaign_seats").notNull().default(6),
   campaignToneMood: integer("campaign_tone_mood").notNull().default(62),
   campaignToneScale: integer("campaign_tone_scale").notNull().default(45),
@@ -3116,5 +3116,278 @@ export const profileLettersRelations = relations(profileLetters, ({ one }) => ({
   sender: one(users, {
     fields: [profileLetters.senderId],
     references: [users.id],
+  }),
+}));
+
+// ── Adventures ("the table") ────────────────────────────────
+// One Director + 2–4 writers around a table, spotlight turns,
+// raise-hand / step-forward initiative, live audience. Distinct
+// from campaign v2 — new surface, new tables. See
+// docs/mockups/adventure-table.html + ~/.claude/plans/adventures-table-plan.md
+
+export const adventures = pgTable(
+  "adventures",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    storyId: uuid("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    // The user who opened the table. Owns board settings + invites even if
+    // they gave the director seat away.
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    premise: text("premise").notNull().default(""),
+    genre: text("genre").notNull().default(""),
+    pace: text("pace").notNull().default("turn-2-days"), // 'turn-daily' | 'turn-2-days' | 'turn-weekly' | 'live'
+    turnDueHours: integer("turn_due_hours").notNull().default(48),
+    status: text("status").notNull().default("casting"), // 'casting' | 'running' | 'finished' | 'abandoned'
+    actNo: integer("act_no").notNull().default(1),
+    sceneNo: integer("scene_no").notNull().default(0),
+    // Exactly one seat holds the spotlight while the adventure runs.
+    spotlightSeatId: uuid("spotlight_seat_id").references(
+      (): AnyPgColumn => adventureSeats.id,
+      { onDelete: "set null" }
+    ),
+    spotlightSince: timestamp("spotlight_since", { withTimezone: true }),
+    spotlightDueAt: timestamp("spotlight_due_at", { withTimezone: true }),
+    boardVisibility: text("board_visibility").notNull().default("private"), // 'private' | 'board'
+    // Single-use-style invite link secret, stored hashed (sha256) like
+    // password reset tokens. Null = no live invite link.
+    inviteTokenHash: text("invite_token_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_adventures_story").on(table.storyId),
+    index("idx_adventures_owner").on(table.ownerId),
+    // Backs the board query (Slice 2 filters on visibility + status).
+    index("idx_adventures_board").on(
+      table.boardVisibility,
+      table.status,
+      table.genre,
+      table.pace
+    ),
+  ]
+);
+
+export const adventureSeats = pgTable(
+  "adventure_seats",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    // Null while the seat is open (casting) or after its writer left.
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    role: text("role").notNull(), // 'director' | 'writer'
+    characterName: text("character_name").notNull().default(""),
+    characterBrief: text("character_brief").notNull().default(""),
+    inkColor: text("ink_color").notNull().default("amber"), // accent palette key
+    status: text("status").notNull().default("open"), // 'open' | 'seated' | 'left'
+    // Last act this seat spent its step-forward token in; one per act.
+    stepForwardAct: integer("step_forward_act").notNull().default(0),
+    // Feed the show-up record ("shows up 96%").
+    turnsOnTime: integer("turns_on_time").notNull().default(0),
+    turnsLate: integer("turns_late").notNull().default(0),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_adventure_seats_adventure").on(table.adventureId),
+    index("idx_adventure_seats_user").on(table.userId),
+    // A user sits once per adventure (NULLs — open seats — don't collide).
+    unique("adventure_seats_adventure_user_unique").on(
+      table.adventureId,
+      table.userId
+    ),
+    // Exactly one director seat per adventure.
+    uniqueIndex("adventure_seats_one_director")
+      .on(table.adventureId)
+      .where(sql`role = 'director'`),
+  ]
+);
+
+export const adventureScenes = pgTable(
+  "adventure_scenes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    actNo: integer("act_no").notNull(),
+    sceneNo: integer("scene_no").notNull(),
+    title: text("title").notNull().default(""),
+    status: text("status").notNull().default("open"), // 'open' | 'closed'
+    openedAt: timestamp("opened_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("idx_adventure_scenes_adventure").on(table.adventureId),
+    unique("adventure_scenes_act_scene_unique").on(
+      table.adventureId,
+      table.actNo,
+      table.sceneNo
+    ),
+    // One open scene at a time keeps "the page" unambiguous.
+    uniqueIndex("adventure_scenes_one_open")
+      .on(table.adventureId)
+      .where(sql`status = 'open'`),
+  ]
+);
+
+export const adventurePassages = pgTable(
+  "adventure_passages",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    sceneId: uuid("scene_id")
+      .notNull()
+      .references(() => adventureScenes.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => adventureSeats.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // 'scene-open' | 'direction' | 'character'
+    content: text("content").notNull(), // sanitized Tiptap HTML
+    wordCount: integer("word_count").notNull().default(0),
+    sortOrder: integer("sort_order").notNull(),
+    signedAt: timestamp("signed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_adventure_passages_adventure").on(
+      table.adventureId,
+      table.sortOrder
+    ),
+    // Backstop for the row-locked monotonic sortOrder transaction.
+    unique("adventure_passages_sort_unique").on(
+      table.adventureId,
+      table.sortOrder
+    ),
+  ]
+);
+
+export const adventureHands = pgTable(
+  "adventure_hands",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => adventureSeats.id, { onDelete: "cascade" }),
+    // Optional note to the Director only ("I know what the lantern is").
+    whisper: text("whisper").notNull().default(""),
+    raisedAt: timestamp("raised_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolution: text("resolution"), // 'spotlight' | 'declined' | 'withdrawn' | 'stepped-forward'
+  },
+  (table) => [
+    index("idx_adventure_hands_adventure").on(table.adventureId),
+    // One live hand per seat.
+    uniqueIndex("adventure_hands_one_active_per_seat")
+      .on(table.seatId)
+      .where(sql`resolved_at IS NULL`),
+  ]
+);
+
+export const adventuresRelations = relations(adventures, ({ one, many }) => ({
+  story: one(stories, {
+    fields: [adventures.storyId],
+    references: [stories.id],
+  }),
+  owner: one(users, {
+    fields: [adventures.ownerId],
+    references: [users.id],
+  }),
+  spotlightSeat: one(adventureSeats, {
+    fields: [adventures.spotlightSeatId],
+    references: [adventureSeats.id],
+  }),
+  seats: many(adventureSeats),
+  scenes: many(adventureScenes),
+  passages: many(adventurePassages),
+  hands: many(adventureHands),
+}));
+
+export const adventureSeatsRelations = relations(
+  adventureSeats,
+  ({ one, many }) => ({
+    adventure: one(adventures, {
+      fields: [adventureSeats.adventureId],
+      references: [adventures.id],
+    }),
+    user: one(users, {
+      fields: [adventureSeats.userId],
+      references: [users.id],
+    }),
+    passages: many(adventurePassages),
+    hands: many(adventureHands),
+  })
+);
+
+export const adventureScenesRelations = relations(
+  adventureScenes,
+  ({ one, many }) => ({
+    adventure: one(adventures, {
+      fields: [adventureScenes.adventureId],
+      references: [adventures.id],
+    }),
+    passages: many(adventurePassages),
+  })
+);
+
+export const adventurePassagesRelations = relations(
+  adventurePassages,
+  ({ one }) => ({
+    adventure: one(adventures, {
+      fields: [adventurePassages.adventureId],
+      references: [adventures.id],
+    }),
+    scene: one(adventureScenes, {
+      fields: [adventurePassages.sceneId],
+      references: [adventureScenes.id],
+    }),
+    seat: one(adventureSeats, {
+      fields: [adventurePassages.seatId],
+      references: [adventureSeats.id],
+    }),
+  })
+);
+
+export const adventureHandsRelations = relations(adventureHands, ({ one }) => ({
+  adventure: one(adventures, {
+    fields: [adventureHands.adventureId],
+    references: [adventures.id],
+  }),
+  seat: one(adventureSeats, {
+    fields: [adventureHands.seatId],
+    references: [adventureSeats.id],
   }),
 }));
