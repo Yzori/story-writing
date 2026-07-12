@@ -2,13 +2,34 @@ import "server-only";
 import Stripe from "stripe";
 import { SUBSCRIPTION_PLANS, type BillingInterval } from "@/config/subscription";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY environment variable is required for payments");
+let stripeClient: Stripe | null = null;
+
+export function getStripeClient(): Stripe {
+  if (stripeClient) return stripeClient;
+
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error("STRIPE_SECRET_KEY environment variable is required for payments");
+  }
+
+  stripeClient = new Stripe(secretKey, {
+    apiVersion: "2026-03-25.dahlia",
+    typescript: true,
+  });
+  return stripeClient;
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-03-25.dahlia",
-  typescript: true,
+/**
+ * Lazily resolve Stripe so importing a payment route does not make builds and
+ * non-payment environments depend on payment configuration. Existing callers
+ * can keep using the normal Stripe client API.
+ */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, property) {
+    const client = getStripeClient();
+    const value = Reflect.get(client, property, client) as unknown;
+    return typeof value === "function" ? value.bind(client) : value;
+  },
 });
 
 /**
