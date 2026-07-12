@@ -6,6 +6,7 @@
 
 export function htmlToText(html: string): string {
   return html
+    .replace(/data:[^"'\s<>]+/g, " ") // inline-image payloads are not prose
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -16,6 +17,7 @@ export function htmlToText(html: string): string {
     .replace(/&rsquo;/g, "’")
     .replace(/&ldquo;/g, "“")
     .replace(/&rdquo;/g, "”")
+    .replace(/\S{40,}/g, " ") // stray base64/attribute fragments, never words
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -38,7 +40,9 @@ export function extractFirstLine(html: string): string {
  * any leading tag fragment is discarded along with the pre-boundary text.
  */
 export function extractLastLines(html: string, max = 240): string {
-  const text = htmlToText(html);
+  // a tail sliced mid-tag opens with attribute guts — drop through the `>`
+  // (prose-start tails hit a `<` first and are left alone)
+  const text = htmlToText(html.replace(/^[^<>]*>/, ""));
   if (!text) return "";
   if (text.length <= max) return text;
   let tail = text.slice(-max);

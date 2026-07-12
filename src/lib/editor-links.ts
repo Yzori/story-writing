@@ -8,6 +8,7 @@ export interface EditorRouteStory {
   id: string;
   format?: string | null;
   writingMode?: string | null;
+  slug?: string | null;
 }
 
 export function editorHrefFor(
@@ -18,6 +19,10 @@ export function editorHrefFor(
     return activeSession
       ? `/campaign/${story.id}/play/${activeSession.id}`
       : `/campaign/${story.id}`;
+  }
+  // Adventure books are written at the table; the compiled story is only read.
+  if (story.writingMode === "adventure") {
+    return story.slug ? `/story/${story.slug}` : "/adventures";
   }
   if (story.writingMode === "co-op") return `/write/${story.id}/co-op`;
   if (story.format === "webtoon") return `/write/${story.id}/webtoon`;

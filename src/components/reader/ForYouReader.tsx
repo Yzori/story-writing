@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
+import { sanitizeHtmlClient } from "@/lib/sanitize-client";
 
 /**
  * For You Reader — the candlelit room.
@@ -612,7 +613,9 @@ export default function ForYouReader({
                 )}
                 <div
                   className="novel-reader text-text text-[1.1rem] leading-[1.85] font-serif"
-                  dangerouslySetInnerHTML={{ __html: currentChapter.content }}
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtmlClient(currentChapter.content),
+                  }}
                 />
                 {currentChapter.authorNoteAfter && (
                   <div className="text-text-ghost text-[13px] italic mt-10 border-l border-border pl-4">

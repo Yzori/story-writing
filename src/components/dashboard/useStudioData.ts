@@ -201,7 +201,10 @@ export function useStudioData(pollMs?: number) {
     );
   }, [stories, campaigns]);
 
-  const activeStory = allStories[0] ?? null;
+  // The manuscript hero is a desk invitation — adventure books are written
+  // at the table, so they never take it (they stay on the shelf as reads).
+  const activeStory =
+    allStories.find((s) => s.writingMode !== "adventure") ?? null;
   const activeHref = useMemo(() => {
     if (!activeStory) return "/create";
     const activeSession = campaigns.find((c) => c.id === activeStory.id)?.activeSession ?? null;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters, playerCharacters, campaignSessions } from "@/server/db/schema";
-import { eq, ne, isNull, desc, lt, and, sql, ilike } from "drizzle-orm";
+import { eq, ne, isNull, desc, lt, and, or, sql, ilike } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { LEGACY_RATING_MAP } from "@/config/genres";
 import { generateSlug } from "@/lib/utils";
@@ -42,6 +42,15 @@ export async function GET(request: NextRequest) {
     const writingMode = searchParams.get("writingMode");
     if (writingMode) {
       conditions.push(eq(stories.writingMode, writingMode));
+    } else {
+      // Adventure books are written at the table, not the desk. Keep them
+      // out of generic listings until the adventure finishes and compiles
+      // the story to 'complete' — then it's a real book on the shelf.
+      const cond = or(
+        ne(stories.writingMode, "adventure"),
+        eq(stories.status, "complete")
+      );
+      if (cond) conditions.push(cond);
     }
 
     if (search) {

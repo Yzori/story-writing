@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { PenLine, BookOpen, Dices, Check, X, Sparkles, ArrowRight } from "lucide-react";
+import { PenLine, BookOpen, Armchair, Check } from "lucide-react";
 import GlossaryTerm from "@/components/shared/GlossaryTerm";
 
 const READ_FLAG_KEY = "quiloria-firstrun-read";
@@ -26,7 +26,7 @@ const ACTIONS: {
     title: "Write your first chapter",
     description: "Open a blank page and put the first line down. No setup required.",
     href: "/create",
-    cta: "Start writing",
+    cta: "start writing",
     icon: PenLine,
   },
   {
@@ -35,7 +35,7 @@ const ACTIONS: {
     title: "Find your next read",
     description: "A library tuned to what you love — browse, spark, and follow along.",
     href: "/read",
-    cta: "Open the library",
+    cta: "open the library",
     icon: BookOpen,
     markRead: true,
   },
@@ -43,30 +43,18 @@ const ACTIONS: {
     id: "table",
     accent: "sage",
     title: "See a live table",
-    description: "Watch a story written turn by turn — the pen, the dice, the vote.",
-    href: "/demo-adventure-v2",
-    cta: "Step inside",
-    icon: Dices,
+    description: "Watch a story written turn by turn — the pen passing from hand to hand.",
+    href: "/adventures",
+    cta: "step inside",
+    icon: Armchair,
   },
 ];
 
 // Tailwind needs literal class names — map accents to static strings.
-const ACCENT_CLASSES: Record<Accent, { icon: string; hover: string; cta: string }> = {
-  amber: {
-    icon: "border-amber/25 bg-amber/10 text-amber",
-    hover: "hover:border-amber/40",
-    cta: "text-amber",
-  },
-  lavender: {
-    icon: "border-lavender/25 bg-lavender/10 text-lavender",
-    hover: "hover:border-lavender/40",
-    cta: "text-lavender",
-  },
-  sage: {
-    icon: "border-sage/25 bg-sage/10 text-sage",
-    hover: "hover:border-sage/40",
-    cta: "text-sage",
-  },
+const ACCENT_CLASSES: Record<Accent, { icon: string; cta: string }> = {
+  amber: { icon: "text-amber", cta: "text-amber group-hover:text-gold-light" },
+  lavender: { icon: "text-lavender", cta: "text-lavender group-hover:text-paper" },
+  sage: { icon: "text-sage", cta: "text-sage group-hover:text-paper" },
 };
 
 interface ChecklistItem {
@@ -74,6 +62,9 @@ interface ChecklistItem {
   done: boolean;
 }
 
+// The first night in the studio — set in the page's own grammar: typography
+// and hairlines of light, never a card inside a card. (The boxed onboarding
+// panel died with the banner dashboard; see page.tsx header note.)
 export default function FirstRunPanel({
   firstName,
   onDismiss,
@@ -133,113 +124,89 @@ export default function FirstRunPanel({
       initial={reduceMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={reduceMotion ? { duration: 0 } : undefined}
-      className="relative overflow-hidden rounded-[2rem] border border-border bg-surface/88 p-6 shadow-[var(--t-shadow-modal)] backdrop-blur-xl lg:p-8"
+      className="relative"
     >
-      <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-amber/[0.08] to-transparent" />
-
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="Dismiss getting started"
-        className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-elevated/70 text-text-ghost transition-colors hover:text-paper"
-      >
-        <X size={14} />
-      </button>
-
-      <div className="relative">
-        <p className="text-[11px] uppercase tracking-[0.28em] text-amber">Getting started</p>
-        <h2 className="mt-3 max-w-2xl font-display text-3xl leading-tight text-paper md:text-5xl">
-          Welcome{firstName ? `, ${firstName}` : ""}. Here&apos;s where to begin.
-        </h2>
-        <p className="mt-4 max-w-xl text-sm leading-relaxed text-text-secondary">
-          Three ways into Quiloria. Pick one — you can always wander to the others later.
-        </p>
-
-        {/* Action cards */}
-        <div className="mt-7 grid gap-4 sm:grid-cols-3">
-          {ACTIONS.map((action) => {
-            const Icon = action.icon;
-            const classes = ACCENT_CLASSES[action.accent];
-            return (
-              <Link
-                key={action.id}
-                href={action.href}
-                onClick={action.markRead ? handleMarkRead : undefined}
-                className={`group flex h-full flex-col rounded-2xl border border-border bg-elevated/65 p-5 transition-colors ${classes.hover}`}
-              >
-                <span
-                  className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border ${classes.icon}`}
-                >
-                  <Icon size={19} />
-                </span>
-                <h3 className="mt-4 font-display text-lg text-paper">{action.title}</h3>
-                <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-text-secondary">
-                  {action.description}
-                </p>
-                <span
-                  className={`mt-4 inline-flex items-center gap-1.5 text-[12px] font-medium ${classes.cta}`}
-                >
-                  {action.cta}
-                  <ArrowRight
-                    size={13}
-                    className="transition-transform group-hover:translate-x-0.5"
-                  />
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* First-steps checklist */}
-        <div className="mt-7 rounded-2xl border border-border bg-elevated/40 p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles size={14} className="text-amber" />
-              <p className="font-display text-base text-paper">First steps</p>
-            </div>
-            <span className="text-[11px] uppercase tracking-[0.16em] text-text-ghost">
-              {doneCount}/{checklist.length} done
-            </span>
-          </div>
-          <ul className="mt-4 space-y-2.5">
-            {checklist.map((item) => (
-              <li key={item.label} className="flex items-center gap-3">
-                <span
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${
-                    item.done
-                      ? "border-sage/40 bg-sage/15 text-sage"
-                      : "border-border bg-surface/60 text-transparent"
-                  }`}
-                >
-                  <Check size={12} />
-                </span>
-                <span
-                  className={`text-[13px] ${
-                    item.done ? "text-text-secondary line-through" : "text-paper"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {preferencesError && (
-            <p className="mt-3 text-[11px] text-text-ghost">
-              Couldn&apos;t check reading taste yet.
-            </p>
-          )}
-        </div>
-
-        {/* New-word legend — defines the vocabulary the cards above just used.
-            Lives outside the clickable cards so the tooltip buttons are valid. */}
-        <p className="mt-5 text-[12px] leading-relaxed text-text-ghost">
-          New here? A{" "}
-          <GlossaryTerm id="spark" className="text-text-secondary" /> shows a story moved you, a{" "}
-          <GlossaryTerm id="liveTable" className="text-text-secondary" /> is an Adventure played
-          turn by turn, and a{" "}
-          <GlossaryTerm id="coOp" className="text-text-secondary" /> story is written with others.
-        </p>
+      {/* eyebrow + hairline, in the section grammar of the page below */}
+      <div className="flex items-baseline gap-3">
+        <p className="font-body text-[10px] uppercase tracking-[0.32em] text-amber/80">Getting started</p>
+        <span aria-hidden className="h-px flex-1 self-center bg-gradient-to-r from-amber/25 to-transparent" />
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss getting started"
+          className="text-[10px] uppercase tracking-[0.16em] text-text-ghost transition-colors hover:text-paper"
+        >
+          dismiss ×
+        </button>
       </div>
+
+      <h2 className="mt-6 max-w-2xl font-display text-3xl leading-tight text-paper md:text-4xl">
+        Welcome{firstName ? `, ${firstName}` : ""}. Here&apos;s where to begin.
+      </h2>
+      <p className="mt-3 max-w-xl font-reading text-[15px] italic leading-relaxed text-text-secondary">
+        Three ways in. Pick one — you can always wander to the others later.
+      </p>
+
+      {/* three doors — columns of type separated by hairlines, no cards */}
+      <div className="mt-10 grid gap-10 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-border">
+        {ACTIONS.map((action) => {
+          const Icon = action.icon;
+          const classes = ACCENT_CLASSES[action.accent];
+          return (
+            <Link
+              key={action.id}
+              href={action.href}
+              onClick={action.markRead ? handleMarkRead : undefined}
+              className="group flex flex-col sm:px-7 sm:first:pl-0 sm:last:pr-0"
+            >
+              <Icon size={18} strokeWidth={1.5} className={classes.icon} aria-hidden />
+              <h3 className="mt-3 font-display text-lg text-paper">{action.title}</h3>
+              <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-text-secondary">{action.description}</p>
+              <span className={`mt-4 font-display text-[15px] italic transition-colors ${classes.cta}`}>
+                {action.cta}
+                <span className="ml-1.5 inline-block transition-transform group-hover:translate-x-1">→</span>
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* first steps — one engraved row beneath a hairline, not a card */}
+      <div className="mt-10 border-t border-border pt-5">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-text-ghost">
+            First steps · {doneCount}/{checklist.length}
+          </p>
+          {checklist.map((item) => (
+            <span key={item.label} className="flex items-center gap-2">
+              <span
+                className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
+                  item.done ? "border-sage/50 bg-sage/15 text-sage" : "border-border text-transparent"
+                }`}
+                aria-hidden
+              >
+                <Check size={10} />
+              </span>
+              <span className={`text-[13px] ${item.done ? "text-text-ghost line-through" : "text-text-secondary"}`}>
+                {item.label}
+              </span>
+            </span>
+          ))}
+        </div>
+        {preferencesError && (
+          <p className="mt-3 text-[11px] text-text-ghost">Couldn&apos;t check reading taste yet.</p>
+        )}
+      </div>
+
+      {/* New-word legend — defines the vocabulary the doors above just used.
+          Lives outside the clickable links so the tooltip buttons are valid. */}
+      <p className="mt-6 text-[12px] leading-relaxed text-text-ghost">
+        New here? A{" "}
+        <GlossaryTerm id="spark" className="text-text-secondary" /> shows a story moved you, a{" "}
+        <GlossaryTerm id="liveTable" className="text-text-secondary" /> is an Adventure played
+        turn by turn, and a{" "}
+        <GlossaryTerm id="coOp" className="text-text-secondary" /> story is written with others.
+      </p>
     </motion.div>
   );
 }

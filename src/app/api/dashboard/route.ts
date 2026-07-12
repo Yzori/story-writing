@@ -237,7 +237,9 @@ export async function GET(request: NextRequest) {
           chapterTitle: chapters.title,
           chapterSort: chapters.sortOrder,
           chapterWords: chapters.wordCount,
-          contentTail: sql<string>`right(${chapters.content}, 4000)`,
+          // inline illustrations carry base64 data-URIs that can swallow the
+          // whole tail window — drop them first so the tail reaches real prose
+          contentTail: sql<string>`right(regexp_replace(${chapters.content}, 'data:[^"'' <>]*', ' ', 'g'), 4000)`,
           updatedAt: chapters.updatedAt,
         })
         .from(chapters)
@@ -246,6 +248,8 @@ export async function GET(request: NextRequest) {
           and(
             eq(stories.userId, userId),
             ne(stories.writingMode, "campaign"),
+            // adventure books are written at the table, never from the desk
+            ne(stories.writingMode, "adventure"),
             isNull(stories.deletedAt),
             isNull(chapters.deletedAt),
           ),

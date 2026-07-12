@@ -243,6 +243,13 @@ export default function WriteStoryPage() {
     },
     [setProject]
   );
+
+  // Adventure books are written at the table — the desk never opens them.
+  useEffect(() => {
+    if (writingMode === "adventure") {
+      router.replace(storySlug ? `/story/${storySlug}` : "/adventures");
+    }
+  }, [writingMode, storySlug, router]);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showDesk, setShowDesk] = useState(false);
   const [deskOpensFlipped, setDeskOpensFlipped] = useState(false);

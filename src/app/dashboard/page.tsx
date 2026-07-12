@@ -26,8 +26,8 @@ import {
   PHASES,
   CLOCK_FALLBACK,
   ScenesRail,
-  genrePalette,
-  paletteFor,
+  spinePalette,
+  hash,
 } from "@/components/dashboard/studio-kit";
 import FirstRunPanel from "@/components/dashboard/FirstRunPanel";
 import { CocoaCup, SparkleFauna } from "@/components/dashboard/cozy";
@@ -497,6 +497,8 @@ export default function DashboardPage() {
       const c = liveCampaigns.find((x) => x.id === s.id);
       return c?.activeSession ? { label: "Live", rgb: ROSE } : { label: "Campaign", rgb: SAGE };
     }
+    // Only finished adventure books reach the shelf — written at the table.
+    if (s.writingMode === "adventure") return { label: "Adventure", rgb: SAGE };
     if (s.status === "draft") return { label: "Draft", rgb: AMBER };
     if (s.format === "webtoon") return { label: "Webtoon", rgb: "154,122,208" };
     return { label: "Writing", rgb: "208,136,88" };
@@ -523,7 +525,7 @@ export default function DashboardPage() {
       {/* ink-spirits drifting in the margins — the film's creatures, at home */}
       <SparkleFauna />
 
-      <div className="relative z-10 mx-auto max-w-5xl px-5 pb-24 pt-20 sm:px-8">
+      <div className="relative z-10 mx-auto max-w-4xl px-5 pb-24 pt-20 sm:px-8">
         <header className="flex items-center justify-between gap-3">
           <span className="font-display text-lg text-paper">{firstName ? `${firstName}'s Studio` : "Your Studio"}</span>
           {now && <PhaseClock now={now} />}
@@ -601,7 +603,12 @@ export default function DashboardPage() {
               )}
 
               {hero === "manuscript" && signals.manuscript && (
-                <ManuscriptHero manuscript={signals.manuscript} href={manuscriptHref} reduce={reduce} />
+                <ManuscriptHero
+                  manuscript={signals.manuscript}
+                  href={manuscriptHref}
+                  format={manuscriptStory?.format}
+                  reduce={reduce}
+                />
               )}
 
               {hero === "blank" && activeStory && (
@@ -800,7 +807,7 @@ export default function DashboardPage() {
                             {/* the book's bound edge */}
                             <div className="absolute inset-y-0 left-0 w-[7px] rounded-l-[4px] bg-gradient-to-r from-black/55 to-transparent" aria-hidden />
                             <span
-                              className="absolute left-2.5 top-2 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black"
+                              className="absolute left-2.5 top-2 whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-black"
                               style={{ backgroundColor: `rgb(${chip.rgb})` }}
                             >
                               {chip.label}
@@ -831,44 +838,58 @@ export default function DashboardPage() {
               </section>
             )}
 
-            {/* ── THE DRAWER · momentum, engraved not boxed ── */}
+            {/* ── THE DRAWER · momentum, engraved not boxed. A zero is never
+                engraved in 4xl — it becomes a quiet invitation instead. ── */}
             <section className="mt-20">
               <SectionLabel>The drawer</SectionLabel>
               <div className="flex flex-wrap items-end gap-x-14 gap-y-7 px-2 md:px-4">
-                <div>
-                  <p className="font-display text-3xl text-paper md:text-4xl">{totalWords.toLocaleString()}</p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">words on the shelf</p>
-                  {hasTrend && (
-                    <div className="mt-2 w-36">
-                      <Sparkline data={signals.wordsTrend} color={GOLD} reduce={reduce} />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="font-display text-3xl text-paper md:text-4xl">
-                    {signals.readingStreak}
-                    <span className="ml-2 font-reading text-lg italic text-text-secondary">{signals.readingStreak === 1 ? "day" : "days"}</span>
+                {totalWords > 0 && (
+                  <div>
+                    <p className="font-display text-3xl text-paper md:text-4xl">{totalWords.toLocaleString()}</p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">words on the shelf</p>
+                    {hasTrend && (
+                      <div className="mt-2 w-36">
+                        <Sparkline data={signals.wordsTrend} color={GOLD} reduce={reduce} />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {signals.readingStreak > 0 ? (
+                  <div>
+                    <p className="font-display text-3xl text-paper md:text-4xl">
+                      {signals.readingStreak}
+                      <span className="ml-2 font-reading text-lg italic text-text-secondary">{signals.readingStreak === 1 ? "day" : "days"}</span>
+                    </p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">reading streak — keep the chain</p>
+                  </div>
+                ) : (
+                  <p className="max-w-56 font-reading text-[15px] italic leading-relaxed text-text-secondary">
+                    Read a page tonight — a streak starts at one.
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
-                    {signals.readingStreak > 0 ? "reading streak — keep the chain" : "read today to start a streak"}
+                )}
+                {totalSparks > 0 ? (
+                  <div>
+                    <p className="font-display text-3xl text-paper md:text-4xl">
+                      <span className="mr-1.5 text-gold">✶</span>
+                      {totalSparks.toLocaleString()}
+                    </p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
+                      {signals.sparksWeek > 0 ? `sparks · ${signals.sparksWeek} this week` : "sparks from readers"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="max-w-56 font-reading text-[15px] italic leading-relaxed text-text-secondary">
+                    No sparks yet — they land when a page moves someone.
                   </p>
-                </div>
-                <div>
-                  <p className="font-display text-3xl text-paper md:text-4xl">
-                    <span className="mr-1.5 text-gold">✶</span>
-                    {totalSparks.toLocaleString()}
-                  </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-ghost">
-                    {signals.sparksWeek > 0 ? `sparks · ${signals.sparksWeek} this week` : "sparks from readers"}
-                  </p>
-                </div>
+                )}
               </div>
             </section>
-
-            {/* ── THE STACKS · picked for you ── */}
-            <StacksSection discover={discover} reduce={reduce} />
           </>
         )}
+
+        {/* ── THE STACKS · picked for you — for the full studio and the
+            first night alike; an empty desk still deserves a library ── */}
+        {loaded && !(error && allStories.length === 0) && <StacksSection discover={discover} reduce={reduce} />}
       </div>
     </div>
   );
@@ -878,11 +899,29 @@ export default function DashboardPage() {
 // The register/login manuscript-page grammar, holding your real prose:
 // vellum out of the dark, iron-gall ink, the brand's drop falling onto the
 // exact spot where the writing stopped. The page leans toward your hand.
-function ManuscriptHero({ manuscript, href, reduce }: { manuscript: StudioManuscript; href: string; reduce: boolean | null }) {
+function ManuscriptHero({
+  manuscript,
+  href,
+  format,
+  reduce,
+}: {
+  manuscript: StudioManuscript;
+  href: string;
+  format?: string;
+  reduce: boolean | null;
+}) {
   const hasInk = manuscript.lastLines.length > 0;
+  // picture formats: an empty quote means the page holds art, not nothing
+  const isArt = !hasInk && (format === "illustrated" || format === "webtoon");
   return (
     <div className="relative">
-      <SectionLabel>{hasInk ? "The manuscript · where the ink stopped" : "The manuscript · the page is open"}</SectionLabel>
+      <SectionLabel>
+        {hasInk
+          ? "The manuscript · where the ink stopped"
+          : isArt
+            ? "The manuscript · where the brush stopped"
+            : "The manuscript · the page is open"}
+      </SectionLabel>
 
       <motion.div
         className="relative max-w-2xl"
@@ -920,6 +959,31 @@ function ManuscriptHero({ manuscript, href, reduce }: { manuscript: StudioManusc
                   {manuscript.lastLines}
                   <PaperMote reduce={reduce} />
                 </blockquote>
+              ) : isArt ? (
+                <div className="mt-6">
+                  {/* the plate — the picture lives in the editor; here, its
+                      engraving: a framed sketch in the manuscript's own ink */}
+                  <div className="relative h-36 w-full max-w-xs overflow-hidden rounded-[4px] border border-on-gold/30 bg-on-gold/[0.05]">
+                    <svg
+                      viewBox="0 0 100 60"
+                      preserveAspectRatio="none"
+                      className="absolute inset-0 h-full w-full text-on-gold/35"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      aria-hidden
+                    >
+                      <circle cx="72" cy="16" r="7" />
+                      <path d="M-2 52 L30 30 L48 44 L62 34 L102 56" />
+                    </svg>
+                    <div className="absolute left-2 top-2 h-2 w-2 border-l border-t border-on-gold/40" aria-hidden />
+                    <div className="absolute bottom-2 right-2 h-2 w-2 border-b border-r border-on-gold/40" aria-hidden />
+                  </div>
+                  <p className="mt-4 font-reading text-[15px] italic leading-relaxed text-on-gold/60">
+                    The words rest — this page is pictures.
+                    <PaperMote reduce={reduce} />
+                  </p>
+                </div>
               ) : (
                 <div className="mt-6">
                   <p className="font-reading text-[16px] italic leading-relaxed text-on-gold/45">
@@ -945,13 +1009,21 @@ function ManuscriptHero({ manuscript, href, reduce }: { manuscript: StudioManusc
         touched {formatTimeAgo(manuscript.updatedAt)}
       </HeroMeta>
       <HeroCta href={href} color="gold">
-        {hasInk ? "write the next line" : "write the first line"}
+        {hasInk ? "write the next line" : isArt ? "add the next panel" : "write the first line"}
       </HeroCta>
     </div>
   );
 }
 
 // ── the stacks — trending tales as spines, notices as ledger rows ──
+// static class pairs so Tailwind sees every variant; picked per book by hash
+const SPINE_SIZES: { h: string; w: string }[] = [
+  { h: "h-44 md:h-48", w: "w-11" },
+  { h: "h-40 md:h-44", w: "w-10" },
+  { h: "h-[11.75rem] md:h-[12.5rem]", w: "w-12" },
+  { h: "h-[10.5rem] md:h-[11.25rem]", w: "w-[2.6rem]" },
+];
+
 function StacksSection({ discover, reduce }: { discover: DiscoverData; reduce: boolean | null }) {
   const has = discover.trending.length > 0 || discover.jam || discover.openCall;
   if (!has) return null;
@@ -983,17 +1055,19 @@ function StacksSection({ discover, reduce }: { discover: DiscoverData; reduce: b
         />
       )}
 
-      {/* the spines */}
+      {/* the spines — no two books bound alike: each gets its own mix of its
+          genre's ink and its own height off the press */}
       {discover.trending.length > 0 && (
         <div className={discover.jam || discover.openCall ? "mt-8" : ""}>
           <div className="flex items-end gap-2.5 overflow-x-auto px-2 pb-1 pt-2 [scrollbar-width:none] md:px-4 [&::-webkit-scrollbar]:hidden">
             {discover.trending.map((t, i) => {
-              const p = genrePalette(t.genres[0]) ?? paletteFor(t.id);
+              const p = spinePalette(t.genres[0], t.id);
+              const size = SPINE_SIZES[hash(t.id + "sz") % SPINE_SIZES.length];
               const lean = i % 4 === 0 ? -2 : i % 4 === 1 ? 1.4 : i % 4 === 2 ? -0.8 : 0.6;
               return (
-                <Link key={t.id} href={t.slug ? `/story/${t.slug}` : "/browse"} className="group/spine block shrink-0 origin-bottom">
+                <Link key={t.id} href={t.slug ? `/story/${t.slug}` : "/browse"} className={`group/spine block shrink-0 origin-bottom ${size.w}`}>
                   <motion.div
-                    className="relative h-44 w-11 overflow-hidden rounded-[3px] shadow-book ring-1 ring-white/10 md:h-48"
+                    className={`relative w-full overflow-hidden rounded-[3px] shadow-book ring-1 ring-white/10 ${size.h}`}
                     style={{ background: `linear-gradient(170deg, ${p[0]}, ${p[1]} 55%, ${p[2]})`, rotate: reduce ? 0 : lean }}
                     whileHover={reduce ? undefined : { y: -9, rotate: 0 }}
                     transition={{ type: "spring", stiffness: 280, damping: 20 }}
@@ -1002,12 +1076,14 @@ function StacksSection({ discover, reduce }: { discover: DiscoverData; reduce: b
                     <div className="absolute inset-x-0 top-2 h-px bg-white/25" aria-hidden />
                     <div className="absolute inset-x-0 top-3 h-px bg-black/25" aria-hidden />
                     <div className="absolute inset-x-0 bottom-7 h-px bg-white/15" aria-hidden />
-                    <span className="absolute inset-x-0 top-5 bottom-8 mx-auto truncate font-display text-[12px] text-white/90 [writing-mode:vertical-rl]">
+                    {/* shade at the foot so the spark count reads on pale inks */}
+                    <div className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-black/35 to-transparent" aria-hidden />
+                    <span className="absolute inset-x-0 top-5 bottom-8 mx-auto truncate font-display text-[12px] text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)] [writing-mode:vertical-rl]">
                       {t.title}
                     </span>
-                    <span className="absolute inset-x-0 bottom-1.5 text-center font-mono text-[8px] text-white/70">✶{t.sparkCount}</span>
+                    <span className="absolute inset-x-0 bottom-1.5 text-center font-mono text-[9px] text-white/85">✶{t.sparkCount}</span>
                   </motion.div>
-                  <p className="mt-1.5 w-11 truncate text-center font-mono text-[8.5px] text-text-ghost opacity-0 transition-opacity duration-300 group-hover/spine:opacity-100">
+                  <p className="mt-1.5 w-full truncate text-center font-mono text-[8.5px] text-text-ghost opacity-0 transition-opacity duration-300 group-hover/spine:opacity-100">
                     {t.author ?? "Anon"}
                   </p>
                 </Link>

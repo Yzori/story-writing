@@ -44,14 +44,16 @@ export function paletteFor(seed: string): [string, string, string] {
   return PALETTES[hash(seed) % PALETTES.length];
 }
 
+// bound-book inks, not screen greens — deep pine/teal/amethyst families that
+// sit beside the studio's gold instead of shouting over it
 export const GENRE_PALETTES: Record<string, [string, string, string]> = {
-  fantasy: ["#065f46", "#16a34a", "#a3e635"],
-  romance: ["#9d174d", "#e11d48", "#fb7185"],
-  horror: ["#1c1917", "#7f1d1d", "#dc2626"],
-  "sci-fi": ["#0c4a6e", "#0891b2", "#2dd4bf"],
-  scifi: ["#0c4a6e", "#0891b2", "#2dd4bf"],
-  "science fiction": ["#0c4a6e", "#0891b2", "#2dd4bf"],
-  mystery: ["#1e1b4b", "#4338ca", "#818cf8"],
+  fantasy: ["#143829", "#3d7354", "#9cb877"],
+  romance: ["#701537", "#b82b50", "#e88ba0"],
+  horror: ["#1c1917", "#7f1d1d", "#c22f2f"],
+  "sci-fi": ["#0e3d43", "#1a7f82", "#6fd0bd"],
+  scifi: ["#0e3d43", "#1a7f82", "#6fd0bd"],
+  "science fiction": ["#0e3d43", "#1a7f82", "#6fd0bd"],
+  mystery: ["#251c47", "#4d3b8e", "#9a7ac8"],
   literary: ["#78350f", "#b45309", "#f59e0b"],
   "literary fiction": ["#78350f", "#b45309", "#f59e0b"],
   poetry: ["#4c1d95", "#7c3aed", "#c084fc"],
@@ -59,6 +61,44 @@ export const GENRE_PALETTES: Record<string, [string, string, string]> = {
 export function genrePalette(genre?: string): [string, string, string] | undefined {
   if (!genre) return undefined;
   return GENRE_PALETTES[genre.toLowerCase()];
+}
+
+function hexToHsl(hex: string): [number, number, number] {
+  const [r, g, b] = hexToRgb(hex).split(",").map((n) => Number(n) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h * 360, s, l];
+}
+function hslToHex(h: number, s: number, l: number): string {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const to = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+// every book gets its own mix of its genre's ink — same family, never the
+// same bottle (a row of identical spines reads as a rendering bug)
+export function spinePalette(genre: string | undefined, seed: string): [string, string, string] {
+  const base = genrePalette(genre) ?? paletteFor(seed);
+  const n = hash(seed + "::spine");
+  const dh = (n % 25) - 12; // ±12° around the genre hue
+  const dl = (((n >> 6) % 11) - 5) / 100; // ±5% lightness
+  return base.map((hex) => {
+    const [h, s, l] = hexToHsl(hex);
+    return hslToHex(h + dh, s, Math.min(0.92, Math.max(0.08, l + dl)));
+  }) as [string, string, string];
 }
 
 // reader amber — hexToRgb(genrePalette("literary")[2]) === hexToRgb("#f59e0b")
