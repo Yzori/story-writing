@@ -5,6 +5,7 @@ import type { PassageAudience } from "@/components/adventures/ThePage";
 import type {
   AdventurePassageView,
   AdventureSceneView,
+  SeatPresenceView,
 } from "@/types/adventure";
 
 const POLL_MS = 5000;
@@ -38,6 +39,7 @@ export interface WatchState {
   seats: WatchSeat[];
   scenes: AdventureSceneView[];
   audience: { present: number; allTime: number };
+  presence: SeatPresenceView[];
   myBackingSeatId: string | null;
   houseVote: {
     id: string;
@@ -68,16 +70,19 @@ function lanternToken(): string {
 }
 
 /**
- * The audience's plumbing: public watch state + passages on the same
- * 5s rhythm as the table, plus the anonymous lantern heartbeat.
- * Sparks and credits ride along with the passages; spark counts on
- * already-seen passages refresh with each poll.
+ * The audience's plumbing, live-first: one SSE connection pushes the
+ * room and the page as they change, with the proven 5s polling rhythm
+ * underneath as the fallback whenever the stream is down. Sparks and
+ * credits ride along with the passages, plus the anonymous lantern
+ * heartbeat.
  */
 export function useAdventureWatch(adventureId: string) {
   const [state, setState] = useState<WatchState | null>(null);
   const [passages, setPassages] = useState<WatchPassage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const liveRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const [stateRes, passagesRes] = await Promise.all([
@@ -106,18 +111,61 @@ export function useAdventureWatch(adventureId: string) {
 
   useEffect(() => {
     let cancelled = false;
+    let source: EventSource | null = null;
+
     (async () => {
       await Promise.all([refresh(), heartbeat()]);
-      if (!cancelled) setLoading(false);
+      if (cancelled) return;
+      setLoading(false);
+
+      source = new EventSource(`/api/adventures/${adventureId}/watch/stream`);
+      source.onopen = () => {
+        liveRef.current = true;
+        setLive(true);
+      };
+      source.onerror = () => {
+        // Reconnecting or dead — either way, polling takes over.
+        liveRef.current = false;
+        setLive(false);
+      };
+      source.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as {
+            state?: WatchState;
+            passages?: WatchPassage[];
+            gone?: boolean;
+          };
+          if (payload.gone) {
+            source?.close();
+            liveRef.current = false;
+            setLive(false);
+            return;
+          }
+          if (payload.state) {
+            setState(payload.state);
+            setError(null);
+          }
+          // The stream sends the whole sparked page — spark counts
+          // move on old passages too.
+          if (payload.passages) setPassages(payload.passages);
+        } catch {
+          // Malformed frame; the next one will land.
+        }
+      };
     })();
-    const poll = setInterval(refresh, POLL_MS);
+
+    const poll = setInterval(() => {
+      if (liveRef.current) return;
+      refresh();
+    }, POLL_MS);
     const beat = setInterval(heartbeat, HEARTBEAT_MS);
     return () => {
       cancelled = true;
+      source?.close();
       clearInterval(poll);
       clearInterval(beat);
     };
-  }, [refresh, heartbeat]);
+  }, [adventureId, refresh, heartbeat]);
 
   const spark = useCallback(
     async (passageId: string, sparked: boolean) => {
@@ -207,6 +255,7 @@ export function useAdventureWatch(adventureId: string) {
     passages,
     audienceByPassage,
     loading,
+    live,
     error,
     spark,
     back,

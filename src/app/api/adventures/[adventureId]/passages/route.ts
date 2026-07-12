@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   adventureHands,
@@ -24,6 +24,7 @@ import {
   toSpotlightSeat,
   toSpotlightState,
 } from "@/server/services/adventure-table";
+import { loadPassagesAfter } from "@/server/services/adventure-live";
 import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
@@ -60,16 +61,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const afterSort =
       afterSortParam === null ? null : parseInt(afterSortParam, 10);
 
-    const conditions = [eq(adventurePassages.adventureId, adventureId)];
-    if (afterSort !== null && Number.isFinite(afterSort)) {
-      conditions.push(gt(adventurePassages.sortOrder, afterSort));
-    }
-
-    const passages = await db
-      .select()
-      .from(adventurePassages)
-      .where(and(...conditions))
-      .orderBy(asc(adventurePassages.sortOrder));
+    const passages = await loadPassagesAfter(adventureId, afterSort);
 
     return NextResponse.json({ data: passages });
   } catch (error) {

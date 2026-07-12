@@ -203,7 +203,10 @@ check(
 );
 
 // ── the watch page itself, anonymous ─────────────────────────
-await anon.goto(`${BASE}/adventures/${advId}/watch`, { waitUntil: "networkidle" });
+// domcontentloaded: the watch page keeps an SSE stream open, so
+// networkidle never fires.
+await anon.goto(`${BASE}/adventures/${advId}/watch`, { waitUntil: "domcontentloaded" });
+await anon.waitForTimeout(3500);
 await anon.waitForTimeout(1500);
 await anon.screenshot({ path: `${SHOT_DIR}/watch-anon.png`, fullPage: true });
 const anonText = await anon.locator("body").innerText();

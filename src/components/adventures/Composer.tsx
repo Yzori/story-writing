@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AdventureHandView,
   AdventureSeatView,
@@ -26,6 +26,7 @@ export default function Composer({
   actionError,
   onSign,
   onPassSpotlight,
+  onReleaseSpotlight,
   onRaiseHand,
   onLowerHand,
   onStepForward,
@@ -34,6 +35,8 @@ export default function Composer({
   onStart,
   onFinish,
   onMintInvite,
+  onTyping,
+  invitePing,
 }: {
   adventure: AdventureView;
   seats: AdventureSeatView[];
@@ -43,6 +46,7 @@ export default function Composer({
   actionError: string | null;
   onSign: (content: string, canonizeSuggestionId?: string) => Promise<boolean>;
   onPassSpotlight: (toSeatId: string) => Promise<boolean>;
+  onReleaseSpotlight: () => Promise<boolean>;
   onRaiseHand: (whisper: string) => Promise<boolean>;
   onLowerHand: () => Promise<boolean>;
   onStepForward: () => Promise<boolean>;
@@ -51,6 +55,10 @@ export default function Composer({
   onStart: () => Promise<boolean>;
   onFinish: () => Promise<boolean>;
   onMintInvite: () => Promise<string | null>;
+  /** Keystroke signal — powers the honest "writing…" in the cast bar. */
+  onTyping?: () => void;
+  /** Bumped when an empty chair is tapped — mints the link and draws the eye here. */
+  invitePing?: number;
 }) {
   const isDirector = mySeat.role === "director";
   const haveSpotlight = adventure.spotlightSeatId === mySeat.id;
@@ -62,6 +70,8 @@ export default function Composer({
         <CastingControls
           seats={seats}
           isDirector={isDirector}
+          posted={adventure.boardVisibility === "board"}
+          invitePing={invitePing}
           onStart={onStart}
           onMintInvite={onMintInvite}
         />
@@ -76,18 +86,29 @@ export default function Composer({
           hasOpenScene={hasOpenScene}
           onSign={onSign}
           onPassSpotlight={onPassSpotlight}
+          onReleaseSpotlight={onReleaseSpotlight}
           onOpenScene={onOpenScene}
           onCloseScene={onCloseScene}
           onFinish={onFinish}
+          onTyping={onTyping}
         />
       )}
 
       {running && !isDirector && haveSpotlight && (
-        <WriteAndSign
-          label={`You're writing ${mySeat.characterName || "your character"} — sign it when it's said.`}
-          buttonLabel="Sign it onto the page"
-          onSubmit={onSign}
-        />
+        <div>
+          <WriteAndSign
+            label={`You're writing ${mySeat.characterName || "your character"} — sign it when it's said.`}
+            buttonLabel="Sign it onto the page"
+            onSubmit={onSign}
+            onTyping={onTyping}
+          />
+          <ReleaseSpotlight
+            prompt="Nothing coming?"
+            action="Hand the spotlight back"
+            consequence="It returns to the Director's desk with nothing written. If you stepped forward for it, you get your step back."
+            onRelease={onReleaseSpotlight}
+          />
+        </div>
       )}
 
       {running && !isDirector && !haveSpotlight && (
@@ -157,11 +178,13 @@ function WriteAndSign({
   label,
   buttonLabel,
   onSubmit,
+  onTyping,
   allowEmpty,
 }: {
   label: string;
   buttonLabel: string;
   onSubmit: (content: string) => Promise<boolean>;
+  onTyping?: () => void;
   allowEmpty?: boolean;
 }) {
   const [text, setText] = useState("");
@@ -180,7 +203,10 @@ function WriteAndSign({
       <p className="text-[12.5px] text-text-ghost mt-0 mb-2.5">{label}</p>
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          onTyping?.();
+        }}
         rows={6}
         placeholder="Write your passage…"
         className="w-full bg-elevated border border-border rounded-lg px-3 py-2.5 font-reading text-[15px] text-paper leading-relaxed outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors resize-y"
@@ -190,6 +216,60 @@ function WriteAndSign({
           {busy ? "Signing…" : buttonLabel}
         </Btn>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The quiet escape hatch: the spotlight goes back to the Director's
+ * desk unwritten. One inline confirm — losing a turn should take two
+ * taps, not a modal.
+ */
+function ReleaseSpotlight({
+  prompt,
+  action,
+  consequence,
+  onRelease,
+}: {
+  prompt: string;
+  action: string;
+  consequence: string;
+  onRelease: () => Promise<boolean>;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (!confirming) {
+    return (
+      <p className="text-[12px] text-text-ghost mt-3 mb-0">
+        {prompt}{" "}
+        <button
+          onClick={() => setConfirming(true)}
+          className="text-text-ghost underline decoration-dotted underline-offset-2 hover:text-paper transition-colors"
+        >
+          {action}
+        </button>
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 flex items-center gap-2.5 flex-wrap">
+      <span className="text-[12.5px] text-text-secondary">{consequence}</span>
+      <Btn
+        onClick={async () => {
+          if (busy) return;
+          setBusy(true);
+          const ok = await onRelease();
+          setBusy(false);
+          if (ok) setConfirming(false);
+        }}
+        disabled={busy}
+      >
+        {busy ? "Returning…" : action}
+      </Btn>
+      <Btn quiet onClick={() => setConfirming(false)} disabled={busy}>
+        Never mind
+      </Btn>
     </div>
   );
 }
@@ -216,55 +296,92 @@ function escapeHtml(value: string): string {
 function CastingControls({
   seats,
   isDirector,
+  posted,
+  invitePing,
   onStart,
   onMintInvite,
 }: {
   seats: AdventureSeatView[];
   isDirector: boolean;
+  posted: boolean;
+  invitePing?: number;
   onStart: () => Promise<boolean>;
   onMintInvite: () => Promise<string | null>;
 }) {
+  const frameRef = useRef<HTMLDivElement>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const seated = seats.filter(
     (s) => s.role === "writer" && s.status === "seated"
   ).length;
   const open = seats.filter((s) => s.status === "open").length;
+  const ready = seated >= 2;
 
-  const mint = async () => {
-    const path = await onMintInvite();
-    if (path) setInviteUrl(`${window.location.origin}${path}`);
-  };
+  const mint = useCallback(async () => {
+    let url = inviteUrl;
+    if (!url) {
+      const path = await onMintInvite();
+      if (!path) return;
+      url = `${window.location.origin}${path}`;
+      setInviteUrl(url);
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // clipboard denied — the link row below still shows it
+    }
+  }, [inviteUrl, onMintInvite]);
 
-  const copy = async () => {
-    if (!inviteUrl) return;
-    await navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  };
+  // An empty chair was tapped up in the cast bar.
+  useEffect(() => {
+    if (!invitePing) return;
+    frameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    mint();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invitePing]);
 
   return (
-    <div>
+    <div ref={frameRef}>
       <p className="text-[13px] text-text-secondary mt-0 mb-3">
         The table is casting — {seated} writer{seated === 1 ? "" : "s"} seated,{" "}
-        {open} seat{open === 1 ? "" : "s"} open. Invite friends by link
-        {isDirector ? ", then start when the cast is set." : "."}
+        {open} chair{open === 1 ? "" : "s"} open.{" "}
+        {posted
+          ? "Your playbill is pinned to the board; asks land just below. Friends can skip the line with an invite link."
+          : "This table is invite only — fill the chairs by link."}
       </p>
       <div className="flex gap-2.5 flex-wrap items-center">
-        <Btn onClick={mint}>Make an invite link</Btn>
+        <Btn primary={!ready} onClick={mint}>
+          {copied
+            ? "Link copied"
+            : inviteUrl
+              ? "Copy the invite link"
+              : "Make an invite link"}
+        </Btn>
         {isDirector && (
-          <Btn primary onClick={onStart} disabled={seated < 2}>
+          <Btn
+            primary={ready}
+            onClick={onStart}
+            disabled={!ready}
+            title={ready ? undefined : "Two seated writers make a table"}
+          >
             Start the adventure
           </Btn>
         )}
       </div>
+      {isDirector && !ready && (
+        <p className="text-[11.5px] text-text-ghost mt-2 mb-0">
+          The adventure starts once at least two writers are seated.
+        </p>
+      )}
       {inviteUrl && (
         <div className="mt-3 flex items-center gap-2.5 border-b border-dashed border-amber/40 pb-2">
           <code className="font-mono text-[11.5px] text-gold-light truncate">
             {inviteUrl}
           </code>
           <button
-            onClick={copy}
+            onClick={mint}
             className="text-[11px] text-text-ghost hover:text-paper transition-colors flex-none"
           >
             {copied ? "Copied" : "Copy"}
@@ -360,9 +477,11 @@ function DirectorDesk({
   hasOpenScene,
   onSign,
   onPassSpotlight,
+  onReleaseSpotlight,
   onOpenScene,
   onCloseScene,
   onFinish,
+  onTyping,
 }: {
   adventure: AdventureView;
   seats: AdventureSeatView[];
@@ -371,9 +490,11 @@ function DirectorDesk({
   hasOpenScene: boolean;
   onSign: (content: string, canonizeSuggestionId?: string) => Promise<boolean>;
   onPassSpotlight: (toSeatId: string) => Promise<boolean>;
+  onReleaseSpotlight: () => Promise<boolean>;
   onOpenScene: (title: string, newAct: boolean, opening?: string) => Promise<boolean>;
   onCloseScene: () => Promise<boolean>;
   onFinish: () => Promise<boolean>;
+  onTyping?: () => void;
 }) {
   const [sceneTitle, setSceneTitle] = useState("");
   const [newAct, setNewAct] = useState(false);
@@ -390,13 +511,21 @@ function DirectorDesk({
 
   if (!haveSpotlight && spotlitWriter) {
     return (
-      <p className="text-[13px] text-text-secondary m-0">
-        The spotlight is on{" "}
-        <b className="text-paper font-semibold">
-          {spotlitWriter.userName ?? spotlitWriter.characterName}
-        </b>{" "}
-        — it comes back to your desk when they sign.
-      </p>
+      <div>
+        <p className="text-[13px] text-text-secondary m-0">
+          The spotlight is on{" "}
+          <b className="text-paper font-semibold">
+            {spotlitWriter.userName ?? spotlitWriter.characterName}
+          </b>{" "}
+          — it comes back to your desk when they sign.
+        </p>
+        <ReleaseSpotlight
+          prompt="Passed it by mistake, or the table's gone quiet?"
+          action="Call the spotlight back"
+          consequence={`It returns to your desk with nothing written; ${spotlitWriter.userName ?? spotlitWriter.characterName} is told. A step-forward spent on it is given back.`}
+          onRelease={onReleaseSpotlight}
+        />
+      </div>
     );
   }
 
@@ -460,6 +589,7 @@ function DirectorDesk({
           <WriteAndSign
             label="Write direction — the world, the weather, the answer to what was just signed."
             buttonLabel="Sign the direction"
+            onTyping={onTyping}
             onSubmit={async (content) => {
               const ok = await onSign(content, weaveInId ?? undefined);
               if (ok) {

@@ -9,6 +9,7 @@ import {
   unique,
   uniqueIndex,
   index,
+  primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -3559,6 +3560,45 @@ export const adventureAudiencePresence = pgTable(
       table.token
     ),
   ]
+);
+
+export const adventureSeatPresence = pgTable(
+  "adventure_seat_presence",
+  {
+    adventureId: uuid("adventure_id")
+      .notNull()
+      .references(() => adventures.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => adventureSeats.id, { onDelete: "cascade" }),
+    // Heartbeats while the play page is open; a seat is "at the table"
+    // while this is fresh.
+    lastSeen: timestamp("last_seen", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Pulsed on keystrokes; "writing…" is honest only while this is fresh.
+    writingAt: timestamp("writing_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({
+      name: "adventure_seat_presence_pk",
+      columns: [table.adventureId, table.seatId],
+    }),
+  ]
+);
+
+export const adventureSeatPresenceRelations = relations(
+  adventureSeatPresence,
+  ({ one }) => ({
+    adventure: one(adventures, {
+      fields: [adventureSeatPresence.adventureId],
+      references: [adventures.id],
+    }),
+    seat: one(adventureSeats, {
+      fields: [adventureSeatPresence.seatId],
+      references: [adventureSeats.id],
+    }),
+  })
 );
 
 export const adventureBackingsRelations = relations(

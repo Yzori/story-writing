@@ -5,13 +5,17 @@ import {
   adventureHands,
   adventures,
   adventureScenes,
+  adventureSeats,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { passAdventureSpotlightSchema } from "@/lib/validations";
 import {
   canPassSpotlight,
+  canRecallSpotlight,
+  canYieldSpotlight,
   passSpotlightEffects,
+  releaseSpotlightEffects,
 } from "@/lib/adventure-spotlight";
 import {
   loadAdventureContext,
@@ -138,6 +142,142 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error("POST /api/adventures/[adventureId]/spotlight error:", error);
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to pass the spotlight" } },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/adventures/[adventureId]/spotlight
+ * The spotlight returns to the Director's desk with nothing written:
+ * the Director calls it back, or the holding writer hands it back.
+ * A step-forward token spent on this grant is refunded.
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  let denyReason: string | null = null;
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+    const limited = applyRateLimit(request, session.user.id, "write");
+    if (limited) return limited;
+
+    const { adventureId } = await params;
+    const ctx = await loadAdventureContext(adventureId, session.user.id);
+    if (!ctx || !ctx.mySeat) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Adventure not found" } },
+        { status: 404 }
+      );
+    }
+    const mySeat = ctx.mySeat;
+    const directorSeat = ctx.seats.find((s) => s.role === "director");
+    if (!directorSeat) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "This table has no Director" } },
+        { status: 404 }
+      );
+    }
+
+    let holderUserId: string | null = null;
+    let recalled = false;
+
+    await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(adventures)
+        .where(eq(adventures.id, adventureId))
+        .for("update");
+      if (!locked) throw new Error(CONFLICT);
+
+      const [openScene] = await tx
+        .select({ id: adventureScenes.id })
+        .from(adventureScenes)
+        .where(
+          and(
+            eq(adventureScenes.adventureId, adventureId),
+            eq(adventureScenes.status, "open")
+          )
+        );
+      const state = toSpotlightState(locked, !!openScene);
+
+      recalled = mySeat.role === "director";
+      const decision = recalled
+        ? canRecallSpotlight(state, toSpotlightSeat(mySeat))
+        : canYieldSpotlight(state, toSpotlightSeat(mySeat));
+      if (!decision.allowed) {
+        denyReason = decision.reason;
+        throw new Error(CONFLICT);
+      }
+
+      const [holder] = await tx
+        .select()
+        .from(adventureSeats)
+        .where(eq(adventureSeats.id, locked.spotlightSeatId!));
+      if (!holder) throw new Error(CONFLICT);
+      holderUserId = holder.userId;
+
+      const now = new Date();
+      const effects = releaseSpotlightEffects(
+        state,
+        toSpotlightSeat(holder),
+        directorSeat.id,
+        now
+      );
+      await tx
+        .update(adventures)
+        .set({
+          spotlightSeatId: effects.spotlightSeatId,
+          spotlightSince: effects.spotlightSince,
+          spotlightDueAt: effects.spotlightDueAt,
+          updatedAt: now,
+        })
+        .where(eq(adventures.id, adventureId));
+
+      if (effects.refundStepForwardAct !== null) {
+        await tx
+          .update(adventureSeats)
+          .set({ stepForwardAct: effects.refundStepForwardAct })
+          .where(eq(adventureSeats.id, holder.id));
+      }
+    });
+
+    if (recalled && holderUserId) {
+      createNotification(
+        holderUserId,
+        "adventure",
+        "The Director called the spotlight back — nothing was written",
+        `/adventures/${adventureId}`
+      );
+    } else if (!recalled && directorSeat.userId) {
+      createNotification(
+        directorSeat.userId,
+        "adventure",
+        "The spotlight was handed back — the desk is yours",
+        `/adventures/${adventureId}`
+      );
+    }
+
+    return NextResponse.json({ data: { spotlightSeatId: directorSeat.id } });
+  } catch (error) {
+    if (error instanceof Error && error.message === CONFLICT) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "SPOTLIGHT_CONFLICT",
+            message: denyReason ?? "The spotlight moved — refresh the table.",
+          },
+        },
+        { status: 409 }
+      );
+    }
+    console.error("DELETE /api/adventures/[adventureId]/spotlight error:", error);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "Failed to release the spotlight" } },
       { status: 500 }
     );
   }

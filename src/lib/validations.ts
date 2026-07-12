@@ -704,6 +704,10 @@ export const adventurePresenceSchema = z.object({
   token: z.string().min(16).max(64).regex(/^[a-zA-Z0-9_-]+$/),
 });
 
+export const adventureSeatPresenceSchema = z.object({
+  writing: z.boolean().default(false),
+});
+
 export const adventureHouseVoteSchema = z.object({
   question: z.string().min(1).max(300),
   options: z.array(z.string().min(1).max(120)).min(2).max(4),

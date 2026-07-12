@@ -5,7 +5,14 @@ import { PACE_LABELS, type AdventureView } from "@/types/adventure";
 /**
  * The playbill top of the table: eyebrow (act · scene), title, chips.
  */
-export default function AdvHeader({ adventure }: { adventure: AdventureView }) {
+export default function AdvHeader({
+  adventure,
+  live,
+}: {
+  adventure: AdventureView;
+  /** The SSE wire is open — the page updates the moment ink lands. */
+  live?: boolean;
+}) {
   const eyebrow =
     adventure.status === "casting"
       ? "An adventure · the table is casting"
@@ -33,6 +40,15 @@ export default function AdvHeader({ adventure }: { adventure: AdventureView }) {
         {adventure.status === "finished" && (
           <span className="text-[12px] text-gold-light border border-gold/40 rounded-full px-3 py-1 bg-ink/70 whitespace-nowrap">
             The book is closed
+          </span>
+        )}
+        {live && adventure.status === "running" && (
+          <span className="flex items-center gap-1.5 text-[12px] text-teal border border-teal/40 rounded-full px-3 py-1 bg-ink/70 whitespace-nowrap">
+            <span
+              aria-hidden
+              className="w-1.5 h-1.5 rounded-full bg-teal shadow-[0_0_8px_2px_rgba(87,210,203,0.5)] animate-pulse"
+            />
+            live
           </span>
         )}
       </div>

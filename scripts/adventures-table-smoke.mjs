@@ -253,15 +253,17 @@ check(
 );
 
 // ── the play page, both chairs ───────────────────────────────
-await wren.goto(`${BASE}/adventures/${advId}`, { waitUntil: "networkidle" });
-await wren.waitForTimeout(1200);
+// (domcontentloaded: the play page keeps an SSE stream open, so
+// networkidle never fires)
+await wren.goto(`${BASE}/adventures/${advId}`, { waitUntil: "domcontentloaded" });
+await wren.waitForTimeout(3500);
 await wren.screenshot({ path: SHOT("director"), fullPage: true });
 const wrenText = await wren.locator("body").innerText();
 check("director page shows the title", wrenText.includes("The Hollow Lantern"));
 check("director page shows the desk", wrenText.includes("Director"));
 
-await mira.goto(`${BASE}/adventures/${advId}`, { waitUntil: "networkidle" });
-await mira.waitForTimeout(1200);
+await mira.goto(`${BASE}/adventures/${advId}`, { waitUntil: "domcontentloaded" });
+await mira.waitForTimeout(3500);
 await mira.screenshot({ path: SHOT("writer"), fullPage: true });
 const miraText = await mira.locator("body").innerText();
 check("writer page shows the signed passages", miraText.includes("Ilsa did not flinch"));

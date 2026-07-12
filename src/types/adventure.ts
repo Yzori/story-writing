@@ -76,11 +76,15 @@ export interface AdventurePassageView {
   signedAt: string;
 }
 
+export type { SeatPresenceView } from "@/lib/adventure-presence";
+import type { SeatPresenceView } from "@/lib/adventure-presence";
+
 export interface AdventureTableState {
   adventure: AdventureView;
   seats: AdventureSeatView[];
   scenes: AdventureSceneView[];
   hands: AdventureHandView[];
+  presence: SeatPresenceView[];
   mySeatId: string;
 }
 

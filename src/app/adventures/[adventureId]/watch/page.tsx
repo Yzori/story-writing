@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 
 import { useAdventureWatch, type WatchSeat } from "@/hooks/use-adventure-watch";
+import CurtainCall from "@/components/adventures/CurtainCall";
 import ThePage from "@/components/adventures/ThePage";
+import DevCastPanel from "@/components/adventures/DevCastPanel";
 import { inkFor } from "@/components/adventures/ink";
 import {
   PACE_LABELS,
@@ -59,6 +61,9 @@ export default function AdventureWatchPage() {
   const adventure = state.adventure;
   const writers = state.seats.filter((s) => s.role === "writer");
   const spotlit = state.seats.find((s) => s.id === adventure.spotlightSeatId);
+  const spotlightWriting =
+    state.presence?.find((p) => p.seatId === adventure.spotlightSeatId)
+      ?.writing ?? false;
 
   // ThePage takes the play-view shapes; the watch payload is a subset.
   const pageAdventure = {
@@ -86,11 +91,13 @@ export default function AdventureWatchPage() {
           <span className="text-[12px] text-text border border-border rounded-full px-3 py-1 bg-ink/70">
             {PACE_LABELS[adventure.pace as AdventurePace] ?? adventure.pace}
           </span>
-          {spotlit && (
+          {spotlit && adventure.status === "running" && (
             <span className="text-[12px] text-gold-light border border-gold/40 rounded-full px-3 py-1 bg-ink/70">
               {spotlit.role === "director"
                 ? "The Director has the spotlight"
-                : `${spotlit.userName ?? spotlit.characterName} is writing`}
+                : spotlightWriting
+                  ? `${spotlit.userName ?? spotlit.characterName} is writing right now`
+                  : `${spotlit.userName ?? spotlit.characterName} has the spotlight`}
             </span>
           )}
         </div>
@@ -98,6 +105,10 @@ export default function AdventureWatchPage() {
 
       <div className="max-w-[1180px] mx-auto mt-8 px-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_330px]">
         <div className="max-w-[720px] w-full mx-auto lg:mx-0">
+          {(adventure.status === "finished" ||
+            adventure.status === "abandoned") && (
+            <CurtainCall adventureId={params.adventureId} />
+          )}
           <ThePage
             adventure={pageAdventure}
             seats={state.seats.map((s) => ({
@@ -111,6 +122,7 @@ export default function AdventureWatchPage() {
             scenes={state.scenes}
             passages={passages}
             mySeatId=""
+            spotlightWriting={spotlightWriting}
             audience={audienceByPassage}
             onSpark={state.signedIn ? spark : undefined}
           />
@@ -173,6 +185,8 @@ export default function AdventureWatchPage() {
           </RailCard>
         </aside>
       </div>
+
+      <DevCastPanel adventureId={params.adventureId} />
     </div>
   );
 }

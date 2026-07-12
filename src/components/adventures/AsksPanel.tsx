@@ -20,9 +20,14 @@ interface Ask {
 export default function AsksPanel({
   adventureId,
   onResolved,
+  casting = false,
+  posted = false,
 }: {
   adventureId: string;
   onResolved: () => void;
+  /** While casting the panel stays visible with an empty state. */
+  casting?: boolean;
+  posted?: boolean;
 }) {
   const [asks, setAsks] = useState<Ask[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +62,21 @@ export default function AsksPanel({
     onResolved();
   };
 
-  if (asks.length === 0) return null;
+  if (asks.length === 0) {
+    if (!casting) return null;
+    return (
+      <div className="mt-5 border border-border rounded-[14px] bg-ink/70 p-4 sm:p-5 font-body">
+        <p className="text-[10.5px] tracking-[0.24em] uppercase text-gold-dark font-semibold mt-0 mb-2">
+          Asks from the board
+        </p>
+        <p className="font-reading italic text-[13px] text-text-secondary m-0">
+          {posted
+            ? "No asks yet. Your playbill is up on the board — when someone asks for a seat, they appear here with their note and their show-up record."
+            : "This table is invite only, so the board won't send anyone. Fill the chairs with your invite link."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-5 border border-border rounded-[14px] bg-ink/70 p-4 sm:p-5 font-body">

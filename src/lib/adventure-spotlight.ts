@@ -84,6 +84,65 @@ export function spotlightDue(now: Date, turnDueHours: number): Date {
   return new Date(now.getTime() + turnDueHours * 60 * 60 * 1000);
 }
 
+// ── Release the spotlight (recall / hand back) ───────────────
+// Nothing is written; the pen just returns to the Director's desk.
+// Without this, one quiet writer (or one misclick) freezes the table
+// until they sign — the exact momentum-death the table exists to avoid.
+
+export function canRecallSpotlight(
+  state: SpotlightState,
+  directorSeat: SpotlightSeat
+): Decision {
+  const live = running(state);
+  if (!live.allowed) return live;
+  if (directorSeat.role !== "director")
+    return deny("Only the Director can call the spotlight back.");
+  if (state.spotlightSeatId === directorSeat.id || state.spotlightSeatId === null)
+    return deny("The spotlight is already on your desk.");
+  return allow;
+}
+
+export function canYieldSpotlight(
+  state: SpotlightState,
+  seat: SpotlightSeat
+): Decision {
+  const live = running(state);
+  if (!live.allowed) return live;
+  const writer = seatedWriter(seat);
+  if (!writer.allowed) return writer;
+  if (state.spotlightSeatId !== seat.id)
+    return deny("The spotlight isn't on you.");
+  return allow;
+}
+
+/**
+ * The spotlight returns to the desk unwritten. If the holder's
+ * step-forward token is spent this act, hand it back — they paid for a
+ * turn they didn't get. (A writer who stepped forward, signed, and was
+ * later passed the pen again gets a spare token here; the rare case
+ * errs on the writer's side.)
+ */
+export function releaseSpotlightEffects(
+  state: SpotlightState,
+  holderSeat: SpotlightSeat,
+  directorSeatId: string,
+  now: Date
+): {
+  spotlightSeatId: string;
+  spotlightSince: Date;
+  spotlightDueAt: null;
+  refundStepForwardAct: number | null;
+} {
+  const refund =
+    holderSeat.role === "writer" && holderSeat.stepForwardAct >= state.actNo;
+  return {
+    spotlightSeatId: directorSeatId,
+    spotlightSince: now,
+    spotlightDueAt: null,
+    refundStepForwardAct: refund ? state.actNo - 1 : null,
+  };
+}
+
 // ── Raise / lower a hand ─────────────────────────────────────
 
 export function canRaiseHand(

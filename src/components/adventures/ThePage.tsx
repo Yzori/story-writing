@@ -27,6 +27,7 @@ export default function ThePage({
   scenes,
   passages,
   mySeatId,
+  spotlightWriting,
   audience,
   onSpark,
 }: {
@@ -36,6 +37,8 @@ export default function ThePage({
   passages: AdventurePassageView[];
   /** Empty string on the public watch page — nobody is "you". */
   mySeatId: string;
+  /** Live presence: the spotlight-holder's keys are landing right now. */
+  spotlightWriting?: boolean;
   /** Watch page only: per-passage sparks + reader credits. */
   audience?: Map<string, PassageAudience>;
   onSpark?: (passageId: string, sparked: boolean) => void;
@@ -109,7 +112,7 @@ export default function ThePage({
             />
             {spotlightSeat.id === mySeatId
               ? "You have the spotlight — the page is yours"
-              : `${spotlightSeat.userName ?? spotlightSeat.characterName} has the spotlight — writing…`}
+              : `${spotlightSeat.userName ?? spotlightSeat.characterName} has the spotlight${spotlightWriting ? " — writing…" : ""}`}
           </div>
         )}
 

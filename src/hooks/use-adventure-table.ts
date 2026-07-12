@@ -5,6 +5,11 @@ import type {
   AdventurePassageView,
   AdventureTableState,
 } from "@/types/adventure";
+import {
+  PRESENCE_BEAT_MS,
+  TYPING_BEAT_MS,
+  TYPING_FRESH_MS,
+} from "@/lib/adventure-presence";
 
 const POLL_MS = 5000;
 
@@ -41,19 +46,32 @@ function mergePassages(
 }
 
 /**
- * The table's data plumbing: adventure state (seats, scenes, hands,
- * spotlight) refreshed whole, passages accumulated with an afterSort
- * cursor — the same 5s polling rhythm the campaign surface proved out.
- * Mutations refresh state immediately so your own action never waits
- * for the next tick.
+ * The table's data plumbing, live-first: one SSE connection pushes
+ * state + passages the moment they change; the proven 5s polling
+ * rhythm stays underneath as the fallback whenever the stream is
+ * down (old proxies, sleepy laptops, server redeploys). Mutations
+ * still refresh state immediately so your own action never waits
+ * for a tick. Also carries the presence heartbeat: "I'm at the
+ * table" while the page is open, a writing pulse while typing.
  */
 export function useAdventureTable(adventureId: string) {
   const [state, setState] = useState<AdventureTableState | null>(null);
   const [passages, setPassages] = useState<AdventurePassageView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const maxSortRef = useRef<number>(-1);
+  const liveRef = useRef(false);
+
+  const takePassages = useCallback((incoming: AdventurePassageView[]) => {
+    if (incoming.length === 0) return;
+    maxSortRef.current = Math.max(
+      maxSortRef.current,
+      ...incoming.map((p) => p.sortOrder)
+    );
+    setPassages((prev) => mergePassages(prev, incoming));
+  }, []);
 
   const refreshState = useCallback(async () => {
     const res = await jsonRequest<AdventureTableState>(
@@ -73,30 +91,104 @@ export function useAdventureTable(adventureId: string) {
     const res = await jsonRequest<AdventurePassageView[]>(
       `/api/adventures/${adventureId}/passages${cursor >= 0 ? `?afterSort=${cursor}` : ""}`
     );
-    if (res.data && res.data.length > 0) {
-      maxSortRef.current = Math.max(
-        maxSortRef.current,
-        ...res.data.map((p) => p.sortOrder)
-      );
-      setPassages((prev) => mergePassages(prev, res.data!));
-    }
-  }, [adventureId]);
+    if (res.data) takePassages(res.data);
+  }, [adventureId, takePassages]);
 
+  // The live wire. EventSource reconnects on its own; while it's not
+  // open, the polling loop below covers the gap.
   useEffect(() => {
     let cancelled = false;
+    let source: EventSource | null = null;
+
     (async () => {
       await Promise.all([refreshState(), refreshPassages()]);
-      if (!cancelled) setLoading(false);
+      if (cancelled) return;
+      setLoading(false);
+
+      source = new EventSource(
+        `/api/adventures/${adventureId}/stream?afterSort=${maxSortRef.current}`
+      );
+      source.onopen = () => {
+        liveRef.current = true;
+        setLive(true);
+      };
+      source.onerror = () => {
+        // Reconnecting or dead — either way, polling takes over.
+        liveRef.current = false;
+        setLive(false);
+      };
+      source.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as {
+            state?: AdventureTableState;
+            passages?: AdventurePassageView[];
+            gone?: boolean;
+          };
+          if (payload.gone) {
+            source?.close();
+            liveRef.current = false;
+            setLive(false);
+            refreshState();
+            return;
+          }
+          if (payload.state) {
+            setState(payload.state);
+            setError(null);
+          }
+          if (payload.passages) takePassages(payload.passages);
+        } catch {
+          // Malformed frame; the next one will land.
+        }
+      };
     })();
+
     const interval = setInterval(() => {
+      if (liveRef.current) return;
       refreshState();
       refreshPassages();
     }, POLL_MS);
+
     return () => {
       cancelled = true;
+      source?.close();
       clearInterval(interval);
     };
-  }, [refreshState, refreshPassages]);
+  }, [adventureId, refreshState, refreshPassages, takePassages]);
+
+  // Presence: a steady heartbeat while the page is open, carrying the
+  // current typing truth; keystrokes beat immediately (throttled) so
+  // "writing…" lights up fast.
+  const lastTypedRef = useRef(0);
+  const lastWritingBeatRef = useRef(0);
+
+  const beat = useCallback(
+    (writing: boolean) => {
+      if (writing) lastWritingBeatRef.current = Date.now();
+      fetch(`/api/adventures/${adventureId}/presence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ writing }),
+      }).catch(() => {});
+    },
+    [adventureId]
+  );
+
+  useEffect(() => {
+    beat(false);
+    const interval = setInterval(
+      () => beat(Date.now() - lastTypedRef.current < TYPING_FRESH_MS),
+      PRESENCE_BEAT_MS
+    );
+    return () => clearInterval(interval);
+  }, [beat]);
+
+  // The first keystroke beats immediately — "writing…" must light up
+  // fast; only writing-beats throttle each other.
+  const noteTyping = useCallback(() => {
+    const now = Date.now();
+    lastTypedRef.current = now;
+    if (now - lastWritingBeatRef.current >= TYPING_BEAT_MS) beat(true);
+  }, [beat]);
 
   const act = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -124,6 +216,8 @@ export function useAdventureTable(adventureId: string) {
           method: "POST",
           body: JSON.stringify({ toSeatId }),
         }),
+      // Director recalls the pen, or the holding writer hands it back.
+      releaseSpotlight: () => act("/spotlight", { method: "DELETE" }),
       raiseHand: (whisper: string) =>
         act("/hand", {
           method: "POST",
@@ -168,9 +262,11 @@ export function useAdventureTable(adventureId: string) {
     state,
     passages,
     loading,
+    live,
     error,
     actionError,
     clearActionError: () => setActionError(null),
+    noteTyping,
     ...actions,
   };
 }

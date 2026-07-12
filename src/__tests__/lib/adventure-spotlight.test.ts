@@ -5,11 +5,14 @@ import {
   canOpenScene,
   canPassSpotlight,
   canRaiseHand,
+  canRecallSpotlight,
   canSignPassage,
   canStartAdventure,
   canStepForward,
+  canYieldSpotlight,
   nextScenePosition,
   passSpotlightEffects,
+  releaseSpotlightEffects,
   signPassageEffects,
   signTiming,
   spotlightDue,
@@ -104,6 +107,69 @@ describe("canPassSpotlight", () => {
     expect(effects.spotlightDueAt).toEqual(
       new Date("2026-07-13T12:00:00Z")
     );
+  });
+});
+
+describe("release the spotlight (recall / hand back)", () => {
+  it("lets the director call the spotlight back from a writer", () => {
+    const s = state({ spotlightSeatId: mira.id });
+    expect(canRecallSpotlight(s, director)).toEqual({ allowed: true });
+  });
+
+  it("rejects recalling a spotlight already on the desk", () => {
+    expect(canRecallSpotlight(state(), director).allowed).toBe(false);
+  });
+
+  it("rejects a writer recalling", () => {
+    const s = state({ spotlightSeatId: mira.id });
+    expect(canRecallSpotlight(s, jonas).allowed).toBe(false);
+  });
+
+  it("requires a running adventure to recall", () => {
+    const s = state({ spotlightSeatId: mira.id, status: "finished" });
+    expect(canRecallSpotlight(s, director).allowed).toBe(false);
+  });
+
+  it("lets the holding writer hand the spotlight back", () => {
+    const s = state({ spotlightSeatId: mira.id });
+    expect(canYieldSpotlight(s, mira)).toEqual({ allowed: true });
+  });
+
+  it("rejects yielding without the spotlight", () => {
+    const s = state({ spotlightSeatId: mira.id });
+    expect(canYieldSpotlight(s, jonas).allowed).toBe(false);
+    expect(canYieldSpotlight(state(), mira).allowed).toBe(false);
+  });
+
+  it("rejects the director yielding (recall is their move)", () => {
+    expect(canYieldSpotlight(state(), director).allowed).toBe(false);
+  });
+
+  it("returns the spotlight to the desk with no deadline", () => {
+    const s = state({ spotlightSeatId: mira.id });
+    const effects = releaseSpotlightEffects(s, mira, director.id, NOW);
+    expect(effects.spotlightSeatId).toBe(director.id);
+    expect(effects.spotlightSince).toEqual(NOW);
+    expect(effects.spotlightDueAt).toBeNull();
+  });
+
+  it("refunds a step-forward token spent this act", () => {
+    const stepped: SpotlightSeat = { ...mira, stepForwardAct: 1 };
+    const s = state({ spotlightSeatId: stepped.id, actNo: 1 });
+    const effects = releaseSpotlightEffects(s, stepped, director.id, NOW);
+    expect(effects.refundStepForwardAct).toBe(0);
+  });
+
+  it("does not refund a token spent in an earlier act", () => {
+    const s = state({ spotlightSeatId: jonas.id, actNo: 2 });
+    const effects = releaseSpotlightEffects(s, jonas, director.id, NOW);
+    expect(effects.refundStepForwardAct).toBeNull();
+  });
+
+  it("does not refund a writer who never stepped forward", () => {
+    const s = state({ spotlightSeatId: mira.id });
+    const effects = releaseSpotlightEffects(s, mira, director.id, NOW);
+    expect(effects.refundStepForwardAct).toBeNull();
   });
 });
 
