@@ -83,6 +83,23 @@ export async function POST(
       );
       const balance = Number((reader as { ink_drop_balance?: number | string } | undefined)?.ink_drop_balance ?? 0);
 
+      // Re-check membership under the reader row lock: two concurrent
+      // subscribes serialize on the FOR UPDATE above, so the loser sees the
+      // winner's subscription here instead of debiting a second time.
+      const [existingUnderLock] = await tx
+        .select({ id: circleSubscriptions.id, status: circleSubscriptions.status })
+        .from(circleSubscriptions)
+        .where(
+          and(
+            eq(circleSubscriptions.readerId, readerId),
+            eq(circleSubscriptions.creatorId, creatorId)
+          )
+        );
+
+      if (existingUnderLock?.status === "active") {
+        return { error: "ALREADY_SUBSCRIBED" as const };
+      }
+
       if (balance < price) {
         return { error: "INSUFFICIENT_BALANCE" as const, balance };
       }
@@ -112,18 +129,8 @@ export async function POST(
       renewalDate.setDate(renewalDate.getDate() + 30);
 
       // Create or reactivate subscription
-      const [existingAny] = await tx
-        .select()
-        .from(circleSubscriptions)
-        .where(
-          and(
-            eq(circleSubscriptions.readerId, readerId),
-            eq(circleSubscriptions.creatorId, creatorId)
-          )
-        );
-
       let sub;
-      if (existingAny) {
+      if (existingUnderLock) {
         [sub] = await tx
           .update(circleSubscriptions)
           .set({
@@ -134,7 +141,7 @@ export async function POST(
             cancelledAt: null,
             startedAt: new Date(),
           })
-          .where(eq(circleSubscriptions.id, existingAny.id))
+          .where(eq(circleSubscriptions.id, existingUnderLock.id))
           .returning();
       } else {
         [sub] = await tx
@@ -152,6 +159,13 @@ export async function POST(
 
       return { subscription: sub, newBalance: balance - price };
     });
+
+    if ("error" in result && result.error === "ALREADY_SUBSCRIBED") {
+      return NextResponse.json(
+        { error: { code: "ALREADY_SUBSCRIBED", message: "You are already a member of this Circle" } },
+        { status: 409 }
+      );
+    }
 
     if ("error" in result && result.error === "INSUFFICIENT_BALANCE") {
       return NextResponse.json(

@@ -33,7 +33,7 @@ export async function POST(
     const { optionIndex, amount } = body;
 
     // Validate amount (min 5, max 200 per vote)
-    if (!amount || typeof amount !== "number" || amount < 5 || amount > 200) {
+    if (!Number.isInteger(amount) || amount < 5 || amount > 200) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Vote amount must be 5-200 drops" } },
         { status: 400 }

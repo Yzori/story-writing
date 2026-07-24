@@ -4,6 +4,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { deskNotes, stories } from "@/server/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ userId: string }> };
 
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const rl = applyRateLimit(request, session.user.id, "write");
+    if (rl) return rl;
 
     const { userId } = await params;
     if (userId !== session.user.id) {

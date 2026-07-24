@@ -2,11 +2,9 @@ import "server-only";
 import { db } from "@/server/db";
 import {
   circleSubscriptions,
-  creatorCircles,
   users,
   inkDropTransactions,
   commissions,
-  offerings,
   notifications,
   campaignSessions,
   campaignTurns,
@@ -52,49 +50,67 @@ export async function processCircleRenewals(): Promise<{
 
     for (const sub of dueSubs) {
       try {
-        const price = sub.priceAtSubscription;
-        const creatorShare = Math.floor(price * CREATOR_SHARE);
-
         const result = await db.transaction(async (tx) => {
-          // Lock reader row and check balance
+          const [lockedSub] = await tx
+            .select({
+              status: circleSubscriptions.status,
+              readerId: circleSubscriptions.readerId,
+              creatorId: circleSubscriptions.creatorId,
+              price: circleSubscriptions.priceAtSubscription,
+              renewalDate: circleSubscriptions.renewalDate,
+            })
+            .from(circleSubscriptions)
+            .where(eq(circleSubscriptions.id, sub.id))
+            .for("update");
+
+          if (
+            !lockedSub ||
+            lockedSub.status !== "active" ||
+            lockedSub.renewalDate.getTime() > Date.now()
+          ) {
+            return { status: "skipped" as const };
+          }
+
+          if (!Number.isInteger(lockedSub.price) || lockedSub.price <= 0) {
+            throw new Error("Invalid subscription renewal price");
+          }
+
+          const creatorShare = Math.floor(lockedSub.price * CREATOR_SHARE);
           const [reader] = await tx.execute(
-            sql`SELECT ink_drop_balance FROM users WHERE id = ${sub.readerId} FOR UPDATE`
+            sql`SELECT ink_drop_balance FROM users WHERE id = ${lockedSub.readerId} FOR UPDATE`
           );
           const balance = Number((reader as { ink_drop_balance?: number | string } | undefined)?.ink_drop_balance ?? 0);
 
-          if (balance < price) {
-            // Insufficient balance — lapse the subscription
+          if (balance < lockedSub.price) {
             await tx
               .update(circleSubscriptions)
               .set({ status: "lapsed" })
               .where(eq(circleSubscriptions.id, sub.id));
 
-            return { status: "lapsed" as const };
+            return {
+              status: "lapsed" as const,
+              readerId: lockedSub.readerId,
+              creatorId: lockedSub.creatorId,
+            };
           }
 
-          // Debit reader
           await tx.execute(
-            sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${price} WHERE id = ${sub.readerId}`
+            sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${lockedSub.price} WHERE id = ${lockedSub.readerId}`
+          );
+          await tx.execute(
+            sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${lockedSub.creatorId}`
           );
 
-          // Credit creator (70%)
-          await tx.execute(
-            sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${sub.creatorId}`
-          );
-
-          // Log transaction
           await tx.insert(inkDropTransactions).values({
-            fromUserId: sub.readerId,
-            toUserId: sub.creatorId,
-            amount: price,
+            fromUserId: lockedSub.readerId,
+            toUserId: lockedSub.creatorId,
+            amount: lockedSub.price,
             type: "circle",
             message: "Circle subscription renewal — Confidant tier",
           });
 
-          // Set next renewal date (30 days from now)
           const nextRenewal = new Date();
           nextRenewal.setDate(nextRenewal.getDate() + 30);
-
           await tx
             .update(circleSubscriptions)
             .set({ renewalDate: nextRenewal })
@@ -105,18 +121,16 @@ export async function processCircleRenewals(): Promise<{
 
         if (result.status === "renewed") {
           renewed++;
-        } else {
+        } else if (result.status === "lapsed") {
           lapsed++;
-          // Notify reader that their subscription lapsed
           createNotification(
-            sub.readerId,
+            result.readerId,
             "circle",
             "Your Circle subscription lapsed due to insufficient Ink Drops. Top up to re-subscribe.",
             "/settings/ink-drops"
           );
-          // Notify creator
           createNotification(
-            sub.creatorId,
+            result.creatorId,
             "circle",
             "A subscriber's Circle membership has lapsed.",
             "/creator/circle"
@@ -163,30 +177,33 @@ export async function processCommissionAutoComplete(): Promise<{
 
     for (const commission of staleCommissions) {
       try {
-        if (!commission.agreedPrice) continue;
+        const result = await db.transaction(async (tx) => {
+          const [lockedCommission] = await tx
+            .select({
+              status: commissions.status,
+              deliveredAt: commissions.deliveredAt,
+              agreedPrice: commissions.agreedPrice,
+              artisanId: commissions.artisanId,
+              patronId: commissions.patronId,
+              offeringId: commissions.offeringId,
+            })
+            .from(commissions)
+            .where(eq(commissions.id, commission.id))
+            .for("update");
 
-        const payout = commission.agreedPrice;
-        const creatorShare = Math.floor(payout * CREATOR_SHARE);
+          if (
+            !lockedCommission ||
+            lockedCommission.status !== "delivered" ||
+            !lockedCommission.deliveredAt ||
+            lockedCommission.deliveredAt > sevenDaysAgo ||
+            !Number.isInteger(lockedCommission.agreedPrice) ||
+            (lockedCommission.agreedPrice ?? 0) <= 0
+          ) {
+            return { processed: false as const };
+          }
 
-        await db.transaction(async (tx) => {
-          // Release vault to artisan (70%)
-          await tx.execute(
-            sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${commission.artisanId}`
-          );
-
-          // Log transaction
-          await tx.insert(inkDropTransactions).values({
-            fromUserId: commission.patronId,
-            toUserId: commission.artisanId,
-            amount: payout,
-            type: "commission",
-            message: "Commission auto-completed after 7 days",
-          });
-
-          // Update offering completed count
-          await tx.execute(
-            sql`UPDATE offerings SET completed_count = completed_count + 1 WHERE id = ${commission.offeringId}`
-          );
+          const payout = lockedCommission.agreedPrice as number;
+          const creatorShare = Math.floor(payout * CREATOR_SHARE);
 
           await tx
             .update(commissions)
@@ -196,17 +213,41 @@ export async function processCommissionAutoComplete(): Promise<{
               updatedAt: new Date(),
             })
             .where(eq(commissions.id, commission.id));
+
+          await tx.execute(
+            sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${lockedCommission.artisanId}`
+          );
+
+          await tx.insert(inkDropTransactions).values({
+            fromUserId: lockedCommission.patronId,
+            toUserId: lockedCommission.artisanId,
+            amount: payout,
+            type: "commission",
+            message: "Commission auto-completed after 7 days",
+          });
+
+          await tx.execute(
+            sql`UPDATE offerings SET completed_count = completed_count + 1 WHERE id = ${lockedCommission.offeringId}`
+          );
+
+          return {
+            processed: true as const,
+            artisanId: lockedCommission.artisanId,
+            patronId: lockedCommission.patronId,
+            creatorShare,
+          };
         });
 
-        // Notify both parties
+        if (!result.processed) continue;
+
         createNotification(
-          commission.artisanId,
+          result.artisanId,
           "circle",
-          `Commission auto-completed. ${creatorShare} drops released to you.`,
+          `Commission auto-completed. ${result.creatorShare} drops released to you.`,
           `/commissions`
         );
         createNotification(
-          commission.patronId,
+          result.patronId,
           "circle",
           "A commission was auto-completed after 7 days without response.",
           `/commissions`
@@ -314,6 +355,26 @@ export async function processEmailDigests(): Promise<{
       for (const user of eligible) {
         if (!user.email) continue;
         try {
+          // Claim the user BEFORE sending: the conditional update only
+          // succeeds if lastDigestSentAt is still what we read, so two
+          // overlapping cron runs can't both email the same user. If the
+          // send below then fails, the digest waits one interval — cheaper
+          // than duplicates.
+          const [claimed] = await db
+            .update(users)
+            .set({ lastDigestSentAt: now })
+            .where(
+              and(
+                eq(users.id, user.id),
+                user.lastDigestSentAt === null
+                  ? isNull(users.lastDigestSentAt)
+                  : eq(users.lastDigestSentAt, user.lastDigestSentAt),
+              ),
+            )
+            .returning({ id: users.id });
+
+          if (!claimed) continue;
+
           const pending = await db
             .select({
               id: notifications.id,
@@ -331,15 +392,7 @@ export async function processEmailDigests(): Promise<{
             )
             .limit(50);
 
-          if (pending.length === 0) {
-            // Nothing to send — still update lastDigestSentAt so we don't
-            // re-scan this user every hour.
-            await db
-              .update(users)
-              .set({ lastDigestSentAt: now })
-              .where(eq(users.id, user.id));
-            continue;
-          }
+          if (pending.length === 0) continue;
 
           const items: DigestItem[] = pending.map((p) => ({
             type: p.type,
@@ -347,9 +400,8 @@ export async function processEmailDigests(): Promise<{
             href: p.href.startsWith("http") ? p.href : `${APP_URL}${p.href}`,
           }));
 
-          const tpl = digestEmail(items, cadence);
-          await sendEmail(user.email, tpl.subject, tpl.html, user.id);
-
+          // Mark items as emailed under the claim before the actual send so
+          // a concurrent run's pending-query can't pick them up again.
           await db
             .update(notifications)
             .set({ emailedAt: now })
@@ -360,10 +412,8 @@ export async function processEmailDigests(): Promise<{
               ),
             );
 
-          await db
-            .update(users)
-            .set({ lastDigestSentAt: now })
-            .where(eq(users.id, user.id));
+          const tpl = digestEmail(items, cadence);
+          await sendEmail(user.email, tpl.subject, tpl.html, user.id);
 
           itemsSent += pending.length;
           if (cadence === "daily") dailyCount++;

@@ -61,12 +61,23 @@ const WRAPPER = (body: string) => `
 const CTA = (url: string, label: string) =>
   `<a href="${url}" style="display:inline-block;padding:10px 24px;background:#C8963C20;border:1px solid #C8963C40;color:#C8963C;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">${label}</a>`;
 
+// User-controlled values (names, titles, comment snippets) must never reach
+// the HTML body unescaped — mail clients render injected markup as trusted
+// Quiloria content.
+const esc = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export function chapterPublishedEmail(storyTitle: string, chapterTitle: string, url: string) {
   return {
     subject: `New chapter: "${chapterTitle}" — ${storyTitle}`,
     html: WRAPPER(`
       <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New Chapter Published</h2>
-      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#F2E8D0;">${storyTitle}</strong> has a new chapter: <em>"${chapterTitle}"</em></p>
+      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#F2E8D0;">${esc(storyTitle)}</strong> has a new chapter: <em>"${esc(chapterTitle)}"</em></p>
       <div style="text-align:center;">${CTA(url, "Read Now")}</div>
     `),
   };
@@ -77,7 +88,7 @@ export function tipReceivedEmail(senderName: string, amount: number, url: string
     subject: `${senderName} sent you ${amount} Ink Drops`,
     html: WRAPPER(`
       <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">You received a tip!</h2>
-      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#C8963C;">${senderName}</strong> sent you <strong style="color:#C8963C;">${amount} Ink Drops</strong>.</p>
+      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#C8963C;">${esc(senderName)}</strong> sent you <strong style="color:#C8963C;">${amount} Ink Drops</strong>.</p>
       <div style="text-align:center;">${CTA(url, "View Earnings")}</div>
     `),
   };
@@ -88,7 +99,7 @@ export function collaborationInviteEmail(storyTitle: string, role: string, url: 
     subject: `You've been invited to collaborate on "${storyTitle}"`,
     html: WRAPPER(`
       <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">Collaboration Invite</h2>
-      <p style="margin:0 0 16px;line-height:1.6;">You've been invited as <strong style="color:#C8963C;">${role}</strong> on <em>"${storyTitle}"</em>.</p>
+      <p style="margin:0 0 16px;line-height:1.6;">You've been invited as <strong style="color:#C8963C;">${esc(role)}</strong> on <em>"${esc(storyTitle)}"</em>.</p>
       <div style="text-align:center;">${CTA(url, "View Invitation")}</div>
     `),
   };
@@ -99,8 +110,8 @@ export function jamStartedEmail(jamTitle: string, theme: string, url: string) {
     subject: `Story Jam: "${jamTitle}" is now open!`,
     html: WRAPPER(`
       <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">Story Jam Open</h2>
-      <p style="margin:0 0 8px;line-height:1.6;"><strong style="color:#C8963C;">${jamTitle}</strong> is accepting submissions.</p>
-      <p style="margin:0 0 16px;line-height:1.6;color:#9A8A6A;">Theme: <em>${theme}</em></p>
+      <p style="margin:0 0 8px;line-height:1.6;"><strong style="color:#C8963C;">${esc(jamTitle)}</strong> is accepting submissions.</p>
+      <p style="margin:0 0 16px;line-height:1.6;color:#9A8A6A;">Theme: <em>${esc(theme)}</em></p>
       <div style="text-align:center;">${CTA(url, "View Jam")}</div>
     `),
   };
@@ -112,8 +123,8 @@ export function commentReceivedEmail(commenterName: string, chapterTitle: string
     subject: `${commenterName} commented on "${chapterTitle}"`,
     html: WRAPPER(`
       <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New comment</h2>
-      <p style="margin:0 0 12px;line-height:1.6;"><strong style="color:#C8963C;">${commenterName}</strong> left a comment on <em>"${chapterTitle}"</em>:</p>
-      <blockquote style="margin:0 0 16px;padding:12px 14px;border-left:3px solid #C8963C40;background:#0F0C09;color:#9A8A6A;font-style:italic;line-height:1.5;border-radius:4px;">"${safeSnippet}"</blockquote>
+      <p style="margin:0 0 12px;line-height:1.6;"><strong style="color:#C8963C;">${esc(commenterName)}</strong> left a comment on <em>"${esc(chapterTitle)}"</em>:</p>
+      <blockquote style="margin:0 0 16px;padding:12px 14px;border-left:3px solid #C8963C40;background:#0F0C09;color:#9A8A6A;font-style:italic;line-height:1.5;border-radius:4px;">"${esc(safeSnippet)}"</blockquote>
       <div style="text-align:center;">${CTA(url, "Read &amp; Reply")}</div>
     `),
   };
@@ -124,9 +135,9 @@ export function creatorUpdateEmail(authorName: string, storyTitle: string, snipp
   return {
     subject: `${authorName} posted an update for "${storyTitle}"`,
     html: WRAPPER(`
-      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New update from ${authorName}</h2>
-      <p style="margin:0 0 12px;line-height:1.6;color:#9A8A6A;">From <em>"${storyTitle}"</em></p>
-      <p style="margin:0 0 16px;line-height:1.6;color:#D4C4A8;">${safeSnippet}</p>
+      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New update from ${esc(authorName)}</h2>
+      <p style="margin:0 0 12px;line-height:1.6;color:#9A8A6A;">From <em>"${esc(storyTitle)}"</em></p>
+      <p style="margin:0 0 16px;line-height:1.6;color:#D4C4A8;">${esc(safeSnippet)}</p>
       <div style="text-align:center;">${CTA(url, "Read Update")}</div>
     `),
   };
@@ -137,7 +148,7 @@ export function suggestionReceivedEmail(suggesterName: string, storyTitle: strin
     subject: `${suggesterName} sent a suggestion for "${storyTitle}"`,
     html: WRAPPER(`
       <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">New suggestion to review</h2>
-      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#C8963C;">${suggesterName}</strong> proposed an edit on <em>"${storyTitle}"</em>.</p>
+      <p style="margin:0 0 16px;line-height:1.6;"><strong style="color:#C8963C;">${esc(suggesterName)}</strong> proposed an edit on <em>"${esc(storyTitle)}"</em>.</p>
       <div style="text-align:center;">${CTA(url, "Review in Workshop")}</div>
     `),
   };
@@ -147,7 +158,7 @@ export function genericNotificationEmail(message: string, url: string) {
   return {
     subject: message.length > 60 ? message.slice(0, 57) + "…" : message,
     html: WRAPPER(`
-      <p style="margin:0 0 16px;line-height:1.6;">${message}</p>
+      <p style="margin:0 0 16px;line-height:1.6;">${esc(message)}</p>
       <div style="text-align:center;">${CTA(url, "View on Quiloria")}</div>
     `),
   };
@@ -171,10 +182,7 @@ export function digestEmail(
   const itemsHtml = items
     .slice(0, 30)
     .map((item) => {
-      const safeMessage = item.message
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+      const safeMessage = esc(item.message);
       return `
         <li style="margin:0 0 10px;padding:10px 12px;background:#0F0C09;border:1px solid #2E271E;border-radius:8px;list-style:none;">
           <a href="${item.href}" style="color:#D4C4A8;text-decoration:none;line-height:1.5;font-size:13px;">

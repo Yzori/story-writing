@@ -5,8 +5,8 @@ import Google from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
-import { eq, sql } from "drizzle-orm";
-import { verifyPassword } from "@/server/password";
+import { and, eq, sql } from "drizzle-orm";
+import { hashPassword, passwordNeedsRehash, verifyPassword } from "@/server/password";
 import { env } from "@/server/env";
 import {
   clearLoginAttempts,
@@ -95,6 +95,18 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
           return null;
         }
 
+        if (passwordNeedsRehash(user.password)) {
+          const upgradedPassword = await hashPassword(password);
+          await db
+            .update(users)
+            .set({ password: upgradedPassword })
+            .where(
+              and(
+                eq(users.id, user.id),
+                eq(users.password, user.password)
+              )
+            );
+        }
         await clearLoginAttempts(attemptKey);
         // Deliberately omit `image` / `avatarUrl`. NextAuth would chunk it
         // into the session-token cookie, and inline data: URIs (which the

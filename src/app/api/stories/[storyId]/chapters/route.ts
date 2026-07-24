@@ -6,6 +6,7 @@ import { createChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
+import { sanitizeHtml } from "@/server/sanitize";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -174,8 +175,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(and(eq(chapters.storyId, storyId), isNull(chapters.deletedAt)));
 
     const nextOrder = (maxResult?.maxOrder ?? -1) + 1;
-    const content = parsed.data.content || "";
-    const wordCount = countWords(content);
+    const rawContent = parsed.data.content || "";
+    const isWebtoon = story.format === "webtoon";
+    const content = isWebtoon ? rawContent : sanitizeHtml(rawContent);
+    const wordCount = isWebtoon ? 0 : countWords(content);
 
     const [chapter] = await db
       .insert(chapters)

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lookup } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 
@@ -8,9 +10,112 @@ const ALLOWED_CONTENT_TYPES = [
   "image/png",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
 ];
 const FETCH_TIMEOUT = 10_000; // 10s
+const MAX_REDIRECTS = 3;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost",
+  "metadata.google.internal",
+  "metadata.aws.internal",
+]);
+
+const blockedAddresses = new BlockList();
+
+[
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.0.2.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["198.51.100.0", 24],
+  ["203.0.113.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
+].forEach(([address, prefix]) => {
+  blockedAddresses.addSubnet(address as string, prefix as number, "ipv4");
+});
+
+[
+  ["::", 128],
+  ["::1", 128],
+  ["fc00::", 7],
+  ["fe80::", 10],
+  ["ff00::", 8],
+  ["2001:db8::", 32],
+].forEach(([address, prefix]) => {
+  blockedAddresses.addSubnet(address as string, prefix as number, "ipv6");
+});
+
+function isBlockedAddress(address: string): boolean {
+  const family = isIP(address);
+  if (family === 0) return true;
+  return blockedAddresses.check(address, family === 4 ? "ipv4" : "ipv6");
+}
+
+async function validateTarget(url: URL): Promise<void> {
+  if (url.protocol !== "https:") {
+    throw new Error("Only HTTPS URLs allowed");
+  }
+  if (url.username || url.password) {
+    throw new Error("URLs with credentials are not allowed");
+  }
+  if (url.toString().length > 2000) {
+    throw new Error("URL too long");
+  }
+
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (
+    BLOCKED_HOSTNAMES.has(hostname) ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".internal")
+  ) {
+    throw new Error("URL not allowed");
+  }
+
+  const addresses = isIP(hostname)
+    ? [{ address: hostname }]
+    : await lookup(hostname, { all: true, verbatim: true });
+
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isBlockedAddress(address))
+  ) {
+    throw new Error("URL not allowed");
+  }
+}
+
+async function fetchImage(url: URL, signal: AbortSignal): Promise<Response> {
+  let currentUrl = url;
+
+  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    await validateTarget(currentUrl);
+
+    const response = await fetch(currentUrl, {
+      signal,
+      headers: { Accept: "image/*" },
+      redirect: "manual",
+    });
+
+    if (!REDIRECT_STATUSES.has(response.status)) return response;
+
+    const location = response.headers.get("location");
+    if (!location || redirects === MAX_REDIRECTS) {
+      await response.body?.cancel();
+      throw new Error("Too many redirects");
+    }
+
+    await response.body?.cancel();
+    currentUrl = new URL(location, currentUrl);
+  }
+
+  throw new Error("Too many redirects");
+}
 
 /**
  * GET /api/image-proxy?url=<encoded-url>
@@ -43,57 +148,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
     }
 
-    // Protocol check
-    if (parsed.protocol !== "https:") {
-      return NextResponse.json({ error: "Only HTTPS URLs allowed" }, { status: 400 });
-    }
-
-    // Block private/internal IPs
-    const hostname = parsed.hostname.toLowerCase();
-    const BLOCKED_HOSTS = [
-      "localhost",
-      "127.0.0.1",
-      "0.0.0.0",
-      "::1",
-      "metadata.google.internal",
-      "169.254.169.254",
-    ];
-    if (
-      BLOCKED_HOSTS.includes(hostname) ||
-      hostname.startsWith("10.") ||
-      hostname.startsWith("192.168.") ||
-      hostname.startsWith("172.16.") ||
-      hostname.startsWith("172.17.") ||
-      hostname.startsWith("172.18.") ||
-      hostname.startsWith("172.19.") ||
-      hostname.startsWith("172.2") ||
-      hostname.startsWith("172.30.") ||
-      hostname.startsWith("172.31.") ||
-      hostname.startsWith("169.254.") ||
-      hostname.startsWith("fe80:")
-    ) {
+    try {
+      await validateTarget(parsed);
+    } catch {
       return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
     }
 
-    // URL length check
-    if (url.length > 2000) {
-      return NextResponse.json({ error: "URL too long" }, { status: 400 });
-    }
-
-    // Fetch the image
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
     let response: Response;
     try {
-      response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: "image/*",
-          // Strip referrer
-        },
-        redirect: "follow",
-      });
+      response = await fetchImage(parsed, controller.signal);
     } catch {
       return NextResponse.json({ error: "Failed to fetch image" }, { status: 502 });
     } finally {
@@ -108,7 +174,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate content type
-    const contentType = response.headers.get("content-type")?.split(";")[0].trim() ?? "";
+    const contentType =
+      response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "";
     if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
       return NextResponse.json({ error: "Not an image" }, { status: 400 });
     }
@@ -119,7 +186,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Image too large" }, { status: 400 });
     }
 
-    // Stream the response
     const imageBuffer = await response.arrayBuffer();
     if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
       return NextResponse.json({ error: "Image too large" }, { status: 400 });
@@ -130,6 +196,7 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400, immutable",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
         "X-Content-Type-Options": "nosniff",
       },
     });

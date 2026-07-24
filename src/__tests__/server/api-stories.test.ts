@@ -1,66 +1,68 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
 import { createMockParams, createMockRequest, createMockStory, getResponseData } from "../helpers";
 import type { RouteHandler, JsonBody } from "../helpers";
 
+function createStoryListDb(mockStories: ReturnType<typeof createMockStory>[]) {
+  let selectCall = 0;
+  const select = vi.fn(() => {
+    selectCall += 1;
+
+    if (selectCall <= 4) {
+      const as = vi.fn().mockReturnValue({});
+      const groupBy = vi.fn().mockReturnValue({ as });
+      return {
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ groupBy }),
+          groupBy,
+        }),
+      };
+    }
+
+    if (selectCall === 5) {
+      const mainBuilder: {
+        leftJoin: ReturnType<typeof vi.fn>;
+        where: ReturnType<typeof vi.fn>;
+      } = {
+        leftJoin: vi.fn(),
+        where: vi.fn(),
+      };
+      mainBuilder.leftJoin.mockReturnValue(mainBuilder);
+      mainBuilder.where.mockReturnValue({
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(mockStories),
+        }),
+      });
+      return { from: vi.fn().mockReturnValue(mainBuilder) };
+    }
+
+    return {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    };
+  });
+
+  return {
+    select,
+    query: {
+      stories: { findFirst: vi.fn().mockResolvedValue(null) },
+    },
+  };
+}
 describe("GET /api/stories", () => {
   let GET: RouteHandler;
 
   beforeEach(async () => {
     vi.resetModules();
 
-    vi.doMock("@/server/db", () => {
-      const mockStories = [
-        createMockStory({ id: "s1", title: "Story One", isPublic: true }),
-        createMockStory({ id: "s2", title: "Story Two", isPublic: true }),
-      ];
+    const mockStories = [
+      createMockStory({ id: "s1", title: "Story One", isPublic: true }),
+      createMockStory({ id: "s2", title: "Story Two", isPublic: true }),
+    ];
 
-      // The route uses a complex chained query: db.select().from().leftJoin().leftJoin().leftJoin().where().orderBy().limit()
-      const limitMock = vi.fn().mockResolvedValue(mockStories);
-      const orderByMock = vi.fn().mockReturnValue({ limit: limitMock });
-      const whereMock = vi.fn().mockReturnValue({ orderBy: orderByMock });
-      const leftJoinMock = vi.fn().mockReturnValue({ leftJoin: vi.fn().mockReturnValue({ leftJoin: vi.fn().mockReturnValue({ where: whereMock }) }) });
-      const fromMock = vi.fn().mockReturnValue({ leftJoin: leftJoinMock });
-      const selectMock = vi.fn().mockReturnValue({ from: fromMock });
-
-      // For cursor-based pagination: db.query.stories.findFirst
-      const findFirstMock = vi.fn().mockResolvedValue(null);
-
-      // For subqueries: db.select().from().where().groupBy().as()
-      const asMock = vi.fn().mockReturnValue({});
-      const groupByMock = vi.fn().mockReturnValue({ as: asMock });
-      const subWhereM = vi.fn().mockReturnValue({ groupBy: groupByMock });
-      const subFromM = vi.fn().mockReturnValue({ where: subWhereM, groupBy: groupByMock });
-
-      // Override select to handle both main query and subqueries
-      const smartSelect = vi.fn().mockImplementation(() => ({
-        from: vi.fn().mockImplementation(() => ({
-          where: vi.fn().mockReturnValue({ groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }) }),
-          groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }),
-          leftJoin: vi.fn().mockReturnValue({
-            leftJoin: vi.fn().mockReturnValue({
-              leftJoin: vi.fn().mockReturnValue({
-                where: vi.fn().mockReturnValue({
-                  orderBy: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue(mockStories),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        })),
-      }));
-
-      return {
-        db: {
-          select: smartSelect,
-          query: {
-            stories: { findFirst: findFirstMock },
-          },
-        },
-      };
-    });
-
+    vi.doMock("@/server/db", () => ({
+      db: createStoryListDb(mockStories),
+    }));
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
@@ -102,26 +104,7 @@ describe("GET /api/stories", () => {
 
     const mockStories = [createMockStory({ id: "s1" })];
     vi.doMock("@/server/db", () => ({
-      db: {
-        select: vi.fn().mockImplementation(() => ({
-          from: vi.fn().mockImplementation(() => ({
-            where: vi.fn().mockReturnValue({ groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }) }),
-            groupBy: vi.fn().mockReturnValue({ as: vi.fn().mockReturnValue({}) }),
-            leftJoin: vi.fn().mockReturnValue({
-              leftJoin: vi.fn().mockReturnValue({
-                leftJoin: vi.fn().mockReturnValue({
-                  where: vi.fn().mockReturnValue({
-                    orderBy: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue(mockStories),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          })),
-        })),
-        query: { stories: { findFirst: vi.fn().mockResolvedValue(null) } },
-      },
+      db: createStoryListDb(mockStories),
     }));
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({
@@ -270,6 +253,7 @@ describe("POST /api/stories", () => {
 
     vi.doMock("@/server/db", () => ({
       db: {
+        query: { stories: { findFirst: vi.fn().mockResolvedValue(null) } },
         insert: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
             returning: vi.fn().mockResolvedValue([mockStory]),
@@ -392,6 +376,7 @@ describe("POST /api/stories", () => {
 
     vi.doMock("@/server/db", () => ({
       db: {
+        query: { stories: { findFirst: vi.fn().mockResolvedValue(null) } },
         insert: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
             returning: vi.fn().mockRejectedValue(new Error("DB error")),

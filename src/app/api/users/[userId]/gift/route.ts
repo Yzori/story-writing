@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { amount, message } = body;
 
-    if (!amount || typeof amount !== "number" || amount < 5 || amount > 500) {
+    if (!Number.isInteger(amount) || amount < 5 || amount > 500) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Amount must be 5-500 drops" } },
         { status: 400 }

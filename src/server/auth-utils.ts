@@ -12,12 +12,18 @@ export function normalizeEmail(email: string): string {
 }
 
 function getForwardedClient(request?: Request): string {
-  if (!process.env.TRUST_PROXY_HEADERS && !process.env.VERCEL) {
-    return "direct";
-  }
+  // Use the LAST x-forwarded-for entry: each proxy appends the peer it
+  // received the request from, so with at least one honest proxy in front
+  // the last entry is the real client and any client-forged leading entries
+  // are ignored. (Taking the first entry lets an attacker mint a fresh
+  // rate-limit bucket per request; keying everything to one shared bucket
+  // lets 5 failed attempts lock the whole platform out.)
   const forwarded = request?.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
-  return request?.headers.get("x-real-ip")?.trim() || "unknown";
+  if (forwarded) {
+    const hops = forwarded.split(",").map((hop) => hop.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
+  return request?.headers.get("x-real-ip")?.trim() || "direct";
 }
 
 export function getLoginAttemptKey(email: string, request?: Request): string {
@@ -35,39 +41,59 @@ export async function getLoginLockoutSeconds(key: string, now = Date.now()): Pro
 }
 
 export async function recordFailedLogin(key: string, now = Date.now()): Promise<void> {
-  const current = await db.query.loginAttempts.findFirst({
-    where: eq(loginAttempts.key, key),
-    columns: { attempts: true, firstAttemptAt: true, lockedUntil: true },
-  });
-  const windowStart = now - LOGIN_WINDOW_MS;
-  const firstAttemptAt = current?.firstAttemptAt?.getTime() ?? now;
-  const inWindow = current ? firstAttemptAt > windowStart : false;
-  const attempts = current && inWindow ? current.attempts + 1 : 1;
-  const lockedUntil =
-    attempts >= MAX_FAILED_LOGIN_ATTEMPTS
-      ? new Date(now + LOGIN_LOCKOUT_MS)
-      : current ? current.lockedUntil : null;
+  const nowDate = new Date(now);
 
-  await db
-    .insert(loginAttempts)
-    .values({
-      key,
-      attempts,
-      firstAttemptAt: new Date(inWindow ? firstAttemptAt : now),
-      lockedUntil,
-      updatedAt: new Date(now),
-    })
-    .onConflictDoUpdate({
-      target: loginAttempts.key,
-      set: {
+  await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(loginAttempts)
+      .values({
+        key,
+        attempts: 1,
+        firstAttemptAt: nowDate,
+        lockedUntil: null,
+        updatedAt: nowDate,
+      })
+      .onConflictDoNothing({ target: loginAttempts.key })
+      .returning({ key: loginAttempts.key });
+
+    if (created) return;
+
+    const [current] = await tx
+      .select({
+        attempts: loginAttempts.attempts,
+        firstAttemptAt: loginAttempts.firstAttemptAt,
+        lockedUntil: loginAttempts.lockedUntil,
+      })
+      .from(loginAttempts)
+      .where(eq(loginAttempts.key, key))
+      .for("update");
+
+    if (!current) {
+      throw new Error("Failed to lock login-attempt counter");
+    }
+
+    const windowStart = now - LOGIN_WINDOW_MS;
+    const firstAttemptAt = current.firstAttemptAt.getTime();
+    const inWindow = firstAttemptAt > windowStart;
+    const attempts = inWindow ? current.attempts + 1 : 1;
+    const lockedUntil =
+      attempts >= MAX_FAILED_LOGIN_ATTEMPTS
+        ? new Date(now + LOGIN_LOCKOUT_MS)
+        : inWindow
+          ? current.lockedUntil
+          : null;
+
+    await tx
+      .update(loginAttempts)
+      .set({
         attempts,
-        firstAttemptAt: new Date(inWindow ? firstAttemptAt : now),
+        firstAttemptAt: inWindow ? current.firstAttemptAt : nowDate,
         lockedUntil,
-        updatedAt: new Date(now),
-      },
-    });
+        updatedAt: nowDate,
+      })
+      .where(eq(loginAttempts.key, key));
+  });
 }
-
 export async function clearLoginAttempts(key: string): Promise<void> {
   await db.delete(loginAttempts).where(eq(loginAttempts.key, key));
 }

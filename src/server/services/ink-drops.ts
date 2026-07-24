@@ -17,62 +17,6 @@ type DrizzleTx = PgTransaction<
 >;
 
 /**
- * Debit a user's Ink Drop balance within a transaction.
- * Locks the row, checks balance, debits sender, credits recipient (70/30 split).
- *
- * @returns { success: true, balance } or { error: "INSUFFICIENT_BALANCE", balance }
- */
-export async function transferDrops(
-  tx: DrizzleTx,
-  opts: {
-    fromUserId: string;
-    toUserId: string;
-    amount: number;
-    type: string;
-    message: string;
-    sessionId?: string;
-  }
-): Promise<
-  | { success: true; newBalance: number }
-  | { error: "INSUFFICIENT_BALANCE"; balance: number }
-> {
-  const { fromUserId, toUserId, amount, type, message, sessionId } = opts;
-  const creatorShare = Math.floor(amount * CREATOR_SHARE);
-
-  // Lock sender row and check balance
-  const [sender] = await tx.execute(
-    sql`SELECT ink_drop_balance FROM users WHERE id = ${fromUserId} FOR UPDATE`
-  );
-  const balance = Number((sender as { ink_drop_balance?: number | string } | undefined)?.ink_drop_balance ?? 0);
-
-  if (balance < amount) {
-    return { error: "INSUFFICIENT_BALANCE", balance };
-  }
-
-  // Debit sender
-  await tx.execute(
-    sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${amount} WHERE id = ${fromUserId}`
-  );
-
-  // Credit recipient (70%)
-  await tx.execute(
-    sql`UPDATE users SET ink_drop_balance = ink_drop_balance + ${creatorShare} WHERE id = ${toUserId}`
-  );
-
-  // Log transaction
-  await tx.insert(inkDropTransactions).values({
-    fromUserId,
-    toUserId,
-    amount,
-    type,
-    message,
-    sessionId: sessionId ?? null,
-  });
-
-  return { success: true, newBalance: balance - amount };
-}
-
-/**
  * One share of a distributed payment.
  * `gross` is the portion of the payment attributed to this maker (what the
  * ledger records); `credited` is what actually lands in their balance after

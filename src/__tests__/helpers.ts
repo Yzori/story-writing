@@ -4,18 +4,23 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * Type of a Next.js route handler (App Router).
  */
-export type RouteHandler<P extends Record<string, string> = Record<string, string>> = (
+// ctx is intentionally `any`: handlers narrow params per-route, and tests for
+// param-less routes call with a single argument.
+export type RouteHandler = (
   request: NextRequest,
-  ctx: { params: Promise<P> }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- handlers narrow params per-route
+  ctx?: any
 ) => Promise<NextResponse | Response>;
 
 /**
  * Loosely-typed JSON body used in test assertions.
  */
 export type JsonBody = {
-  data?: unknown;
-  error?: { code?: string; message?: string; details?: unknown };
-  [key: string]: unknown;
+  /* eslint-disable @typescript-eslint/no-explicit-any -- assertion convenience */
+  data?: any;
+  error?: any;
+  [key: string]: any;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 };
 
 /**

@@ -5,6 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCollaboratorSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
+import { applyRateLimit } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; collaboratorId: string }>;
@@ -24,6 +25,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const rl = applyRateLimit(request, session.user.id, "write");
+    if (rl) return rl;
 
     const { storyId, collaboratorId } = await params;
     const body = await request.json();
@@ -131,6 +135,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
+
+    const rl = applyRateLimit(request, session.user.id, "write");
+    if (rl) return rl;
 
     const { storyId, collaboratorId } = await params;
 

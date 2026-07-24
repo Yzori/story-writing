@@ -6,6 +6,7 @@ import { createStorySchema } from "@/lib/validations";
 import { LEGACY_RATING_MAP } from "@/config/genres";
 import { generateSlug } from "@/lib/utils";
 import { auth } from "@/server/auth";
+import { applyRateLimit } from "@/server/api-utils";
 
 /**
  * GET /api/stories
@@ -17,13 +18,16 @@ export async function GET(request: NextRequest) {
     const session = await auth();
     const { searchParams } = new URL(request.url);
     const mine = searchParams.get("mine") === "true";
-    const isPublic = searchParams.get("public") === "true";
     const cursor = searchParams.get("cursor");
     const search = searchParams.get("search");
     const sort = searchParams.get("sort") || "latest";
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
+    const requestedLimit = Number.parseInt(searchParams.get("limit") || "20", 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(requestedLimit, 100))
+      : 20;
 
     const conditions = [isNull(stories.deletedAt)];
+    let visibilityCondition = eq(stories.isPublic, true);
 
     if (mine) {
       if (!session?.user?.id) {
@@ -32,12 +36,9 @@ export async function GET(request: NextRequest) {
           { status: 401 }
         );
       }
-      conditions.push(eq(stories.userId, session.user.id));
+      visibilityCondition = eq(stories.userId, session.user.id);
     }
-
-    if (isPublic) {
-      conditions.push(eq(stories.isPublic, true));
-    }
+    conditions.push(visibilityCondition);
 
     const writingMode = searchParams.get("writingMode");
     if (writingMode) {
@@ -77,7 +78,11 @@ export async function GET(request: NextRequest) {
 
     if (cursor) {
       const cursorStory = await db.query.stories.findFirst({
-        where: eq(stories.id, cursor),
+        where: and(
+          eq(stories.id, cursor),
+          isNull(stories.deletedAt),
+          visibilityCondition
+        ),
       });
       if (cursorStory) {
         conditions.push(lt(stories.createdAt, cursorStory.createdAt));
@@ -192,7 +197,7 @@ export async function GET(request: NextRequest) {
     // Parse contentNotes JSON string to array
     const items = rawItems.map((item) => ({
       ...item,
-      contentNotes: item.contentNotes ? JSON.parse(item.contentNotes) : [],
+      contentNotes: parseContentNotes(item.contentNotes),
       hasActiveSession: activeSessionStoryIds.has(item.id),
     }));
 
@@ -212,6 +217,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
+function parseContentNotes(value: string | null): unknown[] {
+  if (!value) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * POST /api/stories
  * Create a new story. Requires authentication.
@@ -225,6 +241,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const rl = applyRateLimit(request, session.user.id, "write", {
+      max: 10,
+      windowSeconds: 3600,
+    });
+    if (rl) return rl;
 
     const body = await request.json();
     const parsed = createStorySchema.safeParse(body);

@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { updatePreferencesSchema } from "@/lib/validations";
+import { applyRateLimit } from "@/server/api-utils";
 
 /**
  * GET /api/users/me/preferences
@@ -66,6 +67,9 @@ export async function PATCH(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const rl = applyRateLimit(request, session.user.id, "write");
+    if (rl) return rl;
 
     const body = await request.json();
     const parsed = updatePreferencesSchema.safeParse(body);

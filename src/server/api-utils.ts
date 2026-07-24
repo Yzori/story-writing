@@ -32,15 +32,15 @@ export function getRateLimitHeaders(result: {
  */
 function getClientKey(request: NextRequest, userId?: string | null): string {
   if (userId) return userId;
-  if (!process.env.TRUST_PROXY_HEADERS && !process.env.VERCEL) {
-    return "anonymous";
-  }
+  // Use the LAST x-forwarded-for entry: it's appended by the proxy in front
+  // of us, so it can't be forged by the client (unlike the first entry),
+  // and it keeps anonymous traffic per-IP instead of one shared bucket.
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
-    // x-forwarded-for can be a comma-separated list; take the first IP
-    return forwarded.split(",")[0].trim();
+    const hops = forwarded.split(",").map((hop) => hop.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
   }
-  return "anonymous";
+  return request.headers.get("x-real-ip")?.trim() || "anonymous";
 }
 
 /**
@@ -100,25 +100,54 @@ export async function applyPersistentRateLimit(
   const nowDate = new Date(now);
   const windowStartCutoff = now - opts.windowSeconds * 1000;
 
-  const current = await db.query.authRateLimits.findFirst({
-    where: eq(authRateLimits.key, key),
-    columns: { count: true, windowStart: true },
-  });
-
-  if (!current || current.windowStart.getTime() <= windowStartCutoff) {
-    await db
+  const result = await db.transaction(async (tx) => {
+    const [created] = await tx
       .insert(authRateLimits)
       .values({ key, count: 1, windowStart: nowDate, updatedAt: nowDate })
-      .onConflictDoUpdate({
-        target: authRateLimits.key,
-        set: { count: 1, windowStart: nowDate, updatedAt: nowDate },
-      });
-    return null;
-  }
+      .onConflictDoNothing({ target: authRateLimits.key })
+      .returning({ key: authRateLimits.key });
 
-  const nextCount = current.count + 1;
-  if (nextCount > opts.max) {
-    const reset = Math.ceil((current.windowStart.getTime() + opts.windowSeconds * 1000) / 1000);
+    if (created) {
+      return { success: true as const };
+    }
+
+    const [current] = await tx
+      .select({ count: authRateLimits.count, windowStart: authRateLimits.windowStart })
+      .from(authRateLimits)
+      .where(eq(authRateLimits.key, key))
+      .for("update");
+
+    if (!current) {
+      return {
+        success: false as const,
+        reset: Math.ceil((now + opts.windowSeconds * 1000) / 1000),
+      };
+    }
+
+    if (current.windowStart.getTime() <= windowStartCutoff) {
+      await tx
+        .update(authRateLimits)
+        .set({ count: 1, windowStart: nowDate, updatedAt: nowDate })
+        .where(eq(authRateLimits.key, key));
+      return { success: true as const };
+    }
+
+    const reset = Math.ceil(
+      (current.windowStart.getTime() + opts.windowSeconds * 1000) / 1000
+    );
+    if (current.count >= opts.max) {
+      return { success: false as const, reset };
+    }
+
+    await tx
+      .update(authRateLimits)
+      .set({ count: current.count + 1, updatedAt: nowDate })
+      .where(eq(authRateLimits.key, key));
+
+    return { success: true as const };
+  });
+
+  if (!result.success) {
     return NextResponse.json(
       {
         error: {
@@ -130,17 +159,12 @@ export async function applyPersistentRateLimit(
         status: 429,
         headers: getRateLimitHeaders({
           remaining: 0,
-          reset,
+          reset: result.reset,
           max: opts.max,
         }),
       }
     );
   }
-
-  await db
-    .update(authRateLimits)
-    .set({ count: nextCount, updatedAt: nowDate })
-    .where(eq(authRateLimits.key, key));
 
   return null;
 }

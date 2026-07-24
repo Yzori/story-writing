@@ -26,7 +26,7 @@ export interface RateLimitStore {
 // ── In-Memory Store (default) ───────────────────────────────
 
 class MemoryRateLimitStore implements RateLimitStore {
-  private store = new Map<string, number[]>();
+  private store = new Map<string, { windowMs: number; timestamps: number[] }>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
@@ -37,25 +37,25 @@ class MemoryRateLimitStore implements RateLimitStore {
     const now = Date.now();
     const windowStart = now - windowMs;
 
-    let timestamps = this.store.get(key);
-    if (!timestamps) {
-      timestamps = [];
-      this.store.set(key, timestamps);
-    }
+    const entry = this.store.get(key) ?? { windowMs, timestamps: [] };
 
     // Remove expired timestamps
-    const filtered = timestamps.filter((t) => t > windowStart);
+    const filtered = entry.timestamps.filter((t) => t > windowStart);
     filtered.push(now);
-    this.store.set(key, filtered);
+    this.store.set(key, { windowMs, timestamps: filtered });
 
     return filtered.length;
   }
 
   private startCleanup() {
     this.cleanupTimer = setInterval(() => {
-      const cutoff = Date.now() - 120_000; // 2 min
-      for (const [key, timestamps] of this.store) {
-        if (timestamps.length === 0 || timestamps[timestamps.length - 1] < cutoff) {
+      const now = Date.now();
+      for (const [key, entry] of this.store) {
+        // A key must survive for its own window, or hour-long limits would
+        // silently reset after 2 idle minutes.
+        const cutoff = now - Math.max(120_000, entry.windowMs);
+        const last = entry.timestamps[entry.timestamps.length - 1];
+        if (entry.timestamps.length === 0 || last < cutoff) {
           this.store.delete(key);
         }
       }

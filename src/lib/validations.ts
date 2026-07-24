@@ -21,12 +21,12 @@ export const createStorySchema = z.object({
   synopsis: z.string().max(5000).optional(),
   hook: z.string().max(280).optional(),
   coverImageUrl: coverImageUrlSchema.optional(),
-  genres: z.array(z.string()).optional(),
-  contentRating: z.string().optional(),
-  contentNotes: z.array(z.string()).max(10).optional(),
-  status: z.string().optional(),
+  genres: z.array(z.string().max(50)).max(10).optional(),
+  contentRating: z.string().max(30).optional(),
+  contentNotes: z.array(z.string().max(100)).max(10).optional(),
+  status: z.string().max(30).optional(),
   dedication: z.string().max(2000).optional(),
-  language: z.string().optional(),
+  language: z.string().max(50).optional(),
   epigraph: z.string().max(2000).optional(),
   epigraphAttribution: z.string().max(500).optional(),
   foreword: z.string().max(10000).optional(),
@@ -58,12 +58,12 @@ export const updateStorySchema = z.object({
   synopsis: z.string().max(5000).optional(),
   hook: z.string().max(280).optional(),
   coverImageUrl: coverImageUrlSchema.nullable().optional(),
-  genres: z.array(z.string()).optional(),
-  contentRating: z.string().optional(),
-  contentNotes: z.array(z.string()).max(10).optional(),
-  status: z.string().optional(),
+  genres: z.array(z.string().max(50)).max(10).optional(),
+  contentRating: z.string().max(30).optional(),
+  contentNotes: z.array(z.string().max(100)).max(10).optional(),
+  status: z.string().max(30).optional(),
   dedication: z.string().max(2000).optional(),
-  language: z.string().optional(),
+  language: z.string().max(50).optional(),
   epigraph: z.string().max(2000).optional(),
   epigraphAttribution: z.string().max(500).optional(),
   foreword: z.string().max(10000).optional(),
@@ -276,7 +276,7 @@ export const createAgreementSchema = z.object({
 
 export const createSuggestionSchema = z.object({
   chapterId: z.string().uuid("Invalid chapter ID"),
-  content: z.string().min(1, "Content is required"),
+  content: z.string().min(1, "Content is required").max(50000),
   note: z.string().max(2000).optional(),
 });
 
@@ -520,7 +520,7 @@ export const closeSessionPollSchema = z.object({
 // ── Session Roster ──────────────────────────────────────────
 
 export const updateSessionRosterSchema = z.object({
-  characterIds: z.array(z.string().uuid()),
+  characterIds: z.array(z.string().uuid()).max(50),
 });
 
 export const updateRosterEntrySchema = z.object({
@@ -590,7 +590,7 @@ export const houseGoldSchema = z.object({
 export const guildProfileSchema = z.object({
   tagline: z.string().max(200).optional(),
   roles: z.array(z.enum(["writer", "illustrator", "editor", "worldbuilder"])).min(1).max(4),
-  genres: z.array(z.string()).max(10).optional(),
+  genres: z.array(z.string().max(50)).max(10).optional(),
   availability: z.enum(["open", "selective", "busy", "unavailable"]),
   portfolioLinks: z.array(z.object({
     label: z.string().max(50),

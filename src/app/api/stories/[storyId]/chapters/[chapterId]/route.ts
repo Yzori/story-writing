@@ -264,7 +264,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (updateFields.content !== undefined && !isWebtoon) {
-      updateData.wordCount = countWords(updateFields.content);
+      updateData.wordCount = countWords((updateData.content as string) ?? "");
     }
 
     // Optimistic lock guard: only update when the row's version still matches

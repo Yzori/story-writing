@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, chapters, contentUnlocks } from "@/server/db/schema";
-import { eq, and, sql, ne } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
-import { TIER_PRICES, CREATOR_SHARE } from "@/lib/constants";
+import { CREATOR_SHARE } from "@/lib/constants";
 
 // GET — get story monetization settings + chapter gating overview
 export async function GET(
@@ -139,9 +139,19 @@ export async function PUT(
     }
 
     // Validate free chapter count (min 3)
-    if (freeChapterCount !== undefined && (freeChapterCount < 3 || freeChapterCount > 50)) {
+    if (
+      freeChapterCount !== undefined &&
+      (!Number.isInteger(freeChapterCount) || freeChapterCount < 3 || freeChapterCount > 50)
+    ) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Free chapter count must be between 3 and 50" } },
+        { status: 400 }
+      );
+    }
+
+    if (Array.isArray(chapterOverrides) && chapterOverrides.length > 200) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "Too many chapter overrides" } },
         { status: 400 }
       );
     }
@@ -157,8 +167,11 @@ export async function PUT(
     // Apply per-chapter overrides if provided
     // chapterOverrides: [{ chapterId, gatingTier, earlyAccessDays }]
     if (Array.isArray(chapterOverrides)) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       for (const override of chapterOverrides) {
-        if (!override.chapterId) continue;
+        if (typeof override?.chapterId !== "string" || !UUID_RE.test(override.chapterId)) {
+          continue;
+        }
         const chapterUpdate: Record<string, unknown> = {};
         if (override.gatingTier && ["free", "standard", "extended", "premium"].includes(override.gatingTier)) {
           chapterUpdate.gatingTier = override.gatingTier;

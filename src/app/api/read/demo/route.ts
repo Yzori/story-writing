@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { applyRateLimit } from "@/server/api-utils";
 import { db } from "@/server/db";
 import { stories, chapters, staffPicks, users } from "@/server/db/schema";
 import { and, eq, isNull, desc, sql, inArray } from "drizzle-orm";
@@ -13,7 +14,13 @@ import { and, eq, isNull, desc, sql, inArray } from "drizzle-orm";
  *
  * Response matches /api/read/queue: { data: { queue: [...] } }
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const limited = applyRateLimit(request, null, "read", {
+    max: 30,
+    windowSeconds: 60,
+  });
+  if (limited) return limited;
+
   try {
     // Chapter word-count sum per story, plus a flag for short/flash (<1500 words total)
     const storyStats = db

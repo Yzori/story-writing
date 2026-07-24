@@ -71,27 +71,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await reconcileBoosts();
 
     if (tier === "standard") {
-      // Reject if an active or pending standard boost already exists.
-      const existing = await db.query.storyBoosts.findFirst({
-        where: and(
-          eq(storyBoosts.storyId, storyId),
-          eq(storyBoosts.tier, "standard"),
-          sql`${storyBoosts.status} IN ('active','pending')`,
-        ),
-      });
-      if (existing) {
-        return NextResponse.json(
-          {
-            error: {
-              code: "ALREADY_BOOSTED",
-              message: "This story already has an active boost",
-            },
-          },
-          { status: 400 },
-        );
-      }
-
       const result = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`story-boost:standard:${storyId}`}, 0))`
+        );
+
+        const [existing] = await tx
+          .select({ id: storyBoosts.id })
+          .from(storyBoosts)
+          .where(
+            and(
+              eq(storyBoosts.storyId, storyId),
+              eq(storyBoosts.tier, "standard"),
+              sql`${storyBoosts.status} IN ('active','pending')`,
+            ),
+          )
+          .limit(1);
+        if (existing) {
+          return { error: "ALREADY_BOOSTED" as const };
+        }
         const [user] = await tx
           .select({ inkDropBalance: users.inkDropBalance })
           .from(users)
@@ -124,11 +122,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       if ("error" in result) {
+        const alreadyBoosted = result.error === "ALREADY_BOOSTED";
         return NextResponse.json(
           {
             error: {
-              code: "INSUFFICIENT_BALANCE",
-              message: `Not enough Ink Drops (need ${config.cost})`,
+              code: result.error,
+              message: alreadyBoosted
+                ? "This story already has an active boost"
+                : `Not enough Ink Drops (need ${config.cost})`,
             },
           },
           { status: 400 },
@@ -162,21 +163,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const slot = await computeNextHeroSlot(storyId);
-    if ("blocked" in slot) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "QUEUE_FULL",
-            message:
-              "This story already has the maximum number of hero boosts queued",
-          },
-        },
-        { status: 400 },
-      );
-    }
-
     const result = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('story-boost:hero-scheduler', 0))`
+      );
+
+      const slot = await computeNextHeroSlot(storyId, tx);
+      if ("blocked" in slot) {
+        return { error: "QUEUE_FULL" as const };
+      }
       const [user] = await tx
         .select({ inkDropBalance: users.inkDropBalance })
         .from(users)
@@ -204,15 +199,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           expiresAt: slot.expiresAt,
         })
         .returning();
-      return { boost };
+      return { boost, slot };
     });
 
     if ("error" in result) {
+      const queueFull = result.error === "QUEUE_FULL";
       return NextResponse.json(
         {
           error: {
-            code: "INSUFFICIENT_BALANCE",
-            message: `Not enough Ink Drops (need ${config.cost})`,
+            code: result.error,
+            message: queueFull
+              ? "This story already has the maximum number of hero boosts queued"
+              : `Not enough Ink Drops (need ${config.cost})`,
           },
         },
         { status: 400 },
@@ -226,8 +224,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         startsAt: result.boost.startsAt,
         expiresAt: result.boost.expiresAt,
         cost: config.cost,
-        isImmediate: slot.isImmediate,
-        queuePosition: slot.queuePosition,
+        isImmediate: result.slot.isImmediate,
+        queuePosition: result.slot.queuePosition,
       },
     });
   } catch (error) {

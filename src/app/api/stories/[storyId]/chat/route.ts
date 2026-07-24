@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { workshopMessages, users } from "@/server/db/schema";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { applyRateLimit } from "@/server/api-utils";
@@ -99,7 +99,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const type = typeof body.type === "string" && ["chat", "edit", "join", "leave", "suggestion", "publish"].includes(body.type)
       ? body.type
       : "chat";
-    const metadata = typeof body.metadata === "object" ? JSON.stringify(body.metadata) : "{}";
+    let metadata = "{}";
+    if (body.metadata && typeof body.metadata === "object") {
+      const serialized = JSON.stringify(body.metadata);
+      if (serialized.length > 5000) {
+        return NextResponse.json(
+          { error: { code: "VALIDATION_ERROR", message: "Metadata too large" } },
+          { status: 400 }
+        );
+      }
+      metadata = serialized;
+    }
 
     const [msg] = await db
       .insert(workshopMessages)

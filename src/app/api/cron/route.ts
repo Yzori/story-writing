@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   processCircleRenewals,
@@ -16,42 +17,48 @@ import {
  * Header: Authorization: Bearer <CRON_SECRET>
  */
 export async function POST(request: NextRequest) {
-  // Verify cron secret
-  const authHeader = request.headers.get("authorization");
+  // Verify cron secret (timing-safe: length equality first, then constant-time body compare)
+  const authHeader = request.headers.get("authorization") ?? "";
   const cronSecret = process.env.CRON_SECRET;
+  const expected = cronSecret ? Buffer.from(`Bearer ${cronSecret}`) : null;
+  const provided = Buffer.from(authHeader);
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (
+    !expected ||
+    expected.length !== provided.length ||
+    !timingSafeEqual(expected, provided)
+  ) {
     return NextResponse.json(
       { error: { code: "UNAUTHORIZED", message: "Invalid cron secret" } },
       { status: 401 }
     );
   }
 
-  try {
-    const [renewalResults, autoCompleteResults, aiResetResults, digestResults, abandonmentResults, adventureResults] =
-      await Promise.all([
-        processCircleRenewals(),
-        processCommissionAutoComplete(),
-        resetAIUsageCounters(),
-        processEmailDigests(),
-        processCampaignAbandonment(),
-        processAdventureDeadlines(),
-      ]);
+  // allSettled: one failing job must not hide the results of jobs that
+  // already committed their work (these are not transactional siblings).
+  const jobs = {
+    renewals: processCircleRenewals(),
+    autoComplete: processCommissionAutoComplete(),
+    aiReset: resetAIUsageCounters(),
+    digests: processEmailDigests(),
+    abandonment: processCampaignAbandonment(),
+    adventures: processAdventureDeadlines(),
+  };
 
-    return NextResponse.json({
-      timestamp: new Date().toISOString(),
-      renewals: renewalResults,
-      autoComplete: autoCompleteResults,
-      aiReset: aiResetResults,
-      digests: digestResults,
-      abandonment: abandonmentResults,
-      adventures: adventureResults,
-    });
-  } catch (error) {
-    console.error("Cron job error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Cron job failed" } },
-      { status: 500 }
-    );
-  }
+  const settled = await Promise.allSettled(Object.values(jobs));
+  const names = Object.keys(jobs);
+
+  const results: Record<string, unknown> = { timestamp: new Date().toISOString() };
+  let failures = 0;
+  settled.forEach((outcome, i) => {
+    if (outcome.status === "fulfilled") {
+      results[names[i]] = outcome.value;
+    } else {
+      failures += 1;
+      console.error(`Cron job ${names[i]} error:`, outcome.reason);
+      results[names[i]] = { error: "failed" };
+    }
+  });
+
+  return NextResponse.json(results, { status: failures > 0 ? 500 : 200 });
 }

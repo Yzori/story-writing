@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hashPassword, verifyPassword } from "@/server/password";
+import { hashPassword, passwordNeedsRehash, verifyPassword } from "@/server/password";
 
 describe("Password Hashing", () => {
   it("hashes and verifies a password correctly", async () => {
@@ -52,14 +52,43 @@ describe("Password Hashing", () => {
     expect(await verifyPassword(password, hash)).toBe(true);
   });
 
-  it("returns hex-encoded string", async () => {
+  it("stores a versioned PBKDF2 hash with its work factor", async () => {
     const hash = await hashPassword("test");
-    expect(hash).toMatch(/^[0-9a-f]+$/);
+    const [algorithm, iterations, salt, derivedHash] = hash.split("$");
+
+    expect(algorithm).toBe("pbkdf2-sha256");
+    expect(iterations).toBe("600000");
+    expect(salt).toMatch(/^[0-9a-f]{32}$/);
+    expect(derivedHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(passwordNeedsRehash(hash)).toBe(false);
   });
 
-  it("hash contains salt + hash (48 bytes = 16 salt + 32 hash)", async () => {
-    const hash = await hashPassword("test");
-    const decoded = Uint8Array.from(Buffer.from(hash, "hex"));
-    expect(decoded.length).toBe(48); // 16-byte salt + 32-byte SHA-256 hash
-  });
-});
+  it.each(["hex", "base64"] as const)(
+    "verifies and marks legacy %s hashes for migration",
+    async (encoding) => {
+      const password = "legacy-password";
+      const salt = new Uint8Array(16).fill(7);
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+      );
+      const bits = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" },
+        keyMaterial,
+        256
+      );
+      const combined = Buffer.concat([Buffer.from(salt), Buffer.from(bits)]);
+      const legacyHash = combined.toString(encoding);
+
+      expect(await verifyPassword(password, legacyHash)).toBe(true);
+      expect(passwordNeedsRehash(legacyHash)).toBe(true);
+    }
+  );
+
+  it("rejects malformed password hashes", async () => {
+    expect(await verifyPassword("password", "not-a-valid-hash")).toBe(false);
+    expect(passwordNeedsRehash("not-a-valid-hash")).toBe(true);
+  });});

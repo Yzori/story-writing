@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { applyRateLimit } from "@/server/api-utils";
 import {
   stories,
   campaignSessions,
@@ -18,6 +19,7 @@ type RouteParams = {
 export const dynamic = "force-dynamic";
 
 const TICK_MS = 3_000;
+const MAX_CONNECTION_MS = 5 * 60 * 1000;
 
 /**
  * GET /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/stream
@@ -35,6 +37,11 @@ const TICK_MS = 3_000;
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { storyId, sessionId } = await params;
+  const limited = applyRateLimit(request, null, "read", {
+    max: 10,
+    windowSeconds: 60,
+  });
+  if (limited) return limited;
 
   // Verify story exists, is public, and not deleted (same gate as spectate poll)
   const story = await db.query.stories.findFirst({
@@ -57,7 +64,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     where: eq(campaignSessions.id, sessionId),
   });
 
-  if (!campaignSession || campaignSession.storyId !== storyId) {
+  if (
+    !campaignSession ||
+    campaignSession.storyId !== storyId ||
+    campaignSession.status !== "active"
+  ) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Session not found" } },
       { status: 404 }
@@ -140,7 +151,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   let timer: ReturnType<typeof setInterval> | null = null;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let maxLifetime: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
+  let ticking = false;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -160,6 +173,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         closed = true;
         if (timer) clearInterval(timer);
         if (heartbeat) clearInterval(heartbeat);
+        if (maxLifetime) clearTimeout(maxLifetime);
         try {
           controller.close();
         } catch {
@@ -168,10 +182,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       };
 
       // Abort when the client disconnects.
-      request.signal.addEventListener("abort", cleanup);
+      request.signal.addEventListener("abort", cleanup, { once: true });
+      maxLifetime = setTimeout(cleanup, MAX_CONNECTION_MS);
 
       const tick = async () => {
-        if (closed) return;
+        if (closed || ticking) return;
+        ticking = true;
         try {
           const newTurns = await fetchNewTurns(cursor);
           if (newTurns.length > 0) {
@@ -182,8 +198,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             fetchSpectatorCount(),
           ]);
           send({ data: newTurns, session, spectatorCount });
+          if (!session || session.status !== "active") cleanup();
         } catch {
           // Transient DB hiccup; the next tick will retry.
+        } finally {
+          ticking = false;
         }
       };
 
@@ -205,6 +224,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       closed = true;
       if (timer) clearInterval(timer);
       if (heartbeat) clearInterval(heartbeat);
+      if (maxLifetime) clearTimeout(maxLifetime);
     },
   });
 

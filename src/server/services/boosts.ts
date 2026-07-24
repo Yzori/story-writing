@@ -61,6 +61,7 @@ export async function reconcileBoosts(): Promise<void> {
  */
 export async function computeNextHeroSlot(
   storyId: string,
+  executor: Pick<typeof db, "select"> = db,
 ): Promise<
   | { startsAt: Date; expiresAt: Date; queuePosition: number; isImmediate: boolean }
   | { blocked: "story-queue-full" }
@@ -69,7 +70,7 @@ export async function computeNextHeroSlot(
   const duration = BOOST_TIERS.hero.durationMs;
 
   // Pull all non-expired hero rows, sorted by startsAt.
-  const rows = await db
+  const rows = await executor
     .select({
       id: storyBoosts.id,
       storyId: storyBoosts.storyId,

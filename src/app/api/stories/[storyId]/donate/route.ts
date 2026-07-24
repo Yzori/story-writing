@@ -85,7 +85,7 @@ export async function POST(
     const { amount, message } = body;
 
     // Validate amount (min 5, max 500)
-    if (!amount || typeof amount !== "number" || amount < 5 || amount > 500) {
+    if (!Number.isInteger(amount) || amount < 5 || amount > 500) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Amount must be 5-500 drops" } },
         { status: 400 }

@@ -1,13 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
 import {
   createMockRequest,
   createMockParams,
   createMockStory,
   createMockChapter,
   getResponseData,
-  mockAuth,
-  mockNoAuth,
 } from "../helpers";
 import type { RouteHandler, JsonBody } from "../helpers";
 
@@ -130,12 +127,14 @@ describe("GET /api/stories/[storyId]/chapters", () => {
 
 describe("POST /api/stories/[storyId]/chapters", () => {
   let POST: RouteHandler;
+  let insertedChapter: Record<string, unknown> | null;
 
   const mockStory = createMockStory({ id: "story-1", userId: "user-1" });
   const mockChapter = createMockChapter();
 
   beforeEach(async () => {
     vi.resetModules();
+    insertedChapter = null;
 
     vi.doMock("@/server/db", () => ({
       db: {
@@ -148,8 +147,11 @@ describe("POST /api/stories/[storyId]/chapters", () => {
           }),
         }),
         insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([mockChapter]),
+          values: vi.fn((values: Record<string, unknown>) => {
+            insertedChapter = values;
+            return {
+              returning: vi.fn().mockResolvedValue([mockChapter]),
+            };
           }),
         }),
       },
@@ -180,6 +182,24 @@ describe("POST /api/stories/[storyId]/chapters", () => {
 
     expect(status).toBe(201);
     expect((body as JsonBody).data.id).toBe("chapter-1");
+  });
+
+  it("sanitizes rich HTML before storing a chapter", async () => {
+    const req = createMockRequest("/api/stories/story-1/chapters", {
+      method: "POST",
+      body: {
+        title: "Unsafe Chapter",
+        content: '<p>Safe</p><img src="x" onerror="alert(1)"><script>alert(1)</script>',
+      },
+    });
+    const res = await POST(req, createMockParams({ storyId: "story-1" }));
+    const { status } = await getResponseData(res);
+    const storedContent = String(insertedChapter?.content ?? "");
+
+    expect(status).toBe(201);
+    expect(storedContent).toContain("<p>Safe</p>");
+    expect(storedContent).not.toContain("<script");
+    expect(storedContent).not.toContain("onerror");
   });
 
   it("requires authentication", async () => {

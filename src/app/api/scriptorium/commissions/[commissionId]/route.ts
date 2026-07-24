@@ -8,7 +8,7 @@ import {
   users,
   inkDropTransactions,
 } from "@/server/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
@@ -145,7 +145,7 @@ export async function PATCH(
             { status: 400 }
           );
         }
-        if (!price || price < 50 || price > 1500) {
+        if (!Number.isInteger(price) || price < 50 || price > 1500) {
           return NextResponse.json(
             { error: { code: "VALIDATION_ERROR", message: "Price must be 50-1500 drops" } },
             { status: 400 }
@@ -183,36 +183,69 @@ export async function PATCH(
           );
         }
 
-        const agreedPrice = commission.quotedPrice!;
-
-        // Atomic: lock drops from patron
         const result = await db.transaction(async (tx) => {
+          const [lockedCommission] = await tx
+            .select({
+              status: commissions.status,
+              quotedPrice: commissions.quotedPrice,
+              patronId: commissions.patronId,
+            })
+            .from(commissions)
+            .where(eq(commissions.id, commissionId))
+            .for("update");
+
+          if (
+            !lockedCommission ||
+            lockedCommission.status !== "quoted" ||
+            lockedCommission.patronId !== session.user.id ||
+            !Number.isInteger(lockedCommission.quotedPrice) ||
+            (lockedCommission.quotedPrice ?? 0) <= 0
+          ) {
+            return { error: "STALE_STATUS" as const };
+          }
+
+          const agreedPrice = lockedCommission.quotedPrice as number;
           const [patron] = await tx.execute(
-            sql`SELECT ink_drop_balance FROM users WHERE id = ${commission.patronId} FOR UPDATE`
+            sql`SELECT ink_drop_balance FROM users WHERE id = ${lockedCommission.patronId} FOR UPDATE`
           );
           const balance = Number((patron as { ink_drop_balance?: number } | undefined)?.ink_drop_balance ?? 0);
 
           if (balance < agreedPrice) {
-            return { error: "INSUFFICIENT_BALANCE" as const, balance };
+            return { error: "INSUFFICIENT_BALANCE" as const, required: agreedPrice };
           }
 
-          // Debit patron (drops go to vault/escrow)
           await tx.execute(
-            sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${agreedPrice} WHERE id = ${commission.patronId}`
+            sql`UPDATE users SET ink_drop_balance = ink_drop_balance - ${agreedPrice} WHERE id = ${lockedCommission.patronId}`
           );
 
-          await tx.update(commissions).set({
-            status: "in-progress",
-            agreedPrice,
-            updatedAt: new Date(),
-          }).where(eq(commissions.id, commissionId));
+          await tx
+            .update(commissions)
+            .set({ status: "in-progress", agreedPrice, updatedAt: new Date() })
+            .where(eq(commissions.id, commissionId));
 
-          return { success: true, newBalance: balance - agreedPrice };
+          return { success: true as const, agreedPrice };
         });
 
         if ("error" in result) {
+          if (result.error === "STALE_STATUS") {
+            return NextResponse.json(
+              {
+                error: {
+                  code: "STALE_STATUS",
+                  message: "This quote was already accepted or is no longer available.",
+                },
+              },
+              { status: 409 }
+            );
+          }
+
           return NextResponse.json(
-            { error: { code: "INSUFFICIENT_BALANCE", message: `Not enough drops. Need ${agreedPrice}.` } },
+            {
+              error: {
+                code: "INSUFFICIENT_BALANCE",
+                message: `Not enough drops. Need ${result.required}.`,
+              },
+            },
             { status: 402 }
           );
         }
@@ -220,7 +253,7 @@ export async function PATCH(
         await db.insert(commissionMessages).values({
           commissionId,
           senderId: session.user.id,
-          content: `Commission accepted. ${agreedPrice} drops held in the Vault. Work begins.`,
+          content: `Commission accepted. ${result.agreedPrice} drops held in the Vault. Work begins.`,
           isSystemMessage: true,
         });
 
@@ -237,11 +270,30 @@ export async function PATCH(
           );
         }
 
-        await db.update(commissions).set({
-          status: "delivered",
-          deliveredAt: new Date(),
-          updatedAt: new Date(),
-        }).where(eq(commissions.id, commissionId));
+        // Guard the transition in the WHERE clause: a concurrent cancel/refund
+        // must not be overwritten back to "delivered" (that would let the
+        // vault be paid out on top of the refund).
+        const [delivered] = await db
+          .update(commissions)
+          .set({
+            status: "delivered",
+            deliveredAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(commissions.id, commissionId),
+              inArray(commissions.status, ["in-progress", "revision"])
+            )
+          )
+          .returning({ id: commissions.id });
+
+        if (!delivered) {
+          return NextResponse.json(
+            { error: { code: "STALE_STATUS", message: "This commission is no longer in progress." } },
+            { status: 409 }
+          );
+        }
 
         await db.insert(commissionMessages).values({
           commissionId,
