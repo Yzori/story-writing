@@ -21,6 +21,8 @@ export interface Chapter {
   outline: string;
   // Optimistic locking
   version: number;
+  // The Hemingway bridge — a line left for tomorrow-you on the way out
+  bridgeNote?: string | null;
   // Version history
   snapshots: ChapterSnapshot[];
 }

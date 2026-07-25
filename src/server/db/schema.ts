@@ -60,6 +60,9 @@ export const users = pgTable("users", {
   readingStreakDays: integer("reading_streak_days").notNull().default(0),
   readingStreakLastDay: text("reading_streak_last_day"), // YYYY-MM-DD (UTC)
   readingStreakBest: integer("reading_streak_best").notNull().default(0),
+  // When the studio last saw you — the greeting scales to your absence, and
+  // that has to be true on a device you've never opened before.
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   // Reader onboarding — preferences captured at signup to prime the For You feed.
   preferredGenres: text("preferred_genres")
     .array()
@@ -218,6 +221,11 @@ export const chapters = pgTable("chapters", {
   gatingTier: text("gating_tier").notNull().default("free"), // 'free' | 'standard' (15) | 'extended' (30) | 'premium' (50)
   earlyAccessDays: integer("early_access_days").notNull().default(0), // 0 = no early access, 3/5/7
   earlyAccessUntil: timestamp("early_access_until", { withTimezone: true }), // null = no early access gate
+  // The Hemingway bridge — one line from you to tomorrow-you, captured on the
+  // way out of the editor and quoted back by the studio. Lives on the chapter
+  // so it follows you across devices (it was localStorage-only until 0064).
+  bridgeNote: text("bridge_note"),
+  bridgeNoteAt: timestamp("bridge_note_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

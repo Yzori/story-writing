@@ -67,6 +67,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       authorNoteAfter: chapters.authorNoteAfter,
       outline: chapters.outline,
       version: chapters.version,
+      // the line you left yourself on the way out, so the desk knows not to ask again
+      bridgeNote: chapters.bridgeNote,
       createdAt: chapters.createdAt,
       updatedAt: chapters.updatedAt,
     };

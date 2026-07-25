@@ -132,6 +132,7 @@ export interface ApiChapter {
   authorNoteAfter: string;
   outline: string;
   version: number;
+  bridgeNote?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -149,6 +150,7 @@ export function apiChapterToLocal(ch: ApiChapter): Chapter {
     authorNoteAfter: ch.authorNoteAfter || "",
     outline: ch.outline || "",
     version: ch.version || 1,
+    bridgeNote: ch.bridgeNote ?? null,
     snapshots: [],
   };
 }

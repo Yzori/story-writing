@@ -5,10 +5,9 @@ import { motion } from "framer-motion";
 import { Sunrise, Sun, Sunset, Moon, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Production primitives for the Studio dashboard (and reused by the dashboard
-// mockups): auto-generated cover art, genre palettes, time-of-day phases, the
-// phase clock, momentum cards, sparkline, and the scenes rail.
-// Demo-only fixtures live in @/components/dashboard-mockup/demo-kit.
+// Production primitives for the Studio dashboard: auto-generated cover art,
+// genre palettes, time-of-day phases, the phase clock, momentum cards,
+// sparkline, and the scenes rail.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const PALETTES: [string, string, string][] = [
@@ -188,16 +187,19 @@ export function Sparkline({ data, color, reduce }: { data: number[]; color: stri
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * (h - 4) - 2}`);
   const line = `M ${pts.join(" L ")}`;
   const area = `${line} L ${w},${h} L 0,${h} Z`;
+  // `color` may now be a CSS var reference — strip everything that can't live
+  // in a gradient id, or url(#…) silently fails to resolve.
+  const gradId = `sl-${color.replace(/[^a-zA-Z0-9-]/g, "")}`;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-9 w-full" preserveAspectRatio="none">
       <defs>
-        <linearGradient id={`sl-${color}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={`rgb(${color})`} stopOpacity={0.35} />
-          <stop offset="100%" stopColor={`rgb(${color})`} stopOpacity={0} />
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" style={{ stopColor: `rgb(${color})` }} stopOpacity={0.35} />
+          <stop offset="100%" style={{ stopColor: `rgb(${color})` }} stopOpacity={0} />
         </linearGradient>
       </defs>
-      <path d={area} fill={`url(#sl-${color})`} />
-      <motion.path d={line} fill="none" stroke={`rgb(${color})`} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: "easeOut" }} />
+      <path d={area} fill={`url(#${gradId})`} />
+      <motion.path d={line} fill="none" style={{ stroke: `rgb(${color})` }} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: "easeOut" }} />
     </svg>
   );
 }

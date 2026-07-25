@@ -55,6 +55,7 @@
   --shadow-elevated: var(--t-shadow-elevated);
   --shadow-modal: var(--t-shadow-modal);
   --shadow-book: var(--t-shadow-book);
+  --shadow-sheet: var(--t-shadow-sheet);
 
   --font-display: var(--font-fraunces);
   --font-body: var(--font-jakarta);
@@ -137,6 +138,24 @@ html, html.theme-dark, .theme-dark {
   /* ink-spirit colors (raw triplets so components can set their own alpha) */
   --t-sprite-gold: 224, 169, 62;
   --t-sprite-violet: 168, 140, 200;
+
+  /* The studio's inks — raw triplets, because motes, rules and glows all
+     need their own alpha. These used to be hardcoded constants in
+     dashboard/page.tsx, which meant every ink stayed at night strength on
+     vellum while the sprites beside them correctly darkened. */
+  --t-accent-gold: 224, 169, 62;
+  --t-accent-rose: 184, 105, 122;
+  --t-accent-amethyst: 168, 140, 200;
+  --t-accent-amber: 224, 164, 88;
+  --t-accent-sage: 124, 160, 116;
+  --t-accent-teal: 94, 139, 130;
+  /* iron-gall gold — the ink that reads *on* paper, not against the void */
+  --t-accent-ink: 178, 132, 50;
+  /* the lamplit sheet: paper lifted off a dark desk */
+  --t-shadow-sheet: 0 40px 90px rgba(0, 0, 0, 0.65);
+  /* the bound edge where a book's spine turns away from the light */
+  --t-book-edge: rgba(0, 0, 0, 0.55);
+  --t-book-foot: rgba(0, 0, 0, 0.35);
 
   --t-vignette: rgba(3, 5, 10, 0.42);
   --t-card-bg: rgba(25, 34, 59, 0.3);
@@ -242,6 +261,21 @@ html.theme-light, .theme-light {
   /* ink-spirits turn to deeper inks so they read on vellum */
   --t-sprite-gold: 148, 104, 20;
   --t-sprite-violet: 110, 84, 156;
+
+  /* The studio's inks by day: every one drops to an ink strength that reads
+     on vellum. Iron-gall stays put — it was always a paper ink. */
+  --t-accent-gold: 148, 104, 20;
+  --t-accent-rose: 150, 62, 82;
+  --t-accent-amethyst: 110, 84, 156;
+  --t-accent-amber: 158, 100, 34;
+  --t-accent-sage: 74, 108, 68;
+  --t-accent-teal: 52, 96, 88;
+  --t-accent-ink: 178, 132, 50;
+  --t-shadow-sheet:
+    0 2px 6px rgba(27, 34, 48, 0.07),
+    0 24px 60px rgba(27, 34, 48, 0.16);
+  --t-book-edge: rgba(27, 34, 48, 0.28);
+  --t-book-foot: rgba(27, 34, 48, 0.18);
 
   /* ── Overlays & effects ── */
   --t-vignette: transparent;

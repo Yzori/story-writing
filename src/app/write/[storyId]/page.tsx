@@ -10,7 +10,7 @@ import {
   StoryProject,
   countWords,
 } from "@/types/editor";
-import { getOrCreateSession } from "@/client/goals";
+import { getOrCreateSession, getTodaySession } from "@/client/goals";
 // export functions are dynamically imported in handlers below
 import ChapterNav from "@/components/editor/ChapterNav";
 import ProseEditor from "@/components/editor/ProseEditor";
@@ -29,6 +29,7 @@ import HistoryPanel from "@/components/editor/HistoryPanel";
 import SearchReplace from "@/components/editor/SearchReplace";
 import GoalsPanel from "@/components/editor/GoalsPanel";
 import StatusBar from "@/components/editor/StatusBar";
+import BridgePrompt from "@/components/editor/BridgePrompt";
 import { useToast } from "@/components/shared/Toast";
 import { useModChord } from "@/lib/keys";
 import ChapterOutlinePanel from "@/components/editor/ChapterOutlinePanel";
@@ -1280,6 +1281,15 @@ export default function WriteStoryPage() {
 
   return (
     <div className="fixed inset-x-0 top-14 bottom-0 w-screen overflow-hidden transition-colors duration-1000 bg-void">
+
+      {/* ── 0. The bridge — asked once, on the way out, only if you wrote ── */}
+      <BridgePrompt
+        storyId={storyId}
+        chapterId={project.activeChapterId}
+        chapterTitle={activeChapter?.title || "this chapter"}
+        wordsWritten={getTodaySession(project.goals)?.wordsWritten ?? 0}
+        hasNote={Boolean(activeChapter?.bridgeNote)}
+      />
 
       {/* ── 1. Cinematic Canvas Background ──────────────────── */}
       <div className="absolute inset-0 pointer-events-none z-0">
