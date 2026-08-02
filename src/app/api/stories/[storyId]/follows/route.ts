@@ -87,10 +87,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           .where(and(eq(follows.userId, session.user.id), eq(follows.storyId, storyId)));
         return false;
       } else {
-        await tx.insert(follows).values({
-          userId: session.user.id,
-          storyId,
-        });
+        // Double-click race: loser's insert hits the unique constraint —
+        // treat as "already following", not a 500.
+        await tx
+          .insert(follows)
+          .values({
+            userId: session.user.id,
+            storyId,
+          })
+          .onConflictDoNothing();
         return true;
       }
     });

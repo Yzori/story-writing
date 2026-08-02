@@ -77,7 +77,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           .where(and(eq(sparks.storyId, storyId), eq(sparks.userId, userId)));
         return false;
       } else {
-        await tx.insert(sparks).values({ userId, storyId });
+        // Double-click race: the loser's insert hits the unique
+        // constraint — treat it as "already sparked", not a 500.
+        await tx.insert(sparks).values({ userId, storyId }).onConflictDoNothing();
         return true;
       }
     });

@@ -120,7 +120,9 @@ describe("POST /api/stories/[storyId]/sparks", () => {
                 }),
               }),
               insert: vi.fn().mockReturnValue({
-                values: vi.fn().mockResolvedValue(undefined),
+                values: vi.fn().mockReturnValue({
+                  onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+                }),
               }),
             };
             return cb(tx);
@@ -311,7 +313,9 @@ describe("POST /api/stories/[storyId]/follows", () => {
               follows: { findFirst: vi.fn().mockResolvedValue(null) },
             },
             insert: vi.fn().mockReturnValue({
-              values: vi.fn().mockResolvedValue(undefined),
+              values: vi.fn().mockReturnValue({
+                onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+              }),
             }),
           };
           return cb(tx);

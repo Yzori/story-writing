@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { stories, users, campaignSessions, spectatorPresence } from "@/server/db/schema";
+import {
+  stories,
+  users,
+  campaignSessions,
+  spectatorPresence,
+  adventures,
+  adventureAudiencePresence,
+} from "@/server/db/schema";
 import { eq, and, isNull, isNotNull, gt, desc, inArray, or, sql } from "drizzle-orm";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
@@ -53,28 +60,99 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(campaignSessions.updatedAt))
       .limit(12);
 
-    if (rows.length === 0) {
+    // Running board-listed adventure tables (the current flagship) join
+    // the same strip. Private tables stay off — the board flag is the
+    // listing consent.
+    const adventureRows = await db
+      .select({
+        storyId: stories.id,
+        slug: stories.slug,
+        title: stories.title,
+        coverImageUrl: stories.coverImageUrl,
+        contentRating: stories.contentRating,
+        authorName: users.displayName,
+        sessionId: adventures.id,
+        sessionTitle: stories.title,
+        sessionStatus: sql<string>`'active'`,
+        lastActivityAt: adventures.updatedAt,
+      })
+      .from(adventures)
+      .innerJoin(stories, eq(adventures.storyId, stories.id))
+      .innerJoin(users, eq(stories.userId, users.id))
+      .where(
+        and(
+          eq(adventures.status, "running"),
+          eq(adventures.boardVisibility, "board"),
+          isNull(stories.deletedAt)
+        )
+      )
+      .orderBy(desc(adventures.updatedAt))
+      .limit(12);
+
+    if (rows.length === 0 && adventureRows.length === 0) {
       return NextResponse.json({ data: [] });
     }
 
-    // Fresh spectator counts for all live sessions in one query
-    const counts = await db
-      .select({
-        sessionId: spectatorPresence.sessionId,
-        count: sql<number>`count(*)`,
-      })
-      .from(spectatorPresence)
-      .where(
-        and(
-          inArray(spectatorPresence.sessionId, rows.map((r) => r.sessionId)),
-          gt(spectatorPresence.lastHeartbeat, sql`now() - interval '45 seconds'`)
+    // Fresh spectator counts, one query per surface
+    const countBySession = new Map<string, number>();
+    if (rows.length > 0) {
+      const counts = await db
+        .select({
+          sessionId: spectatorPresence.sessionId,
+          count: sql<number>`count(*)`,
+        })
+        .from(spectatorPresence)
+        .where(
+          and(
+            inArray(spectatorPresence.sessionId, rows.map((r) => r.sessionId)),
+            gt(spectatorPresence.lastHeartbeat, sql`now() - interval '45 seconds'`)
+          )
         )
+        .groupBy(spectatorPresence.sessionId);
+      counts.forEach((c) => countBySession.set(c.sessionId, Number(c.count)));
+    }
+    if (adventureRows.length > 0) {
+      const counts = await db
+        .select({
+          adventureId: adventureAudiencePresence.adventureId,
+          count: sql<number>`count(*)`,
+        })
+        .from(adventureAudiencePresence)
+        .where(
+          and(
+            inArray(
+              adventureAudiencePresence.adventureId,
+              adventureRows.map((r) => r.sessionId)
+            ),
+            gt(
+              adventureAudiencePresence.lastHeartbeat,
+              sql`now() - interval '45 seconds'`
+            )
+          )
+        )
+        .groupBy(adventureAudiencePresence.adventureId);
+      counts.forEach((c) => countBySession.set(c.adventureId, Number(c.count)));
+    }
+
+    const merged = [
+      ...rows.map((r) => ({
+        ...r,
+        watchHref: `/campaign/${r.storyId}/watch/${r.sessionId}`,
+      })),
+      ...adventureRows.map((r) => ({
+        ...r,
+        watchHref: `/adventures/${r.sessionId}/watch`,
+      })),
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.lastActivityAt).getTime() -
+          new Date(a.lastActivityAt).getTime()
       )
-      .groupBy(spectatorPresence.sessionId);
-    const countBySession = new Map(counts.map((c) => [c.sessionId, Number(c.count)]));
+      .slice(0, 12);
 
     return NextResponse.json({
-      data: rows.map((r) => ({
+      data: merged.map((r) => ({
         ...r,
         spectatorCount: countBySession.get(r.sessionId) ?? 0,
       })),

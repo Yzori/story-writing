@@ -130,13 +130,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           return type;
         }
       } else {
-        // No existing reaction — create
-        await tx.insert(reactions).values({
-          userId,
-          chapterId,
-          storyId,
-          type,
-        });
+        // No existing reaction — create. On a double-click race the
+        // loser upserts its type instead of 500ing on the unique key.
+        await tx
+          .insert(reactions)
+          .values({
+            userId,
+            chapterId,
+            storyId,
+            type,
+          })
+          .onConflictDoUpdate({
+            target: [reactions.userId, reactions.chapterId],
+            set: { type },
+          });
         return type;
       }
     });

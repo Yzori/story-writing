@@ -100,6 +100,8 @@ type LiveTable = {
   /** "active" = playing now; "draft" = the table is gathering. */
   sessionStatus: string;
   spectatorCount: number;
+  /** Server-built watch link — campaign sessions and adventure tables live in different rooms. */
+  watchHref?: string;
 };
 
 // ── helpers ─────────────────────────────────────────────────
@@ -618,7 +620,7 @@ function LiveTableCard({ table }: { table: LiveTable }) {
   const live = table.sessionStatus !== "draft";
   return (
     <Link
-      href={`/campaign/${table.storyId}/watch/${table.sessionId}`}
+      href={table.watchHref ?? `/campaign/${table.storyId}/watch/${table.sessionId}`}
       className={`group flex w-[264px] shrink-0 items-center gap-3.5 rounded-xl border bg-ink p-3 transition-all hover:border-rose/40 ${
         live ? "border-rose/20 shadow-[0_0_24px_-12px_rgba(200,80,100,0.5)]" : "border-border"
       }`}
