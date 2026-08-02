@@ -30,6 +30,7 @@ interface BoardCard {
   hostName: string | null;
   hostRecord: { onTimePct: number | null; finished: number };
   isMine: boolean;
+  myApplicationStatus: "pending" | "accepted" | "declined" | null;
 }
 
 const QUICK_GENRES = [
@@ -239,7 +240,10 @@ function QuickSelect({
 function Playbill({ card }: { card: BoardCard }) {
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
-  const [asked, setAsked] = useState(false);
+  // The API says whether we already asked — the button must not offer a
+  // second application the server will reject.
+  const [asked, setAsked] = useState(card.myApplicationStatus === "pending");
+  const declined = card.myApplicationStatus === "declined";
   const [error, setError] = useState<string | null>(null);
 
   const seeking = card.openDirector
@@ -316,6 +320,10 @@ function Playbill({ card }: { card: BoardCard }) {
         ) : asked ? (
           <span className="text-[12.5px] text-sage">
             Asked — they&apos;ll get back to you.
+          </span>
+        ) : declined ? (
+          <span className="text-[12.5px] text-text-ghost">
+            The table went another way this time.
           </span>
         ) : !asking ? (
           <button

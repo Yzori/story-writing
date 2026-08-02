@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   users,
   stories,
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { userId } = await params;
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "read");
+    if (limited) return limited;
     const isOwnProfile = session?.user?.id === userId;
 
     const [user] = await db
@@ -282,11 +285,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/users/[userId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch user" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/users/[userId]", "Failed to fetch user");
   }
 }
 
@@ -319,6 +318,8 @@ const updateProfileSchema = z.object({
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "write");
+    if (limited) return limited;
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -424,10 +425,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("PATCH /api/users/[userId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update profile" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "PATCH /api/users/[userId]", "Failed to update profile");
   }
 }

@@ -7,7 +7,7 @@ import {
   stories,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createAdventureSchema } from "@/lib/validations";
 import { generateSlug } from "@/lib/utils";
 import { PACE_DUE_HOURS } from "@/server/services/adventure-table";
@@ -61,11 +61,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("GET /api/adventures error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load adventures" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/adventures", "Failed to load adventures");
   }
 }
 
@@ -178,10 +174,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/adventures error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to open the table" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/adventures", "Failed to open the table");
   }
 }

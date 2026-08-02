@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { storyJams, jamEntries, jamVotes, stories, users } from "@/server/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { computeJamStatus } from "@/server/services/jams";
 
 type RouteParams = { params: Promise<{ jamId: string }> };
@@ -90,11 +90,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET jam detail error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch jam" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/jams/[jamId]", "Failed to fetch jam");
   }
 }
 
@@ -133,10 +129,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("PATCH jam error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update jam" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "PATCH /api/jams/[jamId]", "Failed to update jam");
   }
 }

@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import {
-  createMockChapter,
-  createMockParams,
-  createMockRequest,
-  createMockStory,
-  getResponseData,
-} from "../helpers";
+import { createMockChapter, createMockParams, createMockRequest, createMockStory, getResponseData, mockApiUtils } from "../helpers";
 
 describe("monetization regressions", () => {
   beforeEach(() => {
@@ -75,9 +69,7 @@ describe("monetization regressions", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/db", () => ({
       db: {
         query: {
@@ -121,9 +113,7 @@ describe("monetization regressions", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/db", () => ({
       db: {
         select: vi.fn().mockReturnValue({
@@ -165,9 +155,7 @@ describe("monetization regressions", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/db", () => ({
       db: {},
     }));
@@ -193,9 +181,7 @@ describe("monetization regressions", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/db", () => ({
       db: {
         select: vi.fn().mockReturnValue({

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMockChapter, createMockParams, createMockRequest, createMockStory, getResponseData } from "../helpers";
+import { createMockChapter, createMockParams, createMockRequest, createMockStory, getResponseData, mockApiUtils } from "../helpers";
 
 type ApiBody = {
   data?: { reordered?: boolean };
@@ -57,9 +57,7 @@ describe("panel API authorization", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/panels/route");
     const req = createMockRequest("/api/stories/story-1/chapters/chapter-1/panels", {
@@ -122,9 +120,7 @@ describe("panel API authorization", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]/route");
     const req = createMockRequest("/api/stories/story-1/chapters/other-chapter/panels/panel-1", {
@@ -160,9 +156,7 @@ describe("panel API authorization", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/panels/reorder/route");
     const req = createMockRequest("/api/stories/story-1/chapters/other-chapter/panels/reorder", {
@@ -199,9 +193,7 @@ describe("panel API authorization", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/panels/reorder/route");
     const req = createMockRequest("/api/stories/story-1/chapters/chapter-1/panels/reorder", {

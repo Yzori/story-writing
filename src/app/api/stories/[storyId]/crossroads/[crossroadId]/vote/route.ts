@@ -7,7 +7,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { distributeEarnings } from "@/server/services/ink-drops";
 
 // POST — vote on a crossroad (spend drops)
@@ -158,10 +158,10 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST crossroad vote error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to vote" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/crossroads/[crossroadId]/vote",
+      "Failed to vote",
     );
   }
 }

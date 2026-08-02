@@ -95,7 +95,15 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+  (table) => [
+    // Partial index for the digest cron sweep — the only recurring
+    // full-table predicate on users.
+    index("idx_users_digest_due")
+      .on(table.emailDigestMode, table.lastDigestSentAt)
+      .where(sql`${table.emailNotifications} = true and ${table.emailDigestMode} in ('daily', 'weekly')`),
+  ]
+);
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   stories: many(stories),
@@ -553,6 +561,8 @@ export const comments = pgTable("comments", {
     index("idx_comments_chapter_story").on(table.chapterId, table.storyId),
     index("idx_comments_parent_id").on(table.parentId),
     index("idx_comments_user_id").on(table.userId),
+    // The hub's recent-comments feed filters by story alone.
+    index("idx_comments_story_created").on(table.storyId, table.createdAt),
   ]
 );
 
@@ -1255,6 +1265,11 @@ export const playerCharacters = pgTable(
     index("idx_player_characters_story_id").on(table.storyId),
     index("idx_player_characters_user_id").on(table.userId),
     index("idx_player_characters_story_status").on(table.storyId, table.status),
+    // One active character per user per story — backs the application-
+    // approval race (migration 0067).
+    uniqueIndex("player_characters_one_active_per_user")
+      .on(table.storyId, table.userId)
+      .where(sql`status = 'active'`),
   ]
 );
 
@@ -1363,6 +1378,8 @@ export const campaignSessions = pgTable("campaign_sessions", {
 },
   (table) => [
     index("idx_campaign_sessions_story_id").on(table.storyId),
+    // The cron abandonment sweep filters on status + last touch.
+    index("idx_campaign_sessions_status_updated").on(table.status, table.updatedAt),
     // Backs the "one active session per story" invariant. Migration
     // 0018_one_active_session_per_story.sql creates this partial unique
     // index in the live DB; the session PATCH handler relies on it
@@ -1944,6 +1961,8 @@ export const readingProgress = pgTable(
       table.userId,
       table.storyId
     ),
+    // The dashboard's live-readers count joins by story.
+    index("idx_reading_progress_story").on(table.storyId, table.updatedAt),
   ]
 );
 
@@ -2947,6 +2966,13 @@ export const crossroads = pgTable(
   (table) => [
     index("idx_crossroads_story_status").on(table.storyId, table.status),
     index("idx_crossroads_creator").on(table.creatorId),
+    // The watch stream checks for an open house vote every tick.
+    index("idx_crossroads_adventure_status").on(table.adventureId, table.status),
+    // One open house vote per adventure — backs the check-then-insert
+    // in the house-vote route (migration 0067).
+    uniqueIndex("crossroads_one_open_per_adventure")
+      .on(table.adventureId)
+      .where(sql`status = 'open' and adventure_id is not null`),
   ]
 );
 
@@ -3189,6 +3215,8 @@ export const adventures = pgTable(
       table.genre,
       table.pace
     ),
+    // The cron spotlight/nudge sweep filters on status + due time.
+    index("idx_adventures_spotlight_due").on(table.status, table.spotlightDueAt),
   ]
 );
 

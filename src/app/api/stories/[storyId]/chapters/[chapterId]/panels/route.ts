@@ -4,7 +4,7 @@ import { panels, chapters, stories, collaborators, contentUnlocks } from "@/serv
 import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
 import { createPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
 
 type RouteParams = {
@@ -182,10 +182,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: existingPanels });
   } catch (error) {
-    console.error("GET panels error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch panels" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/panels",
+      "Failed to fetch panels",
     );
   }
 }
@@ -298,10 +298,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST panels error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create panels" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/chapters/[chapterId]/panels",
+      "Failed to create panels",
     );
   }
 }

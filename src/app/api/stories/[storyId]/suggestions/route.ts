@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { suggestions, users, stories } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createSuggestionSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { createNotification } from "@/server/services/notifications";
@@ -67,10 +67,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/suggestions error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch suggestions" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/suggestions",
+      "Failed to fetch suggestions",
     );
   }
 }
@@ -150,10 +150,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/suggestions error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create suggestion" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/suggestions",
+      "Failed to create suggestion",
     );
   }
 }

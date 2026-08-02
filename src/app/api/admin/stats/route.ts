@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { users, stories, flags } from "@/server/db/schema";
 import { eq, count } from "drizzle-orm";
 import { requireAdmin } from "@/server/admin";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/admin/stats
@@ -38,10 +38,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("GET /api/admin/stats error:", err);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch stats" } },
-      { status: 500 }
-    );
+    return handleRouteError(err, "GET /api/admin/stats", "Failed to fetch stats");
   }
 }

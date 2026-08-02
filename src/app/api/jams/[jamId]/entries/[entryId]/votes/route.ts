@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { storyJams, jamEntries, jamVotes } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createJamVoteSchema } from "@/lib/validations";
 import { computeJamStatus } from "@/server/services/jams";
 
@@ -80,10 +80,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ ok: true, rating });
   } catch (error) {
-    console.error("POST jam vote error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to cast vote" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/jams/[jamId]/entries/[entryId]/votes",
+      "Failed to cast vote",
     );
   }
 }

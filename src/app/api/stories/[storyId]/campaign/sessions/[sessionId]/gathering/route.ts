@@ -3,7 +3,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaignSessions, follows, playerCharacters } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 import { verifySessionGmAccess } from "@/server/services/collaboration";
 
@@ -104,10 +104,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: { gatheringCalledAt: called.gatheringCalledAt?.toISOString() ?? null },
     });
   } catch (error) {
-    console.error("POST /api/.../gathering error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to send the word" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/gathering",
+      "Failed to send the word",
     );
   }
 }

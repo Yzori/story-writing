@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { flags, stories, users } from "@/server/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { requireAdmin } from "@/server/admin";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/admin/flags
@@ -49,10 +49,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: results });
   } catch (err) {
-    console.error("GET /api/admin/flags error:", err);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch flags" } },
-      { status: 500 }
-    );
+    return handleRouteError(err, "GET /api/admin/flags", "Failed to fetch flags");
   }
 }

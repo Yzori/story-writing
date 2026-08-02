@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { applyPersistentRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit, errorResponse, handleRouteError } from "@/server/api-utils";
 import { sendEmail, passwordResetEmail } from "@/server/services/email";
 import { createSecureToken, getCanonicalAppUrl, normalizeEmail, sha256Hex } from "@/server/auth-utils";
 
@@ -18,10 +18,7 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json();
 
     if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Email is required", 400);
     }
 
     const normalizedEmail = normalizeEmail(email);
@@ -63,11 +60,7 @@ export async function POST(request: NextRequest) {
     sendEmail(user.email, subject, html); // fire-and-forget
 
     return successResponse;
-  } catch {
-    console.error("Forgot password error");
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleRouteError(error, "POST /api/auth/forgot-password");
   }
 }

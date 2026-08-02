@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { stripe } from "@/server/stripe";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -13,6 +14,8 @@ import { eq } from "drizzle-orm";
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "write");
+    if (limited) return limited;
     if (!session?.user?.id) {
       return NextResponse.json({ error: { message: "Unauthorized" } }, { status: 401 });
     }
@@ -47,10 +50,6 @@ export async function POST(request: NextRequest) {
       url: portalSession.url,
     });
   } catch (error) {
-    console.error("Error creating portal session:", error);
-    return NextResponse.json(
-      { error: { message: "Failed to create portal session" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/billing/portal", "Failed to create portal session");
   }
 }

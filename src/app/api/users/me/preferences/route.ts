@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { updatePreferencesSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/users/me/preferences
@@ -45,11 +45,7 @@ export async function GET() {
 
     return NextResponse.json({ data: user });
   } catch (error) {
-    console.error("GET /api/users/me/preferences error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch preferences" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/users/me/preferences", "Failed to fetch preferences");
   }
 }
 
@@ -135,10 +131,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH /api/users/me/preferences error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update preferences" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/users/me/preferences",
+      "Failed to update preferences",
     );
   }
 }

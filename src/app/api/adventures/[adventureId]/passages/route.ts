@@ -10,7 +10,7 @@ import {
   adventureSuggestions,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { signAdventurePassageSchema } from "@/lib/validations";
 import { sanitizeHtml } from "@/server/sanitize";
 import { countWords } from "@/lib/utils";
@@ -65,10 +65,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: passages });
   } catch (error) {
-    console.error("GET /api/adventures/[adventureId]/passages error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load the page" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/adventures/[adventureId]/passages",
+      "Failed to load the page",
     );
   }
 }
@@ -267,10 +267,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("POST /api/adventures/[adventureId]/passages error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to sign the passage" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/passages",
+      "Failed to sign the passage",
     );
   }
 }

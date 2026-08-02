@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { notifications } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -13,6 +14,8 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "write");
+    if (limited) return limited;
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
@@ -42,10 +45,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH /api/notifications/[id] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update notification" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/notifications/[id]",
+      "Failed to update notification",
     );
   }
 }

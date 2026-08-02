@@ -8,7 +8,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 import { CREATOR_SHARE } from "@/lib/constants";
 
@@ -194,10 +194,10 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST /api/circles/[creatorId]/subscribe error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to subscribe" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/circles/[creatorId]/subscribe",
+      "Failed to subscribe",
     );
   }
 }
@@ -242,10 +242,10 @@ export async function DELETE(
 
     return NextResponse.json({ cancelled: true, accessUntil: sub.renewalDate });
   } catch (error) {
-    console.error("DELETE /api/circles/[creatorId]/subscribe error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to cancel subscription" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/circles/[creatorId]/subscribe",
+      "Failed to cancel subscription",
     );
   }
 }

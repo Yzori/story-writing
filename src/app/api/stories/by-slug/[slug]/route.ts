@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { stories, chapters, users, collaborators } from "@/server/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { slug } = await params;
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "read");
+    if (limited) return limited;
 
     const story = await db.query.stories.findFirst({
       where: and(eq(stories.slug, slug), isNull(stories.deletedAt)),
@@ -109,10 +112,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/stories/by-slug/[slug] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch story" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/stories/by-slug/[slug]", "Failed to fetch story");
   }
 }

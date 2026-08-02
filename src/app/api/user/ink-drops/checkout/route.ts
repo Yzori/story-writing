@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { inkDropCheckoutSchema } from "@/lib/validations";
 import { stripe, INK_DROP_TIERS } from "@/server/stripe";
 
@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {
-    console.error("POST checkout error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create checkout session" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/user/ink-drops/checkout",
+      "Failed to create checkout session",
     );
   }
 }

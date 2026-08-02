@@ -9,7 +9,7 @@ import {
   users,
 } from "@/server/db/schema";
 import { eq, and, gt, isNull, isNotNull, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { houseGoldSchema } from "@/lib/validations";
 import { isStoryTurnType } from "@/lib/campaign-turns";
 import { auth } from "@/server/auth";
@@ -206,10 +206,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       goldId: result.goldId,
     });
   } catch (error) {
-    console.error("POST gold error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to leave gold" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/gold",
+      "Failed to leave gold",
     );
   }
 }
@@ -272,10 +272,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET gold error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch the light" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/gold",
+      "Failed to fetch the light",
     );
   }
 }

@@ -109,8 +109,15 @@ export async function processCircleRenewals(): Promise<{
             message: "Circle subscription renewal — Confidant tier",
           });
 
-          const nextRenewal = new Date();
+          // Advance from the prior renewal date, not processing time — a
+          // late cron run must not gift free days. If more than a full
+          // period was missed, restart the clock from now instead of
+          // charging repeatedly to catch up.
+          const nextRenewal = new Date(lockedSub.renewalDate);
           nextRenewal.setDate(nextRenewal.getDate() + 30);
+          if (nextRenewal.getTime() <= Date.now()) {
+            nextRenewal.setTime(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          }
           await tx
             .update(circleSubscriptions)
             .set({ renewalDate: nextRenewal })
@@ -277,9 +284,14 @@ export async function resetAIUsageCounters(): Promise<{
   let errors = 0;
 
   try {
-    // Reset all users with non-free subscription tiers
-    const nextReset = new Date();
-    nextReset.setHours(24, 0, 0, 0); // Next midnight
+    // Only users whose reset is actually due — without this predicate,
+    // every cron invocation zeroed every paid user's counter, so the
+    // monthly quota was never enforced. The next reset is one month
+    // out (it's a monthly counter, not a daily one).
+    const now = new Date();
+    const nextReset = new Date(now);
+    nextReset.setMonth(nextReset.getMonth() + 1);
+    nextReset.setHours(0, 0, 0, 0);
 
     const result = await db
       .update(users)
@@ -287,7 +299,12 @@ export async function resetAIUsageCounters(): Promise<{
         aiRequestsThisMonth: 0,
         aiRequestsResetAt: nextReset,
       })
-      .where(sql`${users.subscriptionTier} != 'free'`)
+      .where(
+        and(
+          sql`${users.subscriptionTier} != 'free'`,
+          or(isNull(users.aiRequestsResetAt), lte(users.aiRequestsResetAt, now))
+        )
+      )
       .returning({ id: users.id });
 
     reset = result.length;
@@ -387,7 +404,10 @@ export async function processEmailDigests(): Promise<{
               and(
                 eq(notifications.userId, user.id),
                 isNull(notifications.emailedAt),
-                gte(notifications.createdAt, cutoff),
+                // Everything since this user's last digest, not just the
+                // current window — a notification that missed one run
+                // (failed send, cadence change) must not vanish forever.
+                gte(notifications.createdAt, user.lastDigestSentAt ?? cutoff),
               ),
             )
             .limit(50);
@@ -492,17 +512,33 @@ export async function processCampaignAbandonment(): Promise<{
 
       // Seal first (closure), then compile — an empty room still closes even
       // if there is no story to keep. Sealing removes it from the one-active-
-      // per-story set, so a fresh session can start cleanly.
-      await db
+      // per-story set, so a fresh session can start cleanly. The RETURNING
+      // makes the seal a claim: an instance that lost the race stops here
+      // instead of double-compiling and double-notifying.
+      const [claimed] = await db
         .update(campaignSessions)
         .set({ status: "completed", closingMood: "sealed-by-quiet", updatedAt: new Date() })
-        .where(and(eq(campaignSessions.id, session.id), eq(campaignSessions.status, "active")));
+        .where(and(eq(campaignSessions.id, session.id), eq(campaignSessions.status, "active")))
+        .returning({ id: campaignSessions.id });
+      if (!claimed) continue;
       sealed++;
 
-      const result = await compileSessionToChapter(session.storyId, {
-        ...session,
-        status: "completed",
-      });
+      let result;
+      try {
+        result = await compileSessionToChapter(session.storyId, {
+          ...session,
+          status: "completed",
+        });
+      } catch (err) {
+        // Un-seal so the next sweep retries — otherwise the session is
+        // out of the active set forever and the draft chapter is
+        // silently never produced.
+        await db
+          .update(campaignSessions)
+          .set({ status: "active", closingMood: null })
+          .where(eq(campaignSessions.id, session.id));
+        throw err;
+      }
       if (result.status === "compiled") compiled++;
 
       // Tell the maker they weren't stranded: the room went quiet, but the
@@ -583,6 +619,9 @@ export async function processAdventureDeadlines(): Promise<{
       // the spotlight landed on this holder.
       const since = adventure.spotlightSince;
       const nudge = async (userId: string, message: string) => {
+        // Dedupe on recipient + table + type since the spotlight landed
+        // — never on the message text, which re-nudges everyone the
+        // moment the copy is edited.
         const [already] = await db
           .select({ id: notifications.id })
           .from(notifications)
@@ -590,7 +629,7 @@ export async function processAdventureDeadlines(): Promise<{
             and(
               eq(notifications.userId, userId),
               eq(notifications.href, href),
-              eq(notifications.message, message),
+              eq(notifications.type, "adventure"),
               gte(notifications.createdAt, since),
             ),
           )

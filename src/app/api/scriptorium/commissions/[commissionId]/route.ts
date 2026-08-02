@@ -10,7 +10,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 import { CREATOR_SHARE } from "@/lib/constants";
 
@@ -85,10 +85,10 @@ export async function GET(
 
     return NextResponse.json({ commission, messages, offering });
   } catch (error) {
-    console.error("GET commission error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch commission" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/scriptorium/commissions/[commissionId]",
+      "Failed to fetch commission",
     );
   }
 }
@@ -513,10 +513,10 @@ export async function PATCH(
     const [updated] = await db.select().from(commissions).where(eq(commissions.id, commissionId));
     return NextResponse.json({ commission: updated });
   } catch (error) {
-    console.error("PATCH commission error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update commission" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/scriptorium/commissions/[commissionId]",
+      "Failed to update commission",
     );
   }
 }

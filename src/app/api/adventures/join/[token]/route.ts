@@ -3,7 +3,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventures, adventureSeats, stories } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyPersistentRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureSeatSetupSchema } from "@/lib/validations";
 import { sha256Hex } from "@/server/auth-utils";
 
@@ -61,11 +61,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/adventures/join/[token] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to read the invite" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/adventures/join/[token]", "Failed to read the invite");
   }
 }
 
@@ -149,7 +145,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           asc(adventureSeats.createdAt)
         )
         .limit(1)
-        .for("update");
+        // skipLocked: under plain FOR UPDATE + LIMIT 1, a second joiner
+        // blocks on the same row, re-checks it as taken, and reports
+        // "full" while other seats sit open. Skipping the locked row
+        // claims the next free seat instead.
+        .for("update", { skipLocked: true });
       if (!openSeat) return "full" as const;
 
       const [seat] = await tx
@@ -192,11 +192,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/adventures/join/[token] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to take a seat" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/adventures/join/[token]", "Failed to take a seat");
   }
 }
 

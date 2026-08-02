@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyPassword } from "@/server/password";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, errorResponse, handleRouteError } from "@/server/api-utils";
 
 /**
  * DELETE /api/account/delete
@@ -16,7 +16,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
     }
 
     const limited = applyRateLimit(request, session.user.id, "write", {
@@ -35,23 +35,17 @@ export async function DELETE(request: NextRequest) {
       .limit(1);
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return errorResponse("NOT_FOUND", "User not found", 404);
     }
 
     // Require password confirmation for credential accounts
     if (user.password) {
       if (!password || typeof password !== "string") {
-        return NextResponse.json(
-          { error: "Password confirmation required" },
-          { status: 400 }
-        );
+        return errorResponse("VALIDATION_ERROR", "Password confirmation required", 400);
       }
       const isValid = await verifyPassword(password, user.password);
       if (!isValid) {
-        return NextResponse.json(
-          { error: "Incorrect password" },
-          { status: 403 }
-        );
+        return errorResponse("FORBIDDEN", "Incorrect password", 403);
       }
     }
 
@@ -67,10 +61,6 @@ export async function DELETE(request: NextRequest) {
       message: "Your account and all associated data have been permanently deleted.",
     });
   } catch (error) {
-    console.error("Account deletion error");
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    return handleRouteError(error, "DELETE /api/account/delete");
   }
 }

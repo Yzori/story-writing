@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { compileSessionToChapter } from "@/server/services/compile-session-to-chapter";
 import { verifySessionGmAccess } from "@/server/services/collaboration";
 
@@ -102,18 +102,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "POST /api/.../sessions/[sessionId]/compile error:",
-      error
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to compile session",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/compile",
+      "Failed to compile session",
     );
   }
 }

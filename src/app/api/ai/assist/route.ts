@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { users, bibleEntries } from "@/server/db/schema";
 import { and, eq, lt, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { generateAIAssistance, generateStoryIntelligence, type AIPromptType } from "@/server/services/ai";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import {
@@ -469,10 +469,6 @@ export async function GET() {
       hasAccess,
     });
   } catch (error) {
-    console.error("GET /api/ai/assist error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch AI usage" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/ai/assist", "Failed to fetch AI usage");
   }
 }

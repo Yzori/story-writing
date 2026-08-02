@@ -8,7 +8,7 @@ import {
   stories,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -154,10 +154,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ cast: await listPresentCast(sessionId) });
   } catch (error) {
-    console.error("PUT /api/.../sessions/[sessionId]/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update presence" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/campaign/sessions/[sessionId]/presence",
+      "Failed to update presence",
     );
   }
 }

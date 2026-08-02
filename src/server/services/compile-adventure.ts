@@ -43,129 +43,143 @@ export async function compileAdventure(
     .orderBy(asc(adventurePassages.sortOrder));
   if (passages.length === 0) return { status: "no-content" };
 
-  // Atomically flip out of 'running' — the flip is the compile claim.
-  const [claimed] = await db
-    .update(adventures)
-    .set({ status: endStatus, updatedAt: now })
-    .where(and(eq(adventures.id, adventureId), eq(adventures.status, "running")))
-    .returning();
-  if (!claimed) return { status: "already" };
+  // Claim + compile + publish are one transaction: without it, a crash
+  // after the status flip leaves a 'finished' adventure with zero
+  // chapters, and every retry short-circuits on the claim — the book
+  // would be unrecoverable through this path.
+  const compiled = await db.transaction(async (tx) => {
+    // Atomically flip out of 'running' — the flip is the compile claim.
+    const [claimed] = await tx
+      .update(adventures)
+      .set({ status: endStatus, updatedAt: now })
+      .where(and(eq(adventures.id, adventureId), eq(adventures.status, "running")))
+      .returning();
+    if (!claimed) return { status: "already" as const };
 
-  const scenes = await db
-    .select()
-    .from(adventureScenes)
-    .where(eq(adventureScenes.adventureId, adventureId));
-  const sceneById = new Map(scenes.map((s) => [s.id, s] as const));
+    const scenes = await tx
+      .select()
+      .from(adventureScenes)
+      .where(eq(adventureScenes.adventureId, adventureId));
+    const sceneById = new Map(scenes.map((s) => [s.id, s] as const));
 
-  const seatRows = await db
-    .select({
-      seat: adventureSeats,
-      userName: users.displayName,
-      userFallback: users.name,
-    })
-    .from(adventureSeats)
-    .leftJoin(users, eq(adventureSeats.userId, users.id))
-    .where(eq(adventureSeats.adventureId, adventureId));
-  const seatById = new Map(seatRows.map((row) => [row.seat.id, row] as const));
+    const seatRows = await tx
+      .select({
+        seat: adventureSeats,
+        userName: users.displayName,
+        userFallback: users.name,
+      })
+      .from(adventureSeats)
+      .leftJoin(users, eq(adventureSeats.userId, users.id))
+      .where(eq(adventureSeats.adventureId, adventureId));
 
-  // Passages per act, in page order.
-  const actNos = [...new Set(passages.map((p) => sceneById.get(p.sceneId)?.actNo ?? 1))].sort(
-    (a, b) => a - b
-  );
-
-  const [story] = await db
-    .select({ id: stories.id, ownerId: stories.userId })
-    .from(stories)
-    .where(eq(stories.id, claimed.storyId));
-  if (!story) return { status: "no-content" };
-
-  const [maxResult] = await db
-    .select({ maxOrder: sql<number>`coalesce(max(${chapters.sortOrder}), -1)` })
-    .from(chapters)
-    .where(and(eq(chapters.storyId, story.id), isNull(chapters.deletedAt)));
-  let nextOrder = (maxResult?.maxOrder ?? -1) + 1;
-
-  const chapterIds: string[] = [];
-  for (const actNo of actNos) {
-    const actPassages = passages.filter(
-      (p) => (sceneById.get(p.sceneId)?.actNo ?? 1) === actNo
+    // Passages per act, in page order.
+    const actNos = [...new Set(passages.map((p) => sceneById.get(p.sceneId)?.actNo ?? 1))].sort(
+      (a, b) => a - b
     );
-    let html = "";
-    let lastSceneId: string | null = null;
-    for (const passage of actPassages) {
-      if (passage.sceneId !== lastSceneId) {
-        lastSceneId = passage.sceneId;
-        const scene = sceneById.get(passage.sceneId);
-        if (scene) {
-          html += scene.title
-            ? `<h3>${escapeHtml(scene.title)}</h3>\n`
-            : `<hr>\n`;
+
+    const [story] = await tx
+      .select({ id: stories.id, ownerId: stories.userId, title: stories.title })
+      .from(stories)
+      .where(eq(stories.id, claimed.storyId));
+    if (!story) return { status: "no-content" as const };
+
+    const [maxResult] = await tx
+      .select({ maxOrder: sql<number>`coalesce(max(${chapters.sortOrder}), -1)` })
+      .from(chapters)
+      .where(and(eq(chapters.storyId, story.id), isNull(chapters.deletedAt)));
+    let nextOrder = (maxResult?.maxOrder ?? -1) + 1;
+
+    const chapterIds: string[] = [];
+    for (const actNo of actNos) {
+      const actPassages = passages.filter(
+        (p) => (sceneById.get(p.sceneId)?.actNo ?? 1) === actNo
+      );
+      let html = "";
+      let lastSceneId: string | null = null;
+      for (const passage of actPassages) {
+        if (passage.sceneId !== lastSceneId) {
+          lastSceneId = passage.sceneId;
+          const scene = sceneById.get(passage.sceneId);
+          if (scene) {
+            html += scene.title
+              ? `<h3>${escapeHtml(scene.title)}</h3>\n`
+              : `<hr>\n`;
+          }
         }
+        html += passage.content + "\n";
       }
-      html += passage.content + "\n";
+      const isLastAct = actNo === actNos[actNos.length - 1];
+      if (isLastAct) html += colophonHtml(seatRows, passages, endStatus);
+
+      const [chapter] = await tx
+        .insert(chapters)
+        .values({
+          storyId: story.id,
+          title: actNos.length > 1 ? `Act ${actNo}` : "The Adventure",
+          content: html,
+          wordCount: countWords(html),
+          sortOrder: nextOrder++,
+          status: "published",
+        })
+        .returning({ id: chapters.id });
+      chapterIds.push(chapter.id);
     }
-    const isLastAct = actNo === actNos[actNos.length - 1];
-    if (isLastAct) html += colophonHtml(seatRows, passages, endStatus);
 
-    const [chapter] = await db
-      .insert(chapters)
-      .values({
-        storyId: story.id,
-        title: actNos.length > 1 ? `Act ${actNo}` : "The Adventure",
-        content: html,
-        wordCount: countWords(html),
-        sortOrder: nextOrder++,
-        status: "published",
-      })
-      .returning({ id: chapters.id });
-    chapterIds.push(chapter.id);
-  }
+    // The finished book is readable — that's the promise on the rail.
+    await tx
+      .update(stories)
+      .set({ isPublic: true, status: "complete", updatedAt: now })
+      .where(eq(stories.id, story.id));
 
-  // The finished book is readable — that's the promise on the rail.
-  await db
-    .update(stories)
-    .set({ isPublic: true, status: "complete", updatedAt: now })
-    .where(eq(stories.id, story.id));
+    // Everyone at the table is a collaborator on the book.
+    const seatedUserIds = [
+      ...new Set(
+        seatRows
+          .map((row) => row.seat.userId)
+          .filter((id): id is string => !!id && id !== story.ownerId)
+      ),
+    ];
+    if (seatedUserIds.length > 0) {
+      await tx
+        .insert(collaborators)
+        .values(
+          seatedUserIds.map((userId) => ({
+            storyId: story.id,
+            userId,
+            role: "writer" as const,
+            status: "accepted" as const,
+            invitedBy: story.ownerId,
+          }))
+        )
+        .onConflictDoNothing();
+    }
 
-  // Everyone at the table is a collaborator on the book.
-  const seatedUserIds = [
-    ...new Set(
-      seatRows
-        .map((row) => row.seat.userId)
-        .filter((id): id is string => !!id && id !== story.ownerId)
-    ),
-  ];
-  for (const userId of seatedUserIds) {
-    await db
-      .insert(collaborators)
-      .values({
-        storyId: story.id,
-        userId,
-        role: "writer",
-        status: "accepted",
-        invitedBy: story.ownerId,
-      })
-      .onConflictDoNothing();
-  }
+    return {
+      status: "compiled" as const,
+      chapterIds,
+      storyTitle: story.title,
+      notifyIds: [
+        ...new Set(
+          seatRows.map((row) => row.seat.userId).filter((id): id is string => !!id)
+        ),
+      ],
+    };
+  });
 
-  const [storyTitleRow] = await db
-    .select({ title: stories.title })
-    .from(stories)
-    .where(eq(stories.id, story.id));
-  const notifyIds = [
-    ...new Set(
-      seatRows.map((row) => row.seat.userId).filter((id): id is string => !!id)
-    ),
-  ];
+  if (compiled.status !== "compiled") return compiled;
+  const { chapterIds, storyTitle, notifyIds } = compiled;
+  // Side effects stay outside the transaction — a notification hiccup
+  // must not roll the compiled book back. Awaited so a serverless
+  // instance can't freeze before the inserts land.
   for (const userId of notifyIds) {
-    createNotification(
+    await createNotification(
       userId,
       "adventure",
       endStatus === "finished"
-        ? `The book is closed — "${storyTitleRow?.title ?? "your adventure"}" is compiled and readable`
-        : `"${storyTitleRow?.title ?? "Your adventure"}" went quiet — what was written is compiled`,
+        ? `The book is closed — "${storyTitle}" is compiled and readable`
+        : `"${storyTitle}" went quiet — what was written is compiled`,
       `/adventures/${adventureId}`
-    );
+    ).catch(() => {});
   }
 
   return { status: "compiled", chapterIds };

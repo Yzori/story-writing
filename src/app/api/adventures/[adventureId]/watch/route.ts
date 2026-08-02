@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { loadWatchStatePayload } from "@/server/services/adventure-live";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
@@ -32,10 +32,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("GET /api/adventures/[adventureId]/watch error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to open the room" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/adventures/[adventureId]/watch",
+      "Failed to open the room",
     );
   }
 }

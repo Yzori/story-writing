@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { storyJams, jamEntries, stories, chapters } from "@/server/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { submitJamEntrySchema } from "@/lib/validations";
 import { computeJamStatus } from "@/server/services/jams";
 
@@ -118,10 +118,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("POST jam entry error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to submit entry" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/jams/[jamId]/entries", "Failed to submit entry");
   }
 }

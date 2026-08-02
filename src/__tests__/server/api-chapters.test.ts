@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  createMockRequest,
-  createMockParams,
-  createMockStory,
-  createMockChapter,
-  getResponseData,
-} from "../helpers";
+import { createMockRequest, createMockParams, createMockStory, createMockChapter, getResponseData, mockApiUtils } from "../helpers";
 import type { RouteHandler, JsonBody } from "../helpers";
 
 // ── GET & POST /api/stories/[storyId]/chapters ─────────────────────────
@@ -46,9 +40,7 @@ describe("GET /api/stories/[storyId]/chapters", () => {
       }),
     }));
 
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/route");
     GET = mod.GET;
@@ -85,9 +77,7 @@ describe("GET /api/stories/[storyId]/chapters", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/route");
     const req = createMockRequest("/api/stories/missing/chapters");
@@ -112,9 +102,7 @@ describe("GET /api/stories/[storyId]/chapters", () => {
         user: { id: "other-user" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/route");
     const req = createMockRequest("/api/stories/story-1/chapters?withContent=true");
@@ -164,9 +152,7 @@ describe("POST /api/stories/[storyId]/chapters", () => {
       }),
     }));
 
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/route");
     POST = mod.POST;
@@ -209,9 +195,7 @@ describe("POST /api/stories/[storyId]/chapters", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/route");
     const req = createMockRequest("/api/stories/story-1/chapters", {
@@ -251,9 +235,7 @@ describe("POST /api/stories/[storyId]/chapters", () => {
         user: { id: "user-1", name: "Test User", email: "test@example.com" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/stories/[storyId]/chapters/route");
     const req = createMockRequest("/api/stories/story-1/chapters", {
@@ -286,9 +268,7 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -318,9 +298,7 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -347,9 +325,7 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -405,9 +381,7 @@ describe("PATCH /api/stories/[storyId]/chapters/[chapterId]", () => {
       }),
     }));
 
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
@@ -436,9 +410,7 @@ describe("PATCH /api/stories/[storyId]/chapters/[chapterId]", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -482,9 +454,7 @@ describe("PATCH /api/stories/[storyId]/chapters/[chapterId]", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -529,9 +499,7 @@ describe("DELETE /api/stories/[storyId]/chapters/[chapterId]", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -554,9 +522,7 @@ describe("DELETE /api/stories/[storyId]/chapters/[chapterId]", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));
@@ -586,9 +552,7 @@ describe("DELETE /api/stories/[storyId]/chapters/[chapterId]", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createBulkNotifications: vi.fn(),
     }));

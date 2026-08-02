@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, campaignSessions, spectatorPresence } from "@/server/db/schema";
 import { eq, and, isNull, gt, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -69,10 +69,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/.../active-session error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch active session" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/active-session",
+      "Failed to fetch active session",
     );
   }
 }

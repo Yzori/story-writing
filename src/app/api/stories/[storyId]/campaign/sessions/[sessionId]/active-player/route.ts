@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { campaignSessions, campaignTurns, playerCharacters, sessionRoster } from "@/server/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { resolveSessionGmId, verifySessionGmAccess } from "@/server/services/collaboration";
 import { createNotification } from "@/server/services/notifications";
 
@@ -127,10 +127,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH /api/.../active-player error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update active player" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/campaign/sessions/[sessionId]/active-player",
+      "Failed to update active player",
     );
   }
 }

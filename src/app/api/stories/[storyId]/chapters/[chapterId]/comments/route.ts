@@ -5,7 +5,7 @@ import { eq, and, asc, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCommentSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -55,13 +55,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data, hasMore });
   } catch (error) {
-    console.error(
-      "GET /api/stories/[storyId]/chapters/[chapterId]/comments error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch comments" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/comments",
+      "Failed to fetch comments",
     );
   }
 }
@@ -180,13 +177,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (error) {
-    console.error(
-      "POST /api/stories/[storyId]/chapters/[chapterId]/comments error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create comment" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/chapters/[chapterId]/comments",
+      "Failed to create comment",
     );
   }
 }

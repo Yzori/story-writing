@@ -15,23 +15,18 @@ import {
   creatorUpdates,
   follows,
   offerings,
-  openCalls,
   playerCharacters,
   readingProgress,
   sparks,
   stories,
-  storyJams,
   suggestions,
   users,
   writingSessions,
   inkDropTransactions as drops,
 } from "@/server/db/schema";
-import { computeJamStatus } from "@/server/services/jams";
-import { computeTrending } from "@/server/services/trending";
 import { extractLastLines } from "@/lib/text-extract";
 import { AT_TABLE_WINDOW_MS, WRITING_WINDOW_MS } from "@/lib/adventure-presence";
 import type {
-  DiscoverData,
   StudioShelfItem,
   StudioSignals,
   StudioSnapshot,
@@ -59,13 +54,12 @@ const AUDIENCE_PRESENCE_WINDOW_MS = 45_000;
 const READER_PRESENCE_WINDOW_MS = 5 * 60_000;
 
 export async function getStudioSnapshot(userId: string): Promise<StudioSnapshot> {
-  const [shelf, tables, signals, discover] = await Promise.all([
+  const [shelf, tables, signals] = await Promise.all([
     getShelf(userId),
     getTables(userId),
     getSignals(userId),
-    getDiscover(userId),
   ]);
-  return { shelf, tables, signals, discover, builtAt: Date.now() };
+  return { shelf, tables, signals, builtAt: Date.now() };
 }
 
 // ── the shelf ────────────────────────────────────────────────────────────────
@@ -707,82 +701,6 @@ async function getSignals(userId: string): Promise<StudioSignals> {
           }
         : null,
     },
-  };
-}
-
-// ── discovery ────────────────────────────────────────────────────────────────
-
-/**
- * The stacks: trending biased to the genres you read and write, the nearest
- * jam, one open call on somebody else's story. Extracted from the old
- * /api/discover handler so the studio can build it in the same pass; the route
- * still exists and now calls this.
- */
-export async function getDiscover(userId: string): Promise<DiscoverData> {
-  const jamPromise = db
-    .select({
-      id: storyJams.id,
-      title: storyJams.title,
-      theme: storyJams.theme,
-      status: storyJams.status,
-      submissionStartsAt: storyJams.submissionStartsAt,
-      submissionEndsAt: storyJams.submissionEndsAt,
-      votingStartsAt: storyJams.votingStartsAt,
-      votingEndsAt: storyJams.votingEndsAt,
-    })
-    .from(storyJams)
-    .orderBy(desc(storyJams.submissionStartsAt))
-    .limit(10);
-
-  const openCallPromise = db
-    .select({
-      id: openCalls.id,
-      storyId: openCalls.storyId,
-      slug: stories.slug,
-      storyTitle: stories.title,
-      role: openCalls.role,
-      title: openCalls.title,
-    })
-    .from(openCalls)
-    .innerJoin(stories, eq(openCalls.storyId, stories.id))
-    .where(and(eq(openCalls.status, "open"), ne(openCalls.userId, userId), isNull(stories.deletedAt)))
-    .orderBy(desc(openCalls.createdAt))
-    .limit(1);
-
-  const me = await db.select({ pref: users.preferredGenres }).from(users).where(eq(users.id, userId)).limit(1);
-  let genres = (me[0]?.pref ?? []).filter(Boolean);
-  if (genres.length === 0) {
-    const derived = await db
-      .select({ genres: stories.genres })
-      .from(stories)
-      .leftJoin(follows, eq(follows.storyId, stories.id))
-      .where(or(eq(stories.userId, userId), eq(follows.userId, userId)));
-    genres = Array.from(new Set(derived.flatMap((r) => r.genres ?? []))).slice(0, 4);
-  }
-
-  const [trending, jamRows, openCallRows] = await Promise.all([
-    computeTrending({ genres, excludeUserId: userId, limit: 6 }),
-    jamPromise,
-    openCallPromise,
-  ]);
-
-  const jamsLive = jamRows
-    .map((j) => ({ id: j.id, title: j.title, theme: j.theme, liveStatus: computeJamStatus(j) }))
-    .filter((j) => j.liveStatus === "open" || j.liveStatus === "upcoming");
-  const jam = jamsLive.find((j) => j.liveStatus === "open") ?? jamsLive[0] ?? null;
-
-  return {
-    trending: trending.map((t) => ({
-      id: t.id,
-      title: t.title,
-      slug: t.slug,
-      coverImageUrl: t.coverImageUrl,
-      genres: t.genres ?? [],
-      author: t.authorName,
-      sparkCount: t.weeklyInteractions.sparks,
-    })),
-    jam,
-    openCall: openCallRows[0] ?? null,
   };
 }
 

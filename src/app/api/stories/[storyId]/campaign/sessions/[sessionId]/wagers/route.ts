@@ -3,7 +3,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaignSessions, campaignWagerHolds, campaignWagers } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createWagerSchema } from "@/lib/validations";
 import { deriveAudienceKey, verifyPublicSession } from "@/server/services/audience-input";
 
@@ -159,10 +159,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("POST /api/.../wagers error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to pin the wager" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/wagers",
+      "Failed to pin the wager",
     );
   }
 }

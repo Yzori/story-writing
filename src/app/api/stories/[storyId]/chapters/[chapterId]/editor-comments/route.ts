@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { db } from "@/server/db";
 import {
   chapters,
@@ -191,10 +191,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: await fetchClientThreads(storyId, chapterId) });
   } catch (error) {
-    console.error("GET editor comments error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch editor comments" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/editor-comments",
+      "Failed to fetch editor comments",
     );
   }
 }
@@ -246,10 +246,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: await fetchClientThreads(storyId, chapterId), threadId }, { status: 201 });
   } catch (error) {
-    console.error("POST editor comments error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create editor comment" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/chapters/[chapterId]/editor-comments",
+      "Failed to create editor comment",
     );
   }
 }
@@ -312,10 +312,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: await fetchClientThreads(storyId, chapterId) });
   } catch (error) {
-    console.error("PATCH editor comments error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update editor comment" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/chapters/[chapterId]/editor-comments",
+      "Failed to update editor comment",
     );
   }
 }
@@ -366,10 +366,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: await fetchClientThreads(storyId, chapterId) });
   } catch (error) {
-    console.error("DELETE editor comments error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete editor comment" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/chapters/[chapterId]/editor-comments",
+      "Failed to delete editor comment",
     );
   }
 }

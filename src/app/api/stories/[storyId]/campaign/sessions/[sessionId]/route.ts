@@ -12,7 +12,7 @@ import {
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCampaignSessionSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 import { verifySessionGmAccess } from "@/server/services/collaboration";
 
@@ -331,10 +331,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH /api/.../sessions/[sessionId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update session" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/campaign/sessions/[sessionId]",
+      "Failed to update session",
     );
   }
 }

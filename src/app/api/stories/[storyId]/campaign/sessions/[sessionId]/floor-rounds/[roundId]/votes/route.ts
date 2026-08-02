@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaignFloorRounds, campaignFloorSubmissions, campaignFloorVotes, campaignSessions } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createFloorVoteSchema } from "@/lib/validations";
 import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getEligibleFloorVoterIds, getVisibleFloorRound } from "@/server/services/floor-rounds";
@@ -126,7 +126,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: await getVisibleFloorRound(sessionId, session.user.id),
     });
   } catch (error) {
-    console.error("POST /api/.../floor-rounds/[roundId]/votes error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to cast vote" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/floor-rounds/[roundId]/votes",
+      "Failed to cast vote",
+    );
   }
 }

@@ -133,6 +133,8 @@ export function useAdventureWatch(adventureId: string) {
           const payload = JSON.parse(event.data) as {
             state?: WatchState;
             passages?: WatchPassage[];
+            append?: WatchPassage[];
+            sparks?: Record<string, number>;
             gone?: boolean;
           };
           if (payload.gone) {
@@ -145,9 +147,27 @@ export function useAdventureWatch(adventureId: string) {
             setState(payload.state);
             setError(null);
           }
-          // The stream sends the whole sparked page — spark counts
-          // move on old passages too.
+          // Full page on the stream's first frame (and after each
+          // reconnect); new passages ride as `append`, and spark
+          // movement on old passages as a compact count map.
           if (payload.passages) setPassages(payload.passages);
+          if (payload.append?.length) {
+            const fresh = payload.append;
+            setPassages((prev) => {
+              const seen = new Set(prev.map((p) => p.id));
+              return [...prev, ...fresh.filter((p) => !seen.has(p.id))];
+            });
+          }
+          if (payload.sparks) {
+            const sparks = payload.sparks;
+            setPassages((prev) =>
+              prev.map((p) =>
+                p.sparks === (sparks[p.id] ?? 0)
+                  ? p
+                  : { ...p, sparks: sparks[p.id] ?? 0 }
+              )
+            );
+          }
         } catch {
           // Malformed frame; the next one will land.
         }

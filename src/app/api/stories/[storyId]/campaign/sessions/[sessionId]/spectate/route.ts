@@ -9,7 +9,7 @@ import {
   spectatorPresence,
 } from "@/server/db/schema";
 import { eq, and, asc, gt, isNull, like, ne, or, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -183,10 +183,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(body, { headers: cacheHeaders });
   } catch (error) {
-    console.error("GET /api/.../spectate error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch spectate data" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate",
+      "Failed to fetch spectate data",
     );
   }
 }

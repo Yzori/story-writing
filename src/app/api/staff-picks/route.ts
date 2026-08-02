@@ -9,7 +9,7 @@ import {
 } from "@/server/db/schema";
 import { eq, isNull, desc, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { z } from "zod";
 
 const createStaffPickSchema = z.object({
@@ -86,16 +86,7 @@ export async function GET() {
 
     return NextResponse.json({ data: results });
   } catch (error) {
-    console.error("GET /api/staff-picks error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch staff picks",
-        },
-      },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/staff-picks", "Failed to fetch staff picks");
   }
 }
 
@@ -139,15 +130,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: pick }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/staff-picks error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to create staff pick",
-        },
-      },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/staff-picks", "Failed to create staff pick");
   }
 }

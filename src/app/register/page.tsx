@@ -250,7 +250,7 @@ function RegisterForm() {
         body: JSON.stringify({ displayName: displayName.trim(), email: email.trim(), password }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Registration failed. Please try again."); setLoading(false); return; }
+      if (!res.ok) { setError(data.error?.message || "Registration failed. Please try again."); setLoading(false); return; }
 
       const result = await signIn("credentials", { email: email.trim(), password, redirect: false });
       if (result?.error) {

@@ -7,7 +7,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { updateApplicationSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
 import { verifyStoryOwnership } from "@/server/services/collaboration";
@@ -106,51 +106,57 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.votingDeadline = new Date(parsed.data.votingDeadline);
     }
 
+    // Guard the transition IN the update: two concurrent reviews both
+    // pass the read-side check above, but only one can flip the row from
+    // the status it read. The loser gets a 409 instead of double-applying.
     const [updated] = await db
       .update(campaignApplications)
       .set(updateData)
-      .where(eq(campaignApplications.id, applicationId))
+      .where(
+        and(
+          eq(campaignApplications.id, applicationId),
+          eq(campaignApplications.status, currentStatus)
+        )
+      )
       .returning();
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "This application was just reviewed by someone else" } },
+        { status: 409 }
+      );
+    }
 
     // If approved, create a collaborator entry so the player can access the campaign
     if (parsed.data.status === "approved") {
-      // Check if a collaborator entry already exists
-      const existingCollab = await db.query.collaborators.findFirst({
-        where: and(
-          eq(collaborators.storyId, storyId),
-          eq(collaborators.userId, application.userId)
-        ),
+      // One transaction, conflict-tolerant inserts: the unique
+      // constraints (collaborators, and the one-active-character partial
+      // unique from migration 0067) absorb any remaining race.
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(collaborators)
+          .values({
+            storyId,
+            userId: application.userId,
+            role: "writer",
+            status: "accepted",
+            invitedBy: session.user.id,
+          })
+          .onConflictDoNothing();
+
+        await tx
+          .insert(playerCharacters)
+          .values({
+            storyId,
+            userId: application.userId,
+            name: application.characterName?.trim() || "Unnamed",
+            portrait: application.characterPortrait?.trim() || null,
+            description: application.characterKnownFor?.trim() || "",
+            traits: application.characterArchetype?.trim() || "",
+            backstory: application.firstGlimpse?.trim() || "",
+          })
+          .onConflictDoNothing();
       });
-
-      if (!existingCollab) {
-        await db.insert(collaborators).values({
-          storyId,
-          userId: application.userId,
-          role: "writer",
-          status: "accepted",
-          invitedBy: session.user.id,
-        });
-      }
-
-      const existingCharacter = await db.query.playerCharacters.findFirst({
-        where: and(
-          eq(playerCharacters.storyId, storyId),
-          eq(playerCharacters.userId, application.userId),
-          eq(playerCharacters.status, "active")
-        ),
-      });
-
-      if (!existingCharacter) {
-        await db.insert(playerCharacters).values({
-          storyId,
-          userId: application.userId,
-          name: application.characterName?.trim() || "Unnamed",
-          portrait: application.characterPortrait?.trim() || null,
-          description: application.characterKnownFor?.trim() || "",
-          traits: application.characterArchetype?.trim() || "",
-          backstory: application.firstGlimpse?.trim() || "",
-        });
-      }
 
       // Notify the applicant
       createNotification(
@@ -177,13 +183,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error(
-      "PATCH /api/stories/[storyId]/campaign/applications/[applicationId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update application" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/campaign/applications/[applicationId]",
+      "Failed to update application",
     );
   }
 }
@@ -233,13 +236,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: applicationId, deleted: true } });
   } catch (error) {
-    console.error(
-      "DELETE /api/stories/[storyId]/campaign/applications/[applicationId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to withdraw application" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/campaign/applications/[applicationId]",
+      "Failed to withdraw application",
     );
   }
 }

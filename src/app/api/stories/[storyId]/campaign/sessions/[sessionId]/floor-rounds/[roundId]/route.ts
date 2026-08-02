@@ -10,7 +10,7 @@ import {
   users,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { updateFloorRoundSchema } from "@/lib/validations";
 import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getVisibleFloorRound } from "@/server/services/floor-rounds";
@@ -300,7 +300,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: await getVisibleFloorRound(sessionId, session.user.id),
     });
   } catch (error) {
-    console.error("PATCH /api/.../floor-rounds/[roundId] error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to update floor round" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/campaign/sessions/[sessionId]/floor-rounds/[roundId]",
+      "Failed to update floor round",
+    );
   }
 }

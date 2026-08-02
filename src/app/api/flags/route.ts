@@ -4,7 +4,7 @@ import { flags } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createFlagSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * POST /api/flags
@@ -97,10 +97,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/flags error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create flag" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/flags", "Failed to create flag");
   }
 }

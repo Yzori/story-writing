@@ -9,10 +9,12 @@ import { GENRES } from "@/config/genres";
 import { formatReadTime } from "@/lib/format";
 import type { ApiStory } from "@/types/api";
 
-// ── Browse — "Tonight's Page" ───────────────────────────────
-// A reading ritual: the library sets one story aside, shown large with its
-// hook/synopsis as type. "Deal another" flips the deck. A slim popover toolbar
-// scopes the deck and the stacks below; searching flips to a results grid.
+// ── Browse — "Tonight's Page" in the lamplit shop ───────────
+// A reading ritual: the library sets one story aside, staged on the mantel
+// with firelight on its cover and its opening lines on paper. "Deal another"
+// flips the deck. Below, the stacks are real shelves — tilted covers standing
+// on wood planks — instead of a poster grid. A slim toolbar scopes everything;
+// searching flips the shelves to results.
 
 const LIBRARIAN_NOTES = [
   "Because you stayed up too late with the last one.",
@@ -22,6 +24,12 @@ const LIBRARIAN_NOTES = [
   "Short enough for tonight, long enough to stay with you.",
   "Picked off the shelf while no one was looking.",
 ];
+
+// Physical materials stay physical in every theme: paper is paper, wood is wood.
+const PAPER_BG = "#F6EFE0";
+const PAPER_INK = "#43382B";
+const PLANK_FACE = "linear-gradient(180deg, rgba(128,89,58,0.85), rgba(70,47,30,0.95))";
+const PLANK_SHADOW = "0 14px 26px -10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(243,236,221,0.12)";
 
 // Single source of truth for format + rating options; all lookups derive from these.
 const FORMATS: { label: string; value: string }[] = [
@@ -45,6 +53,10 @@ const SORTS: { label: string; value: string }[] = [
   { label: "Most sparked", value: "most-sparked" },
   { label: "Newest", value: "latest" },
 ];
+
+// Natural phrasings for the sentence toolbar's chosen values.
+const LENGTH_WORDS: Record<string, string> = { Short: "short reads", Medium: "medium reads", Long: "long reads" };
+const STATUS_WORDS: Record<string, string> = { Ongoing: "ongoing", Complete: "complete", Hiatus: "on hiatus" };
 
 const FORMAT_FILTERS = ["All", ...FORMATS.map((f) => f.label)];
 const STATUS_FILTERS = ["All", "Ongoing", "Complete", "Hiatus"];
@@ -101,16 +113,16 @@ function storyExcerpt(s: ApiStory): string | null {
   return s.hook?.trim() || s.synopsis?.trim() || null;
 }
 
-// Coverless stories get a spine color from the accent palette (hashed off the
-// story id) so a shelf of fallbacks reads as designed, not missing.
+// Every story gets an accent from the palette (hashed off its id) — it colors
+// the fallback cover, the shelf-hover glow, and the hero's ambient bloom, so
+// the room isn't lit wall-to-wall amber. Warm hues only: the tint covers the
+// whole book face, and cool inks (teal, lapis) at that scale become blue
+// surfaces, which the color system bans.
 const SPINE_HUES = [
   "var(--color-amber)",
   "var(--color-rose)",
   "var(--color-sage)",
-  "var(--color-lavender)",
-  "var(--color-teal)",
   "var(--color-copper)",
-  "var(--color-lapis)",
 ];
 function spineHue(s: ApiStory) {
   const key = s.id || s.title;
@@ -146,6 +158,12 @@ function passesRating(s: ApiStory, maxValue: string) {
   return lvl <= max;
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 // ── small UI atoms ──────────────────────────────────────────
 
 function Spark({ n }: { n: number }) {
@@ -173,19 +191,27 @@ function SearchIcon() {
   );
 }
 
-function CoverArt({ story, sizes }: { story: ApiStory; sizes: string }) {
+function CoverArt({ story, sizes, large = false }: { story: ApiStory; sizes: string; large?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (!story.coverImageUrl || failed) {
+    // A coverless story becomes a cloth-bound book in its accent color with a
+    // gilt frame — a shelf of fallbacks reads as a designed set, not missing art.
     const hue = spineHue(story);
     return (
-      <div className="absolute inset-0 bg-gradient-to-br from-elevated via-surface to-void">
+      <div
+        className="absolute inset-0"
+        style={{ background: `linear-gradient(160deg, color-mix(in srgb, ${hue} 40%, var(--color-ink)), color-mix(in srgb, ${hue} 16%, var(--color-void)) 75%)` }}
+      >
         <div
-          className="absolute inset-0"
-          style={{ background: `radial-gradient(circle at 30% 18%, color-mix(in srgb, ${hue} 22%, transparent), transparent 55%)` }}
+          className="absolute inset-0 opacity-40"
+          style={{ background: "repeating-linear-gradient(45deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px)" }}
         />
-        <div className="absolute inset-x-0 bottom-0 p-4">
-          <div className="mb-2 h-px w-8" style={{ background: `color-mix(in srgb, ${hue} 45%, transparent)` }} />
-          <p className="font-display text-[14px] leading-tight text-paper/85 line-clamp-4">{story.title}</p>
+        <div className={`absolute rounded-[2px] border border-amber/35 ${large ? "inset-[10px]" : "inset-[7px]"}`} />
+        <div className={`absolute inset-0 flex items-center justify-center text-center ${large ? "p-6" : "p-4"}`}>
+          <p className={`font-display leading-snug text-paper/90 line-clamp-5 ${large ? "text-[19px]" : "text-[13px]"}`}>{story.title}</p>
+        </div>
+        <div className={`absolute inset-x-0 flex justify-center ${large ? "bottom-6" : "bottom-4"}`}>
+          <span className="h-px w-6 bg-amber/50" />
         </div>
       </div>
     );
@@ -258,43 +284,107 @@ function ToolbarFilters({ f }: { f: Bag }) {
     };
   }, [open]);
 
-  const groups: Group[] = [
-    { key: "genre", label: "Genre", value: f.filters.genre, base: "All", options: ["All", ...f.genres], searchable: true, columns: 2 },
-    { key: "format", label: "Format", value: f.filters.format, base: "All", options: FORMAT_FILTERS, columns: 1 },
-    { key: "length", label: "Length", value: f.filters.length, base: "Any", options: LENGTHS, columns: 1 },
-    { key: "status", label: "Status", value: f.filters.status, base: "All", options: STATUS_FILTERS, columns: 1 },
-    { key: "rating", label: "Comfort", value: ratingByValue(f.filters.rating)?.label ?? "All", base: "All", options: RATING_FILTERS, columns: 1 },
-    { key: "sort", label: "Sort", value: sortByValue(f.filters.sort)?.label ?? "Recommended", base: "Recommended", options: SORT_FILTERS, columns: 1 },
+  // The bar reads as a request to the librarian — "Show me … sorted by …" —
+  // each blank a dotted fill-in slot. Same popovers underneath; only the
+  // chrome became a sentence.
+  const ratingLabel = ratingByValue(f.filters.rating)?.label ?? "All";
+  const sortLabel = sortByValue(f.filters.sort)?.label ?? "Recommended";
+  const slots: (Group & { display: string; alignRight?: boolean })[] = [
+    { key: "genre", label: "Genre", value: f.filters.genre, base: "All", options: ["All", ...f.genres], searchable: true, columns: 2, display: f.filters.genre === "All" ? "every genre" : f.filters.genre },
+    { key: "format", label: "Format", value: f.filters.format, base: "All", options: FORMAT_FILTERS, columns: 1, display: f.filters.format === "All" ? "any format" : f.filters.format },
+    { key: "length", label: "Length", value: f.filters.length, base: "Any", options: LENGTHS, columns: 1, display: LENGTH_WORDS[f.filters.length] ?? "any length" },
+    { key: "status", label: "Status", value: f.filters.status, base: "All", options: STATUS_FILTERS, columns: 1, display: STATUS_WORDS[f.filters.status] ?? "ongoing or complete" },
+    { key: "rating", label: "Comfort", value: ratingLabel, base: "All", options: RATING_FILTERS, columns: 1, display: ratingLabel === "All" ? "every comfort level" : `${ratingLabel} comfort` },
+    { key: "sort", label: "Sort", value: sortLabel, base: "Recommended", options: SORT_FILTERS, columns: 1, display: sortLabel.toLowerCase(), alignRight: true },
   ];
   return (
-    <div ref={rootRef} className="relative flex flex-wrap items-center gap-2">
-      {groups.map((g) => {
+    <div ref={rootRef} className="flex flex-wrap items-baseline gap-x-2 gap-y-2 text-[13.5px]">
+      <span className="font-display italic text-text-ghost">Show me</span>
+      {slots.map((g, i) => {
         const active = g.value !== g.base;
+        const isOpen = open === g.key;
         return (
-          <div key={g.key} className="relative z-20">
-            <button
-              onClick={() => setOpen(open === g.key ? null : g.key)}
-              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] transition-colors ${active ? "border-amber/40 bg-amber/[0.08] text-amber" : "border-border bg-surface text-text-secondary hover:text-paper"}`}
-            >
-              <span className="text-text-ghost">{g.label}</span>
-              <span className={active ? "text-amber" : "text-paper"}>{active ? g.value : g.base}</span>
-              <Caret open={open === g.key} />
-            </button>
-            <AnimatePresence>
-              {open === g.key && (
-                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                  className={`absolute left-0 top-[calc(100%+6px)] z-30 rounded-xl border border-border bg-surface p-2 shadow-2xl ${g.columns === 2 ? "w-72" : "w-48"}`}>
-                  <OptionList value={g.value} options={g.options} searchable={g.searchable} columns={g.columns} onPick={(v) => { f.set(g.key, v); setOpen(null); }} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <span key={g.key} className="flex items-baseline gap-x-2">
+            {i > 0 && <span className="select-none text-text-ghost/60">·</span>}
+            {g.key === "sort" && <span className="font-display italic text-text-ghost">sorted by</span>}
+            <span className="relative">
+              <button
+                onClick={() => setOpen(isOpen ? null : g.key)}
+                className={`underline decoration-dotted underline-offset-[5px] transition-colors ${
+                  isOpen || active ? "text-amber decoration-amber/60" : "text-paper decoration-text-ghost/50 hover:text-amber hover:decoration-amber/60"
+                }`}
+              >
+                {g.display}
+              </button>
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                    className={`absolute top-[calc(100%+8px)] z-30 rounded-xl border border-border bg-surface p-2 shadow-2xl ${g.alignRight ? "right-0" : "left-0"} ${g.columns === 2 ? "w-72" : "w-48"}`}>
+                    <OptionList value={g.value} options={g.options} searchable={g.searchable} columns={g.columns} onPick={(v) => { f.set(g.key, v); setOpen(null); }} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </span>
+          </span>
         );
       })}
-      {f.activeCount > 0 && <button onClick={f.reset} className="ml-1 text-[12px] text-text-ghost transition-colors hover:text-amber">Reset</button>}
+      {f.activeCount > 0 && (
+        <button onClick={f.reset} className="font-display italic text-text-ghost transition-colors hover:text-amber">— start over</button>
+      )}
       {/* count lives in the collapsed row on mobile */}
       <span className="ml-auto hidden text-[12px] text-text-secondary sm:inline"><span className="text-paper">{f.poolLength}</span> {f.poolLength === 1 ? "story" : "stories"}</span>
     </div>
+  );
+}
+
+// ── atmosphere ──────────────────────────────────────────────
+
+// Dust motes drifting through the lamplight over the dealt book.
+const MOTES = [
+  { left: "8%", top: "24%", dur: 9, delay: 0 },
+  { left: "22%", top: "62%", dur: 11, delay: 2.2 },
+  { left: "38%", top: "18%", dur: 8, delay: 4.1 },
+  { left: "55%", top: "70%", dur: 12, delay: 1.3 },
+  { left: "72%", top: "30%", dur: 10, delay: 3.4 },
+  { left: "88%", top: "55%", dur: 9, delay: 5.2 },
+];
+
+function DustMotes() {
+  return (
+    <div className="pointer-events-none absolute inset-0 hidden sm:block" aria-hidden>
+      {MOTES.map((m, i) => (
+        <motion.span
+          key={i}
+          className="absolute h-[3px] w-[3px] rounded-full bg-amber/50 blur-[1px]"
+          style={{ left: m.left, top: m.top }}
+          animate={{ y: [0, -28], x: [0, i % 2 ? 10 : -10], opacity: [0, 0.7, 0] }}
+          transition={{ repeat: Infinity, duration: m.dur, delay: m.delay, ease: "easeInOut" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SleepingCat() {
+  return (
+    <motion.svg
+      width="74"
+      height="34"
+      viewBox="0 0 74 34"
+      className="absolute -top-[30px] right-8 text-text-secondary"
+      animate={{ scaleY: [1, 1.035, 1] }}
+      transition={{ repeat: Infinity, duration: 3.4, ease: "easeInOut" }}
+      style={{ transformOrigin: "50% 100%" }}
+      fill="currentColor"
+      opacity={0.85}
+      aria-hidden
+    >
+      <ellipse cx="34" cy="24" rx="24" ry="10" />
+      <circle cx="53" cy="19" r="8.5" />
+      <path d="M47 13 l2.4 -5 l3.4 3.4 Z M59 13 l-2.4 -5 l-3.4 3.4 Z" />
+      <path d="M12 26 q -7 -1 -4 -8 q 1.6 -3.6 6 -3" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      <path d="M50 19 q 1.6 1.4 3.2 0" fill="none" stroke="rgba(16,13,10,0.8)" strokeWidth="1.1" strokeLinecap="round" />
+    </motion.svg>
   );
 }
 
@@ -310,29 +400,30 @@ function BoostedChip({ overlay = false }: { overlay?: boolean }) {
 
 function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir: number }) {
   const excerpt = storyExcerpt(story);
+  const hue = spineHue(story);
   return (
     <motion.div
       key={story.id}
-      initial={{ opacity: 0, x: dir * 70, rotate: dir * 3 }}
-      animate={{ opacity: 1, x: 0, rotate: 0 }}
-      exit={{ opacity: 0, x: dir * -110, rotate: dir * -4, scale: 0.95 }}
+      initial={{ opacity: 0, x: dir * 60, rotateY: dir * 16 }}
+      animate={{ opacity: 1, x: 0, rotateY: 0 }}
+      exit={{ opacity: 0, x: dir * -90, rotateY: dir * -12, scale: 0.97 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
-      className="grid w-full gap-6 md:grid-cols-[280px_1fr] md:grid-rows-[auto_auto] md:gap-x-11 md:gap-y-0"
+      className="grid w-full gap-6 md:grid-cols-[300px_1fr] md:grid-rows-[auto_auto] md:gap-x-11 md:gap-y-0"
     >
       {/* Title block first in DOM so the dealt story is never below the fold on mobile. */}
       <div className="md:col-start-2 md:self-end">
         {story.boosted ? (
           <div className="flex items-center gap-2.5">
             <BoostedChip />
-            <p className="font-display text-[13px] italic text-amber/80">Placed in the window by its creator.</p>
+            <p className="font-display text-[14px] italic text-amber/80">Placed in the window by its creator.</p>
           </div>
         ) : (
-          <p className="font-display text-[13px] italic text-amber/80">{note}</p>
+          <p className="font-display text-[15px] italic text-amber/80">{note}</p>
         )}
         <Link href={storyHref(story)}>
-          <h2 className="mt-2 font-display text-[32px] leading-[1.03] text-paper transition-colors hover:text-amber-light sm:text-[42px]">{story.title}</h2>
+          <h2 className="mt-2 font-display text-[32px] leading-[1.03] text-paper transition-colors hover:text-amber-light sm:text-[44px]">{story.title}</h2>
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-secondary">
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-secondary">
           <span className="text-paper/80">{story.authorName || "Anonymous"}</span><span className="text-text-ghost">·</span>
           <span>{story.genres[0] || storyFormatLabel(story)}</span><span className="text-text-ghost">·</span>
           <span>{storyFormatLabel(story)}</span>
@@ -341,24 +432,43 @@ function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir
         </div>
       </div>
 
+      {/* The book, staged on its mantel: firelight on the cover, glow pooling
+          beneath, a wood plank grounding it. */}
       <div className="justify-self-center md:col-start-1 md:row-start-1 md:row-span-2 md:self-center">
         <Link href={storyHref(story)} className="block">
-          <div className="relative w-[176px] md:w-[244px]">
-            <div className="relative aspect-[2/3] overflow-hidden rounded-r-md rounded-l-sm border border-amber/20 shadow-[0_30px_60px_-18px_rgba(0,0,0,0.9)]">
-              <CoverArt story={story} sizes="(min-width:768px) 244px, 176px" />
+          <div className="relative w-[176px] md:w-[248px]">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-r-md rounded-l-[3px] border border-amber/20 shadow-[0_30px_60px_-18px_rgba(0,0,0,0.9)]">
+              <CoverArt story={story} sizes="(min-width:768px) 248px, 176px" large />
               <div className="absolute inset-y-0 left-0 z-10 w-4 bg-gradient-to-r from-black/55 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-t from-void/40 to-transparent" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/25 via-transparent to-white/[0.07]" />
+              {/* firelight breathing across the cover */}
+              <motion.div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-amber/25 via-transparent to-transparent"
+                animate={{ opacity: [0.5, 0.9, 0.6, 1, 0.5] }}
+                transition={{ repeat: Infinity, duration: 4.4, ease: "easeInOut" }}
+              />
             </div>
-            <div className="pointer-events-none absolute -inset-4 -z-10 rounded-full bg-amber/10 blur-3xl" />
+            {/* mantel plank */}
+            <div className="-mx-4 mt-0 h-3 rounded-[2px]" style={{ background: PLANK_FACE, boxShadow: PLANK_SHADOW }} />
+            {/* candle glow pooling under the book, tinted by the story */}
+            <div
+              className="pointer-events-none absolute -bottom-5 left-1/2 -z-10 h-16 w-[150%] -translate-x-1/2 rounded-[50%] blur-2xl"
+              style={{ background: `color-mix(in srgb, ${hue} 16%, transparent)` }}
+            />
+            <div
+              className="pointer-events-none absolute -inset-6 -z-10 rounded-full blur-3xl"
+              style={{ background: `color-mix(in srgb, ${hue} 10%, transparent)` }}
+            />
           </div>
         </Link>
       </div>
 
       <div className="md:col-start-2 md:self-start">
         {excerpt ? (
-          <div className="relative max-w-lg border-l-2 border-amber/30 pl-5 md:mt-6">
-            <span className="absolute -left-3 -top-3 font-display text-[40px] leading-none text-amber/25">“</span>
-            <p className="novel-reader text-[16px] leading-[1.85] text-text line-clamp-6">{excerpt}</p>
+          // Its opening, on real paper — paper stays paper in every theme.
+          <div className="relative mt-2 max-w-lg -rotate-[0.5deg] rounded-[3px] p-4 shadow-[0_12px_26px_-10px_rgba(0,0,0,0.55)] md:mt-6" style={{ background: PAPER_BG, color: PAPER_INK }}>
+            <p className="text-[9px] uppercase tracking-[0.16em] opacity-50">from its pages —</p>
+            <p className="font-reading mt-1.5 text-[14.5px] leading-[1.8] line-clamp-6">{excerpt}</p>
           </div>
         ) : (
           <p className="max-w-lg text-[14px] italic leading-relaxed text-text-ghost md:mt-6">
@@ -367,7 +477,7 @@ function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir
         )}
 
         <div className="mt-7">
-          <Link href={storyHref(story)} className="rounded-full bg-paper px-6 py-3 text-[13px] font-medium text-void transition-transform hover:translate-x-0.5">
+          <Link href={storyHref(story)} className="rounded-full bg-amber px-6 py-3 text-[13px] font-medium text-void transition-all hover:brightness-110">
             Begin reading
           </Link>
         </div>
@@ -376,36 +486,126 @@ function PickCard({ story, note, dir }: { story: BoostedStory; note: string; dir
   );
 }
 
-// ── stacks tile ─────────────────────────────────────────────
+// ── the shelves ─────────────────────────────────────────────
 
-function StackTile({ story, onPick }: { story: BoostedStory; onPick?: () => void }) {
+function Plank() {
+  return (
+    <div className="relative mt-3 h-2.5 rounded-[2px]" style={{ background: PLANK_FACE, boxShadow: PLANK_SHADOW }} />
+  );
+}
+
+function ShelfBook({ story, index, onPick }: { story: BoostedStory; index: number; onPick?: () => void }) {
+  const tilt = index % 3 === 1 ? 1.4 : index % 3 === 2 ? -1.4 : 0;
+  const hue = spineHue(story);
+  const ongoing = story.status === "in-progress" || story.status === "published";
   const inner = (
-    <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-border transition-all group-hover:border-amber/30 group-hover:shadow-[0_0_28px_-8px_rgba(224,169,62,0.4)]">
-      <CoverArt story={story} sizes="(min-width:1024px) 200px, 45vw" />
-      <div className="absolute inset-0 bg-gradient-to-t from-void/90 to-transparent" />
-      {story.boosted && (
-        <span className="absolute left-2 top-2"><BoostedChip overlay /></span>
-      )}
-      {story.sparkCount > 0 && (
-        <span className="absolute right-2 top-2 rounded-full border border-white/10 bg-void/55 px-2 py-0.5 backdrop-blur-sm"><Spark n={story.sparkCount} /></span>
-      )}
-      <div className="absolute inset-x-0 bottom-0 p-2.5">
-        <p className="font-display text-[13px] leading-tight text-paper line-clamp-2">{story.title}</p>
-        <p className="mt-0.5 truncate text-[10px] text-paper/55">{story.authorName || "Anonymous"}</p>
+    <>
+      <div
+        className="relative overflow-hidden rounded-r-md rounded-l-[3px] border border-border shadow-[0_14px_28px_-10px_rgba(0,0,0,0.65)] transition-shadow duration-300 group-hover:shadow-[0_18px_38px_-10px_var(--book-glow)]"
+        style={{ "--book-glow": `color-mix(in srgb, ${hue} 45%, rgba(0,0,0,0.6))` } as React.CSSProperties}
+      >
+        <div className="relative aspect-[2/3] w-full">
+          <CoverArt story={story} sizes="(min-width:640px) 132px, 116px" />
+        </div>
+        {/* spine shadow + page gloss */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-[7px] bg-gradient-to-r from-black/45 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/25 via-transparent to-white/[0.07]" />
+        {story.boosted && (
+          <span className="absolute left-1.5 top-2"><BoostedChip overlay /></span>
+        )}
+        {ongoing && !story.boosted && (
+          // a live ember, tucked in the corner: this one's still being written
+          <span className="absolute bottom-1.5 right-1.5 grid h-4 w-4 place-items-center rounded-full bg-void/70 backdrop-blur-sm" title="Still being written">
+            <motion.span
+              className="h-1.5 w-1.5 rounded-full bg-amber"
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            />
+          </span>
+        )}
+      </div>
+      <p className="mt-2 truncate text-[11.5px] text-text transition-colors group-hover:text-amber">{story.title}</p>
+      <p className="truncate text-[9.5px] text-text-ghost">
+        {story.authorName || "Anonymous"}{story.sparkCount > 0 && <> · ✦ {story.sparkCount}</>}
+      </p>
+    </>
+  );
+  const cls = "group relative w-[116px] shrink-0 text-left sm:w-[132px]";
+  if (onPick) {
+    return (
+      <motion.button onClick={onPick} initial={false} whileHover={{ y: -8, rotate: 0 }} style={{ rotate: tilt }} className={cls}>
+        {inner}
+      </motion.button>
+    );
+  }
+  return (
+    <motion.div initial={false} whileHover={{ y: -8, rotate: 0 }} style={{ rotate: tilt }} className={cls}>
+      <Link href={storyHref(story)} className="block">{inner}</Link>
+    </motion.div>
+  );
+}
+
+// A story's hook on a paper card, propped between the books — breaks the
+// poster-wall monotony with type.
+function HookCard({ story }: { story: ApiStory }) {
+  const hook = storyExcerpt(story);
+  if (!hook) return null;
+  return (
+    <div className="relative mb-9 w-[156px] shrink-0 -rotate-2">
+      <div
+        className="absolute -top-2 left-1/2 h-3.5 w-10 -translate-x-1/2 rotate-2 rounded-[1px] opacity-70"
+        style={{ background: "rgba(243,236,221,0.28)" }}
+      />
+      <div className="rounded-[3px] p-3 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.55)]" style={{ background: PAPER_BG, color: PAPER_INK }}>
+        <p className="text-[8.5px] font-medium uppercase tracking-[0.16em] opacity-60">✦ tucked inside</p>
+        <p className="mt-1 font-display text-[11.5px] italic leading-snug line-clamp-5">{hook}</p>
       </div>
     </div>
   );
-  if (onPick) {
-    return <button onClick={onPick} className="group block w-full text-left">{inner}</button>;
-  }
-  return <Link href={storyHref(story)} className="group block">{inner}</Link>;
 }
 
-function StackSkeleton() {
+const BOOKS_PER_SHELF = 7;
+
+function Shelves({ pool, onPick }: { pool: BoostedStory[]; onPick?: (index: number) => void }) {
+  const rows = chunk(pool.map((s, i) => ({ s, i })), BOOKS_PER_SHELF);
+  return (
+    <div className="space-y-10">
+      {rows.map((row, r) => {
+        // one paper hook-card per alternating shelf, after the second book
+        const talker = r % 2 === 1 ? row.find((e, j) => j >= 1 && storyExcerpt(e.s)) : undefined;
+        return (
+          <div key={r}>
+            <div className="flex items-end gap-5 overflow-x-auto pb-1 pt-2 no-scrollbar">
+              {row.map((e, j) => (
+                <div key={e.s.id} className="flex shrink-0 items-end gap-5">
+                  <ShelfBook story={e.s} index={r + j} onPick={onPick ? () => onPick(e.i) : undefined} />
+                  {talker?.s.id === e.s.id && j > 0 && <HookCard story={e.s} />}
+                </div>
+              ))}
+            </div>
+            <div className="relative">
+              {r === rows.length - 1 && <SleepingCat />}
+              <Plank />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ShelfSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="aspect-[2/3] rounded-lg bg-elevated" />
-      <div className="mt-2 h-3 w-3/4 rounded bg-elevated" />
+      <div className="flex items-end gap-5 overflow-hidden pt-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="w-[116px] shrink-0 sm:w-[132px]">
+            <div className="aspect-[2/3] rounded-r-md rounded-l-[3px] bg-elevated" />
+            <div className="mt-2 h-3 w-3/4 rounded bg-elevated" />
+          </div>
+        ))}
+      </div>
+      <Plank />
     </div>
   );
 }
@@ -415,16 +615,26 @@ function StackSkeleton() {
 // the table sits — this row is how an audience finds it in time.
 
 function LiveTableCard({ table }: { table: LiveTable }) {
+  const live = table.sessionStatus !== "draft";
   return (
     <Link
       href={`/campaign/${table.storyId}/watch/${table.sessionId}`}
-      className="group flex w-[264px] shrink-0 items-center gap-3.5 rounded-xl border border-border bg-surface p-3 transition-colors hover:border-rose/35"
+      className={`group flex w-[264px] shrink-0 items-center gap-3.5 rounded-xl border bg-ink p-3 transition-all hover:border-rose/40 ${
+        live ? "border-rose/20 shadow-[0_0_24px_-12px_rgba(200,80,100,0.5)]" : "border-border"
+      }`}
     >
       <div className="relative h-[72px] w-[48px] shrink-0 overflow-hidden rounded-md border border-border">
         {table.coverImageUrl ? (
           <Image src={table.coverImageUrl} alt="" fill sizes="48px" className="object-cover" unoptimized />
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-elevated to-void" />
+        )}
+        {live && (
+          <motion.div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-rose/25 via-transparent to-transparent"
+            animate={{ opacity: [0.4, 0.9, 0.5, 1, 0.4] }}
+            transition={{ repeat: Infinity, duration: 3.8, ease: "easeInOut" }}
+          />
         )}
       </div>
       <div className="min-w-0">
@@ -508,6 +718,7 @@ function BrowsePage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [stories, setStories] = useState<ApiStory[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [boosted, setBoosted] = useState<BoostedStory[]>([]);
   const [liveTables, setLiveTables] = useState<LiveTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -526,27 +737,83 @@ function BrowsePage() {
     return () => clearTimeout(debounceTimer.current);
   }, [query]);
 
+  // Every filter is pushed down to the API — the shelf draws from the whole
+  // library, not from whichever 60 stories arrived first.
+  const filterParams = useCallback((f: Filters) => {
+    const params = new URLSearchParams({ public: "true", limit: "60" });
+    params.set("sort", f.sort);
+    if (f.genre !== "All") params.set("genre", f.genre);
+    if (f.format !== "All") {
+      if (f.format === "Adventure") params.set("writingMode", "campaign");
+      else {
+        const value = FORMATS.find((fmt) => fmt.label === f.format)?.value;
+        if (value) params.set("format", value);
+      }
+    }
+    if (f.status === "Ongoing") params.set("status", "in-progress,published");
+    else if (f.status === "Complete") params.set("status", "complete");
+    else if (f.status === "Hiatus") params.set("status", "on-hiatus");
+    if (f.length === "Short") { params.set("minWords", "1"); params.set("maxWords", "10000"); }
+    else if (f.length === "Medium") { params.set("minWords", "10000"); params.set("maxWords", "40000"); }
+    else if (f.length === "Long") params.set("minWords", "40000");
+    if (f.rating !== "all") {
+      const max = ratingByValue(f.rating)?.level ?? 3;
+      params.set("ratings", RATINGS.filter((r) => r.value !== "all" && r.level <= max).map((r) => r.value).join(","));
+    }
+    return params;
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     async function fetchStories() {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ public: "true", limit: "60" });
+        const params = filterParams(filters);
         if (debouncedQuery.trim()) params.set("search", debouncedQuery.trim());
-        if (filters.sort === "most-sparked" || filters.sort === "latest") params.set("sort", filters.sort);
         const res = await fetch(`/api/stories?${params}`, { signal: controller.signal });
         const json = await res.json();
-        if (res.ok) setStories(json.data?.stories || []);
+        if (res.ok) {
+          setStories(json.data?.stories || []);
+          setNextCursor(json.data?.nextCursor ?? null);
+        }
         setLoading(false);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setStories([]);
+        setNextCursor(null);
         setLoading(false);
       }
     }
     fetchStories();
     return () => controller.abort();
-  }, [debouncedQuery, filters.sort]);
+  }, [debouncedQuery, filters, filterParams]);
+
+  // Deal further into the library as the deck runs low — the same filtered
+  // stream, one cursor page at a time, invisible to the layout.
+  const loadingMoreRef = useRef(false);
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    try {
+      const params = filterParams(filters);
+      if (debouncedQuery.trim()) params.set("search", debouncedQuery.trim());
+      params.set("cursor", nextCursor);
+      const res = await fetch(`/api/stories?${params}`);
+      const json = await res.json();
+      if (res.ok) {
+        const fresh: ApiStory[] = json.data?.stories || [];
+        setStories((prev) => {
+          const seen = new Set(prev.map((s) => s.id));
+          return [...prev, ...fresh.filter((s) => !seen.has(s.id))];
+        });
+        setNextCursor(json.data?.nextCursor ?? null);
+      }
+    } catch {
+      // The deck simply stops growing; the current cards stand.
+    } finally {
+      loadingMoreRef.current = false;
+    }
+  }, [nextCursor, filters, debouncedQuery, filterParams]);
 
   // Paid placements (/creator/boost) — up to two, always labeled, filter-safe.
   useEffect(() => {
@@ -605,10 +872,14 @@ function BrowsePage() {
   }, []);
 
   const presentGenres = useMemo(() => {
+    // Results are already genre-filtered on the server — deriving chips
+    // from them would collapse the toolbar to the selected genre. Show
+    // the full list while one is picked so switching stays possible.
+    if (filters.genre !== "All") return [...GENRES];
     const counts: Record<string, number> = {};
     stories.forEach((s) => s.genres.forEach((g) => { counts[g] = (counts[g] || 0) + 1; }));
     return GENRES.filter((g) => (counts[g] || 0) > 0);
-  }, [stories]);
+  }, [stories, filters.genre]);
 
   const searching = debouncedQuery.trim().length > 0;
 
@@ -640,7 +911,7 @@ function BrowsePage() {
   const pool: BoostedStory[] = useMemo(() => {
     const sponsoredIds = new Set(sponsored.map((s) => s.id));
     const organic = stories.filter((s) => !sponsoredIds.has(s.id) && passesFilters(s));
-    // Boosted leads the deck + stacks (clearly labeled); search results stay organic.
+    // Boosted leads the deck + shelves (clearly labeled); search results stay organic.
     return searching ? organic : [...sponsored, ...organic];
   }, [stories, sponsored, passesFilters, searching]);
 
@@ -657,7 +928,14 @@ function BrowsePage() {
     setIndex(0); setDir(1);
   }, []);
 
-  const next = useCallback(() => { setDir(1); setIndex((i) => (pool.length ? (i + 1) % pool.length : 0)); }, [pool.length]);
+  const next = useCallback(() => {
+    setDir(1);
+    setIndex((i) => {
+      // Reach for the next cursor page before the deck wraps around.
+      if (pool.length && pool.length - i < 6) loadMore();
+      return pool.length ? (i + 1) % pool.length : 0;
+    });
+  }, [pool.length, loadMore]);
   const prev = useCallback(() => { setDir(-1); setIndex((i) => (pool.length ? (i - 1 + pool.length) % pool.length : 0)); }, [pool.length]);
 
   useEffect(() => {
@@ -697,21 +975,22 @@ function BrowsePage() {
       {/* ── search + toolbar (sticky) ── */}
       <div className="sticky top-14 z-30 border-b border-border bg-void/90 backdrop-blur-md">
         <div className="mx-auto max-w-6xl space-y-3 px-4 py-3 sm:px-6">
-          <div className="relative">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-ghost"><SearchIcon /></div>
+          {/* inked underline field — the one non-pill input on the page */}
+          <div className="flex items-center gap-2.5 border-b border-border transition-colors focus-within:border-amber/40">
+            <span className="text-text-ghost"><SearchIcon /></span>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search titles, authors, worlds…"
-              className="w-full rounded-full border border-border bg-surface py-2.5 pl-10 pr-4 text-[13px] text-text outline-none transition-colors placeholder:text-text-ghost focus:border-amber/35"
+              className="w-full bg-transparent py-2.5 text-[13px] text-text outline-none placeholder:text-text-ghost"
             />
           </div>
           {/* mobile: one compact row; the full chip set expands on demand */}
           <div className="flex items-center justify-between sm:hidden">
             <button
               onClick={() => setMobileFiltersOpen((v) => !v)}
-              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] transition-colors ${
-                activeCount > 0 ? "border-amber/40 bg-amber/[0.08] text-amber" : "border-border bg-surface text-text-secondary"
+              className={`inline-flex items-center gap-2 rounded-[7px] border px-3 py-1.5 text-[12px] transition-colors ${
+                activeCount > 0 ? "border-amber/40 bg-amber/[0.07] text-amber" : "border-border bg-surface text-text-secondary"
               }`}
             >
               Filters{activeCount > 0 && <span>· {activeCount}</span>}
@@ -725,26 +1004,25 @@ function BrowsePage() {
         </div>
       </div>
 
-      <div className="relative mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+      <div className="relative mx-auto max-w-6xl px-4 pb-24 sm:px-6">
         {searching ? (
-          // ── search results grid ──
+          // ── search results, on the same shelves ──
           <section className="pt-8">
-            <div className="mb-6">
+            <div className="mb-8">
               <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-text-ghost">Results for “{debouncedQuery}”</p>
-              <h1 className="font-display text-[24px] text-paper">
+              <h1 className="font-display text-[28px] text-paper">
                 {loading ? "Searching the stacks…" : `${pool.length} ${pool.length === 1 ? "story" : "stories"}`}
               </h1>
             </div>
             {loading ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                {Array.from({ length: 10 }).map((_, i) => <StackSkeleton key={i} />)}
+              <div className="space-y-10">
+                <ShelfSkeleton />
+                <ShelfSkeleton />
               </div>
             ) : pool.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                {pool.map((s) => <StackTile key={s.id} story={s} />)}
-              </div>
+              <Shelves pool={pool} />
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface/50 px-6 py-24 text-center">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-ink/60 px-6 py-24 text-center">
                 <h3 className="mb-2 font-display text-[19px] text-paper">Nothing on that shelf</h3>
                 <p className="max-w-sm text-[13px] leading-relaxed text-text-secondary">No stories match your search and filters. Try a broader term or loosen a filter.</p>
                 <button onClick={() => { setQuery(""); reset(); }} className="mt-6 rounded-full border border-amber/30 bg-amber/[0.06] px-5 py-2.5 text-[13px] text-amber transition-colors hover:text-paper">
@@ -763,11 +1041,12 @@ function BrowsePage() {
               Set aside for you · tonight
             </div>
 
-            <section className="flex min-h-[62vh] flex-col justify-center pb-8">
-              <div className="min-h-[440px]">
+            <section className="relative flex min-h-[62vh] flex-col justify-center pb-8">
+              <DustMotes />
+              <div className="min-h-[440px] [perspective:1200px]">
                 {loading ? (
-                  <div className="grid w-full animate-pulse gap-8 md:grid-cols-[280px_1fr] md:gap-11">
-                    <div className="mx-auto aspect-[2/3] w-[244px] rounded-md bg-elevated" />
+                  <div className="grid w-full animate-pulse gap-8 md:grid-cols-[300px_1fr] md:gap-11">
+                    <div className="mx-auto aspect-[2/3] w-[248px] rounded-md bg-elevated" />
                     <div className="flex flex-col justify-center gap-3">
                       <div className="h-3 w-40 rounded bg-elevated" />
                       <div className="h-9 w-2/3 rounded bg-elevated" />
@@ -794,7 +1073,7 @@ function BrowsePage() {
                     <button onClick={prev} className="grid h-11 w-11 place-items-center rounded-full border border-border text-text-secondary transition-colors hover:border-amber/30 hover:text-amber" aria-label="Previous">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ transform: "rotate(180deg)" }}><path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </button>
-                    <button onClick={next} className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-6 py-3 text-[13px] text-text-secondary transition-colors hover:border-amber/30 hover:text-paper">
+                    <button onClick={next} className="inline-flex items-center gap-2.5 rounded-full border border-amber/25 bg-amber/[0.05] px-6 py-3 text-[13px] text-text-secondary transition-colors hover:border-amber/45 hover:text-paper">
                       Not tonight — deal another
                       <motion.svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" whileTap={{ rotate: 360 }} transition={{ duration: 0.4 }}><path d="M13 8a5 5 0 11-1.5-3.5M13 2v3h-3" strokeLinecap="round" strokeLinejoin="round" /></motion.svg>
                     </button>
@@ -807,18 +1086,15 @@ function BrowsePage() {
             </section>
 
             {!loading && pool.length > 0 && (
-              <section className="border-t border-border pt-12">
-                <div className="mb-7">
-                  <h2 className="font-display text-[24px] text-paper">{activeCount > 0 ? "The matching stacks" : "Or wander the full stacks"}</h2>
-                  <p className="mt-1 text-[13px] text-text-secondary">
-                    {activeCount > 0 ? `${pool.length} ${pool.length === 1 ? "story" : "stories"} match your filters — choose for yourself.` : "When you'd rather choose for yourself."}
+              <section className="border-t border-border pt-14">
+                <div className="mb-9 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 className="font-display text-[30px] text-paper">{activeCount > 0 ? "The matching stacks" : "Or wander the full stacks"}</h2>
+                  <p className="text-[13px] italic text-text-ghost">
+                    {activeCount > 0 ? `${pool.length} ${pool.length === 1 ? "story" : "stories"} match your filters — choose for yourself.` : "when you'd rather choose for yourself."}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                  {pool.map((s, i) => (
-                    <StackTile key={s.id} story={s} onPick={() => { setDir(1); setIndex(i); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
-                  ))}
-                </div>
+                <Shelves pool={pool} onPick={(i) => { setDir(1); setIndex(i); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+                <p className="mt-10 text-center text-[11.5px] italic text-text-ghost">The shelves restock nightly. Stay as long as you like.</p>
               </section>
             )}
           </>

@@ -200,6 +200,22 @@ export default function ChapterReadPage() {
         );
         const chapterJson = await chapterRes.json();
 
+        if (chapterRes.status === 402 && chapterJson.gating) {
+          // Locked chapter: the 402 body carries the gating terms and
+          // content-free chapter meta — show the lock screen, not an error.
+          const meta = chapterJson.chapter as ReaderApiChapter | undefined;
+          const stub =
+            (meta && apiChapterToChapter({ ...meta, content: "" })) ??
+            chapterList.find((ch) => ch.id === chapterId) ??
+            null;
+          if (stub) {
+            setActiveChapter(stub);
+            setGatingInfo(chapterJson.gating);
+            setLoading(false);
+            return;
+          }
+        }
+
         if (!chapterRes.ok) {
           setError(chapterJson.error?.message || "Chapter not found");
           setLoading(false);
@@ -213,13 +229,6 @@ export default function ChapterReadPage() {
         setChapters((prev) =>
           prev.map((ch) => (ch.id === fullChapter.id ? fullChapter : ch))
         );
-
-        // Check chapter gating
-        const gateRes = await fetch(`/api/stories/${story.id}/chapters/${chapterId}/unlock`);
-        if (gateRes.ok) {
-          const gateJson = await gateRes.json();
-          setGatingInfo(gateJson);
-        }
       } catch {
         setError("Failed to load chapter");
       } finally {
@@ -505,8 +514,25 @@ export default function ChapterReadPage() {
             price={gatingInfo.price}
             isEarlyAccess={gatingInfo.isEarlyAccess}
             earlyAccessUntil={gatingInfo.earlyAccessUntil}
-            onUnlocked={() => {
+            onUnlocked={async () => {
               setGatingInfo({ ...gatingInfo, unlocked: true });
+              // The lock screen was rendered from content-free meta —
+              // fetch the real chapter now that it's ours.
+              try {
+                const res = await fetch(
+                  `/api/stories/${storyId}/chapters/${chapterId}`
+                );
+                const json = await res.json();
+                if (res.ok) {
+                  const full = apiChapterToChapter(json.data as ReaderApiChapter);
+                  setActiveChapter(full);
+                  setChapters((prev) =>
+                    prev.map((ch) => (ch.id === full.id ? full : ch))
+                  );
+                }
+              } catch {
+                // The reader shows the stub until a reload; unlock stands.
+              }
             }}
           />
         </div>

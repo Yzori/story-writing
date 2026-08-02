@@ -72,25 +72,14 @@ export default function BoostMarketplace() {
     fetch("/api/user/ink-drops")
       .then((r) => r.json())
       .then((json) => setBalance(json?.balance ?? 0));
-    // Load home state to compute hero availability
-    fetch("/api/home")
+    // Hero-slot occupancy, straight from the boosts table — no need to
+    // build the whole home feed to learn two numbers.
+    fetch("/api/boosts?availability=1")
       .then((r) => r.json())
       .then((json) => {
-        const hero = json?.data?.hero ?? [];
-        const activePaid = hero.filter(
-          (h: { sponsored: boolean; boostExpiresAt: string | null }) =>
-            h.sponsored,
-        );
-        const soonest =
-          activePaid.length >= 5
-            ? activePaid
-                .map((h: { boostExpiresAt: string }) => h.boostExpiresAt)
-                .filter(Boolean)
-                .sort()[0]
-            : null;
         setHeroState({
-          activeCount: activePaid.length,
-          nextOpeningAt: soonest,
+          activeCount: json?.data?.heroActiveCount ?? 0,
+          nextOpeningAt: json?.data?.nextOpeningAt ?? null,
         });
       });
   }, [session?.user?.id]);

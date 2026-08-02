@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { crossroads, crossroadsVotes, stories } from "@/server/db/schema";
 import { eq, and, isNull, desc, sql, inArray } from "drizzle-orm";
 
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { userId } = await params;
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "read");
+    if (limited) return limited;
     const viewerId = session?.user?.id;
 
     const polls = await db
@@ -113,10 +116,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { crossroads: enriched } });
   } catch (error) {
-    console.error("GET /api/users/[userId]/crossroads error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch crossroads" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/users/[userId]/crossroads",
+      "Failed to fetch crossroads",
     );
   }
 }

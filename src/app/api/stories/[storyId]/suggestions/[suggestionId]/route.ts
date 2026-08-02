@@ -5,7 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateSuggestionSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; suggestionId: string }>;
@@ -116,13 +116,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error(
-      "PATCH /api/stories/[storyId]/suggestions/[suggestionId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to review suggestion" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/suggestions/[suggestionId]",
+      "Failed to review suggestion",
     );
   }
 }

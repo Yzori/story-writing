@@ -4,7 +4,7 @@ import { bibleEntries } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { updateBibleEntrySchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
@@ -84,15 +84,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH /api/stories/[storyId]/bible/[entryId] error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to update bible entry",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/bible/[entryId]",
+      "Failed to update bible entry",
     );
   }
 }
@@ -147,15 +142,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: entryId, deleted: true } });
   } catch (error) {
-    console.error("DELETE /api/stories/[storyId]/bible/[entryId] error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to delete bible entry",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/bible/[entryId]",
+      "Failed to delete bible entry",
     );
   }
 }

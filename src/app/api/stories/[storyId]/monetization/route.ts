@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { stories, chapters, contentUnlocks } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { CREATOR_SHARE } from "@/lib/constants";
 
 // GET — get story monetization settings + chapter gating overview
@@ -79,10 +79,10 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("GET monetization error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch monetization settings" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/monetization",
+      "Failed to fetch monetization settings",
     );
   }
 }
@@ -198,10 +198,10 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PUT monetization error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update monetization settings" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/monetization",
+      "Failed to update monetization settings",
     );
   }
 }

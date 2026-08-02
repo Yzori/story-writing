@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { chapterSnapshots, chapters } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
@@ -24,6 +24,63 @@ async function verifyChapterAccess(storyId: string, chapterId: string, userId: s
 
   if (!chapter) return { error: "NOT_FOUND" as const };
   return { chapter };
+}
+
+/**
+ * GET /api/stories/[storyId]/chapters/[chapterId]/snapshots/[snapshotId]
+ * One saved version, content included. The list endpoint is
+ * content-free; this is where the diff/preview fetches the body.
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 },
+      );
+    }
+
+    const limited = applyRateLimit(request, session.user.id, "read");
+    if (limited) return limited;
+
+    const { storyId, chapterId, snapshotId } = await params;
+    const check = await verifyChapterAccess(storyId, chapterId, session.user.id);
+    if ("error" in check && check.error) {
+      const status = check.error === "FORBIDDEN" ? 403 : 404;
+      return NextResponse.json(
+        {
+          error: {
+            code: check.error,
+            message: check.error === "FORBIDDEN" ? "Not authorized" : "Not found",
+          },
+        },
+        { status },
+      );
+    }
+
+    const snapshot = await db.query.chapterSnapshots.findFirst({
+      where: and(
+        eq(chapterSnapshots.id, snapshotId),
+        eq(chapterSnapshots.chapterId, chapterId),
+      ),
+    });
+
+    if (!snapshot) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Version not found" } },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ data: snapshot });
+  } catch (error) {
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/snapshots/[snapshotId]",
+      "Failed to fetch version",
+    );
+  }
 }
 
 /**
@@ -76,10 +133,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: snapshotId, deleted: true } });
   } catch (error) {
-    console.error("DELETE snapshot error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete version" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/chapters/[chapterId]/snapshots/[snapshotId]",
+      "Failed to delete version",
     );
   }
 }

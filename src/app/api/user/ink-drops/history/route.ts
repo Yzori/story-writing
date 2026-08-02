@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { inkDropTransactions } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/user/ink-drops/history
@@ -39,10 +39,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: rows });
   } catch (error) {
-    console.error("GET ink-drops history error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch history" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/user/ink-drops/history", "Failed to fetch history");
   }
 }

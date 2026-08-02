@@ -15,7 +15,7 @@ import {
   users,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
 
@@ -186,10 +186,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/adventures/[adventureId]/curtain error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to raise the lights" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/adventures/[adventureId]/curtain",
+      "Failed to raise the lights",
     );
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { adventureSeatPresence } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureSeatPresenceSchema } from "@/lib/validations";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
@@ -63,10 +63,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { present: true } });
   } catch (error) {
-    console.error("POST /api/adventures/[adventureId]/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to keep your seat warm" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/presence",
+      "Failed to keep your seat warm",
     );
   }
 }

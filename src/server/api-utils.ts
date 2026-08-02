@@ -1,19 +1,112 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
 import { db } from "@/server/db";
 import { authRateLimits } from "@/server/db/schema";
 import { rateLimit, RATE_LIMITS } from "@/server/rate-limit";
+import { logger } from "@/server/logger";
 
 type RateLimitOptions = {
   max: number;
   windowSeconds: number;
 };
 
+/** The one place the `{ error: { code, message } }` shape is spelled out. */
+export function errorResponse(
+  code: string,
+  message: string,
+  status: number
+): NextResponse {
+  return NextResponse.json({ error: { code, message } }, { status });
+}
+
+/**
+ * Terminal catch-block for route handlers: structured log (with stack)
+ * plus the standard 500. `message` is what the client sees; keep it
+ * generic — the error itself only goes to the log.
+ *
+ * @example
+ * ```ts
+ * } catch (error) {
+ *   return handleRouteError(error, "GET /api/stories/[storyId]", "Failed to fetch story");
+ * }
+ * ```
+ */
+export function handleRouteError(
+  error: unknown,
+  context: string,
+  message = "Something went wrong. Please try again."
+): NextResponse {
+  // A SyntaxError reaching a route's terminal catch is a malformed JSON
+  // body from `await request.json()` — the client's fault, not a 500.
+  if (error instanceof SyntaxError) {
+    return errorResponse("VALIDATION_ERROR", "Invalid JSON body", 400);
+  }
+  logger.captureError(`${context} failed`, error);
+  return errorResponse("INTERNAL_ERROR", message, 500);
+}
+
+/**
+ * Parse and validate a JSON body in one move. Returns the parsed data,
+ * or the ready-to-return 400 (malformed JSON and schema failures both
+ * land as VALIDATION_ERROR with the flattened issue list).
+ */
+export async function parseBody<Schema extends z.ZodTypeAny>(
+  request: NextRequest,
+  schema: Schema
+): Promise<
+  | { data: z.infer<Schema>; response: null }
+  | { data: null; response: NextResponse }
+> {
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return {
+      data: null,
+      response: errorResponse("VALIDATION_ERROR", "Invalid JSON body", 400),
+    };
+  }
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      data: null,
+      response: NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid input",
+            details: parsed.error.flatten(),
+          },
+        },
+        { status: 400 }
+      ),
+    };
+  }
+  return { data: parsed.data, response: null };
+}
+
+/**
+ * Translate a `verifyCollaboratorAccess`/`verifyStoryOwnership`-style
+ * result into the standard 404/403 response, or null when access holds.
+ */
+export function accessResponse(
+  check: { error?: string | null },
+  notFoundMessage = "Story not found",
+  forbiddenMessage = "You don't have access to this story"
+): NextResponse | null {
+  if (check.error === "NOT_FOUND")
+    return errorResponse("NOT_FOUND", notFoundMessage, 404);
+  if (check.error === "FORBIDDEN")
+    return errorResponse("FORBIDDEN", forbiddenMessage, 403);
+  return null;
+}
+
 /**
  * Build standard rate-limit response headers.
  */
-export function getRateLimitHeaders(result: {
+function getRateLimitHeaders(result: {
   remaining: number;
   reset: number;
   max: number;

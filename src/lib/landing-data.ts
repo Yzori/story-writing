@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters } from "@/server/db/schema";
-import { and, eq, isNull, or, desc, asc, sql } from "drizzle-orm";
+import { and, eq, isNull, or, desc, asc, sql, inArray } from "drizzle-orm";
 import { extractFirstLine, htmlToText } from "@/lib/text-extract";
 import type { LandingTale } from "@/components/landing/FilmLanding";
 import type { ShoreStory } from "@/app/landing-experience/LandingExperience";
@@ -132,6 +132,39 @@ function formatSparks(n: number): string {
 // Tiptap HTML and the result is rendered as text, never as markup.
 
 /**
+ * First published chapter per story in one DISTINCT ON query, content
+ * truncated in SQL — the landing page only needs an opening excerpt,
+ * never the whole chapter, and never one round-trip per story.
+ */
+async function firstPublishedChapters(
+  storyIds: string[]
+): Promise<Map<string, { id: string; opening: string; wordCount: number }>> {
+  if (storyIds.length === 0) return new Map();
+  const rows = await db
+    .selectDistinctOn([chapters.storyId], {
+      storyId: chapters.storyId,
+      id: chapters.id,
+      opening: sql<string>`left(${chapters.content}, 4000)`,
+      wordCount: chapters.wordCount,
+    })
+    .from(chapters)
+    .where(
+      and(
+        inArray(chapters.storyId, storyIds),
+        eq(chapters.status, "published"),
+        isNull(chapters.deletedAt),
+      ),
+    )
+    .orderBy(chapters.storyId, asc(chapters.sortOrder));
+  return new Map(
+    rows.map((row) => [
+      row.storyId,
+      { id: row.id, opening: row.opening ?? "", wordCount: row.wordCount ?? 0 },
+    ])
+  );
+}
+
+/**
  * Top public stories with a published first chapter, shaped for the
  * homepage's First Line + Ledger. Returns [] when the platform is empty;
  * the component falls back to fixtures.
@@ -165,24 +198,14 @@ export async function getLandingTales(limit = 5): Promise<LandingTale[]> {
     .orderBy(desc(sql`coalesce(${sparkStats.sparkCount}, 0)`), desc(stories.publishedAt))
     .limit(limit * 2); // headroom: stories without a readable chapter 1 drop out
 
+  const firstChapters = await firstPublishedChapters(rows.map((r) => r.id));
   const tales: LandingTale[] = [];
   for (const row of rows) {
     if (tales.length >= limit) break;
     if (!row.slug) continue;
-    const [first] = await db
-      .select({ content: chapters.content, wordCount: chapters.wordCount })
-      .from(chapters)
-      .where(
-        and(
-          eq(chapters.storyId, row.id),
-          eq(chapters.status, "published"),
-          isNull(chapters.deletedAt),
-        ),
-      )
-      .orderBy(asc(chapters.sortOrder))
-      .limit(1);
+    const first = firstChapters.get(row.id);
     if (!first) continue;
-    const firstLine = extractFirstLine(first.content ?? "");
+    const firstLine = extractFirstLine(first.opening);
     const hook = (row.synopsis ?? "").trim();
     if (!firstLine && !hook) continue;
     tales.push({
@@ -284,24 +307,14 @@ export async function getShoreTales(): Promise<ShoreTalesResult> {
       .orderBy(desc(sql`coalesce(${sparkStats.sparkCount}, 0)`), desc(stories.publishedAt))
       .limit(6); // headroom: stories without a readable chapter one drop out
 
+    const firstChapters = await firstPublishedChapters(rows.map((r) => r.id));
     const tales: ShoreStory[] = [];
     for (const row of rows) {
       if (tales.length >= 3) break;
       if (!row.slug) continue;
-      const [first] = await db
-        .select({ id: chapters.id, content: chapters.content, wordCount: chapters.wordCount })
-        .from(chapters)
-        .where(
-          and(
-            eq(chapters.storyId, row.id),
-            eq(chapters.status, "published"),
-            isNull(chapters.deletedAt),
-          ),
-        )
-        .orderBy(asc(chapters.sortOrder))
-        .limit(1);
-      if (!first?.content) continue;
-      const paras = extractOpeningParas(first.content);
+      const first = firstChapters.get(row.id);
+      if (!first?.opening) continue;
+      const paras = extractOpeningParas(first.opening);
       if (paras.length === 0) continue;
       const synopsis = (row.synopsis ?? "").trim();
       tales.push({

@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { crossroads, stories } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 // PATCH — resolve or close a crossroad (story owner only)
 export async function PATCH(
@@ -104,10 +104,10 @@ export async function PATCH(
 
     return NextResponse.json({ crossroad: updated });
   } catch (error) {
-    console.error("PATCH crossroad error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update crossroad" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/crossroads/[crossroadId]",
+      "Failed to update crossroad",
     );
   }
 }

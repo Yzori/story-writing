@@ -8,7 +8,7 @@ import {
   adventureSeats,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { passAdventureSpotlightSchema } from "@/lib/validations";
 import {
   canPassSpotlight,
@@ -139,10 +139,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("POST /api/adventures/[adventureId]/spotlight error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to pass the spotlight" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/spotlight",
+      "Failed to pass the spotlight",
     );
   }
 }
@@ -275,10 +275,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("DELETE /api/adventures/[adventureId]/spotlight error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to release the spotlight" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/adventures/[adventureId]/spotlight",
+      "Failed to release the spotlight",
     );
   }
 }

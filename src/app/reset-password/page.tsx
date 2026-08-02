@@ -47,7 +47,7 @@ function ResetPasswordForm() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "Something went wrong. Please try again.");
+        setError(data.error?.message || "Something went wrong. Please try again.");
       } else {
         setSuccess(true);
         setTimeout(() => router.push("/login"), 3000);

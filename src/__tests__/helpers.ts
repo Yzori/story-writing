@@ -77,6 +77,30 @@ export async function getResponseData(response: {
 }
 
 /**
+ * Module mock for `@/server/api-utils`: rate limiting waved through, plus
+ * real-shaped `errorResponse`/`handleRouteError` so a route that reaches
+ * its terminal catch still answers with the standard error body.
+ */
+export function mockApiUtils(overrides: Record<string, unknown> = {}) {
+  return {
+    applyRateLimit: vi.fn().mockReturnValue(null),
+    applyPersistentRateLimit: vi.fn().mockResolvedValue(null),
+    errorResponse: (code: string, message: string, status: number) =>
+      NextResponse.json({ error: { code, message } }, { status }),
+    handleRouteError: (
+      _error: unknown,
+      _context: string,
+      message = "Something went wrong. Please try again."
+    ) =>
+      NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message } },
+        { status: 500 }
+      ),
+    ...overrides,
+  };
+}
+
+/**
  * Mock authenticated session.
  */
 export async function mockAuth(

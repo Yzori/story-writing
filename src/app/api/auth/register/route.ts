@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { sql } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
-import { applyPersistentRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit, errorResponse, handleRouteError } from "@/server/api-utils";
 import { normalizeEmail } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
@@ -18,10 +18,7 @@ export async function POST(request: NextRequest) {
     const { displayName, email, password } = await request.json();
 
     if (!email || typeof email !== "string" || !password || typeof password !== "string") {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Email and password are required", 400);
     }
 
     const normalizedEmail = normalizeEmail(email);
@@ -29,31 +26,19 @@ export async function POST(request: NextRequest) {
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(normalizedEmail) || normalizedEmail.length > 254) {
-      return NextResponse.json(
-        { error: "Please enter a valid email address" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Please enter a valid email address", 400);
     }
 
     if (password.length > 128) {
-      return NextResponse.json(
-        { error: "Password must be under 128 characters" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Password must be under 128 characters", 400);
     }
 
     if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Password must be at least 8 characters", 400);
     }
 
     if (displayName && (typeof displayName !== "string" || displayName.length > 100)) {
-      return NextResponse.json(
-        { error: "Display name must be under 100 characters" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Display name must be under 100 characters", 400);
     }
 
     // Check if email already exists
@@ -64,10 +49,7 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
-      );
+      return errorResponse("CONFLICT", "An account with this email already exists", 409);
     }
 
     const hashedPassword = await hashPassword(password);
@@ -87,15 +69,8 @@ export async function POST(request: NextRequest) {
     // Handle unique constraint violation (race condition on concurrent signup)
     const dbError = error as { code?: string };
     if (dbError.code === "23505") {
-      return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
-      );
+      return errorResponse("CONFLICT", "An account with this email already exists", 409);
     }
-    console.error("Registration error");
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/auth/register");
   }
 }

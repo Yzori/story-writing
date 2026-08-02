@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/user/streak
@@ -11,7 +12,7 @@ import { auth } from "@/server/auth";
  * (last read day is older than yesterday) — the persisted value isn't touched
  * until the user reads again.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -20,6 +21,8 @@ export async function GET() {
         { status: 401 },
       );
     }
+    const limited = applyRateLimit(request, session.user.id, "read");
+    if (limited) return limited;
 
     const [user] = await db
       .select({
@@ -61,10 +64,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/user/streak error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load streak" } },
-      { status: 500 },
-    );
+    return handleRouteError(error, "GET /api/user/streak", "Failed to load streak");
   }
 }

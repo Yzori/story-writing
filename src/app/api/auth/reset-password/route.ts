@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { users, passwordResetTokens } from "@/server/db/schema";
 import { eq, and, gt, isNull, sql } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
-import { applyPersistentRateLimit } from "@/server/api-utils";
+import { applyPersistentRateLimit, errorResponse, handleRouteError } from "@/server/api-utils";
 import { sha256Hex } from "@/server/auth-utils";
 
 export async function POST(request: NextRequest) {
@@ -18,31 +18,19 @@ export async function POST(request: NextRequest) {
     const { token, password } = await request.json();
 
     if (!token || typeof token !== "string") {
-      return NextResponse.json(
-        { error: "Reset token is required" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Reset token is required", 400);
     }
 
     if (!password || typeof password !== "string") {
-      return NextResponse.json(
-        { error: "Password is required" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Password is required", 400);
     }
 
     if (password.length > 128) {
-      return NextResponse.json(
-        { error: "Password must be under 128 characters" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Password must be under 128 characters", 400);
     }
 
     if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Password must be at least 8 characters", 400);
     }
 
     const tokenHash = await sha256Hex(token);
@@ -64,10 +52,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (!resetToken) {
-      return NextResponse.json(
-        { error: "Invalid or expired reset link. Please request a new one." },
-        { status: 400 }
-      );
+      return errorResponse("VALIDATION_ERROR", "Invalid or expired reset link. Please request a new one.", 400);
     }
 
     // Hash new password and update user
@@ -91,11 +76,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: "Password has been reset successfully.",
     });
-  } catch {
-    console.error("Reset password error");
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleRouteError(error, "POST /api/auth/reset-password");
   }
 }

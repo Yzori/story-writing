@@ -4,7 +4,7 @@ import { stories, playerCharacters, collaborators, campaignSessions, campaignTur
 import { eq, and, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { transferGmSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification, createBulkNotifications } from "@/server/services/notifications";
 import { verifyStoryOwnership } from "@/server/services/collaboration";
 import { parseRollRequestMetadata } from "@/lib/campaign-turns";
@@ -181,10 +181,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("POST /api/.../campaign/transfer-gm error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to transfer GM role" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/transfer-gm",
+      "Failed to transfer GM role",
     );
   }
 }

@@ -4,7 +4,7 @@ import { reactions } from "@/server/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createReactionSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -60,18 +60,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: { counts, userReaction },
     });
   } catch (error) {
-    console.error(
-      "GET /api/stories/[storyId]/chapters/[chapterId]/reactions error:",
-      error
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch reactions",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/reactions",
+      "Failed to fetch reactions",
     );
   }
 }
@@ -170,18 +162,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: { counts, userReaction },
     });
   } catch (error) {
-    console.error(
-      "POST /api/stories/[storyId]/chapters/[chapterId]/reactions error:",
-      error
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to toggle reaction",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/chapters/[chapterId]/reactions",
+      "Failed to toggle reaction",
     );
   }
 }

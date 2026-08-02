@@ -74,6 +74,26 @@ export default function ReferenceVersions({ storyId, chapterId }: ReferenceVersi
 
   const selected = snapshots.find((s) => s.id === selectedId);
 
+  // The list endpoint is content-free; hydrate the body on selection.
+  useEffect(() => {
+    if (!selected || selected.content) return;
+    let cancelled = false;
+    fetch(`/api/stories/${storyId}/chapters/${chapterId}/snapshots/${selected.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled || !json?.data) return;
+        setSnapshots((prev) =>
+          prev.map((s) =>
+            s.id === json.data.id ? { ...s, content: json.data.content ?? "" } : s
+          )
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, storyId, chapterId]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-10">
@@ -108,7 +128,9 @@ export default function ReferenceVersions({ storyId, chapterId }: ReferenceVersi
             </p>
           ))}
           {paragraphsOf(selected.content).length === 0 && (
-            <p className="text-[11px] italic text-text-ghost">This version is empty.</p>
+            <p className="text-[11px] italic text-text-ghost">
+              {selected.content ? "This version is empty." : "Fetching this version…"}
+            </p>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { compileAdventure } from "@/server/services/compile-adventure";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("POST finish error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to close the book" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/finish",
+      "Failed to close the book",
     );
   }
 }

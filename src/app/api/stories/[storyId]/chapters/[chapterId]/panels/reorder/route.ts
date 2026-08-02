@@ -4,7 +4,7 @@ import { chapters, collaborators, panels, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { reorderPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -89,10 +89,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { reordered: true } });
   } catch (error) {
-    console.error("PUT panels reorder error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to reorder panels" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/chapters/[chapterId]/panels/reorder",
+      "Failed to reorder panels",
     );
   }
 }

@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { users, storyDonations, inkDropTransactions } from "@/server/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 import { CREATOR_SHARE } from "@/lib/constants";
 
@@ -145,10 +145,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST /api/users/[userId]/gift error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to send gift" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/users/[userId]/gift", "Failed to send gift");
   }
 }

@@ -16,7 +16,7 @@ import {
   readingProgress,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, errorResponse, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/account/export
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return errorResponse("UNAUTHORIZED", "Unauthorized", 401);
     }
 
     const limited = applyRateLimit(request, session.user.id, "read", {
@@ -187,10 +187,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Data export error");
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/account/export");
   }
 }

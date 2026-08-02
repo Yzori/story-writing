@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { flags } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/server/admin";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * PATCH /api/admin/flags/[flagId]
@@ -51,10 +51,6 @@ export async function PATCH(
 
     return NextResponse.json({ data: updated });
   } catch (err) {
-    console.error("PATCH /api/admin/flags/[flagId] error:", err);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update flag" } },
-      { status: 500 }
-    );
+    return handleRouteError(err, "PATCH /api/admin/flags/[flagId]", "Failed to update flag");
   }
 }

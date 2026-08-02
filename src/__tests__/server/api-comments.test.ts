@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import {
-  createMockRequest,
-  createMockParams,
-  createMockStory,
-  createMockChapter,
-  getResponseData,
-} from "../helpers";
+import { createMockRequest, createMockParams, createMockStory, createMockChapter, getResponseData, mockApiUtils } from "../helpers";
 import type { RouteHandler, JsonBody } from "../helpers";
 
 const storyId = "story-1";
@@ -42,9 +36,7 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -89,9 +81,7 @@ describe("GET /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -114,9 +104,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -141,9 +129,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -168,9 +154,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -202,9 +186,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -237,9 +219,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -304,9 +284,7 @@ describe("POST /api/stories/[storyId]/chapters/[chapterId]/comments", () => {
         user: { id: "user-1", name: "Test User" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));

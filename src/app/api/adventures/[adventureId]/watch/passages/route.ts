@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   adventureExists,
   loadWatchPassagesPayload,
@@ -39,10 +39,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     );
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("GET watch/passages error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load the page" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/adventures/[adventureId]/watch/passages",
+      "Failed to load the page",
     );
   }
 }

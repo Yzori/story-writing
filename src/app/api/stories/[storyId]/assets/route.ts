@@ -4,7 +4,7 @@ import { storyAssets, stories, collaborators } from "@/server/db/schema";
 import { eq, and, isNull, desc, count } from "drizzle-orm";
 import { createAssetSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -56,8 +56,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       .limit(MAX_ASSETS_PER_STORY);
     return NextResponse.json({ data: assets });
   } catch (error) {
-    console.error("GET assets error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to fetch assets" } }, { status: 500 });
+    return handleRouteError(error, "GET /api/stories/[storyId]/assets", "Failed to fetch assets");
   }
 }
 
@@ -107,7 +106,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .returning();
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST asset error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to create asset" } }, { status: 500 });
+    return handleRouteError(error, "POST /api/stories/[storyId]/assets", "Failed to create asset");
   }
 }

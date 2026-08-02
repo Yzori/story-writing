@@ -151,7 +151,6 @@ export interface StudioSnapshot {
   shelf: StudioShelfItem[];
   tables: StudioTable[];
   signals: StudioSignals;
-  discover: DiscoverData;
   /**
    * The instant this snapshot was built, in epoch ms. Heat and turn clocks
    * measure from here, so the hero the server picked is the hero the client
@@ -176,12 +175,9 @@ export const EMPTY_SIGNALS: StudioSignals = {
   commissions: { count: 0, latest: null },
 };
 
-export const EMPTY_DISCOVER: DiscoverData = { trending: [], jam: null, openCall: null };
-
 export const EMPTY_SNAPSHOT: StudioSnapshot = {
   shelf: [],
   tables: [],
   signals: EMPTY_SIGNALS,
-  discover: EMPTY_DISCOVER,
   builtAt: 0,
 };

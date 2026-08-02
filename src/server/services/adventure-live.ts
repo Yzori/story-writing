@@ -345,6 +345,32 @@ export async function loadWatchPassagesPayload(
   }));
 }
 
+/**
+ * Spark totals for every passage at the table, as a compact
+ * `{ passageId: count }` map. One aggregate query, no content columns —
+ * this is what lets the watch stream push spark movement on old
+ * passages without re-reading the whole page.
+ */
+export async function loadSparkTotals(
+  adventureId: string
+): Promise<Record<string, number>> {
+  const rows = await db
+    .select({
+      passageId: adventurePassageSparks.passageId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(adventurePassageSparks)
+    .innerJoin(
+      adventurePassages,
+      eq(adventurePassageSparks.passageId, adventurePassages.id)
+    )
+    .where(eq(adventurePassages.adventureId, adventureId))
+    .groupBy(adventurePassageSparks.passageId);
+  const totals: Record<string, number> = {};
+  for (const row of rows) totals[row.passageId] = row.count;
+  return totals;
+}
+
 export async function adventureExists(adventureId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: adventures.id })

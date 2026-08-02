@@ -5,7 +5,7 @@ import { asc, eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createPlayerCharacterSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -80,10 +80,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: enriched });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/campaign/characters error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch player characters" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/characters",
+      "Failed to fetch player characters",
     );
   }
 }
@@ -174,10 +174,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/campaign/characters error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create player character" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/characters",
+      "Failed to create player character",
     );
   }
 }

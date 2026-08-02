@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   adventures,
@@ -153,4 +153,46 @@ export async function showUpRecord(userId: string): Promise<ShowUpRecord> {
     onTimePct: total === 0 ? null : Math.round((onTime / total) * 100),
     finished,
   };
+}
+
+/**
+ * showUpRecord for a set of hosts in one query — the board renders up
+ * to 60 cards and was paying one round-trip per card.
+ */
+export async function showUpRecords(
+  userIds: string[]
+): Promise<Map<string, ShowUpRecord>> {
+  const records = new Map<string, ShowUpRecord>();
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return records;
+
+  const rows = await db
+    .select({
+      userId: adventureSeats.userId,
+      onTime: adventureSeats.turnsOnTime,
+      late: adventureSeats.turnsLate,
+      status: adventures.status,
+    })
+    .from(adventureSeats)
+    .innerJoin(adventures, eq(adventureSeats.adventureId, adventures.id))
+    .where(inArray(adventureSeats.userId, unique));
+
+  const totals = new Map<string, { onTime: number; late: number; finished: number }>();
+  for (const row of rows) {
+    if (!row.userId) continue;
+    const t = totals.get(row.userId) ?? { onTime: 0, late: 0, finished: 0 };
+    t.onTime += row.onTime;
+    t.late += row.late;
+    if (row.status === "finished") t.finished++;
+    totals.set(row.userId, t);
+  }
+  for (const id of unique) {
+    const t = totals.get(id) ?? { onTime: 0, late: 0, finished: 0 };
+    const total = t.onTime + t.late;
+    records.set(id, {
+      onTimePct: total === 0 ? null : Math.round((t.onTime / total) * 100),
+      finished: t.finished,
+    });
+  }
+  return records;
 }

@@ -8,7 +8,7 @@ import {
   adventureSeats,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   canStepForward,
   stepForwardEffects,
@@ -127,10 +127,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("POST /api/adventures/[adventureId]/step-forward error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to step forward" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/step-forward",
+      "Failed to step forward",
     );
   }
 }

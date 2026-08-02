@@ -10,7 +10,7 @@ import {
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { voteSessionPollSchema, closeSessionPollSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string; pollId: string }> };
@@ -318,13 +318,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       { status: 400 }
     );
   } catch (error) {
-    console.error(
-      "PATCH /api/stories/[storyId]/campaign/polls/[pollId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update poll" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/campaign/polls/[pollId]",
+      "Failed to update poll",
     );
   }
 }

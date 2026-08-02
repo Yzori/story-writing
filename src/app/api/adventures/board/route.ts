@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
-import { adventures, adventureSeats, stories, users } from "@/server/db/schema";
+import {
+  adventureApplications,
+  adventures,
+  adventureSeats,
+  stories,
+  users,
+} from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
-import { showUpRecord } from "@/server/services/adventure-table";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
+import { showUpRecords } from "@/server/services/adventure-table";
 
 /**
  * GET /api/adventures/board?seat=director|writer&genre=&pace=
@@ -58,7 +64,8 @@ export async function GET(request: NextRequest) {
         )
       );
 
-    const cards = [];
+    // First pass: filter to visible cards and collect who the hosts are.
+    const visible = [];
     for (const { adventure, storyTitle } of boardRows) {
       const seats = seatRows.filter(
         (s) => s.seat.adventureId === adventure.id
@@ -78,16 +85,46 @@ export async function GET(request: NextRequest) {
       const directorSeat = seats.find(
         (s) => s.seat.role === "director" && s.seat.status === "seated"
       );
-      const hostUserId = directorSeat?.seat.userId ?? adventure.ownerId;
-      const hostName = directorSeat
-        ? (directorSeat.userName ?? directorSeat.userFallbackName ?? "—")
-        : null;
-      const record = await showUpRecord(hostUserId);
-      const seatedWriters = seats.filter(
-        (s) => s.seat.role === "writer" && s.seat.status === "seated"
-      ).length;
+      visible.push({
+        adventure,
+        storyTitle,
+        seats,
+        openDirector,
+        openWriters,
+        hostUserId: directorSeat?.seat.userId ?? adventure.ownerId,
+        hostName: directorSeat
+          ? (directorSeat.userName ?? directorSeat.userFallbackName ?? "—")
+          : null,
+      });
+    }
 
-      cards.push({
+    // One query for every host's record, one for the caller's standing
+    // applications — the board card can say "Asked" instead of letting a
+    // returning writer re-apply into a unique-constraint error.
+    const [records, myApplications] = await Promise.all([
+      showUpRecords(visible.map((v) => v.hostUserId)),
+      db
+        .select({
+          adventureId: adventureApplications.adventureId,
+          status: adventureApplications.status,
+        })
+        .from(adventureApplications)
+        .where(
+          and(
+            eq(adventureApplications.userId, session.user.id),
+            inArray(
+              adventureApplications.adventureId,
+              visible.map((v) => v.adventure.id)
+            )
+          )
+        ),
+    ]);
+    const myApplicationByAdventure = new Map(
+      myApplications.map((a) => [a.adventureId, a.status])
+    );
+
+    const cards = visible.map(
+      ({ adventure, storyTitle, seats, openDirector, openWriters, hostUserId, hostName }) => ({
         id: adventure.id,
         title: storyTitle,
         premise: adventure.premise,
@@ -96,16 +133,19 @@ export async function GET(request: NextRequest) {
         status: adventure.status,
         openDirector,
         openWriters,
-        seatedWriters,
+        seatedWriters: seats.filter(
+          (s) => s.seat.role === "writer" && s.seat.status === "seated"
+        ).length,
         hostName,
-        hostRecord: record,
+        hostRecord: records.get(hostUserId) ?? { onTimePct: null, finished: 0 },
         isMine:
           adventure.ownerId === session.user.id ||
           seats.some((s) => s.seat.userId === session.user.id),
+        myApplicationStatus: myApplicationByAdventure.get(adventure.id) ?? null,
         paceMatch: paceWanted ? adventure.pace === paceWanted : null,
         genreMatch: genreWanted ? adventure.genre === genreWanted : null,
-      });
-    }
+      })
+    );
 
     // Pace first, then genre, then the host's record.
     cards.sort((a, b) => {
@@ -121,10 +161,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: cards });
   } catch (error) {
-    console.error("GET /api/adventures/board error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to read the board" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/adventures/board", "Failed to read the board");
   }
 }

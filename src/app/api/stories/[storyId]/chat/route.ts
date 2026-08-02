@@ -4,7 +4,7 @@ import { workshopMessages, users } from "@/server/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -53,11 +53,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Return in chronological order (oldest first)
     return NextResponse.json({ data: messages.reverse() });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/chat error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch messages" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/stories/[storyId]/chat", "Failed to fetch messages");
   }
 }
 
@@ -142,10 +138,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: enriched }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/chat error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to send message" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/stories/[storyId]/chat", "Failed to send message");
   }
 }

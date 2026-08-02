@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, users, sparks as sparksTable, chapters, playerCharacters, campaignSessions } from "@/server/db/schema";
-import { eq, ne, isNull, desc, lt, and, or, sql, ilike } from "drizzle-orm";
+import { eq, ne, isNull, desc, lt, and, or, sql, ilike, inArray } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { LEGACY_RATING_MAP } from "@/config/genres";
 import { generateSlug } from "@/lib/utils";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/stories
@@ -68,6 +68,29 @@ export async function GET(request: NextRequest) {
     const filterGenre = searchParams.get("genre");
     if (filterGenre) {
       conditions.push(sql`${filterGenre} = ANY(${stories.genres})`);
+    }
+
+    // Filter by format. A concrete format excludes adventure-mode tables
+    // (they browse as "Adventure" via writingMode, not by format).
+    const filterFormat = searchParams.get("format");
+    if (filterFormat) {
+      conditions.push(eq(stories.format, filterFormat));
+      if (!writingMode) conditions.push(ne(stories.writingMode, "campaign"));
+    }
+
+    // Filter by story status — comma-separated ("in-progress,published").
+    const filterStatus = searchParams.get("status");
+    if (filterStatus) {
+      const statuses = filterStatus.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10);
+      if (statuses.length > 0) conditions.push(inArray(stories.status, statuses));
+    }
+
+    // Filter by content rating — comma-separated allowlist; the client
+    // computes the allowed set from its comfort cap.
+    const filterRatings = searchParams.get("ratings");
+    if (filterRatings) {
+      const ratings = filterRatings.split(",").map((r) => r.trim()).filter(Boolean).slice(0, 10);
+      if (ratings.length > 0) conditions.push(inArray(stories.contentRating, ratings));
     }
 
     // Exclude a specific story
@@ -162,13 +185,13 @@ export async function GET(request: NextRequest) {
       .leftJoin(sparkStats, eq(stories.id, sparkStats.storyId))
       .leftJoin(playerStats, eq(stories.id, playerStats.storyId))
       .leftJoin(sessionStats, eq(stories.id, sessionStats.storyId))
-      .where(and(...conditions))
+      .where(and(...conditions, ...wordRangeConditions(searchParams, chapterStats)))
       .orderBy(
         sort === "most-sparked"
           ? desc(sql`coalesce(${sparkStats.sparkCount}, 0)`)
           : sort === "most-read"
           ? desc(sql`coalesce(${chapterStats.totalWords}, 0)`)
-          : sort === "rising"
+          : sort === "rising" || sort === "recommended"
           ? desc(sql`coalesce(${sparkStats.sparkCount}, 0) * 10 + extract(epoch from ${stories.createdAt}) / 86400`)
           : desc(stories.createdAt)
       )
@@ -209,12 +232,29 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("GET /api/stories error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch stories" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/stories", "Failed to fetch stories");
   }
+}
+
+/**
+ * Total-word-count range filter (?minWords= / ?maxWords=) against the
+ * published-chapter stats subquery, so length filters run in the DB
+ * instead of over whatever slice the client happened to fetch.
+ */
+function wordRangeConditions(
+  searchParams: URLSearchParams,
+  chapterStats: { totalWords: unknown },
+) {
+  const conditions = [];
+  const minWords = Number.parseInt(searchParams.get("minWords") || "", 10);
+  const maxWords = Number.parseInt(searchParams.get("maxWords") || "", 10);
+  if (Number.isFinite(minWords) && minWords > 0) {
+    conditions.push(sql`coalesce(${chapterStats.totalWords}, 0) >= ${minWords}`);
+  }
+  if (Number.isFinite(maxWords) && maxWords > 0) {
+    conditions.push(sql`coalesce(${chapterStats.totalWords}, 0) < ${maxWords}`);
+  }
+  return conditions;
 }
 
 function parseContentNotes(value: string | null): unknown[] {
@@ -295,11 +335,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: responseStory }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create story" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/stories", "Failed to create story");
   }
 }
 

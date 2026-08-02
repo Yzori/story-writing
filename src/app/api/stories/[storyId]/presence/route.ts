@@ -4,7 +4,7 @@ import { editorPresence, users, collaborators } from "@/server/db/schema";
 import { eq, and, gt, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -75,10 +75,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch presences" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/presence",
+      "Failed to fetch presences",
     );
   }
 }
@@ -175,10 +175,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { chapterId, status: lock.locked ? "viewing" : status }, lock });
   } catch (error) {
-    console.error("PUT /api/stories/[storyId]/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update presence" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/presence",
+      "Failed to update presence",
     );
   }
 }

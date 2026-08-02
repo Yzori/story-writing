@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { inkDropTransactions, users } from "@/server/db/schema";
 import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { CREATOR_SHARE } from "@/lib/constants";
 
 const EARNING_TYPES = ["tip", "unlock", "circle", "commission", "donation", "crossroads", "gold"];
@@ -152,10 +152,6 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("GET earnings error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch earnings" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/user/earnings", "Failed to fetch earnings");
   }
 }

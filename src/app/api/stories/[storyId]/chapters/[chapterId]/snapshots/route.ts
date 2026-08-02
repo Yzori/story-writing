@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { chapterSnapshots, chapters } from "@/server/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { sanitizeHtml } from "@/server/sanitize";
 import { countWords } from "@/lib/utils";
@@ -51,18 +51,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Content-free projection: every row would otherwise carry a full
+    // copy of the chapter (up to 50 are kept), just to render a list of
+    // labels. The [snapshotId] GET serves the body on demand.
     const snapshots = await db
-      .select()
+      .select({
+        id: chapterSnapshots.id,
+        chapterId: chapterSnapshots.chapterId,
+        userId: chapterSnapshots.userId,
+        label: chapterSnapshots.label,
+        wordCount: chapterSnapshots.wordCount,
+        version: chapterSnapshots.version,
+        createdAt: chapterSnapshots.createdAt,
+      })
       .from(chapterSnapshots)
       .where(eq(chapterSnapshots.chapterId, chapterId))
-      .orderBy(desc(chapterSnapshots.createdAt));
+      .orderBy(desc(chapterSnapshots.createdAt))
+      .limit(50);
 
     return NextResponse.json({ data: snapshots });
   } catch (error) {
-    console.error("GET snapshots error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch snapshots" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/snapshots",
+      "Failed to fetch snapshots",
     );
   }
 }
@@ -123,10 +135,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: snapshot }, { status: 201 });
   } catch (error) {
-    console.error("POST snapshots error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create snapshot" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/chapters/[chapterId]/snapshots",
+      "Failed to create snapshot",
     );
   }
 }

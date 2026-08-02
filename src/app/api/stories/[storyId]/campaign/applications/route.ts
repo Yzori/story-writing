@@ -10,7 +10,7 @@ import {
 import { eq, and, isNull, sql, desc, or } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createApplicationSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
@@ -117,13 +117,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error(
-      "GET /api/stories/[storyId]/campaign/applications error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch applications" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/applications",
+      "Failed to fetch applications",
     );
   }
 }
@@ -266,13 +263,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error(
-      "POST /api/stories/[storyId]/campaign/applications error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to submit application" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/applications",
+      "Failed to submit application",
     );
   }
 }

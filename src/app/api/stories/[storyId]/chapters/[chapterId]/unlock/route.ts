@@ -8,7 +8,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
 import { distributeEarnings } from "@/server/services/ink-drops";
 
@@ -105,10 +105,10 @@ export async function GET(
       earlyAccessUntil: chapter.earlyAccessUntil,
     });
   } catch (error) {
-    console.error("GET chapter unlock error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to check unlock status" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]/unlock",
+      "Failed to check unlock status",
     );
   }
 }
@@ -259,10 +259,10 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST chapter unlock error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to unlock chapter" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/chapters/[chapterId]/unlock",
+      "Failed to unlock chapter",
     );
   }
 }

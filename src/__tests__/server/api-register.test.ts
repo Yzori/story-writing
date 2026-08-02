@@ -15,10 +15,10 @@ vi.mock("@/server/password", () => ({
   hashPassword: vi.fn(() => Promise.resolve("hashed-password")),
 }));
 
-vi.mock("@/server/api-utils", () => ({
-  applyRateLimit: vi.fn(() => null),
-  applyPersistentRateLimit: vi.fn(() => Promise.resolve(null)),
-}));
+vi.mock("@/server/api-utils", async () => {
+  const { mockApiUtils } = await import("../helpers");
+  return mockApiUtils();
+});
 
 describe("POST /api/auth/register", () => {
   let POST: (request: NextRequest) => Promise<Response>;
@@ -54,10 +54,10 @@ describe("POST /api/auth/register", () => {
       hashPassword: vi.fn().mockResolvedValue("hashed-password"),
     }));
 
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-      applyPersistentRateLimit: vi.fn().mockResolvedValue(null),
-    }));
+    vi.doMock("@/server/api-utils", async () => {
+      const { mockApiUtils } = await import("../helpers");
+      return mockApiUtils();
+    });
 
     const mod = await import("@/app/api/auth/register/route");
     POST = mod.POST;
@@ -96,7 +96,7 @@ describe("POST /api/auth/register", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("8 characters");
+    expect(body.error.message).toContain("8 characters");
   });
 
   it("rejects invalid email format", async () => {

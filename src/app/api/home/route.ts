@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   stories,
   chapters,
@@ -38,11 +39,13 @@ import { computeTrending } from "@/server/services/trending";
  *   - following: (signed-in only) recent activity from followed stories/authors
  *   - staffPicks: curated picks
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    await reconcileBoosts();
     const session = await auth();
     const userId = session?.user?.id ?? null;
+    const limited = applyRateLimit(request, userId, "read");
+    if (limited) return limited;
+    await reconcileBoosts();
 
     const now = new Date();
     const sevenDaysAgoIso = new Date(
@@ -1191,15 +1194,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/home error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to load home",
-        },
-      },
-      { status: 500 },
-    );
+    return handleRouteError(error, "GET /api/home", "Failed to load home");
   }
 }

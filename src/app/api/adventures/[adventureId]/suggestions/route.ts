@@ -3,7 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventureSuggestions, users } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
@@ -59,10 +59,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })),
     });
   } catch (error) {
-    console.error("GET suggestions error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load suggestions" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/adventures/[adventureId]/suggestions",
+      "Failed to load suggestions",
     );
   }
 }

@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { loreEntries, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { updateLoreEntrySchema } from "@/lib/validations";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
@@ -97,10 +97,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH /api/stories/[storyId]/lore/[entryId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update lore entry" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/lore/[entryId]",
+      "Failed to update lore entry",
     );
   }
 }
@@ -167,10 +167,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: entryId, deleted: true } });
   } catch (error) {
-    console.error("DELETE /api/stories/[storyId]/lore/[entryId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete lore entry" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/lore/[entryId]",
+      "Failed to delete lore entry",
     );
   }
 }

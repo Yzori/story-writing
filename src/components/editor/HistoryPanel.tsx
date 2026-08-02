@@ -104,10 +104,11 @@ export default function HistoryPanel({
       const res = await fetch(`/api/stories/${storyId}/chapters/${chapter.id}/snapshots`);
       if (res.ok) {
         const json = await res.json();
+        // The list is content-free; bodies hydrate on selection.
         const loaded: SnapshotWithMeta[] = (json.data || []).map(
-          (s: { id: string; content: string; wordCount: number; createdAt: string; label: string; userId?: string; version?: number }) => ({
+          (s: { id: string; content?: string; wordCount: number; createdAt: string; label: string; userId?: string; version?: number }) => ({
             id: s.id,
-            content: s.content,
+            content: s.content ?? "",
             wordCount: s.wordCount,
             createdAt: new Date(s.createdAt).getTime(),
             label: s.label || "",
@@ -133,8 +134,32 @@ export default function HistoryPanel({
 
   const selected = snapshots.find((s) => s.id === selectedId) || null;
 
+  // The list endpoint sends no bodies — fetch the selected version's
+  // content once, on demand.
+  useEffect(() => {
+    if (!selected || selected.content) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/stories/${storyId}/chapters/${chapter.id}/snapshots/${selected.id}`
+        );
+        if (!res.ok || cancelled) return;
+        const { data } = await res.json();
+        setSnapshots((prev) =>
+          prev.map((s) => (s.id === data.id ? { ...s, content: data.content } : s))
+        );
+      } catch {
+        if (!cancelled) toast("Couldn’t load this version", "error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, storyId, chapter.id, toast]);
+
   // Compute diff between selected snapshot and current content
-  const diff = selected ? computeDiff(selected.content, chapter.content) : null;
+  const diff = selected?.content ? computeDiff(selected.content, chapter.content) : null;
   const stats = diff ? diffStats(diff) : null;
 
   const handleSaveSnapshot = async () => {
@@ -178,6 +203,11 @@ export default function HistoryPanel({
 
   const handleRestore = () => {
     if (!selected) return;
+    if (!selected.content) {
+      // Body still hydrating — restoring now would blank the chapter.
+      toast("Still fetching this version — try again in a moment", "error");
+      return;
+    }
     onRestore(selected);
     setConfirmRestore(false);
     setConfirmDelete(false);

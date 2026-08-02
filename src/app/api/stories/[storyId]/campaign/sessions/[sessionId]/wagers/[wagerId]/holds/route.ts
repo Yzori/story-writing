@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaignSessions, campaignWagerHolds, campaignWagers } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createWagerHoldSchema } from "@/lib/validations";
 import { deriveAudienceKey, verifyPublicSession } from "@/server/services/audience-input";
 
@@ -63,16 +63,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .values({
         wagerId,
         token: deriveAudienceKey(request, parsed.data.token),
-        userId: session?.user?.id ?? null,
+        userId: session?.user?.id || null,
       })
       .onConflictDoNothing();
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("POST /api/.../wagers/[wagerId]/holds error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to hold the wager" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/wagers/[wagerId]/holds",
+      "Failed to hold the wager",
     );
   }
 }

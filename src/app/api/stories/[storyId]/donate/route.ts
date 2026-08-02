@@ -7,7 +7,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 import { distributeEarnings } from "@/server/services/ink-drops";
 
@@ -54,10 +54,10 @@ export async function GET(
       count: Number(totals?.count ?? 0),
     });
   } catch (error) {
-    console.error("GET donations error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch donations" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/donate",
+      "Failed to fetch donations",
     );
   }
 }
@@ -93,6 +93,12 @@ export async function POST(
     }
 
     // Validate message
+    if (message !== undefined && message !== null && typeof message !== "string") {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "Message must be text" } },
+        { status: 400 }
+      );
+    }
     if (message && message.length > 300) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Message must be under 300 characters" } },
@@ -192,10 +198,6 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST donation error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to send donation" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/stories/[storyId]/donate", "Failed to send donation");
   }
 }

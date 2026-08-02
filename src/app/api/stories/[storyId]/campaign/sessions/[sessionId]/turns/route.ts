@@ -6,7 +6,7 @@ import { eq, and, asc, desc, gt, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignTurnSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, resolveSessionGmId, isSessionGm } from "@/server/services/collaboration";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { isGmOnlyTurnType, isPlayerStoryTurnType, parseRollIntent, parseRollMetadata, parseRollRequestMetadata, parseStoryMomentMetadata } from "@/lib/campaign-turns";
 import { canPostDirectStoryTurn } from "@/lib/campaign-interaction-state";
 import { getActiveSessionPlayerIds, resolveRoll, rollTierFor } from "@/server/services/campaign-rolls";
@@ -160,10 +160,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: turns, session: campaignSession });
   } catch (error) {
-    console.error("GET /api/.../turns error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch turns" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/turns",
+      "Failed to fetch turns",
     );
   }
 }
@@ -670,10 +670,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 403 },
       );
     }
-    console.error("POST /api/.../turns error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create turn" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/turns",
+      "Failed to create turn",
     );
   }
 }

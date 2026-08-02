@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { spectatorPresence, stories, campaignSessions } from "@/server/db/schema";
 import { eq, and, gt, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -107,7 +107,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { token } = body;
 
-    if (!token || typeof token !== "string" || token.trim().length === 0) {
+    // Same shape bound as adventurePresenceSchema — an unconstrained
+    // token both inflates live counts and grows the table unbounded.
+    if (
+      !token ||
+      typeof token !== "string" ||
+      token.trim().length === 0 ||
+      token.length > 64 ||
+      !/^[A-Za-z0-9_-]+$/.test(token.trim())
+    ) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Token is required" } },
         { status: 400 }
@@ -116,7 +124,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Optionally attach userId if logged in
     const session = await auth();
-    const userId = session?.user?.id ?? null;
+    const userId = session?.user?.id || null;
 
     await db
       .insert(spectatorPresence)
@@ -148,10 +156,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ spectatorCount });
   } catch (error) {
-    console.error("PUT /api/.../spectate/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update presence" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/presence",
+      "Failed to update presence",
     );
   }
 }
@@ -199,7 +207,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { token } = body;
 
-    if (!token || typeof token !== "string" || token.trim().length === 0) {
+    // Same shape bound as adventurePresenceSchema — an unconstrained
+    // token both inflates live counts and grows the table unbounded.
+    if (
+      !token ||
+      typeof token !== "string" ||
+      token.trim().length === 0 ||
+      token.length > 64 ||
+      !/^[A-Za-z0-9_-]+$/.test(token.trim())
+    ) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "Token is required" } },
         { status: 400 }
@@ -217,10 +233,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/.../spectate/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to remove presence" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/presence",
+      "Failed to remove presence",
     );
   }
 }

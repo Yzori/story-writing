@@ -5,7 +5,7 @@ import { eq, and, isNull, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createOpenCallResponseSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; callId: string }>;
@@ -68,13 +68,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error(
-      "GET /api/stories/[storyId]/open-calls/[callId]/responses error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch responses" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/open-calls/[callId]/responses",
+      "Failed to fetch responses",
     );
   }
 }
@@ -175,13 +172,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error(
-      "POST /api/stories/[storyId]/open-calls/[callId]/responses error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to submit response" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/open-calls/[callId]/responses",
+      "Failed to submit response",
     );
   }
 }

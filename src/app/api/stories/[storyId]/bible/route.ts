@@ -4,7 +4,7 @@ import { bibleEntries, stories } from "@/server/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { createBibleEntrySchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
@@ -49,15 +49,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: results });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/bible error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch bible entries",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/bible",
+      "Failed to fetch bible entries",
     );
   }
 }
@@ -125,15 +120,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: entry }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/bible error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to create bible entry",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/bible",
+      "Failed to create bible entry",
     );
   }
 }

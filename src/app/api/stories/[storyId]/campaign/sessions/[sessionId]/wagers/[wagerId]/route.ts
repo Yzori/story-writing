@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaignWagers } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { verifySessionGmAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
@@ -48,10 +48,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/.../wagers/[wagerId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to pull the slip" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/campaign/sessions/[sessionId]/wagers/[wagerId]",
+      "Failed to pull the slip",
     );
   }
 }

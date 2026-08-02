@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventureSeats } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureSeatSetupSchema } from "@/lib/validations";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
@@ -68,10 +68,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: seat });
   } catch (error) {
-    console.error("PATCH /api/adventures/[adventureId]/seat error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update your seat" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/adventures/[adventureId]/seat",
+      "Failed to update your seat",
     );
   }
 }

@@ -4,7 +4,7 @@ import { guildProfiles } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { guildProfileSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/roster/me
@@ -35,11 +35,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/roster/me error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch roster profile" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/roster/me", "Failed to fetch roster profile");
   }
 }
 
@@ -127,11 +123,7 @@ export async function PUT(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("PUT /api/roster/me error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to save roster profile" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "PUT /api/roster/me", "Failed to save roster profile");
   }
 }
 
@@ -155,10 +147,6 @@ export async function DELETE() {
 
     return NextResponse.json({ data: { success: true } });
   } catch (error) {
-    console.error("DELETE /api/roster/me error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to remove roster profile" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "DELETE /api/roster/me", "Failed to remove roster profile");
   }
 }

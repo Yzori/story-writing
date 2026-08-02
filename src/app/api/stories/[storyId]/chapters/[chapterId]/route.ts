@@ -13,7 +13,7 @@ import { updateChapterSchema } from "@/lib/validations";
 import { countWords } from "@/lib/utils";
 import { sanitizeHtml } from "@/server/sanitize";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 import { TIER_PRICES } from "@/lib/constants";
 
@@ -107,17 +107,35 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (chapter.status === "published" && !canBypassReaderGate) {
       if (requiresUnlock) {
-        if (!session?.user?.id) {
-          return NextResponse.json(
+        // The 402 carries everything the lock screen needs — gating
+        // terms plus content-free chapter meta — so the reader can
+        // offer the unlock instead of a dead error, in one request.
+        const lockedResponse = () =>
+          NextResponse.json(
             {
               error: {
                 code: "LOCKED",
                 message: "This chapter requires an unlock",
               },
+              gating: {
+                unlocked: false,
+                price,
+                tier: chapter.gatingTier,
+                isEarlyAccess: Boolean(isEarlyAccess),
+                earlyAccessUntil: chapter.earlyAccessUntil,
+              },
+              chapter: {
+                id: chapter.id,
+                title: chapter.title,
+                wordCount: chapter.wordCount,
+                sortOrder: chapter.sortOrder,
+                status: chapter.status,
+              },
             },
             { status: 402 }
           );
-        }
+
+        if (!session?.user?.id) return lockedResponse();
 
         const [unlock] = await db
           .select({ id: contentUnlocks.id })
@@ -130,26 +148,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           )
           .limit(1);
 
-        if (!unlock) {
-          return NextResponse.json(
-            {
-              error: {
-                code: "LOCKED",
-                message: "This chapter requires an unlock",
-              },
-            },
-            { status: 402 }
-          );
-        }
+        if (!unlock) return lockedResponse();
       }
     }
 
     return NextResponse.json({ data: chapter });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/chapters/[chapterId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch chapter" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/chapters/[chapterId]",
+      "Failed to fetch chapter",
     );
   }
 }
@@ -384,10 +392,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       meta: { notifiedFollowers, storySlug },
     });
   } catch (error) {
-    console.error("PATCH /api/stories/[storyId]/chapters/[chapterId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update chapter" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/chapters/[chapterId]",
+      "Failed to update chapter",
     );
   }
 }
@@ -441,10 +449,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       data: { id: deleted.id, deletedAt: deleted.deletedAt },
     });
   } catch (error) {
-    console.error("DELETE /api/stories/[storyId]/chapters/[chapterId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete chapter" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/chapters/[chapterId]",
+      "Failed to delete chapter",
     );
   }
 }

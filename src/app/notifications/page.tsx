@@ -174,20 +174,27 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | NotifType>("all");
+  const [serverUnreadCount, setServerUnreadCount] = useState(0);
+  const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
 
+  // The type filter runs server-side — picking "Letters" searches the whole
+  // history, not whichever types happened to land in the newest 30.
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications");
+      const params = filter === "all" ? "" : `?type=${encodeURIComponent(filter)}`;
+      const res = await fetch(`/api/notifications${params}`);
       if (res.ok) {
         const json = await res.json();
         setNotifications(json.data.notifications);
+        setServerUnreadCount(json.data.unreadCount ?? 0);
+        if (json.data.typeCounts) setTypeCounts(json.data.typeCounts);
       }
     } catch {
       // silently fail
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     if (session?.user) {
@@ -201,6 +208,7 @@ export default function NotificationsPage() {
     try {
       await fetch("/api/notifications", { method: "PATCH" });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setServerUnreadCount(0);
     } catch {}
   };
 
@@ -210,11 +218,13 @@ export default function NotificationsPage() {
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
+      setServerUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {}
   };
 
-  const filtered = filter === "all" ? notifications : notifications.filter((n) => n.type === filter);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Already filtered server-side; the header count is the DB's, not the page's.
+  const filtered = notifications;
+  const unreadCount = serverUnreadCount;
 
   // Primary filters: most-frequent types stay as chips. Less-common types
   // collapse under a "More" dropdown so the strip stays scannable.
@@ -244,7 +254,11 @@ export default function NotificationsPage() {
   };
 
   const filters = PRIMARY_KEYS.map((key) => ({ key, label: FILTER_LABELS[key] }));
-  const moreFilters = MORE_KEYS.map((key) => ({ key, label: FILTER_LABELS[key] }));
+  // Hide "More" entries the user has never received — the counts come
+  // from the API, so an empty tab can't be offered.
+  const moreFilters = MORE_KEYS.filter(
+    (key) => (typeCounts[key] ?? 0) > 0 || key === filter
+  ).map((key) => ({ key, label: FILTER_LABELS[key] }));
   const activeMoreLabel = MORE_KEYS.includes(filter as NotifType) ? FILTER_LABELS[filter as NotifType] : null;
 
   return (

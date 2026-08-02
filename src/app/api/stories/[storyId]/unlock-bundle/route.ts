@@ -8,7 +8,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, sql, ne, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
 import { distributeEarnings } from "@/server/services/ink-drops";
 
@@ -96,10 +96,10 @@ export async function GET(
       })),
     });
   } catch (error) {
-    console.error("GET bundle error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to calculate bundle" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/unlock-bundle",
+      "Failed to calculate bundle",
     );
   }
 }
@@ -240,10 +240,10 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST bundle unlock error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to purchase bundle" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/unlock-bundle",
+      "Failed to purchase bundle",
     );
   }
 }

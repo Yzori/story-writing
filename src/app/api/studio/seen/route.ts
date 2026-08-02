@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { touchLastSeen } from "@/server/services/studio";
 
 /**
@@ -30,10 +30,6 @@ export async function POST(request: NextRequest) {
     await touchLastSeen(userId);
     return NextResponse.json({ data: { ok: true } });
   } catch (error) {
-    console.error("POST /api/studio/seen error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to record the visit" } },
-      { status: 500 },
-    );
+    return handleRouteError(error, "POST /api/studio/seen", "Failed to record the visit");
   }
 }

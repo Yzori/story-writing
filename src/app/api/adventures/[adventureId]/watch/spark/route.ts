@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventurePassages, adventurePassageSparks } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureSparkSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
@@ -80,10 +80,10 @@ async function toggleSpark(
 
     return NextResponse.json({ data: { sparked: mode === "add" } });
   } catch (error) {
-    console.error("watch/spark error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to spark" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/adventures/[adventureId]/watch/spark",
+      "Failed to spark",
     );
   }
 }

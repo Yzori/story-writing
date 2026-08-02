@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/user/ink-drops
@@ -36,10 +36,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ balance: user.inkDropBalance });
   } catch (error) {
-    console.error("GET ink-drops error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch balance" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/user/ink-drops", "Failed to fetch balance");
   }
 }

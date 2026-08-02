@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { crossroads, crossroadsVotes, stories } from "@/server/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 // GET — list crossroads for a story
 export async function GET(
@@ -22,71 +22,75 @@ export async function GET(
       .orderBy(desc(crossroads.createdAt))
       .limit(20);
 
-    // Enrich with vote totals per option + user's votes
-    const enriched = await Promise.all(
-      polls.map(async (poll) => {
-        const options = JSON.parse(poll.options) as { label: string }[];
-
-        // Get total drops per option
-        const voteTotals = await db
-          .select({
-            optionIndex: crossroadsVotes.optionIndex,
-            totalDrops: sql<number>`coalesce(sum(${crossroadsVotes.dropsSpent}), 0)`,
-            voterCount: sql<number>`count(distinct ${crossroadsVotes.userId})`,
-          })
-          .from(crossroadsVotes)
-          .where(eq(crossroadsVotes.crossroadId, poll.id))
-          .groupBy(crossroadsVotes.optionIndex);
-
-        // User's votes
-        let userVotes: { optionIndex: number; dropsSpent: number }[] = [];
-        if (userId) {
-          userVotes = await db
+    // Enrich with vote totals per option + user's votes — two grouped
+    // queries across every poll at once, not two per poll.
+    const pollIds = polls.map((p) => p.id);
+    const [allTotals, allUserVotes] = pollIds.length
+      ? await Promise.all([
+          db
             .select({
+              crossroadId: crossroadsVotes.crossroadId,
               optionIndex: crossroadsVotes.optionIndex,
-              dropsSpent: sql<number>`coalesce(sum(${crossroadsVotes.dropsSpent}), 0)`,
+              totalDrops: sql<number>`coalesce(sum(${crossroadsVotes.dropsSpent}), 0)`,
+              voterCount: sql<number>`count(distinct ${crossroadsVotes.userId})`,
             })
             .from(crossroadsVotes)
-            .where(
-              and(
-                eq(crossroadsVotes.crossroadId, poll.id),
-                eq(crossroadsVotes.userId, userId)
-              )
-            )
-            .groupBy(crossroadsVotes.optionIndex);
-        }
+            .where(inArray(crossroadsVotes.crossroadId, pollIds))
+            .groupBy(crossroadsVotes.crossroadId, crossroadsVotes.optionIndex),
+          userId
+            ? db
+                .select({
+                  crossroadId: crossroadsVotes.crossroadId,
+                  optionIndex: crossroadsVotes.optionIndex,
+                  dropsSpent: sql<number>`coalesce(sum(${crossroadsVotes.dropsSpent}), 0)`,
+                })
+                .from(crossroadsVotes)
+                .where(
+                  and(
+                    inArray(crossroadsVotes.crossroadId, pollIds),
+                    eq(crossroadsVotes.userId, userId)
+                  )
+                )
+                .groupBy(crossroadsVotes.crossroadId, crossroadsVotes.optionIndex)
+            : Promise.resolve([]),
+        ])
+      : [[], []];
 
-        // Total drops across all options
-        const grandTotal = voteTotals.reduce((sum, v) => sum + Number(v.totalDrops), 0);
+    const enriched = polls.map((poll) => {
+      const options = JSON.parse(poll.options) as { label: string }[];
+      const voteTotals = allTotals.filter((v) => v.crossroadId === poll.id);
+      const userVotes = allUserVotes.filter((v) => v.crossroadId === poll.id);
 
-        const enrichedOptions = options.map((opt, i) => {
-          const voteData = voteTotals.find((v) => Number(v.optionIndex) === i);
-          const userVote = userVotes.find((v) => Number(v.optionIndex) === i);
-          const drops = Number(voteData?.totalDrops ?? 0);
-          return {
-            label: opt.label,
-            totalDrops: drops,
-            voterCount: Number(voteData?.voterCount ?? 0),
-            percentage: grandTotal > 0 ? Math.round((drops / grandTotal) * 100) : 0,
-            userDrops: Number(userVote?.dropsSpent ?? 0),
-          };
-        });
+      // Total drops across all options
+      const grandTotal = voteTotals.reduce((sum, v) => sum + Number(v.totalDrops), 0);
 
+      const enrichedOptions = options.map((opt, i) => {
+        const voteData = voteTotals.find((v) => Number(v.optionIndex) === i);
+        const userVote = userVotes.find((v) => Number(v.optionIndex) === i);
+        const drops = Number(voteData?.totalDrops ?? 0);
         return {
-          ...poll,
-          options: enrichedOptions,
-          grandTotal,
-          isExpired: poll.closesAt && new Date(poll.closesAt) < new Date(),
+          label: opt.label,
+          totalDrops: drops,
+          voterCount: Number(voteData?.voterCount ?? 0),
+          percentage: grandTotal > 0 ? Math.round((drops / grandTotal) * 100) : 0,
+          userDrops: Number(userVote?.dropsSpent ?? 0),
         };
-      })
-    );
+      });
+
+      return {
+        ...poll,
+        options: enrichedOptions,
+        grandTotal,
+        isExpired: poll.closesAt && new Date(poll.closesAt) < new Date(),
+      };
+    });
 
     return NextResponse.json({ crossroads: enriched });
   } catch (error) {
-    console.error("GET crossroads error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch crossroads" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/crossroads",
+      "Failed to fetch crossroads",
     );
   }
 }
@@ -179,10 +183,10 @@ export async function POST(
 
     return NextResponse.json({ crossroad }, { status: 201 });
   } catch (error) {
-    console.error("POST crossroad error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create crossroad" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/crossroads",
+      "Failed to create crossroad",
     );
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   stories,
   chapters,
@@ -29,6 +30,8 @@ import { auth } from "@/server/auth";
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "read");
+    if (limited) return limited;
     const { searchParams } = new URL(request.url);
     const limit = Math.min(
       parseInt(searchParams.get("limit") || "20", 10),
@@ -379,15 +382,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: { queue: resolved } });
   } catch (error) {
-    console.error("GET /api/read/queue error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to build reader queue",
-        },
-      },
-      { status: 500 },
-    );
+    return handleRouteError(error, "GET /api/read/queue", "Failed to build reader queue");
   }
 }

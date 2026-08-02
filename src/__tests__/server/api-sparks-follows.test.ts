@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import {
-  createMockRequest,
-  createMockParams,
-  createMockStory,
-  getResponseData,
-} from "../helpers";
+import { createMockRequest, createMockParams, createMockStory, getResponseData, mockApiUtils } from "../helpers";
 import type { RouteHandler, JsonBody } from "../helpers";
 
 // ── Sparks ──────────────────────────────────────────────────
@@ -26,9 +21,7 @@ describe("GET /api/stories/[storyId]/sparks", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -71,9 +64,7 @@ describe("GET /api/stories/[storyId]/sparks", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -97,9 +88,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -159,9 +148,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
         user: { id: "user-1", name: "Test User" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -207,9 +194,7 @@ describe("POST /api/stories/[storyId]/sparks", () => {
         user: { id: "user-1", name: "Test User" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -245,9 +230,7 @@ describe("GET /api/stories/[storyId]/follows", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -271,9 +254,7 @@ describe("POST /api/stories/[storyId]/follows", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -301,9 +282,7 @@ describe("POST /api/stories/[storyId]/follows", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));
@@ -349,9 +328,7 @@ describe("POST /api/stories/[storyId]/follows", () => {
         user: { id: "user-1", name: "Test User" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
     vi.doMock("@/server/services/notifications", () => ({
       createNotification: vi.fn(),
     }));

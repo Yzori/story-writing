@@ -13,7 +13,7 @@ import {
   verifyCollaboratorAccess,
   verifySessionGmAccess,
 } from "@/server/services/collaboration";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; sessionId: string }>;
@@ -98,18 +98,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: roster });
   } catch (error) {
-    console.error(
-      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/roster error:",
-      error
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch session roster",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/roster",
+      "Failed to fetch session roster",
     );
   }
 }
@@ -316,18 +308,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updatedRoster });
   } catch (error) {
-    console.error(
-      "PUT /api/stories/[storyId]/campaign/sessions/[sessionId]/roster error:",
-      error
-    );
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to update session roster",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/campaign/sessions/[sessionId]/roster",
+      "Failed to update session roster",
     );
   }
 }

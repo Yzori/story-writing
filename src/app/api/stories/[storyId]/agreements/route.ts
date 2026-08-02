@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { agreements, agreementConfirmations, collaborators, users } from "@/server/db/schema";
 import { eq, and, ne, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createAgreementSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/server/services/collaboration";
 import { createBulkNotifications, createNotification } from "@/server/services/notifications";
@@ -118,10 +118,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/agreements error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch agreement" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/agreements",
+      "Failed to fetch agreement",
     );
   }
 }
@@ -279,10 +279,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/agreements error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to save agreement" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/agreements",
+      "Failed to save agreement",
     );
   }
 }
@@ -409,10 +409,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("PATCH /api/stories/[storyId]/agreements error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to confirm agreement" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/agreements",
+      "Failed to confirm agreement",
     );
   }
 }

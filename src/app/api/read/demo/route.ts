@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { db } from "@/server/db";
 import { stories, chapters, staffPicks, users } from "@/server/db/schema";
 import { and, eq, isNull, desc, sql, inArray } from "drizzle-orm";
@@ -145,15 +145,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: { queue } });
   } catch (error) {
-    console.error("GET /api/read/demo error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to build demo queue",
-        },
-      },
-      { status: 500 },
-    );
+    return handleRouteError(error, "GET /api/read/demo", "Failed to build demo queue");
   }
 }

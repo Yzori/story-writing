@@ -7,7 +7,7 @@ import {
   users,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureApplicationSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
 import {
@@ -77,10 +77,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("GET applications error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load applications" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/adventures/[adventureId]/applications",
+      "Failed to load applications",
     );
   }
 }
@@ -178,10 +178,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
   } catch (error) {
-    console.error("POST applications error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to ask for a seat" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/applications",
+      "Failed to ask for a seat",
     );
   }
 }

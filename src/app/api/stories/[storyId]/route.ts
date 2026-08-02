@@ -4,7 +4,7 @@ import { stories, chapters, bibleEntries, users, collaborators } from "@/server/
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { updateStorySchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -120,11 +120,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/stories/[storyId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch story" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/stories/[storyId]", "Failed to fetch story");
   }
 }
 
@@ -207,11 +203,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("PATCH /api/stories/[storyId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update story" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "PATCH /api/stories/[storyId]", "Failed to update story");
   }
 }
 
@@ -260,10 +252,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: deleted.id, deletedAt: deleted.deletedAt } });
   } catch (error) {
-    console.error("DELETE /api/stories/[storyId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete story" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "DELETE /api/stories/[storyId]", "Failed to delete story");
   }
 }

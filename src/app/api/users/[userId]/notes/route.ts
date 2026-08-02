@@ -4,7 +4,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { deskNotes, stories } from "@/server/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ userId: string }> };
 
@@ -61,11 +61,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/users/[userId]/notes error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch notes" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/users/[userId]/notes", "Failed to fetch notes");
   }
 }
 
@@ -180,10 +176,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { note: created } }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/users/[userId]/notes error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create note" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/users/[userId]/notes", "Failed to create note");
   }
 }

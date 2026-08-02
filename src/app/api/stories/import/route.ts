@@ -3,7 +3,7 @@ import mammoth from "mammoth";
 import { db } from "@/server/db";
 import { stories, chapters } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { sanitizeHtml } from "@/server/sanitize";
 
 export const maxDuration = 60;
@@ -184,10 +184,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("POST /api/stories/import error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to import the file." } },
-      { status: 500 },
-    );
+    return handleRouteError(error, "POST /api/stories/import", "Failed to import the file.");
   }
 }

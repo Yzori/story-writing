@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { chapters } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { verifyCollaboratorAccess } from "@/server/services/collaboration";
 
 type RouteParams = {
@@ -84,10 +84,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { bridgeNote: updated[0].bridgeNote } });
   } catch (error) {
-    console.error("PUT chapter bridge error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to save the note" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "PUT /api/stories/[storyId]/chapters/[chapterId]/bridge",
+      "Failed to save the note",
     );
   }
 }

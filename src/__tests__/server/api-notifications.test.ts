@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { createMockRequest, getResponseData } from "../helpers";
+import { createMockRequest, getResponseData, mockApiUtils } from "../helpers";
 import type { RouteHandler, JsonBody } from "../helpers";
 
 describe("GET /api/notifications", () => {
@@ -11,9 +11,7 @@ describe("GET /api/notifications", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/notifications/route");
     const req = createMockRequest("/api/notifications");
@@ -33,7 +31,8 @@ describe("GET /api/notifications", () => {
     ];
 
     vi.doMock("@/server/db", () => {
-      // The route uses Promise.all with two db queries
+      // The route uses Promise.all with three db queries:
+      // list, unread count, per-type counts.
       const selectMock = vi.fn();
       let callCount = 0;
       selectMock.mockImplementation(() => {
@@ -51,8 +50,17 @@ describe("GET /api/notifications", () => {
                   }),
                 };
               }
-              // Second query: unread count
-              return [{ value: 1 }];
+              if (callCount === 2) {
+                // Second query: unread count
+                return [{ value: 1 }];
+              }
+              // Third query: per-type counts
+              return {
+                groupBy: vi.fn().mockResolvedValue([
+                  { type: "spark", value: 1 },
+                  { type: "follow", value: 1 },
+                ]),
+              };
             }),
           }),
         };
@@ -65,9 +73,7 @@ describe("GET /api/notifications", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/notifications/route");
     const req = createMockRequest("/api/notifications");
@@ -95,9 +101,7 @@ describe("GET /api/notifications", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/notifications/route");
     const req = createMockRequest("/api/notifications");
@@ -116,9 +120,7 @@ describe("PATCH /api/notifications", () => {
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue(null),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/notifications/route");
     const req = createMockRequest("/api/notifications", { method: "PATCH" });
@@ -146,9 +148,7 @@ describe("PATCH /api/notifications", () => {
         user: { id: "user-1", name: "Test" },
       }),
     }));
-    vi.doMock("@/server/api-utils", () => ({
-      applyRateLimit: vi.fn().mockReturnValue(null),
-    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
 
     const mod = await import("@/app/api/notifications/route");
     const req = createMockRequest("/api/notifications", { method: "PATCH" });

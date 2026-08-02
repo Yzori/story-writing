@@ -8,7 +8,7 @@ import {
 } from "@/server/db/schema";
 import { eq, and, or, desc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 
 // GET — list user's commissions (as patron or artisan)
@@ -75,10 +75,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ commissions: results });
   } catch (error) {
-    console.error("GET commissions error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch commissions" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/scriptorium/commissions",
+      "Failed to fetch commissions",
     );
   }
 }
@@ -150,10 +150,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ commission }, { status: 201 });
   } catch (error) {
-    console.error("POST commission error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create commission" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/scriptorium/commissions",
+      "Failed to create commission",
     );
   }
 }

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { campaignSessions, campaignTurns, playerCharacters, users } from "@/server/db/schema";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { parseRollRequestMetadata } from "@/lib/campaign-turns";
 
@@ -119,10 +119,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: enriched ?? updated });
   } catch (error) {
-    console.error("PATCH /api/.../roll-request error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update roll request" } },
-      { status: 500 },
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/campaign/sessions/[sessionId]/turns/[turnId]/roll-request",
+      "Failed to update roll request",
     );
   }
 }

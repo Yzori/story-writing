@@ -11,7 +11,7 @@ import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
 import { safeParseJson } from "@/lib/safe-json";
 import { auth } from "@/server/auth";
 import { createSessionPollSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 import { verifyStoryOwnership } from "@/server/services/collaboration";
 
@@ -140,13 +140,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error(
-      "GET /api/stories/[storyId]/campaign/polls error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch polls" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/polls",
+      "Failed to fetch polls",
     );
   }
 }
@@ -270,13 +267,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "POST /api/stories/[storyId]/campaign/polls error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create poll" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/polls",
+      "Failed to create poll",
     );
   }
 }

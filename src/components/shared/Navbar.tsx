@@ -98,7 +98,8 @@ function NavbarInner({
     const controller = new AbortController();
     async function fetchUnread() {
       try {
-        const res = await fetch("/api/notifications", { signal: controller.signal });
+        // countOnly: the badge needs one number, not 30 full rows a minute.
+        const res = await fetch("/api/notifications?countOnly=1", { signal: controller.signal });
         if (res.ok) {
           const json = await res.json();
           setUnreadCount(json?.data?.unreadCount ?? 0);

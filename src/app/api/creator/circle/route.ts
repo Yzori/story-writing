@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { creatorCircles, stories, chapters } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 // GET — fetch current user's circle config
 export async function GET(request: NextRequest) {
@@ -44,11 +44,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ circle: null, subscriberCount: 0, monthlyIncome: 0 });
   } catch (error) {
-    console.error("GET /api/creator/circle error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch circle" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/creator/circle", "Failed to fetch circle");
   }
 }
 
@@ -68,6 +64,24 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const { isActive, confidantPrice, confidantDescription, earlyAccessDays } = body;
+
+    if (isActive !== undefined && typeof isActive !== "boolean") {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "isActive must be true or false" } },
+        { status: 400 }
+      );
+    }
+
+    if (
+      confidantDescription !== undefined &&
+      confidantDescription !== null &&
+      (typeof confidantDescription !== "string" || confidantDescription.length > 1000)
+    ) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "Description must be text under 1000 characters" } },
+        { status: 400 }
+      );
+    }
 
     // Validate price range: 300-800 drops/month
     if (confidantPrice !== undefined) {
@@ -139,10 +153,6 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ circle });
   } catch (error) {
-    console.error("PUT /api/creator/circle error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update circle" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "PUT /api/creator/circle", "Failed to update circle");
   }
 }

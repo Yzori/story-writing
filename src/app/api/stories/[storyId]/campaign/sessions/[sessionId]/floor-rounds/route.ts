@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaignFloorRounds, campaignFloorSubmissions, campaignSessions } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createFloorRoundSchema } from "@/lib/validations";
 import { isSessionGm, verifyCollaboratorAccess } from "@/server/services/collaboration";
 import { getVisibleFloorRound } from "@/server/services/floor-rounds";
@@ -37,8 +37,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       data: await getVisibleFloorRound(sessionId, session.user.id),
     });
   } catch (error) {
-    console.error("GET /api/.../floor-rounds error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to fetch floor round" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/floor-rounds",
+      "Failed to fetch floor round",
+    );
   }
 }
 
@@ -203,7 +206,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: await getVisibleFloorRound(sessionId, session.user.id),
     }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/.../floor-rounds error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to open Crossroads" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/floor-rounds",
+      "Failed to open Crossroads",
+    );
   }
 }

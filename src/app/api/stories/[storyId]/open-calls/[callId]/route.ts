@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { openCalls, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { z } from "zod";
 
 type RouteParams = {
@@ -90,13 +90,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error(
-      "PATCH /api/stories/[storyId]/open-calls/[callId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update open call" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/open-calls/[callId]",
+      "Failed to update open call",
     );
   }
 }

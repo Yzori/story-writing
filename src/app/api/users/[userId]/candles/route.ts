@@ -3,7 +3,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { profileCandles, users } from "@/server/db/schema";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ userId: string }> };
@@ -107,11 +107,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/users/[userId]/candles error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch candles" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/users/[userId]/candles", "Failed to fetch candles");
   }
 }
 
@@ -209,10 +205,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: { lit: true, count: Number(countRow?.count ?? 0) },
     });
   } catch (error) {
-    console.error("POST /api/users/[userId]/candles error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to light candle" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/users/[userId]/candles", "Failed to light candle");
   }
 }

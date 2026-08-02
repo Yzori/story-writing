@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { storyBoosts, stories, users } from "@/server/db/schema";
 import { eq, and, gt, isNull, sql, desc } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { reconcileBoosts } from "@/server/services/boosts";
 
 /**
  * GET /api/boosts
  * Returns all stories with active boosts for the browse page Spotlight section.
+ * `?availability=1` returns just the hero-slot occupancy for /creator/boost —
+ * that page was downloading the entire /api/home aggregate for two numbers.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +18,28 @@ export async function GET(request: NextRequest) {
 
     await reconcileBoosts();
     const now = new Date();
+
+    if (request.nextUrl.searchParams.get("availability")) {
+      const heroRows = await db
+        .select({ expiresAt: storyBoosts.expiresAt })
+        .from(storyBoosts)
+        .where(
+          and(
+            eq(storyBoosts.tier, "hero"),
+            eq(storyBoosts.status, "active"),
+            gt(storyBoosts.expiresAt, now)
+          )
+        )
+        .orderBy(storyBoosts.expiresAt)
+        .limit(5);
+      return NextResponse.json({
+        data: {
+          heroActiveCount: heroRows.length,
+          nextOpeningAt:
+            heroRows.length >= 5 ? heroRows[0].expiresAt.toISOString() : null,
+        },
+      });
+    }
 
     const boostedStories = await db
       .select({
@@ -30,6 +54,10 @@ export async function GET(request: NextRequest) {
         format: stories.format,
         writingMode: stories.writingMode,
         contentRating: stories.contentRating,
+        status: stories.status,
+        hook: stories.hook,
+        createdAt: stories.createdAt,
+        updatedAt: stories.updatedAt,
         authorName: users.displayName,
         authorId: users.id,
         chapterCount: sql<number>`(
@@ -66,10 +94,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: boostedStories });
   } catch (error) {
-    console.error("GET boosts error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch boosts" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/boosts", "Failed to fetch boosts");
   }
 }

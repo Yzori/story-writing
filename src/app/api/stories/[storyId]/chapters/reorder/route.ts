@@ -4,7 +4,7 @@ import { chapters, stories } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { reorderChaptersSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -79,15 +79,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: { success: true, updated: parsed.data.chapters.length },
     });
   } catch (error) {
-    console.error("PATCH /api/stories/[storyId]/chapters/reorder error:", error);
-    return NextResponse.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to reorder chapters",
-        },
-      },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/chapters/reorder",
+      "Failed to reorder chapters",
     );
   }
 }

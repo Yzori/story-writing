@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { creatorCircles, circleSubscriptions, users } from "@/server/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 // GET — public circle info for a creator
 export async function GET(
@@ -13,7 +13,11 @@ export async function GET(
   try {
     const { creatorId } = await params;
 
-    const rl = applyRateLimit(request, creatorId, "read");
+    // Key the limiter on the CALLER, never the path param — keying on
+    // creatorId let anyone burn a victim's global read budget by
+    // hammering their circle URL.
+    const session = await auth();
+    const rl = applyRateLimit(request, session?.user?.id, "read");
     if (rl) return rl;
 
     const [circle] = await db
@@ -49,7 +53,6 @@ export async function GET(
     // Check if current user is subscribed
     let isSubscribed = false;
     let subscription = null;
-    const session = await auth();
     if (session?.user?.id) {
       const [sub] = await db
         .select()
@@ -75,10 +78,6 @@ export async function GET(
       subscription,
     });
   } catch (error) {
-    console.error("GET /api/circles/[creatorId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch circle" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/circles/[creatorId]", "Failed to fetch circle");
   }
 }

@@ -121,6 +121,22 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
       },
     }),
   ],
+  events: {
+    // OAuth sign-ups arrive with the provider's `name`/`image`, but the
+    // app reads `displayName`/`avatarUrl` everywhere — copy them over at
+    // creation so OAuth authors never render as "Anonymous". Migration
+    // 0066 backfills users created before this event existed.
+    async createUser({ user }) {
+      if (!user.id) return;
+      await db
+        .update(users)
+        .set({
+          displayName: sql`coalesce(${users.displayName}, ${user.name ?? null})`,
+          avatarUrl: sql`coalesce(${users.avatarUrl}, ${user.image ?? null})`,
+        })
+        .where(eq(users.id, user.id));
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (token.invalid) return token;

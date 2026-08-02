@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { crossroads } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureHouseVoteSchema } from "@/lib/validations";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
@@ -92,10 +92,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: vote }, { status: 201 });
   } catch (error) {
-    console.error("POST house-vote error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to ask the house" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/house-vote",
+      "Failed to ask the house",
     );
   }
 }

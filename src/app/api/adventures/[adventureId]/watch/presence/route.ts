@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventureAudiencePresence, adventures } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventurePresenceSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { lit: true } });
   } catch (error) {
-    console.error("POST watch/presence error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to light the lantern" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/watch/presence",
+      "Failed to light the lantern",
     );
   }
 }

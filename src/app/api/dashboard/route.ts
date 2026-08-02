@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { getStudioSnapshot } from "@/server/services/studio";
 
 /**
@@ -31,10 +31,6 @@ export async function GET(request: NextRequest) {
     const data = await getStudioSnapshot(userId);
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("GET /api/dashboard error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load dashboard" } },
-      { status: 500 },
-    );
+    return handleRouteError(error, "GET /api/dashboard", "Failed to load dashboard");
   }
 }

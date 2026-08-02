@@ -5,7 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { updateCollaboratorSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; collaboratorId: string }>;
@@ -111,13 +111,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error(
-      "PATCH /api/stories/[storyId]/collaborators/[collaboratorId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update collaborator" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/collaborators/[collaboratorId]",
+      "Failed to update collaborator",
     );
   }
 }
@@ -188,13 +185,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: collaboratorId, deleted: true } });
   } catch (error) {
-    console.error(
-      "DELETE /api/stories/[storyId]/collaborators/[collaboratorId] error:",
-      error
-    );
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to remove collaborator" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/collaborators/[collaboratorId]",
+      "Failed to remove collaborator",
     );
   }
 }

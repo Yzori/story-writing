@@ -4,7 +4,7 @@ import { sparks, stories } from "@/server/db/schema";
 import { eq, and, count, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -39,11 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: { count: sparkCount, hasSparked },
     });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/sparks error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch sparks" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/stories/[storyId]/sparks", "Failed to fetch sparks");
   }
 }
 
@@ -114,10 +110,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: { sparked, count: sparkCount },
     });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/sparks error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to toggle spark" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/stories/[storyId]/sparks", "Failed to toggle spark");
   }
 }

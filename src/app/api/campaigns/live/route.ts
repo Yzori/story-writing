@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { stories, users, campaignSessions, spectatorPresence } from "@/server/db/schema";
 import { eq, and, isNull, isNotNull, gt, desc, inArray, or, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/campaigns/live
@@ -80,10 +80,6 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("GET /api/campaigns/live error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch live sessions" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/campaigns/live", "Failed to fetch live sessions");
   }
 }

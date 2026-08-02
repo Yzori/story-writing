@@ -4,7 +4,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { profileLetters, users } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ userId: string; letterId: string }> };
@@ -144,10 +144,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { letter: updated } });
   } catch (error) {
-    console.error("PATCH /api/users/[userId]/letters/[letterId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update letter" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/users/[userId]/letters/[letterId]",
+      "Failed to update letter",
     );
   }
 }
@@ -210,10 +210,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { deleted: true } });
   } catch (error) {
-    console.error("DELETE /api/users/[userId]/letters/[letterId] error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete letter" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/users/[userId]/letters/[letterId]",
+      "Failed to delete letter",
     );
   }
 }

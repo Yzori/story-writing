@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   follows,
   stories,
@@ -20,6 +21,8 @@ type RouteParams = { params: Promise<{ userId: string }> };
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "read");
+    if (limited) return limited;
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
@@ -95,10 +98,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: { stories: results },
     });
   } catch (error) {
-    console.error("GET /api/users/[userId]/following error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch followed stories" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/users/[userId]/following",
+      "Failed to fetch followed stories",
     );
   }
 }

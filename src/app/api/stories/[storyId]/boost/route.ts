@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { stories, users, storyBoosts } from "@/server/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import {
   BOOST_TIERS,
   BoostTier,
@@ -229,13 +229,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("POST boost error:", error);
-    return NextResponse.json(
-      {
-        error: { code: "INTERNAL_ERROR", message: "Failed to boost story" },
-      },
-      { status: 500 },
-    );
+    return handleRouteError(error, "POST /api/stories/[storyId]/boost", "Failed to boost story");
   }
 }
 
@@ -271,12 +265,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       boosts: rows,
     });
   } catch (error) {
-    console.error("GET boost error:", error);
-    return NextResponse.json(
-      {
-        error: { code: "INTERNAL_ERROR", message: "Failed to check boost" },
-      },
-      { status: 500 },
-    );
+    return handleRouteError(error, "GET /api/stories/[storyId]/boost", "Failed to check boost");
   }
 }

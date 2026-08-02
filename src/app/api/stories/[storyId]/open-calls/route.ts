@@ -4,7 +4,7 @@ import { openCalls, openCallResponses, users, stories } from "@/server/db/schema
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createOpenCallSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -60,10 +60,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: withUserState });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/open-calls error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch open calls" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/open-calls",
+      "Failed to fetch open calls",
     );
   }
 }
@@ -136,10 +136,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/open-calls error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create open call" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/open-calls",
+      "Failed to create open call",
     );
   }
 }

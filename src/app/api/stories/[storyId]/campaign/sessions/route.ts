@@ -5,7 +5,7 @@ import { eq, and, ne, asc, sql, count, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCampaignSessionSchema } from "@/lib/validations";
 import { verifyCollaboratorAccess, verifyStoryOwnership } from "@/server/services/collaboration";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
@@ -64,10 +64,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: sessions });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/campaign/sessions error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch sessions" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions",
+      "Failed to fetch sessions",
     );
   }
 }
@@ -203,10 +203,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/campaign/sessions error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create session" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions",
+      "Failed to create session",
     );
   }
 }

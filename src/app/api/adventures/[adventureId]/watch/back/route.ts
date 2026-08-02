@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventureBackings, adventureSeats } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureBackingSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ adventureId: string }> };
@@ -62,10 +62,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { backing: seat.id } });
   } catch (error) {
-    console.error("watch/back error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to back the character" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/watch/back",
+      "Failed to back the character",
     );
   }
 }

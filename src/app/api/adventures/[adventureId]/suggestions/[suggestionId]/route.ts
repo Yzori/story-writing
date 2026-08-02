@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventureSuggestions } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
 type RouteParams = {
@@ -57,10 +57,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { dismissed: true } });
   } catch (error) {
-    console.error("DELETE suggestion error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to dismiss" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/adventures/[adventureId]/suggestions/[suggestionId]",
+      "Failed to dismiss",
     );
   }
 }

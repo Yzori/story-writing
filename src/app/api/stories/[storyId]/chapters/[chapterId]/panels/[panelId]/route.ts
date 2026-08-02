@@ -4,7 +4,7 @@ import { panels, chapters, stories, collaborators } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { updatePanelSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string; panelId: string }>;
@@ -124,10 +124,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error("PATCH panel error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to update panel" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]",
+      "Failed to update panel",
     );
   }
 }
@@ -212,10 +212,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { id: panelId, deleted: true } });
   } catch (error) {
-    console.error("DELETE panel error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to delete panel" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]",
+      "Failed to delete panel",
     );
   }
 }

@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { offerings, users, commissionTestimonials } from "@/server/db/schema";
 import { eq, and, desc, sql, like } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 const VALID_CRAFTS = [
   "custom-chapter", "cover-art", "character-art", "editing", "poetry",
@@ -67,11 +67,7 @@ export async function GET(request: NextRequest) {
       offset,
     });
   } catch (error) {
-    console.error("GET offerings error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch offerings" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/scriptorium/offerings", "Failed to fetch offerings");
   }
 }
 
@@ -161,10 +157,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ offering }, { status: 201 });
   } catch (error) {
-    console.error("POST offering error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create offering" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/scriptorium/offerings", "Failed to create offering");
   }
 }

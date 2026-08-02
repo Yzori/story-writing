@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventures } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createSecureToken, sha256Hex } from "@/server/auth-utils";
 import { loadAdventureContext } from "@/server/services/adventure-table";
 
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: { joinPath: `/adventures/join/${token}` },
     });
   } catch (error) {
-    console.error("POST /api/adventures/[adventureId]/invite error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to mint the invite" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/invite",
+      "Failed to mint the invite",
     );
   }
 }

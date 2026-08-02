@@ -3,7 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/server/db";
 import { adventureHands } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { raiseAdventureHandSchema } from "@/lib/validations";
 import { canLowerHand, canRaiseHand } from "@/lib/adventure-spotlight";
 import {
@@ -100,10 +100,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
   } catch (error) {
-    console.error("POST /api/adventures/[adventureId]/hand error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to raise your hand" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/hand",
+      "Failed to raise your hand",
     );
   }
 }
@@ -158,10 +158,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { lowered: true } });
   } catch (error) {
-    console.error("DELETE /api/adventures/[adventureId]/hand error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to lower your hand" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "DELETE /api/adventures/[adventureId]/hand",
+      "Failed to lower your hand",
     );
   }
 }

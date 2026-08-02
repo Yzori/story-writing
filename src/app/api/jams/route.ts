@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { storyJams, jamEntries, users } from "@/server/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createJamSchema } from "@/lib/validations";
 import { computeJamStatus } from "@/server/services/jams";
 
@@ -64,11 +64,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: filtered });
   } catch (error) {
-    console.error("GET jams error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch jams" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/jams", "Failed to fetch jams");
   }
 }
 
@@ -118,10 +114,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: jam }, { status: 201 });
   } catch (error) {
-    console.error("POST jam error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to create jam" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/jams", "Failed to create jam");
   }
 }

@@ -4,7 +4,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { profileLetters, users, follows, stories } from "@/server/db/schema";
 import { eq, and, isNull, isNotNull, desc, sql } from "drizzle-orm";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createNotification } from "@/server/services/notifications";
 
 type RouteParams = { params: Promise<{ userId: string }> };
@@ -185,11 +185,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/users/[userId]/letters error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch letters" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/users/[userId]/letters", "Failed to fetch letters");
   }
 }
 
@@ -321,10 +317,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: { letter: created } }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/users/[userId]/letters error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to send letter" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "POST /api/users/[userId]/letters", "Failed to send letter");
   }
 }

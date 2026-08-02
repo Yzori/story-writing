@@ -5,7 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createCollaboratorSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -40,10 +40,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/collaborators error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch collaborators" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/collaborators",
+      "Failed to fetch collaborators",
     );
   }
 }
@@ -148,10 +148,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("POST /api/stories/[storyId]/collaborators error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to invite collaborator" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/collaborators",
+      "Failed to invite collaborator",
     );
   }
 }

@@ -4,7 +4,7 @@ import { follows, stories } from "@/server/db/schema";
 import { eq, and, count, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { createNotification } from "@/server/services/notifications";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -37,11 +37,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: { count: followCount, hasFollowed },
     });
   } catch (error) {
-    console.error("GET /api/stories/[storyId]/follows error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch follows" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/stories/[storyId]/follows", "Failed to fetch follows");
   }
 }
 
@@ -119,10 +115,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: { followed, count: followCount },
     });
   } catch (error) {
-    console.error("POST /api/stories/[storyId]/follows error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to toggle follow" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/follows",
+      "Failed to toggle follow",
     );
   }
 }

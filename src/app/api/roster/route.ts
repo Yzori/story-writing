@@ -3,6 +3,8 @@ import { db } from "@/server/db";
 import { guildProfiles, users, stories, sparks } from "@/server/db/schema";
 import { eq, and, ilike, or, sql, desc, ne } from "drizzle-orm";
 import { safeParseJson } from "@/lib/safe-json";
+import { auth } from "@/server/auth";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /**
  * GET /api/roster
@@ -10,6 +12,10 @@ import { safeParseJson } from "@/lib/safe-json";
  */
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    const limited = applyRateLimit(request, session?.user?.id, "read");
+    if (limited) return limited;
+
     const { searchParams } = new URL(request.url);
     const rolesFilter = searchParams.get("roles"); // comma-separated
     const genresFilter = searchParams.get("genres"); // comma-separated
@@ -190,10 +196,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("GET /api/roster error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch roster" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/roster", "Failed to fetch roster");
   }
 }

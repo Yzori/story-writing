@@ -6,7 +6,7 @@ import {
   campaignFloorRounds,
   campaignFloorSubmissions,
 } from "@/server/db/schema";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createFloorAudiencePulseSchema } from "@/lib/validations";
 import { getAudiencePulseFloorRound } from "@/server/services/floor-rounds";
 import { deriveAudienceKey, verifyPublicSession } from "@/server/services/audience-input";
@@ -31,8 +31,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         : null,
     });
   } catch (error) {
-    console.error("GET /api/.../spectate/floor-round error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to fetch audience pulse" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/floor-round",
+      "Failed to fetch audience pulse",
+    );
   }
 }
 
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         roundId: round.id,
         submissionId: parsed.data.submissionId,
         token: pulseKey,
-        userId: session?.user?.id ?? null,
+        userId: session?.user?.id || null,
       })
       .onConflictDoUpdate({
         target: [campaignFloorAudiencePulses.roundId, campaignFloorAudiencePulses.token],
@@ -97,7 +100,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: await getAudiencePulseFloorRound(sessionId, pulseKey),
     });
   } catch (error) {
-    console.error("POST /api/.../spectate/floor-round error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to send audience pulse" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "POST /api/stories/[storyId]/campaign/sessions/[sessionId]/spectate/floor-round",
+      "Failed to send audience pulse",
+    );
   }
 }

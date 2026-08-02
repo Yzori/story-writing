@@ -7,7 +7,7 @@ import {
   stories,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { resolveAdventureApplicationSchema } from "@/lib/validations";
 import { createNotification } from "@/server/services/notifications";
 import { loadAdventureContext } from "@/server/services/adventure-table";
@@ -101,7 +101,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         )
         .orderBy(asc(adventureSeats.createdAt))
         .limit(1)
-        .for("update");
+        // skipLocked: a concurrent accept holding one seat must not make
+        // this one report "filled" while other seats sit open.
+        .for("update", { skipLocked: true });
       if (!openSeat) {
         denyReason = "That seat has been filled.";
         throw new Error(CONFLICT);
@@ -143,10 +145,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("PATCH application error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to answer the ask" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "PATCH /api/adventures/[adventureId]/applications/[applicationId]",
+      "Failed to answer the ask",
     );
   }
 }

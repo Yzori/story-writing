@@ -7,7 +7,7 @@ import {
   adventureScenes,
 } from "@/server/db/schema";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { adventureSceneSchema } from "@/lib/validations";
 import {
   canCloseScene,
@@ -166,10 +166,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 409 }
       );
     }
-    console.error("POST /api/adventures/[adventureId]/scenes error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to change the scene" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "POST /api/adventures/[adventureId]/scenes",
+      "Failed to change the scene",
     );
   }
 }

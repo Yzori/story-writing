@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { storyAssets, stories, collaborators } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 type RouteParams = { params: Promise<{ storyId: string; assetId: string }> };
 
@@ -77,8 +77,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: asset });
   } catch (error) {
-    console.error("GET asset error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to fetch asset" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "GET /api/stories/[storyId]/assets/[assetId]",
+      "Failed to fetch asset",
+    );
   }
 }
 
@@ -101,7 +104,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await db.delete(storyAssets).where(and(eq(storyAssets.id, assetId), eq(storyAssets.storyId, storyId)));
     return NextResponse.json({ data: { id: assetId } });
   } catch (error) {
-    console.error("DELETE asset error:", error);
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to delete asset" } }, { status: 500 });
+    return handleRouteError(
+      error,
+      "DELETE /api/stories/[storyId]/assets/[assetId]",
+      "Failed to delete asset",
+    );
   }
 }

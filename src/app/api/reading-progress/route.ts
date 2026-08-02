@@ -4,7 +4,7 @@ import { readingProgress, stories, chapters, users } from "@/server/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { upsertReadingProgressSchema } from "@/lib/validations";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 /** UTC date in YYYY-MM-DD form for streak bucketing. */
 function utcDay(d: Date = new Date()): string {
@@ -127,11 +127,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: progressList });
   } catch (error) {
-    console.error("GET /api/reading-progress error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch reading progress" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "GET /api/reading-progress", "Failed to fetch reading progress");
   }
 }
 
@@ -209,10 +205,6 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    console.error("PUT /api/reading-progress error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to save reading progress" } },
-      { status: 500 }
-    );
+    return handleRouteError(error, "PUT /api/reading-progress", "Failed to save reading progress");
   }
 }

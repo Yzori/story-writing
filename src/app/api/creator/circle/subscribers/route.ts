@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { circleSubscriptions, users } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
-import { applyRateLimit } from "@/server/api-utils";
+import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 
 // GET — list subscribers to current user's circle
 export async function GET(request: NextRequest) {
@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ subscribers: subs });
   } catch (error) {
-    console.error("GET /api/creator/circle/subscribers error:", error);
-    return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to fetch subscribers" } },
-      { status: 500 }
+    return handleRouteError(
+      error,
+      "GET /api/creator/circle/subscribers",
+      "Failed to fetch subscribers",
     );
   }
 }
