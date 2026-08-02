@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { crossroads, crossroadsVotes, stories } from "@/server/db/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { crossroads, crossroadsVotes, stories, follows } from "@/server/db/schema";
+import { eq, and, desc, sql, inArray, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
+import { createBulkNotifications } from "@/server/services/notifications";
 
 // GET — list crossroads for a story
 export async function GET(
@@ -116,7 +117,7 @@ export async function POST(
 
     // Must own the story
     const [story] = await db
-      .select({ userId: stories.userId })
+      .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
       .from(stories)
       .where(eq(stories.id, storyId));
 
@@ -180,6 +181,19 @@ export async function POST(
         closesAt,
       })
       .returning();
+
+    // A vote nobody hears about closes with no ballots — tell the
+    // story's followers a crossroads opened. Fire-and-forget.
+    const followerRows = await db
+      .select({ userId: follows.userId })
+      .from(follows)
+      .where(and(eq(follows.storyId, storyId), ne(follows.userId, session.user.id)));
+    createBulkNotifications(
+      followerRows.map((f) => f.userId),
+      "update",
+      `A crossroads opened in "${story.title}" — the story needs your vote`,
+      `/story/${story.slug || storyId}`
+    );
 
     return NextResponse.json({ crossroad }, { status: 201 });
   } catch (error) {

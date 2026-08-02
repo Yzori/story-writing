@@ -163,15 +163,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return withUser;
     });
 
-    // Notify story owner (fire-and-forget, outside transaction)
-    if (storyRecord.userId !== userId) {
-      const name = session.user.name || "Someone";
-      const chapterLabel = chapterRecord.title || "a chapter";
+    // Notify, fire-and-forget, outside the transaction. A reply goes to
+    // the person replied to; a top-level comment goes to the story owner.
+    // Never both — when the parent author is the owner they get the
+    // reply copy, not two pings.
+    const name = session.user.name || "Someone";
+    const chapterLabel = chapterRecord.title || "a chapter";
+    const link = `/story/${storyRecord.slug || storyId}/read/${chapterId}`;
+    if (parentId) {
+      const parent = await db.query.comments.findFirst({
+        columns: { userId: true },
+        where: and(eq(comments.id, parentId), eq(comments.chapterId, chapterId)),
+      });
+      if (parent && parent.userId !== userId) {
+        createNotification(
+          parent.userId,
+          "comment",
+          `${name} replied to your comment on "${chapterLabel}" in "${storyRecord.title}"`,
+          link
+        );
+      }
+    } else if (storyRecord.userId !== userId) {
       createNotification(
         storyRecord.userId,
         "comment",
         `${name} commented on "${chapterLabel}" in "${storyRecord.title}"`,
-        `/story/${storyRecord.slug || storyId}/read/${chapterId}`
+        link
       );
     }
 

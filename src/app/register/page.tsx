@@ -22,8 +22,8 @@ import Link from "next/link";
 import { QuillRingMark, QuiloriaWordmark } from "@/components/shared/BrandLogo";
 import { markArrival } from "@/lib/arrival";
 import { importAnonPlace } from "@/lib/anon-reader";
+import { readDemoDraft, clearDemoDraft, importDemoDraft } from "@/lib/demo-draft";
 
-const DEMO_DRAFT_KEY = "quiloria-demo-draft-v1";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_PASSWORD_LENGTH = 128;
@@ -31,28 +31,6 @@ const MAX_PASSWORD_LENGTH = 128;
 type RegisterField = "displayName" | "email" | "password" | "confirmPassword";
 type RegisterTouched = Record<RegisterField, boolean>;
 type RegisterErrors = Partial<Record<RegisterField, string>>;
-
-interface DemoDraft {
-  title?: string;
-  content?: string;
-  updatedAt?: number;
-}
-
-function readDemoDraft(): DemoDraft | null {
-  try {
-    const raw = localStorage.getItem(DEMO_DRAFT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as DemoDraft;
-    if (!parsed?.content) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function clearDemoDraft() {
-  try { localStorage.removeItem(DEMO_DRAFT_KEY); } catch {}
-}
 
 function getRegisterErrors(
   displayName: string,
@@ -101,51 +79,6 @@ function inkFieldClasses(hasError: boolean) {
       ? "border-b-rose/70 focus:border-b-rose"
       : "border-b-on-gold/25 focus:border-b-gold-dark"
   }`;
-}
-
-/**
- * Imports a localStorage demo draft into a real story for a freshly registered
- * user. Best-effort: on any failure we fall through to the regular welcome
- * flow rather than leaving the user stuck.
- */
-async function importDemoDraft(draft: DemoDraft): Promise<string | null> {
-  try {
-    const storyRes = await fetch("/api/stories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: draft.title?.trim() || "Untitled story",
-        format: "novel",
-        writingMode: "solo",
-      }),
-    });
-    const storyJson = await storyRes.json();
-    const storyId: string | undefined = storyJson.data?.id;
-    if (!storyRes.ok || !storyId) return null;
-
-    // Replace the auto-created first chapter's content with the draft.
-    const chaptersRes = await fetch(`/api/stories/${storyId}/chapters?withContent=true`, { cache: "no-store" });
-    const chaptersJson = await chaptersRes.json();
-    const firstChapter = chaptersJson?.data?.[0];
-    if (firstChapter?.id) {
-      await fetch(`/api/stories/${storyId}/chapters/${firstChapter.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: draft.content }),
-      });
-    } else {
-      // No auto chapter — create one with the draft content.
-      await fetch(`/api/stories/${storyId}/chapters`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "Chapter 1", content: draft.content }),
-      });
-    }
-
-    return storyId;
-  } catch {
-    return null;
-  }
 }
 
 // ── Hydration-safe drifting motes for the dark room ─────────

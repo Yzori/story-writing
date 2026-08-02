@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { crossroads, stories } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { crossroads, crossroadsVotes, stories } from "@/server/db/schema";
+import { eq, and, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
+import { createBulkNotifications } from "@/server/services/notifications";
 
 // PATCH — resolve or close a crossroad (story owner only)
 export async function PATCH(
@@ -26,7 +27,7 @@ export async function PATCH(
 
     // Must own the story
     const [story] = await db
-      .select({ userId: stories.userId })
+      .select({ userId: stories.userId, title: stories.title, slug: stories.slug })
       .from(stories)
       .where(eq(stories.id, storyId));
 
@@ -87,6 +88,25 @@ export async function PATCH(
           .update(crossroads)
           .set({ status: "resolved", resolvedOption })
           .where(eq(crossroads.id, crossroadId));
+
+        // Close the loop: everyone who voted learns which way the story
+        // went. Fire-and-forget; the resolve itself is already done.
+        const voters = await db
+          .selectDistinct({ userId: crossroadsVotes.userId })
+          .from(crossroadsVotes)
+          .where(
+            and(
+              eq(crossroadsVotes.crossroadId, crossroadId),
+              ne(crossroadsVotes.userId, session.user.id)
+            )
+          );
+        const winner = options[resolvedOption]?.label ?? "an option";
+        createBulkNotifications(
+          voters.map((v) => v.userId),
+          "update",
+          `The crossroads in "${story.title}" resolved — "${winner}" carried the day`,
+          `/story/${story.slug || storyId}`
+        );
         break;
       }
 

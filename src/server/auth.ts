@@ -8,6 +8,7 @@ import { users } from "@/server/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { hashPassword, passwordNeedsRehash, verifyPassword } from "@/server/password";
 import { env } from "@/server/env";
+import { sendEmail, welcomeEmail } from "@/server/services/email";
 import {
   clearLoginAttempts,
   getLoginAttemptKey,
@@ -135,6 +136,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
           avatarUrl: sql`coalesce(${users.avatarUrl}, ${user.image ?? null})`,
         })
         .where(eq(users.id, user.id));
+      // One warm hello — fire-and-forget so signup never waits on Resend.
+      if (user.email) {
+        const { subject, html } = welcomeEmail(user.name ?? null);
+        void sendEmail(user.email, subject, html, user.id);
+      }
     },
   },
   callbacks: {

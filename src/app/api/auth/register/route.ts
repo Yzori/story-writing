@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { hashPassword } from "@/server/password";
 import { applyPersistentRateLimit, errorResponse, handleRouteError } from "@/server/api-utils";
 import { normalizeEmail } from "@/server/auth-utils";
+import { sendEmail, welcomeEmail } from "@/server/services/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
         name: displayName || null,
       })
       .returning({ id: users.id, email: users.email });
+
+    // One warm hello — fire-and-forget so signup never waits on Resend.
+    // (OAuth signups get theirs from the NextAuth createUser event.)
+    const { subject, html } = welcomeEmail(displayName || null);
+    void sendEmail(newUser.email, subject, html, newUser.id);
 
     return NextResponse.json({ data: { id: newUser.id, email: newUser.email } });
   } catch (error: unknown) {

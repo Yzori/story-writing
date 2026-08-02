@@ -245,7 +245,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return passage;
     });
 
-    if (canonizedReaderId) {
+    if (canonizedReaderId && canonizedReaderId !== session.user.id) {
       createNotification(
         canonizedReaderId,
         "adventure",

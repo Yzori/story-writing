@@ -43,7 +43,8 @@ export async function sendEmail(
 
 // ── Email Templates ────────────────────────────────────────
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://quiloria.app";
+const APP_URL =
+  process.env.APP_URL || process.env.NEXTAUTH_URL || "https://quiloria.app";
 
 const WRAPPER = (body: string) => `
 <div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#D4C4A8;background:#1A1510;padding:32px 24px;border-radius:12px;">
@@ -71,6 +72,19 @@ const esc = (value: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+export function welcomeEmail(name: string | null) {
+  const greeting = name ? `Welcome, ${esc(name)}` : "Welcome to Quiloria";
+  return {
+    subject: "Your desk is ready",
+    html: WRAPPER(`
+      <h2 style="color:#F2E8D0;font-size:18px;margin:0 0 8px;">${greeting}</h2>
+      <p style="margin:0 0 8px;line-height:1.6;">Your desk is set, the ink is fresh, and the shelves are waiting.</p>
+      <p style="margin:0 0 16px;line-height:1.6;color:#9A8A6A;">Start a story of your own, wander the library, or pull up a chair at a live adventure table and watch one being written.</p>
+      <div style="text-align:center;">${CTA(`${APP_URL}/dashboard`, "Step inside")}</div>
+    `),
+  };
+}
 
 export function chapterPublishedEmail(storyTitle: string, chapterTitle: string, url: string) {
   return {
