@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { adventures, adventureSeats, stories } from "@/server/db/schema";
 import { auth } from "@/server/auth";
 import { applyPersistentRateLimit, handleRouteError } from "@/server/api-utils";
-import { adventureSeatSetupSchema } from "@/lib/validations";
+import { joinAdventureSchema } from "@/lib/validations";
 import { sha256Hex } from "@/server/auth-utils";
 
 type RouteParams = { params: Promise<{ token: string }> };
@@ -39,16 +39,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select({ title: stories.title })
       .from(stories)
       .where(eq(stories.id, adventure.storyId));
-    const [openSeats] = await db
-      .select({ count: sql<number>`count(*)::int` })
+    const openSeats = await db
+      .select({
+        role: adventureSeats.role,
+        count: sql<number>`count(*)::int`,
+      })
       .from(adventureSeats)
       .where(
         and(
           eq(adventureSeats.adventureId, adventure.id),
           eq(adventureSeats.status, "open"),
-          eq(adventureSeats.role, "writer")
+          isNull(adventureSeats.userId)
         )
-      );
+      )
+      .groupBy(adventureSeats.role);
 
     return NextResponse.json({
       data: {
@@ -57,7 +61,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         genre: adventure.genre,
         pace: adventure.pace,
         status: adventure.status,
-        openWriterSeats: openSeats?.count ?? 0,
+        openWriterSeats:
+          openSeats.find((s) => s.role === "writer")?.count ?? 0,
+        directorSeatOpen: openSeats.some((s) => s.role === "director"),
       },
     });
   } catch (error) {
@@ -67,8 +73,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * POST /api/adventures/join/[token]
- * Claim an open writer seat with your character. The seat claim is
- * row-locked so two friends clicking the same link don't share a chair.
+ * Claim an open seat — a writer chair with your character, or the
+ * Director's chair if the table is looking for one. The role is the
+ * joiner's explicit choice; an invite never silently seats someone as
+ * Director. The seat claim is row-locked so two friends clicking the
+ * same link don't share a chair.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -88,7 +97,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { token } = await params;
     const body = await request.json();
-    const parsed = adventureSeatSetupSchema.safeParse(body);
+    const parsed = joinAdventureSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -136,14 +145,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           and(
             eq(adventureSeats.adventureId, adventure.id),
             eq(adventureSeats.status, "open"),
+            eq(adventureSeats.role, parsed.data.role),
             isNull(adventureSeats.userId)
           )
         )
-        .orderBy(
-          // Director seat first if it's the open one, else first writer seat.
-          sql`case when ${adventureSeats.role} = 'director' then 0 else 1 end`,
-          asc(adventureSeats.createdAt)
-        )
+        .orderBy(asc(adventureSeats.createdAt))
         .limit(1)
         // skipLocked: under plain FOR UPDATE + LIMIT 1, a second joiner
         // blocks on the same row, re-checks it as taken, and reports
@@ -160,9 +166,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           joinedAt: new Date(),
           ...(openSeat.role === "writer"
             ? {
-                characterName: parsed.data.characterName,
-                characterBrief: parsed.data.characterBrief,
-                inkColor: parsed.data.inkColor,
+                characterName: parsed.data.characterName ?? "",
+                characterBrief: parsed.data.characterBrief ?? "",
+                inkColor: parsed.data.inkColor ?? "amber",
               }
             : {}),
         })
@@ -181,8 +187,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
     if (claimed === "full") {
+      const message =
+        parsed.data.role === "director"
+          ? "The Director's chair is already taken."
+          : "Every writer seat at this table is taken.";
       return NextResponse.json(
-        { error: { code: "TABLE_FULL", message: "Every seat at this table is taken." } },
+        { error: { code: "TABLE_FULL", message } },
         { status: 409 }
       );
     }

@@ -679,6 +679,18 @@ export const adventureSceneSchema = z.discriminatedUnion("action", [
 
 export const adventureSeatSetupSchema = z.object(adventureCharacterFields);
 
+export const joinAdventureSchema = z
+  .object({
+    role: z.enum(["director", "writer"]).default("writer"),
+    characterName: adventureCharacterFields.characterName.optional(),
+    characterBrief: z.string().max(500).optional(),
+    inkColor: z.enum(ADVENTURE_INK_COLORS).optional(),
+  })
+  .refine((data) => data.role !== "writer" || !!data.characterName, {
+    message: "Writers bring a character to the table",
+    path: ["characterName"],
+  });
+
 export const adventureApplicationSchema = z.object({
   seatRole: z.enum(["director", "writer"]),
   note: z.string().max(500).default(""),

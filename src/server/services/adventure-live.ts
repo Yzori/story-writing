@@ -140,6 +140,13 @@ export async function loadPassagesAfter(adventureId: string, afterSort: number |
  * The public watch state: the table as the audience sees it. No
  * hands, no whispers. Lantern counts, backings, the open house vote,
  * and cast presence. Returns null when the adventure doesn't exist.
+ *
+ * Deliberately does NOT check boardVisibility (decided 2026-08-02):
+ * `private` means "not listed on the matchmaking board", not "no
+ * spectators" — the live audience is core to the format, and the
+ * adventure id is an unguessable capability URL only the cast can
+ * hand out. If a no-spectators mode is ever wanted, that's a new
+ * setting, not a reinterpretation of this one.
  */
 export async function loadWatchStatePayload(
   adventureId: string,

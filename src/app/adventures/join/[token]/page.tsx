@@ -14,6 +14,7 @@ interface InvitePeek {
   pace: AdventurePace;
   status: string;
   openWriterSeats: number;
+  directorSeatOpen: boolean;
 }
 
 /**
@@ -25,6 +26,7 @@ export default function JoinAdventurePage() {
   const router = useRouter();
   const [peek, setPeek] = useState<InvitePeek | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [role, setRole] = useState<"writer" | "director">("writer");
   const [characterName, setCharacterName] = useState("");
   const [characterBrief, setCharacterBrief] = useState("");
   const [inkColor, setInkColor] = useState("teal");
@@ -36,8 +38,14 @@ export default function JoinAdventurePage() {
       .then((res) => res.json())
       .then((body) => {
         if (cancelled) return;
-        if (body.data) setPeek(body.data);
-        else setFailed(body.error?.message ?? "This invite is no longer good.");
+        if (body.data) {
+          setPeek(body.data);
+          if (body.data.openWriterSeats === 0 && body.data.directorSeatOpen) {
+            setRole("director");
+          }
+        } else {
+          setFailed(body.error?.message ?? "This invite is no longer good.");
+        }
       })
       .catch(() => {
         if (!cancelled) setFailed("This invite is no longer good.");
@@ -48,13 +56,17 @@ export default function JoinAdventurePage() {
   }, [params.token]);
 
   const join = async () => {
-    if (busy || !characterName.trim()) return;
+    if (busy || (role === "writer" && !characterName.trim())) return;
     setBusy(true);
     setFailed(null);
     const res = await fetch(`/api/adventures/join/${params.token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ characterName, characterBrief, inkColor }),
+      body: JSON.stringify(
+        role === "director"
+          ? { role }
+          : { role, characterName, characterBrief, inkColor }
+      ),
     });
     const body = await res.json().catch(() => null);
     setBusy(false);
@@ -104,48 +116,96 @@ export default function JoinAdventurePage() {
           {peek.premise}
         </p>
         <p className="text-[12px] text-teal mb-8">
-          {PACE_LABELS[peek.pace]} ·{" "}
-          {peek.openWriterSeats > 0
-            ? `${peek.openWriterSeats} writer seat${peek.openWriterSeats === 1 ? "" : "s"} open`
-            : "the director seat is open"}
+          {PACE_LABELS[peek.pace]}
+          {peek.openWriterSeats > 0 &&
+            ` · ${peek.openWriterSeats} writer seat${peek.openWriterSeats === 1 ? "" : "s"} open`}
+          {peek.directorSeatOpen && " · the Director's chair is open"}
         </p>
 
         <div className="text-left border border-border rounded-xl p-5 bg-ink/60 space-y-4">
-          <div>
-            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
-              Your character
-            </label>
-            <input
-              value={characterName}
-              onChange={(e) => setCharacterName(e.target.value.slice(0, 80))}
-              placeholder="Brother Calder"
-              className="w-full bg-elevated border border-border rounded-lg px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
-              In a few words
-            </label>
-            <input
-              value={characterBrief}
-              onChange={(e) => setCharacterBrief(e.target.value.slice(0, 500))}
-              placeholder="defrocked cartographer"
-              className="w-full bg-elevated border border-border rounded-lg px-3 py-2 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
-              Your ink
-            </label>
-            <InkPicker value={inkColor} onChange={setInkColor} />
-          </div>
+          {peek.openWriterSeats > 0 && peek.directorSeatOpen && (
+            <div>
+              <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
+                Sit down as
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setRole("writer")}
+                  className={`rounded-lg border px-3 py-2.5 text-[13px] font-medium transition-colors ${
+                    role === "writer"
+                      ? "border-amber/50 bg-amber/10 text-paper"
+                      : "border-border bg-elevated text-text-secondary hover:text-text"
+                  }`}
+                >
+                  Writer
+                  <span className="block text-[11px] font-normal text-text-ghost">
+                    play a character
+                  </span>
+                </button>
+                <button
+                  onClick={() => setRole("director")}
+                  className={`rounded-lg border px-3 py-2.5 text-[13px] font-medium transition-colors ${
+                    role === "director"
+                      ? "border-amber/50 bg-amber/10 text-paper"
+                      : "border-border bg-elevated text-text-secondary hover:text-text"
+                  }`}
+                >
+                  Director
+                  <span className="block text-[11px] font-normal text-text-ghost">
+                    run the world
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+          {role === "writer" ? (
+            <>
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
+                  Your character
+                </label>
+                <input
+                  value={characterName}
+                  onChange={(e) => setCharacterName(e.target.value.slice(0, 80))}
+                  placeholder="Brother Calder"
+                  className="w-full bg-elevated border border-border rounded-lg px-3 py-2.5 text-[14px] text-paper outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
+                  In a few words
+                </label>
+                <input
+                  value={characterBrief}
+                  onChange={(e) => setCharacterBrief(e.target.value.slice(0, 500))}
+                  placeholder="defrocked cartographer"
+                  className="w-full bg-elevated border border-border rounded-lg px-3 py-2 text-[13px] text-text outline-none placeholder:text-text-ghost focus:border-amber/30 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.12em] text-text-ghost mb-2 block">
+                  Your ink
+                </label>
+                <InkPicker value={inkColor} onChange={setInkColor} />
+              </div>
+            </>
+          ) : (
+            <p className="font-reading italic text-[14px] text-text leading-relaxed m-0">
+              The Director plays the world, not a character — you set scenes,
+              pass the spotlight, and keep the story moving.
+            </p>
+          )}
           {failed && <p className="text-[12.5px] text-rose m-0">{failed}</p>}
           <button
             onClick={join}
-            disabled={busy || !characterName.trim()}
+            disabled={busy || (role === "writer" && !characterName.trim())}
             className="w-full font-semibold text-[14px] rounded-[11px] px-5 py-3 bg-gold text-on-gold border border-gold hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {busy ? "Taking your seat…" : "Take a seat"}
+            {busy
+              ? "Taking your seat…"
+              : role === "director"
+                ? "Take the Director's chair"
+                : "Take a seat"}
           </button>
         </div>
       </div>
