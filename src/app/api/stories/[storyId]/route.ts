@@ -43,8 +43,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const canReadDrafts = isOwner || isCollaborator;
 
     const hasPublicAccess =
-      story.isPublic &&
-      (story.status === "published" || story.writingMode === "campaign");
+      // Visibility is isPublic alone; `status` is writing progress
+      // (in-progress/complete/hiatus), not a second gate. Requiring
+      // status === "published" here 404'd every organically published
+      // story — nothing in the app ever sets that value.
+      story.isPublic;
 
     if (!canReadDrafts && !hasPublicAccess) {
       return NextResponse.json(
@@ -188,6 +191,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     };
     if (parsed.data.isPublic === true && !existing.publishedAt) {
       setData.publishedAt = new Date();
+    }
+    // Going public while still "draft": move to in-progress so the
+    // browse status filters (Ongoing = in-progress,published) include it.
+    if (
+      parsed.data.isPublic === true &&
+      parsed.data.status === undefined &&
+      existing.status === "draft"
+    ) {
+      setData.status = "in-progress";
     }
 
     const [updated] = await db

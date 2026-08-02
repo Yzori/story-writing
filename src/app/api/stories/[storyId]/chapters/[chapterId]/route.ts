@@ -16,6 +16,7 @@ import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { createBulkNotifications } from "@/server/services/notifications";
 import { TIER_PRICES } from "@/lib/constants";
+import { hasActiveCircleSubscription } from "@/server/services/circles";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -79,9 +80,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       isCollab = !!collab;
     }
     const canBypassReaderGate = isOwner || isCollab;
-    const hasPublicStoryAccess =
-      story.isPublic &&
-      (story.status === "published" || story.writingMode === "campaign");
+    // Visibility is isPublic alone; story `status` is writing progress,
+    // not a second gate (see stories/[storyId]/route.ts).
+    const hasPublicStoryAccess = story.isPublic;
 
     // Draft chapters require ownership or collaborator access
     if (chapter.status !== "published") {
@@ -101,9 +102,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const price = TIER_PRICES[chapter.gatingTier] ?? 0;
-    const isEarlyAccess =
-      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
-    const requiresUnlock = price > 0 || Boolean(isEarlyAccess);
+    let isEarlyAccess = Boolean(
+      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date()
+    );
+    // Early access is the Circle perk: an active subscriber to this
+    // story's author walks through the hold. Paid gating is separate
+    // revenue and still applies.
+    if (isEarlyAccess && session?.user?.id) {
+      if (await hasActiveCircleSubscription(session.user.id, story.userId)) {
+        isEarlyAccess = false;
+      }
+    }
+    const requiresUnlock = price > 0 || isEarlyAccess;
 
     if (chapter.status === "published" && !canBypassReaderGate) {
       if (requiresUnlock) {
@@ -121,7 +131,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 unlocked: false,
                 price,
                 tier: chapter.gatingTier,
-                isEarlyAccess: Boolean(isEarlyAccess),
+                isEarlyAccess,
                 earlyAccessUntil: chapter.earlyAccessUntil,
               },
               chapter: {

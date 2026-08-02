@@ -11,6 +11,7 @@ import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
 import { distributeEarnings } from "@/server/services/ink-drops";
+import { hasActiveCircleSubscription } from "@/server/services/circles";
 
 // GET — check if chapter is unlocked for current user + gating info
 export async function GET(
@@ -67,8 +68,16 @@ export async function GET(
     }
 
     const price = TIER_PRICES[chapter.gatingTier] ?? 0;
-    const isEarlyAccess =
-      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
+    let isEarlyAccess = Boolean(
+      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date()
+    );
+    // Circle subscribers to this author skip the early-access hold
+    // (paid gating still applies — that's separate revenue).
+    if (isEarlyAccess && userId && story) {
+      if (await hasActiveCircleSubscription(userId, story.userId)) {
+        isEarlyAccess = false;
+      }
+    }
 
     // Free chapter or early access expired
     if (price === 0 && !isEarlyAccess) {

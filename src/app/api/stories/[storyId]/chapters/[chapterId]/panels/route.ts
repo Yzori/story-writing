@@ -6,6 +6,7 @@ import { createPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { TIER_PRICES } from "@/lib/constants";
+import { hasActiveCircleSubscription } from "@/server/services/circles";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string }>;
@@ -63,9 +64,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const canReadDrafts = isOwner || isCollaborator;
-    const hasPublicStoryAccess =
-      story.isPublic &&
-      (story.status === "published" || story.writingMode === "campaign");
+    // Visibility is isPublic alone; story `status` is writing progress,
+    // not a second gate (see stories/[storyId]/route.ts).
+    const hasPublicStoryAccess = story.isPublic;
 
     const chapter = await db.query.chapters.findFirst({
       where: and(
@@ -97,9 +98,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const price = TIER_PRICES[chapter.gatingTier] ?? 0;
-    const isEarlyAccess =
-      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date();
-    const requiresUnlock = price > 0 || Boolean(isEarlyAccess);
+    let isEarlyAccess = Boolean(
+      chapter.earlyAccessUntil && new Date(chapter.earlyAccessUntil) > new Date()
+    );
+    // Circle subscribers to this author skip the early-access hold.
+    if (isEarlyAccess && session?.user?.id) {
+      if (await hasActiveCircleSubscription(session.user.id, story.userId)) {
+        isEarlyAccess = false;
+      }
+    }
+    const requiresUnlock = price > 0 || isEarlyAccess;
 
     if (chapter.status === "published" && !canReadDrafts && requiresUnlock) {
       if (!session?.user?.id) {

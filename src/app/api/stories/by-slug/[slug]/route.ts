@@ -45,8 +45,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const canReadDrafts = isOwner || isCollaborator;
 
     const hasPublicAccess =
-      story.isPublic &&
-      (story.status === "published" || story.writingMode === "campaign");
+      // Visibility is isPublic alone; `status` is writing progress, not
+      // a second gate (see stories/[storyId]/route.ts).
+      story.isPublic;
 
     if (!canReadDrafts && !hasPublicAccess) {
       return NextResponse.json(
