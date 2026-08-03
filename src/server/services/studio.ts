@@ -574,6 +574,8 @@ async function getSignals(userId: string): Promise<StudioSignals> {
     // position updated inside the window. Never rendered when it's zero.
     db
       .select({
+        storyId: stories.id,
+        slug: stories.slug,
         storyTitle: stories.title,
         count: sql<number>`count(distinct ${readingProgress.userId})::int`,
       })
@@ -587,7 +589,7 @@ async function getSignals(userId: string): Promise<StudioSignals> {
           gt(readingProgress.updatedAt, readersFresh),
         ),
       )
-      .groupBy(stories.title)
+      .groupBy(stories.id, stories.title, stories.slug)
       .orderBy(desc(sql`count(distinct ${readingProgress.userId})`))
       .limit(1),
   ]);
@@ -684,7 +686,12 @@ async function getSignals(userId: string): Promise<StudioSignals> {
     dropsWeek: Number(dropsWeekRow[0]?.total ?? 0),
     readersNow:
       readers && Number(readers.count) > 0
-        ? { count: Number(readers.count), storyTitle: readers.storyTitle ?? null }
+        ? {
+            count: Number(readers.count),
+            storyId: readers.storyId,
+            slug: readers.slug ?? null,
+            storyTitle: readers.storyTitle ?? null,
+          }
         : null,
     suggestions: { count: Number(suggestionRows[0]?.total ?? 0), latest: latestSuggestion },
     follows: followFeed,

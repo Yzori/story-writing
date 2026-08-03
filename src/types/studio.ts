@@ -112,7 +112,7 @@ export interface StudioSignals {
   sparksWeek: number;
   dropsWeek: number;
   /** readers with a live place in one of your stories, right now — or null */
-  readersNow: { count: number; storyTitle: string | null } | null;
+  readersNow: { count: number; storyId: string; slug: string | null; storyTitle: string | null } | null;
   suggestions: {
     count: number;
     latest: { storyId: string; storyTitle: string; storySlug: string | null; note: string; createdAt: string } | null;

@@ -238,7 +238,7 @@ function buildFeed(vm: StudioViewModel): FeedEvent[] {
 
   if (s.readersNow && s.readersNow.count > 0) {
     const n = s.readersNow.count;
-    const item = snapshot.shelf.find((w) => w.title === s.readersNow?.storyTitle);
+    const item = snapshot.shelf.find((w) => w.id === s.readersNow?.storyId);
     events.push({
       id: "readers-now",
       who: `${n} reader${n === 1 ? "" : "s"}`,

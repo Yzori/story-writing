@@ -85,11 +85,11 @@ export default function StudioTab({ snapshot, now }: { snapshot: StudioSnapshot;
     );
   }
   if (s.readersNow && s.readersNow.count > 0) {
-    const w = shelf.find((x) => x.title === s.readersNow?.storyTitle);
+    const w = shelf.find((x) => x.id === s.readersNow?.storyId);
     cards.push(
       <GlassCard
         key="readers-now"
-        href={w?.slug ? `/story/${w.slug}` : "#"}
+        href={s.readersNow.slug ? `/story/${s.readersNow.slug}` : w ? storyHref(w) : "#"}
         coverSeed={s.readersNow.storyTitle ?? "readers"}
         coverImage={w?.coverImageUrl}
         title={s.readersNow.storyTitle ?? "Your story"}
