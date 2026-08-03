@@ -771,6 +771,10 @@ function MessageThread({ messages, currentUserId }: { messages: CommissionMessag
     return (
       <div className="text-center py-12">
         <p className="text-text-ghost text-sm">No messages yet.</p>
+        <p className="text-text-ghost text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+          Notes land here as the commission moves — acceptance, questions,
+          delivery, and revisions each carry one.
+        </p>
       </div>
     );
   }

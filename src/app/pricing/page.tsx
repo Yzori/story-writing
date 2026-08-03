@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { SUBSCRIPTION_PLANS } from "@/config/subscription";
+import SiteFooter from "@/components/shared/SiteFooter";
 
 export default function PricingPage() {
   const { data: session } = useSession();
@@ -197,6 +198,8 @@ export default function PricingPage() {
           />
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

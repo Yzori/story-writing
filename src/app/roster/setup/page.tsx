@@ -507,6 +507,17 @@ export default function RosterSetupPage() {
             </motion.div>
 
             {/* Showcase Stories (expandable) */}
+            {myStories.length === 0 && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="pt-8 border-t border-border/50">
+                <div className="bg-surface/30 border border-border-subtle rounded-2xl p-5">
+                  <p className="text-paper text-[14px] font-medium">Showcase stories</p>
+                  <p className="text-text-ghost text-[12px] mt-1">
+                    Once you publish a story, you can pin it to your card here as
+                    a work sample.
+                  </p>
+                </div>
+              </motion.div>
+            )}
             {myStories.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="pt-8 border-t border-border/50">
                 <button type="button" onClick={() => setShowShowcase(!showShowcase)}

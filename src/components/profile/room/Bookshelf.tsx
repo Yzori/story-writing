@@ -121,11 +121,21 @@ export default function Bookshelf({ featured, stories, isOwner }: BookshelfProps
       <ZoneLabel>The shelves</ZoneLabel>
 
       {empty ? (
-        <p className="font-reading text-[12px] italic leading-relaxed text-text-ghost">
-          {isOwner
-            ? "The shelves are empty. Begin a manuscript when you're ready."
-            : "The shelves are bare, for now."}
-        </p>
+        <div>
+          <p className="font-reading text-[12px] italic leading-relaxed text-text-ghost">
+            {isOwner
+              ? "The shelves are empty. Begin a manuscript when you're ready."
+              : "The shelves are bare, for now."}
+          </p>
+          {isOwner && (
+            <Link
+              href="/create"
+              className="mt-2 inline-block text-[12px] text-gold hover:text-gold-light transition-colors"
+            >
+              Start writing →
+            </Link>
+          )}
+        </div>
       ) : (
         <div className="space-y-6">
           {/* Face-out featured volume */}

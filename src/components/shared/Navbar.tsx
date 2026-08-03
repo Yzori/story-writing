@@ -185,7 +185,13 @@ function NavbarInner({
       <QuillPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        commands={signedIn ? SIGNED_IN_COMMANDS : SIGNED_OUT_COMMANDS}
+        commands={
+          signedIn
+            ? SIGNED_IN_COMMANDS.map((c) =>
+                c.href === "/profile" ? { ...c, href: profileHref } : c
+              )
+            : SIGNED_OUT_COMMANDS
+        }
       />
     </div>
   );

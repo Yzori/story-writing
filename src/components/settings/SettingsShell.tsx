@@ -122,6 +122,13 @@ export default function SettingsShell({ children }: { children: React.ReactNode 
                 <span className="h-px flex-1 bg-border" />
               </div>
               {children}
+
+              <div className="mt-10 border-t border-border-subtle pt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-text-ghost">
+                <Link href="/about" className="hover:text-text-secondary transition-colors">About Quiloria</Link>
+                <Link href="/help" className="hover:text-text-secondary transition-colors">Help</Link>
+                <Link href="/terms" className="hover:text-text-secondary transition-colors">Terms</Link>
+                <Link href="/privacy" className="hover:text-text-secondary transition-colors">Privacy</Link>
+              </div>
             </section>
           </div>
         </div>

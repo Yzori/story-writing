@@ -649,11 +649,11 @@ export default function Hub({
           </section>
 
           {/* ── YOUR WORKS · covers with status chips ── */}
-          {shelf.length > 0 && (
+          {shelf.length > 0 ? (
             <section className="mt-14">
               <SectionLabel
                 right={
-                  <Link href="/write" className="text-text-ghost transition-colors hover:text-paper">
+                  <Link href={`/profile/${userId}`} className="text-text-ghost transition-colors hover:text-paper">
                     all works →
                   </Link>
                 }
@@ -679,6 +679,19 @@ export default function Hub({
                   </Link>
                 ))}
               </div>
+            </section>
+          ) : (
+            <section className="mt-14">
+              <SectionLabel>your works</SectionLabel>
+              <Link
+                href="/create"
+                className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-border px-5 py-4 transition-colors hover:border-gold/40 group"
+              >
+                <span className="font-display text-[20px] text-gold/70 transition-colors group-hover:text-gold">+</span>
+                <span className="font-reading text-[13px] italic text-text-ghost transition-colors group-hover:text-text-secondary">
+                  The shelf is waiting for a first spine. Begin a work →
+                </span>
+              </Link>
             </section>
           )}
 

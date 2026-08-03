@@ -73,7 +73,17 @@ export default function JamsPage() {
                 <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 13l-3-2-3 2 .5-4.5L3 6l3.5-.5z" />
               </svg>
             </div>
-            <p className="text-text-ghost">No jams yet. Check back soon!</p>
+            <p className="text-paper font-display text-lg mb-2">No jams on the board tonight</p>
+            <p className="text-text-ghost text-sm max-w-md mx-auto mb-6">
+              Story jams are timed community prompts — when one opens, entries
+              and votes happen right here. Meanwhile, the shelves are open.
+            </p>
+            <Link
+              href="/browse"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber text-void font-semibold text-sm hover:bg-amber-light transition-all"
+            >
+              Browse stories
+            </Link>
           </div>
         ) : (
           <>

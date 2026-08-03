@@ -819,7 +819,7 @@ export default function AuditionPage() {
 
               <p className="mt-3 text-center text-[10.5px] italic leading-relaxed text-text-ghost">
                 The GM may share your request with the current cast.<br />
-                Edit or withdraw — coming soon.
+                Requests can&apos;t be edited or withdrawn once sent.
               </p>
             </AuditionCard>
           </div>
@@ -1092,7 +1092,7 @@ function ApplicationStatusScreen({
               Browse open stories
             </Link>
             <p className="px-2 text-center text-[11px] leading-relaxed text-text-ghost">
-              Edit or withdraw requests is coming soon. For now, the GM sees the request you already sent.
+              Requests can&apos;t be edited or withdrawn once sent — the GM sees yours exactly as you wrote it.
             </p>
           </aside>
         </div>
@@ -1453,7 +1453,7 @@ function SubmittedState({
           transition={{ delay: 0.8, duration: 0.6 }}
           className="mt-10 text-[10.5px] italic text-text-ghost/80"
         >
-          Edit or withdraw — coming soon.
+          Requests can&apos;t be edited or withdrawn once sent.
         </motion.p>
       </div>
     </div>

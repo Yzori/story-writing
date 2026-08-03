@@ -519,6 +519,18 @@ function RegisterForm() {
                       ? "Sign — and save my draft"
                       : "Sign my name in"}
                 </button>
+
+                <p className="text-center text-[11px] leading-relaxed text-on-gold/45">
+                  By signing in your name you agree to the{" "}
+                  <Link href="/terms" className="underline underline-offset-2 hover:text-on-gold/70 transition-colors">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="underline underline-offset-2 hover:text-on-gold/70 transition-colors">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
               </form>
 
               {/* or arrive another way */}

@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { QuillRingMark } from "@/components/shared/BrandLogo";
+import SiteFooter from "@/components/shared/SiteFooter";
 import { Grain, Motes } from "@/components/shared/Atmosphere";
 import { bloomGradient, markCrossing } from "@/lib/crossing";
 
@@ -73,7 +74,7 @@ const FALLBACK_TALES: LandingTale[] = [
     title: "Salt & Ruin",
     author: "Maren Holt",
     genre: "Coastal fantasy",
-    sparks: "11.2k",
+    sparks: "",
     mins: 12,
     hook: "A cursed lighthouse, a missing brother, and a coast that remembers every shipwreck.",
     firstLine:
@@ -84,7 +85,7 @@ const FALLBACK_TALES: LandingTale[] = [
     title: "The Obsidian Crown",
     author: "Kaelen Thorne",
     genre: "Fantasy",
-    sparks: "12.4k",
+    sparks: "",
     mins: 14,
     hook: "The crown chooses its wearer. This time, it chose wrong.",
     firstLine:
@@ -95,7 +96,7 @@ const FALLBACK_TALES: LandingTale[] = [
     title: "Whispering Pines",
     author: "Sarah Imani",
     genre: "Mystery",
-    sparks: "8.1k",
+    sparks: "",
     mins: 11,
     hook: "Every town has secrets. This one buries them standing up.",
     firstLine:
@@ -106,7 +107,7 @@ const FALLBACK_TALES: LandingTale[] = [
     title: "Neon Grifters",
     author: "Cyborg2088",
     genre: "Cyberpunk",
-    sparks: "6.7k",
+    sparks: "",
     mins: 9,
     hook: "Three con artists, one sentient city, zero exit plans.",
     firstLine: "The city knew we were lying before we did, and it loved us for trying.",
@@ -116,7 +117,7 @@ const FALLBACK_TALES: LandingTale[] = [
     title: "The Hollow Depths",
     author: "Abysswalker",
     genre: "Sci-Fi",
-    sparks: "5.9k",
+    sparks: "",
     mins: 10,
     hook: "Six miles down, something answered the drill.",
     firstLine: "The drill had been silent for six hours when the singing started.",
@@ -144,14 +145,14 @@ const WAYS = [
     cls: "text-amethyst",
     act: "way III",
     still: "/landing/still-alive.png",
-    sub: "Adventure mode — a GM, a party of writers, 2d6 dice, and chapters nobody planned.",
+    sub: "Adventure mode — a Director, a table of writers, a live audience, and chapters nobody planned.",
   },
 ];
 
 const PROOF = [
   { figure: "5", label: "writing formats" },
-  { figure: "24", label: "genres in the stacks" },
-  { figure: "2d6", label: "adventure dice" },
+  { figure: "30", label: "genres in the stacks" },
+  { figure: "70%", label: "of every drop to its maker" },
 ];
 
 // ── VI · the wormhole — hover a door, an aperture opens onto its world ──
@@ -707,7 +708,7 @@ interface Props {
 }
 
 export default function FilmLanding({ tales = null, storyCount = null }: Props = {}) {
-  const data = tales && tales.length >= 2 ? tales : FALLBACK_TALES;
+  const data = tales && tales.length > 0 ? tales : FALLBACK_TALES;
   // Stories beyond the five on the ledger; null hides the number.
   const moreInStacks =
     storyCount != null && storyCount > data.length ? storyCount - data.length : null;
@@ -1311,7 +1312,8 @@ export default function FilmLanding({ tales = null, storyCount = null }: Props =
                     {book.hook}
                   </span>
                   <span className="font-mono text-[10px] md:text-[11px] text-text-ghost tracking-wide shrink-0 md:text-right">
-                    {book.genre} · {book.mins} min · ✶ {book.sparks}
+                    {book.genre} · {book.mins} min
+                    {book.sparks ? ` · ✶ ${book.sparks}` : ""}
                   </span>
                 </button>
               ))}
@@ -1378,16 +1380,11 @@ export default function FilmLanding({ tales = null, storyCount = null }: Props =
               </motion.div>
             </div>
 
-            <div className="mt-20 flex flex-col items-center gap-3">
-              <QuillRingMark className="w-8 h-8 text-gold/50" />
-              <p className="text-[11px] text-text-ghost">
-                Quiloria — where imagination becomes story.
-              </p>
-            </div>
           </div>
         </section>
       </div>
 
+      <SiteFooter />
     </main>
   );
 }

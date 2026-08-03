@@ -243,13 +243,13 @@ function OfferingsTab({
         />
 
         <OfferingCard
-          status="coming-soon"
+          status="available"
           icon={<BoostGlyph />}
           title="Boost"
           body="Pay to lift a story in browse for a set window."
-          setup="Not available yet"
-          earnings="No creator revenue impact"
-          action={{ label: "Coming soon", href: "/creator/boost", disabled: true }}
+          setup="Pick a story, a tier, and a window"
+          earnings="Spends drops — no creator revenue impact"
+          action={{ label: "Boost a story", href: "/creator/boost" }}
           loading={loading}
           accent="lavender"
         />
@@ -382,7 +382,10 @@ function EarningsTab({ earnings, loading }: { earnings: EarningsData | null; loa
         {loading ? (
           <p className="py-6 text-center text-[13px] text-text-ghost">Loading...</p>
         ) : breakdownEntries.length === 0 ? (
-          <p className="py-6 text-center text-[13px] italic text-text-ghost">No earnings yet.</p>
+          <p className="py-6 text-center text-[13px] italic text-text-ghost">
+            No earnings yet. They begin when readers find something to support —
+            open an offering above, or share a story worth sparking.
+          </p>
         ) : (
           <div className="space-y-3">
             {breakdownEntries.map((e) => {
@@ -436,6 +439,18 @@ function EarningsTab({ earnings, loading }: { earnings: EarningsData | null; loa
             <ArrowGlyph />
           </Link>
         </div>
+      )}
+
+      {/* The tips strip hides itself when empty — keep the door to the
+          full ledger open regardless. */}
+      {(earnings?.recentTips?.length ?? 0) === 0 && !loading && (
+        <Link
+          href="/creator/earnings"
+          className="inline-flex items-center gap-1.5 text-[12px] text-amber transition-colors hover:text-amber-light"
+        >
+          See all earnings
+          <ArrowGlyph />
+        </Link>
       )}
     </div>
   );

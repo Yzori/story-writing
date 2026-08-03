@@ -43,7 +43,18 @@ export default function ProfileCrossroads({
   signedIn,
   onRefresh,
 }: ProfileCrossroadsProps) {
-  if (polls.length === 0) return null;
+  if (polls.length === 0) {
+    // Visitors see nothing; the owner learns the surface exists.
+    if (!isOwner) return null;
+    return (
+      <section id="crossroads" className="relative mx-auto mt-16 max-w-3xl scroll-mt-24 px-5 lg:px-8">
+        <p className="text-center font-reading text-[12px] italic leading-relaxed text-text-ghost">
+          No crossroads open. When a tale reaches a fork, set one out from the
+          story&apos;s page — visitors will cast ink on the turning here.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section id="crossroads" className="relative mx-auto mt-16 max-w-3xl scroll-mt-24 px-5 lg:px-8">

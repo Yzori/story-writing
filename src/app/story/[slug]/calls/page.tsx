@@ -669,9 +669,22 @@ export default function OpenCallsPage() {
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-text-ghost text-[13px] py-4">
-                                  No responses yet.
-                                </p>
+                                <div className="py-4">
+                                  <p className="text-text-ghost text-[13px]">
+                                    No responses yet.
+                                  </p>
+                                  <p className="text-text-ghost text-[12px] mt-1.5">
+                                    Pitches take a little time to arrive — or go
+                                    looking yourself on the{" "}
+                                    <Link
+                                      href="/roster"
+                                      className="text-amber hover:text-amber-light transition-colors"
+                                    >
+                                      roster of creatives
+                                    </Link>
+                                    .
+                                  </p>
+                                </div>
                               )}
                             </div>
                           )}

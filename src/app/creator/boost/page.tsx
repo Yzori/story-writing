@@ -315,7 +315,7 @@ export default function BoostMarketplace() {
             doesn&apos;t have a cover image. Hero slots are full-bleed and
             need one.{" "}
             <Link
-              href={`/story/${selectedStory.slug ?? selectedStory.id}/edit`}
+              href={`/write/${selectedStory.id}`}
               className="text-gold hover:underline"
             >
               Add a cover first

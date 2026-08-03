@@ -1033,6 +1033,16 @@ export function AgreementTab({
 
       {/* Version History */}
       <AnimatePresence>
+        {showHistory && history.length === 0 && (
+          <motion.p
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden text-[12px] text-text-ghost pt-2"
+          >
+            No earlier versions — this is the first draft of the agreement.
+          </motion.p>
+        )}
         {showHistory && history.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}

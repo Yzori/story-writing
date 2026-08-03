@@ -6,8 +6,25 @@ const protectedPaths = ["/write", "/dashboard", "/create", "/admin", "/settings"
 const protectedPatterns = [/\/profile\/[^/]+\/edit/];
 const authPages = ["/login", "/register"];
 
+// Design-iteration surfaces (mockups, concept demos) stay reachable in
+// dev but never ship: they carry fixture data, dead links, and old
+// branding. /demo/try is the one intentional anonymous-taste route.
+function isInternalSurface(pathname: string): boolean {
+  if (pathname === "/demo/try" || pathname.startsWith("/demo/try/")) return false;
+  return (
+    pathname.startsWith("/mockup") ||
+    pathname === "/demo-adventure-v2" ||
+    pathname === "/demo" ||
+    pathname.startsWith("/demo/")
+  );
+}
+
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (process.env.NODE_ENV === "production" && isInternalSurface(pathname)) {
+    return NextResponse.redirect(new URL("/", req.nextUrl.origin));
+  }
 
   // Static files from /public (anything with an extension) are never
   // auth-gated — /dashboard/study-night.png must not match the /dashboard

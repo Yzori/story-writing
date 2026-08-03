@@ -362,6 +362,11 @@ function RosterPageContent() {
       if (params?.search) query.set("search", params.search);
 
       const res = await fetch(`/api/roster?${query.toString()}`);
+      // Sample cards stand in ONLY when the roster is genuinely empty —
+      // an unfiltered fetch with zero members. A search or filter that
+      // matches nobody gets the honest "No creatives found" state, and
+      // an API failure must never dress fakes up as a preview.
+      const unfiltered = !params?.roles && !params?.genres && !params?.search;
       if (res.ok) {
         const json = await res.json();
         const fetched = json.data?.members || [];
@@ -369,20 +374,24 @@ function RosterPageContent() {
           setMembers(fetched);
           setTotal(json.data?.total || fetched.length);
           setShowingPreview(false);
-        } else {
+        } else if (unfiltered) {
           setMembers(DUMMY_MEMBERS);
           setTotal(DUMMY_MEMBERS.length);
           setShowingPreview(true);
+        } else {
+          setMembers([]);
+          setTotal(0);
+          setShowingPreview(false);
         }
       } else {
-        setMembers(DUMMY_MEMBERS);
-        setTotal(DUMMY_MEMBERS.length);
-        setShowingPreview(true);
+        setMembers([]);
+        setTotal(0);
+        setShowingPreview(false);
       }
     } catch {
-      setMembers(DUMMY_MEMBERS);
-      setTotal(DUMMY_MEMBERS.length);
-      setShowingPreview(true);
+      setMembers([]);
+      setTotal(0);
+      setShowingPreview(false);
     } finally {
       setLoading(false);
     }
@@ -532,7 +541,11 @@ function RosterPageContent() {
         <div className="max-w-7xl mx-auto px-6 mb-4">
           <div className="flex items-center justify-between">
             <p className="text-[12px] text-text-ghost">
-              {loading ? "Searching..." : `${total} creative${total !== 1 ? "s" : ""}`}
+              {loading
+                ? "Searching..."
+                : showingPreview
+                  ? "Sample cards"
+                  : `${total} creative${total !== 1 ? "s" : ""}`}
             </p>
             {session && (
               <Link

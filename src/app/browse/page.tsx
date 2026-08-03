@@ -17,9 +17,9 @@ import type { ApiStory } from "@/types/api";
 // searching flips the shelves to results.
 
 const LIBRARIAN_NOTES = [
-  "Because you stayed up too late with the last one.",
+  "The kind you stay up too late with.",
   "A quiet one, for a loud week.",
-  "You've been circling stories like this — here's the real thing.",
+  "Stories like this never stay shelved for long.",
   "Set aside the moment it arrived. It felt like yours.",
   "Short enough for tonight, long enough to stay with you.",
   "Picked off the shelf while no one was looking.",

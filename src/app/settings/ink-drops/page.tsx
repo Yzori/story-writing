@@ -248,6 +248,16 @@ export default function InkDropsPage() {
         )}
 
         {/* Purchase history */}
+        {purchases.length === 0 && balance !== null && (
+          <div>
+            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">
+              Purchase History
+            </h2>
+            <p className="rounded-2xl border border-border bg-surface/50 px-4 py-5 text-[13px] text-text-ghost">
+              No refills yet. When you buy Ink Drops, every receipt lands here.
+            </p>
+          </div>
+        )}
         {purchases.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">

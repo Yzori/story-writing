@@ -536,6 +536,11 @@ function DirectorDesk({
           <p className="text-[10.5px] tracking-[0.24em] uppercase text-gold-dark font-semibold mt-0 mb-2.5">
             The Director&apos;s desk
           </p>
+          {suggestions.length === 0 && (
+            <p className="mb-3 text-[11.5px] text-text-ghost">
+              Audience suggestions land here when watchers send them.
+            </p>
+          )}
           {suggestions.length > 0 && (
             <div className="mb-3 space-y-1.5">
               {suggestions.map((suggestion) => (
@@ -638,7 +643,7 @@ function DirectorDesk({
           })}
           {writers.length === 0 && (
             <span className="text-[12.5px] text-text-ghost">
-              No writers seated yet.
+              No writers seated yet — share the table invite to fill the chairs.
             </span>
           )}
           </div>

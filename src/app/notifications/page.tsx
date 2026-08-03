@@ -305,6 +305,7 @@ export default function NotificationsPage() {
             {f.label}
           </button>
         ))}
+        {moreFilters.length > 0 && (
         <details className="relative shrink-0">
           <summary
             className={`list-none px-3.5 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 [&::-webkit-details-marker]:hidden ${
@@ -337,6 +338,7 @@ export default function NotificationsPage() {
             ))}
           </div>
         </details>
+        )}
       </motion.div>
 
       {/* Loading */}

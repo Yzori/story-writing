@@ -376,6 +376,36 @@ export default function CommissionsPage() {
         </section>
       )}
 
+      {/* ─── Your commissions — the door back to work in flight ──────── */}
+      {mode === "browse" && pastCommissions.length > 0 && (
+        <section className="mx-auto max-w-6xl px-6 pb-8">
+          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-text-ghost">
+            Your commissions
+          </div>
+          <div className="-mx-2 flex gap-3 overflow-x-auto px-2 pb-2 [scrollbar-width:thin]">
+            {pastCommissions.slice(0, 4).map((c) => (
+              <Link
+                key={c.id}
+                href={`/commissions/${c.id}`}
+                className="group flex w-[280px] shrink-0 items-baseline justify-between gap-3 rounded-2xl border border-border-subtle bg-surface/50 px-4 py-3.5 transition-colors hover:border-amber/25"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] text-paper group-hover:text-amber-light transition-colors">
+                    {c.offering.title}
+                  </span>
+                  <span className="block truncate text-[11px] text-text-ghost mt-0.5">
+                    {c.artisan.displayName}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-text-ghost capitalize">
+                  {c.status.replace(/[-_]/g, " ")}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ─── Artists you've worked with ──────────────────────────────── */}
       {mode === "browse" && pastArtists.length > 0 && (
         <section className="mx-auto max-w-6xl px-6 pb-8">
