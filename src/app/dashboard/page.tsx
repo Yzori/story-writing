@@ -15,19 +15,28 @@ export const dynamic = "force-dynamic";
  * browser paints. The skeleton follows what successful home surfaces share:
  * resume on top in fixed slots, an event feed, the works grid, one stat strip.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const session = await auth();
   const userId = session?.user?.id;
   // Middleware guards /dashboard; this is the belt to its braces.
   if (!userId) redirect("/login?callbackUrl=/dashboard");
 
-  const [snapshot, away] = await Promise.all([getStudioSnapshot(userId), getAbsence(userId)]);
+  const [snapshot, away, { tab }] = await Promise.all([
+    getStudioSnapshot(userId),
+    getAbsence(userId),
+    searchParams,
+  ]);
 
   return (
     <GlassStage
       initial={snapshot}
       away={away}
       firstName={session?.user?.name?.split(" ")[0]}
+      initialTab={tab === "read" || tab === "stats" ? tab : "studio"}
     />
   );
 }

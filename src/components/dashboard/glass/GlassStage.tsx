@@ -31,15 +31,36 @@ export default function GlassStage({
   initial,
   away,
   firstName,
+  initialTab = "studio",
 }: {
   initial: StudioSnapshot;
   away: number | "first";
   firstName?: string;
+  initialTab?: StageTab;
 }) {
   const reduce = useReducedMotion();
-  const [tab, setTab] = useState<StageTab>("studio");
+  const [tab, setTab] = useState<StageTab>(initialTab);
   const [arrival, setArrival] = useState<ArrivalKind | null>(null);
   const stageRef = useRef<HTMLElement>(null);
+
+  // ── the tab lives in the URL ──
+  // /dashboard?tab=stats is linkable, refresh keeps your place, and
+  // back/forward walk the surfaces. Native pushState on purpose: a router
+  // navigation would re-run the server page and rebuild the whole snapshot
+  // just to swap a client tab.
+  const selectTab = (t: StageTab) => {
+    if (t === tab) return;
+    setTab(t);
+    window.history.pushState(null, "", t === "studio" ? "/dashboard" : `/dashboard?tab=${t}`);
+  };
+  useEffect(() => {
+    const onPop = () => {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      setTab(t === "read" || t === "stats" ? t : "studio");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // ── the live signals stay live ──
   // The server-built snapshot is the first paint; after that, /api/dashboard
@@ -120,7 +141,7 @@ export default function GlassStage({
             {TABS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => selectTab(t.id)}
                 className={`relative rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${
                   tab === t.id ? "text-amber" : "text-text-secondary hover:text-paper"
                 }`}
