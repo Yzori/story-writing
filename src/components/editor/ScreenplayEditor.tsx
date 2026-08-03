@@ -9,6 +9,10 @@ import CharacterCount from "@tiptap/extension-character-count";
 import { useEffect, useCallback, useState, useRef } from "react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import {
+  estimateScreenplayMetrics,
+  type ScreenplayMetrics,
+} from "@/lib/craft/screenplay-metrics";
 
 // ── Custom Tiptap Nodes for Screenplay Elements ────────────────────────
 
@@ -186,7 +190,7 @@ const Transition = Node.create({
   },
 });
 
-// ── Element Labels Decoration Plugin ────────────────────────────────────
+// ── Gutter Decoration Plugin (element labels + scene numbers) ───────────
 
 const ELEMENT_LABELS: Record<string, string> = {
   sceneHeading: "SCN",
@@ -197,38 +201,67 @@ const ELEMENT_LABELS: Record<string, string> = {
   transition: "TRN",
 };
 
-const elementLabelPluginKey = new PluginKey("elementLabels");
+/**
+ * Plugin state is the scene-numbers preference. React flips it by dispatching
+ * a meta-only transaction — no doc change, so it never triggers an autosave.
+ */
+const gutterPluginKey = new PluginKey<boolean>("elementLabels");
 
-const ElementLabelPlugin = Extension.create({
+function gutterWidget(className: string, text: string) {
+  return () => {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    return span;
+  };
+}
+
+const GutterPlugin = Extension.create({
   name: "elementLabels",
 
   addProseMirrorPlugins() {
     return [
-      new Plugin({
-        key: elementLabelPluginKey,
+      new Plugin<boolean>({
+        key: gutterPluginKey,
+        state: {
+          init: () => false,
+          apply: (tr, value) => {
+            const next = tr.getMeta(gutterPluginKey);
+            return typeof next === "boolean" ? next : value;
+          },
+        },
         props: {
           decorations(state) {
             const decorations: Decoration[] = [];
             const { doc, selection } = state;
             const activePos = selection.$head.pos;
+            const showSceneNumbers = gutterPluginKey.getState(state) ?? false;
+            let sceneNumber = 0;
 
             doc.descendants((node, pos) => {
               const label = ELEMENT_LABELS[node.type.name];
               if (!label) return;
 
-              // Only show label for the block the cursor is in
-              const from = pos;
-              const to = pos + node.nodeSize;
-              if (activePos >= from && activePos <= to) {
-                decorations.push(
-                  Decoration.widget(pos + 1, () => {
-                    const span = document.createElement("span");
-                    span.className = "screenplay-element-label";
-                    span.textContent = label;
-                    return span;
-                  }, { side: -1 })
-                );
-              }
+              const isScene = node.type.name === "sceneHeading";
+              if (isScene) sceneNumber += 1;
+
+              // Numbered scenes carry their number always; every other block
+              // shows its element label only while the cursor is inside it.
+              const numbered = isScene && showSceneNumbers;
+              const isActive = activePos >= pos && activePos <= pos + node.nodeSize;
+              if (!numbered && !isActive) return;
+
+              const text = numbered ? String(sceneNumber) : label;
+              const className = numbered
+                ? "screenplay-scene-number"
+                : "screenplay-element-label";
+
+              decorations.push(
+                Decoration.widget(pos + 1, gutterWidget(className, text), {
+                  side: -1,
+                  key: `${className}:${text}`,
+                })
+              );
             });
 
             return DecorationSet.create(doc, decorations);
@@ -367,6 +400,9 @@ interface ScreenplayEditorProps {
   placeholder?: string;
 }
 
+const SCENE_NUMBERS_KEY = "quiloria-screenplay-scene-numbers";
+const METRICS_DEBOUNCE_MS = 300;
+
 export default function ScreenplayEditor({
   content,
   onUpdate,
@@ -375,6 +411,10 @@ export default function ScreenplayEditor({
   placeholder = "INT. YOUR STORY BEGINS - DAY",
 }: ScreenplayEditorProps) {
   const [activeElement, setActiveElement] = useState<string>("action");
+  const [sceneNumbers, setSceneNumbers] = useState(false);
+  const [metrics, setMetrics] = useState<ScreenplayMetrics>(() =>
+    estimateScreenplayMetrics(null)
+  );
 
   const editor = useEditor({
     extensions: [
@@ -410,7 +450,7 @@ export default function ScreenplayEditor({
         emptyEditorClass: "is-editor-empty",
       }),
       CharacterCount,
-      ElementLabelPlugin,
+      GutterPlugin,
       TabCycleExtension,
       AutoDetectExtension,
     ],
@@ -479,6 +519,65 @@ export default function ScreenplayEditor({
     }
   }, [editor, editable]);
 
+  // Scene-number preference: read once, then keep the gutter plugin in sync
+  useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        setSceneNumbers(localStorage.getItem(SCENE_NUMBERS_KEY) === "true");
+      } catch {
+        // Private browsing / storage disabled — the default (off) is fine.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(editor.state.tr.setMeta(gutterPluginKey, sceneNumbers));
+  }, [editor, sceneNumbers]);
+
+  const toggleSceneNumbers = useCallback(() => {
+    setSceneNumbers((previous) => {
+      const next = !previous;
+      try {
+        window.localStorage.setItem(SCENE_NUMBERS_KEY, String(next));
+      } catch {
+        // Preference just won't persist.
+      }
+      return next;
+    });
+    editor?.commands.focus();
+  }, [editor]);
+
+  // Page/runtime estimate, recomputed off the doc after typing settles.
+  // Runs after the content-sync effect above, so its microtask lands later.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const recompute = () => {
+      if (editor.isDestroyed) return;
+      setMetrics(estimateScreenplayMetrics(editor.getJSON()));
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(recompute, METRICS_DEBOUNCE_MS);
+    };
+
+    queueMicrotask(recompute);
+    editor.on("update", schedule);
+    return () => {
+      clearTimeout(timer);
+      editor.off("update", schedule);
+    };
+  }, [editor, content]);
+
   if (!editor) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -492,54 +591,77 @@ export default function ScreenplayEditor({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-void">
-      {/* ── Element Type Toolbar ──────────────────────────── */}
-      {editable && (
-        <div className="sticky top-0 z-30 bg-void/90 backdrop-blur-sm border-b border-border/40">
-          <div className="max-w-[740px] mx-auto flex items-center gap-1 px-3 sm:px-4 py-2 overflow-x-auto scrollbar-hide">
-            {(
-              [
-                { type: "sceneHeading", label: "Scene", shortcut: "" },
-                { type: "action", label: "Action", shortcut: "" },
-                { type: "characterName", label: "Character", shortcut: "" },
-                { type: "dialogue", label: "Dialogue", shortcut: "" },
-                { type: "parenthetical", label: "Paren", shortcut: "" },
-                { type: "transition", label: "Transition", shortcut: "" },
-              ] as const
-            ).map(({ type, label }) => (
-              <button
-                key={type}
-                onClick={() => setElementType(type)}
-                className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
-                  activeElement === type
-                    ? "bg-amber/15 text-amber border border-amber/30"
-                    : "text-text-ghost hover:text-text-secondary hover:bg-surface/50 border border-transparent"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+    <div className="flex-1 min-h-0 flex flex-col bg-void">
+      <div className="flex-1 overflow-y-auto">
+        {/* ── Element Type Toolbar ──────────────────────────── */}
+        {editable && (
+          <div className="sticky top-0 z-30 bg-void/90 backdrop-blur-sm border-b border-border/40">
+            <div className="max-w-[740px] mx-auto flex items-center gap-1 px-3 sm:px-4 py-2 overflow-x-auto scrollbar-hide">
+              {(
+                [
+                  { type: "sceneHeading", label: "Scene", shortcut: "" },
+                  { type: "action", label: "Action", shortcut: "" },
+                  { type: "characterName", label: "Character", shortcut: "" },
+                  { type: "dialogue", label: "Dialogue", shortcut: "" },
+                  { type: "parenthetical", label: "Paren", shortcut: "" },
+                  { type: "transition", label: "Transition", shortcut: "" },
+                ] as const
+              ).map(({ type, label }) => (
+                <button
+                  key={type}
+                  onClick={() => setElementType(type)}
+                  className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
+                    activeElement === type
+                      ? "bg-amber/15 text-amber border border-amber/30"
+                      : "text-text-ghost hover:text-text-secondary hover:bg-surface/50 border border-transparent"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
 
-            <div className="ml-auto flex items-center gap-3">
-              <span className="text-[10px] text-text-ghost font-mono tracking-wide">
-                {editor.storage.characterCount.words()} words
-              </span>
+              <div className="ml-auto flex items-center gap-2 pl-2">
+                <button
+                  onClick={toggleSceneNumbers}
+                  aria-pressed={sceneNumbers}
+                  className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
+                    sceneNumbers
+                      ? "bg-amber/15 text-amber border border-amber/30"
+                      : "text-text-ghost hover:text-text-secondary hover:bg-surface/50 border border-transparent"
+                  }`}
+                >
+                  Scene numbers
+                </button>
+                <span className="shrink-0 text-[10px] text-text-ghost font-mono tracking-wide tabular-nums">
+                  {editor.storage.characterCount.words()} words
+                </span>
+              </div>
             </div>
           </div>
+        )}
+
+        {/* ── Script Page ──────────────────────────────────── */}
+        <div className="max-w-[740px] mx-auto px-3 sm:px-4 py-6 sm:py-8 min-h-full">
+          <div className="relative bg-[#FAFAF5] rounded-sm shadow-2xl shadow-black/40 px-6 sm:px-10 md:px-16 py-8 sm:py-10 md:py-12 min-h-[800px]">
+            {/* Brass brads decoration */}
+            <div className="absolute top-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
+            <div className="absolute bottom-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
+
+            <EditorContent
+              editor={editor}
+              className="screenplay-content-area"
+            />
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* ── Script Page ──────────────────────────────────── */}
-      <div className="max-w-[740px] mx-auto px-3 sm:px-4 py-6 sm:py-8 min-h-full">
-        <div className="relative bg-[#FAFAF5] rounded-sm shadow-2xl shadow-black/40 px-6 sm:px-10 md:px-16 py-8 sm:py-10 md:py-12 min-h-[800px]">
-          {/* Brass brads decoration */}
-          <div className="absolute top-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
-          <div className="absolute bottom-8 left-3 sm:left-6 w-3 h-3 rounded-full bg-[#B8A04A] shadow-inner opacity-40" />
-
-          <EditorContent
-            editor={editor}
-            className="screenplay-content-area"
-          />
+      {/* ── Slate strip: what the script runs to ─────────── */}
+      <div className="shrink-0 border-t border-border/40 bg-void/90 backdrop-blur-sm">
+        <div className="max-w-[740px] mx-auto px-3 sm:px-4 py-1.5 flex justify-end">
+          <span className="font-mono text-[10px] tracking-wide text-text-ghost tabular-nums">
+            ~{metrics.pages.toFixed(1)} pages · ~{metrics.runtimeMinutes} min ·{" "}
+            {metrics.sceneCount} {metrics.sceneCount === 1 ? "scene" : "scenes"}
+          </span>
         </div>
       </div>
 
@@ -654,9 +776,29 @@ export default function ScreenplayEditor({
           margin-top: 2px;
         }
 
+        /* ── Scene Number (left gutter) ──────────────────── */
+        /* Right-aligned in a fixed box so 9 → 10 doesn't shift the column */
+        .screenplay-scene-number {
+          position: absolute;
+          left: -52px;
+          width: 34px;
+          text-align: right;
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 10px;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          color: rgba(180, 83, 9, 0.7);
+          pointer-events: none;
+          user-select: none;
+          white-space: nowrap;
+          line-height: 1.5;
+          margin-top: 2px;
+        }
+
         /* Hide gutter labels on narrow screens — they get clipped off-screen */
         @media (max-width: 768px) {
-          .screenplay-element-label {
+          .screenplay-element-label,
+          .screenplay-scene-number {
             display: none;
           }
         }

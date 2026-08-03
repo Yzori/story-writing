@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { GENRES, CONTENT_RATINGS } from "@/config/genres";
 import Image from "next/image";
 import { compressImage } from "@/client/images";
+import FormatPreview from "@/components/create/FormatPreview";
 
 // ── Format options (shared by solo + co-op) ─────────────────
 
@@ -1700,6 +1701,16 @@ function FormatKindRow({ format, setFormat }: { format: string; setFormat: (valu
   );
 }
 
+// Format is written into the story at creation and never changes after — the
+// picker is silent about that, so this says it once, quietly.
+function FormatPermanenceNote({ className = "" }: { className?: string }) {
+  return (
+    <p className={`font-body text-[11px] text-text-ghost ${className}`}>
+      A story keeps its format once it&apos;s begun — pick the shape that fits.
+    </p>
+  );
+}
+
 // Genres + rating + content notes. The "catalog" data, shared by both layouts —
 // tucked into a colophon for solo, shown inline for co-op.
 function ColophonControls({
@@ -1897,6 +1908,7 @@ function SoloTitlePage(props: StoryDraftProps) {
             tilt
           />
           <p className="font-body text-[11px] italic text-text-ghost">click the cover to add art</p>
+          <FormatPreview format={format} className="mt-1" />
         </motion.div>
 
         {/* the title page */}
@@ -1937,6 +1949,7 @@ function SoloTitlePage(props: StoryDraftProps) {
             <p className="mt-3 font-body text-[11px] text-text-ghost">
               {FORMATS.find((f) => f.id === format)?.desc} — opens its own editor.
             </p>
+            <FormatPermanenceNote className="mt-1.5" />
           </div>
 
           <div className="mt-9">
@@ -2149,6 +2162,7 @@ function CoopNotice(props: StoryDraftProps) {
             <div className="mt-8">
               <p className="mb-3 font-body text-[10px] uppercase tracking-[0.14em] text-text-ghost">Format</p>
               <FormatKindRow format={format} setFormat={setFormat} />
+              <FormatPermanenceNote className="mt-3" />
             </div>
 
             <div className="mt-8 border-t border-border pt-7">
@@ -2168,7 +2182,11 @@ function CoopNotice(props: StoryDraftProps) {
               />
             </div>
 
-            <div className="mt-9 flex items-center gap-4">
+            <p className="mt-9 border-l-2 border-amber/25 pl-3.5 font-body text-[12px] leading-relaxed text-text-secondary">
+              Writing opens once a collaborator accepts. Until then, the workshop is where you plan, post the call, and talk it through.
+            </p>
+
+            <div className="mt-5 flex items-center gap-4">
               <button
                 type="submit"
                 disabled={isSubmitting}

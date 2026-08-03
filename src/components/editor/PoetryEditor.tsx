@@ -2,15 +2,20 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, Extension, mergeAttributes } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useCallback, useState, useRef } from "react";
-import { TextSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import type { Transaction } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
-import type { ResolvedPos } from "@tiptap/pm/model";
+import type { Node as PMNode, ResolvedPos } from "@tiptap/pm/model";
+import { countLineSyllables } from "@/lib/craft/syllables";
 import FloatingToolbar from "./FloatingToolbar";
+
+const SYLLABLES_STORAGE_KEY = "quiloria-poetry-syllables";
 
 // ── Custom Nodes ──────────────────────────────────────────────────────────────
 
@@ -206,6 +211,90 @@ function findAncestorDepth(
   return null;
 }
 
+// ── Syllable counts ───────────────────────────────────────────────────────────
+
+const syllablePluginKey = new PluginKey("poetrySyllables");
+
+/**
+ * Hangs a `data-syllables` attribute on every non-empty line. The gutter
+ * number itself is drawn in CSS from that attribute, the same way line
+ * numbers are drawn — so the two gutters stay in step. Visibility is a CSS
+ * concern (`.poetry-syllables` on the wrapper); the counts are always
+ * computed, which is cheap because a poem is a handful of short lines.
+ */
+function buildSyllableDecorations(doc: PMNode): DecorationSet {
+  const decorations: Decoration[] = [];
+
+  doc.descendants((node, pos) => {
+    if (node.type.name !== "poetryLine") return true;
+    const text = node.textContent;
+    if (text.trim()) {
+      const count = countLineSyllables(text);
+      if (count > 0) {
+        decorations.push(
+          Decoration.node(pos, pos + node.nodeSize, {
+            "data-syllables": String(count),
+          })
+        );
+      }
+    }
+    return false;
+  });
+
+  return DecorationSet.create(doc, decorations);
+}
+
+const SyllableCounts = Extension.create({
+  name: "syllableCounts",
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: syllablePluginKey,
+        state: {
+          init: (_config, state) => buildSyllableDecorations(state.doc),
+          apply: (tr, previous) =>
+            tr.docChanged ? buildSyllableDecorations(tr.doc) : previous,
+        },
+        props: {
+          decorations(state) {
+            return syllablePluginKey.getState(state) as DecorationSet;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+interface PoemStats {
+  stanzas: number;
+  lines: number;
+  syllables: number;
+}
+
+/** Totals for the craft strip. Empty lines and empty stanzas don't count. */
+function collectPoemStats(doc: PMNode): PoemStats {
+  const stats: PoemStats = { stanzas: 0, lines: 0, syllables: 0 };
+
+  doc.descendants((node) => {
+    if (node.type.name === "stanza") {
+      if (node.textContent.trim()) stats.stanzas += 1;
+      return true;
+    }
+    if (node.type.name === "poetryLine") {
+      const text = node.textContent;
+      if (text.trim()) {
+        stats.lines += 1;
+        stats.syllables += countLineSyllables(text);
+      }
+      return false;
+    }
+    return true;
+  });
+
+  return stats;
+}
+
 // ── Floating Toolbar ──────────────────────────────────────────────────────────
 // Poetry shares the prose FloatingToolbar (configured to bold/italic/strike/
 // em-dash) — see the render site below — so the four editors read as one family.
@@ -233,6 +322,12 @@ export default function PoetryEditor({
   placeholder = "Begin writing...",
 }: PoetryEditorProps) {
   const [lineNumbers, setLineNumbers] = useState(showLineNumbers);
+  const [syllables, setSyllables] = useState(false);
+  const [stats, setStats] = useState<PoemStats>({
+    stanzas: 0,
+    lines: 0,
+    syllables: 0,
+  });
 
   const editor = useEditor({
     extensions: [
@@ -264,6 +359,7 @@ export default function PoetryEditor({
       }),
       CharacterCount,
       Typography,
+      SyllableCounts,
     ],
     content: wrapInStanzas(content),
     editable,
@@ -335,6 +431,43 @@ export default function PoetryEditor({
     setLineNumbers(showLineNumbers);
   }, [showLineNumbers]);
 
+  // Restore the syllable-gutter preference (after mount, so SSR markup matches)
+  useEffect(() => {
+    try {
+      setSyllables(localStorage.getItem(SYLLABLES_STORAGE_KEY) === "1");
+    } catch {
+      // localStorage unavailable (private mode) — leave the gutter hidden
+    }
+  }, []);
+
+  const toggleSyllables = useCallback(() => {
+    const next = !syllables;
+    setSyllables(next);
+    try {
+      localStorage.setItem(SYLLABLES_STORAGE_KEY, next ? "1" : "0");
+    } catch {
+      // Preference just won't persist
+    }
+  }, [syllables]);
+
+  // Keep the craft strip totals in step with the document
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+
+    setStats(collectPoemStats(editor.state.doc));
+
+    const handleTransaction = ({ transaction }: { transaction: Transaction }) => {
+      if (transaction.docChanged) {
+        setStats(collectPoemStats(editor.state.doc));
+      }
+    };
+
+    editor.on("transaction", handleTransaction);
+    return () => {
+      editor.off("transaction", handleTransaction);
+    };
+  }, [editor]);
+
   if (!editor) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -348,13 +481,13 @@ export default function PoetryEditor({
       <div
         className={`max-w-[680px] mx-auto px-8 pb-64 pt-8 min-h-full ${
           lineNumbers ? "poetry-line-numbers" : ""
-        }`}
+        } ${syllables && editable ? "poetry-syllables" : ""}`}
       >
         <FloatingToolbar editor={editor} features={["bold", "italic", "strike", "emdash"]} />
 
-        {/* Line numbers toggle */}
+        {/* Gutter toggles */}
         {editable && (
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end gap-2 mb-4">
             <button
               onClick={() => setLineNumbers((v) => !v)}
               className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors duration-200 ${
@@ -366,10 +499,35 @@ export default function PoetryEditor({
             >
               Line numbers
             </button>
+            <button
+              onClick={toggleSyllables}
+              className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors duration-200 ${
+                syllables
+                  ? "bg-amber/10 border-amber/30 text-amber"
+                  : "bg-transparent border-border text-text-ghost hover:text-text-secondary hover:border-border-active"
+              }`}
+              title="Show an estimated syllable count beside each line"
+            >
+              Syllables
+            </button>
           </div>
         )}
 
         <EditorContent editor={editor} className="poetry-editor-wrapper" />
+
+        {/* Craft strip — totals for the poem as it stands */}
+        {editable && stats.lines > 0 && (
+          <div className="mt-10 pt-3 border-t border-border-subtle flex justify-end">
+            <p className="font-mono text-[10px] tabular-nums tracking-[0.06em] text-text-ghost">
+              {stats.stanzas} {stats.stanzas === 1 ? "stanza" : "stanzas"}
+              {" · "}
+              {stats.lines} {stats.lines === 1 ? "line" : "lines"}
+              {" · "}
+              {stats.syllables}{" "}
+              {stats.syllables === 1 ? "syllable" : "syllables"}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Styles for poetry editor */}
@@ -451,6 +609,30 @@ export default function PoetryEditor({
           color: var(--color-text-ghost, #6b6560);
           font-family: var(--font-mono, "IBM Plex Mono", monospace);
           font-size: 0.7rem;
+          line-height: 1.85em;
+          opacity: 0.5;
+          user-select: none;
+          pointer-events: none;
+        }
+
+        /* ── Syllable counts ───────────────────────────────── */
+        /* Sits in the page gutter (left: 100% puts it past the text column,
+           inside the container's own padding) so switching it on never
+           moves the text. */
+        .poetry-syllables
+          .poetry-editor-content
+          .poetry-line[data-syllables]::after {
+          content: attr(data-syllables);
+          position: absolute;
+          top: 0;
+          left: 100%;
+          margin-left: 0.5rem;
+          width: 1.5rem;
+          text-align: left;
+          color: var(--color-text-ghost, #6b6560);
+          font-family: var(--font-mono, "IBM Plex Mono", monospace);
+          font-size: 0.7rem;
+          font-variant-numeric: tabular-nums;
           line-height: 1.85em;
           opacity: 0.5;
           user-select: none;
