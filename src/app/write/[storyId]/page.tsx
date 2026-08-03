@@ -313,6 +313,8 @@ export default function WriteStoryPage() {
     notifiedFollowers: number;
     shareUrl: string;
     linkCopied: boolean;
+    /** When the story is private: also open the doors as part of publishing. */
+    openDoors: boolean;
   }>({
     open: false,
     phase: "confirm",
@@ -321,6 +323,7 @@ export default function WriteStoryPage() {
     notifiedFollowers: 0,
     shareUrl: "",
     linkCopied: false,
+    openDoors: true,
   });
   // Co-op presence (collaborators / sessionUserId) and storyFormat are owned
   // by useStoryLoader.
@@ -339,6 +342,9 @@ export default function WriteStoryPage() {
 
   // Focus mode
   const [focusMode, setFocusMode] = useState(false);
+  // Bumped by the palette's "Replay the Tour" — remounts OnboardingHints
+  // after its seen/step localStorage keys are cleared.
+  const [tourNonce, setTourNonce] = useState(0);
   // Reference pane
   const [refPaneOpen, setRefPaneOpen] = useState(false);
   const [refPaneTab, setRefPaneTab] = useState<"bible" | "notes" | "versions">("bible");
@@ -358,6 +364,7 @@ export default function WriteStoryPage() {
 
   const {
     saveState,
+    lastSavedAt,
     setSaveState,
     queueSave,
     scheduleSave,
@@ -618,6 +625,7 @@ export default function WriteStoryPage() {
         notifiedFollowers: 0,
         shareUrl: "",
         linkCopied: false,
+        openDoors: true,
       });
     },
     []
@@ -657,6 +665,24 @@ export default function WriteStoryPage() {
         typeof window !== "undefined" ? window.location.origin : "";
       const shareUrl = `${origin}/story/${resolvedSlug}/read/${chapterId}`;
 
+      // A private story makes the share link a broken promise — the writer
+      // opted in (default) to open the doors alongside the chapter.
+      if (!isPublic && publishDialog.openDoors) {
+        const doorsRes = await fetch(`/api/stories/${storyId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isPublic: true }),
+        });
+        if (doorsRes.ok) {
+          setIsPublic(true);
+        } else {
+          toast(
+            "Chapter published, but the story couldn’t be made public. Try again from the Counter.",
+            "error"
+          );
+        }
+      }
+
       updateProject((prev) => ({
         ...prev,
         chapters: prev.chapters.map((c) =>
@@ -675,7 +701,7 @@ export default function WriteStoryPage() {
       toast("Network error. Try again.", "error");
       setPublishDialog((p) => ({ ...p, open: false }));
     }
-  }, [publishDialog.chapterId, storyId, storySlug, flushPendingSaves, flushWebtoonScriptSave, toast, updateProject]);
+  }, [publishDialog.chapterId, publishDialog.openDoors, isPublic, setIsPublic, storyId, storySlug, flushPendingSaves, flushWebtoonScriptSave, toast, updateProject]);
 
   const copyShareLink = useCallback(async () => {
     if (!publishDialog.shareUrl) return;
@@ -692,8 +718,13 @@ export default function WriteStoryPage() {
   }, [publishDialog.shareUrl, toast]);
 
   const closePublishDialog = useCallback(() => {
+    // The roster nudge belongs to the moment after the ceremony, not on top
+    // of it — fire it as the success dialog closes.
+    if (publishDialog.phase === "success" && !rosterNudgeDismissed) {
+      setShowRosterNudge(true);
+    }
     setPublishDialog((p) => ({ ...p, open: false }));
-  }, []);
+  }, [publishDialog.phase, rosterNudgeDismissed]);
 
   const handleDeleteChapter = useCallback(
     async (id: string) => {
@@ -868,14 +899,9 @@ export default function WriteStoryPage() {
               ),
             }))
           : undefined,
-        onSuccess: () => {
-          if (updates.status === "published" && !rosterNudgeDismissed) {
-            setShowRosterNudge(true);
-          }
-        },
       });
     },
-    [mutateJson, project?.activeChapterId, project?.chapters, updateProject, storyId, rosterNudgeDismissed, openPublishDialog]
+    [mutateJson, project?.activeChapterId, project?.chapters, updateProject, storyId, openPublishDialog]
   );
 
   // ── Editor's Desk handlers ────────────────────────────────
@@ -1312,7 +1338,11 @@ export default function WriteStoryPage() {
             onAdd={() => void handleAddChapter()}
             onOpenDesk={() => setShowDesk(true)}
           />
-          <div className="fixed bottom-24 left-4 z-30 hidden w-[264px] lg:block">
+          <div
+            className={`fixed bottom-24 left-4 z-30 w-[240px] sm:w-[264px] transition-opacity duration-300 ${
+              isTyping ? "opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto" : ""
+            }`}
+          >
             <FirstChapterCoach
               variant="inline"
               state={{
@@ -1519,7 +1549,7 @@ export default function WriteStoryPage() {
                               ? "bg-amber/10 text-amber border border-amber/20"
                               : "text-text-ghost hover:text-text-secondary border border-transparent"
                           }`}
-                          title={`Focus mode (${focusChord})`}
+                          title={`Focus mode — dims the rest and keeps your line centred (${focusChord})`}
                         >
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
                             <circle cx="7" cy="7" r="3" />
@@ -1604,7 +1634,7 @@ export default function WriteStoryPage() {
                       format={storyFormat}
                       chapterKey={activeChapter.id}
                       wordCount={activeChapter.wordCount ?? 0}
-                      showBelowWords={1}
+                      showBelowWords={50}
                       onPick={(text) => {
                         if (!editorInstance) return;
                         // Insert as italicized prose so the writer can clearly see
@@ -1662,6 +1692,7 @@ export default function WriteStoryPage() {
                         onMentionClick={handleMentionClick}
                         characters={mentionCharacters}
                         characterDetails={mentionCharacterDetails}
+                        typewriter={focusMode}
                       />
                     )}
                   </EditorErrorBoundary>
@@ -1794,6 +1825,7 @@ export default function WriteStoryPage() {
             totalWords={totalWords}
             goals={project.goals}
             saveState={saveState}
+            lastSavedAt={lastSavedAt}
             onOpenGrimoire={handleOpenGrimoire}
             insetClass=""
           />
@@ -2002,10 +2034,48 @@ export default function WriteStoryPage() {
                       </h3>
                     </div>
                   </div>
-                  <p className="text-text-secondary text-[13px] leading-relaxed mb-6">
-                    Readers who follow this story will be notified. You can unpublish any time
-                    from Chapter Settings.
-                  </p>
+                  {isPublic ? (
+                    <p className="text-text-secondary text-[13px] leading-relaxed mb-6">
+                      Readers who follow this story will be notified. You can unpublish any time
+                      from Chapter Settings.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-text-secondary text-[13px] leading-relaxed mb-4">
+                        This story is still private — a published chapter stays hidden
+                        until the doors are open.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPublishDialog((p) => ({ ...p, openDoors: !p.openDoors }))
+                        }
+                        className="w-full flex items-start gap-3 rounded-xl border border-border bg-void/40 px-4 py-3 mb-6 text-left transition-colors hover:border-sage/30"
+                      >
+                        <span
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                            publishDialog.openDoors
+                              ? "border-sage/60 bg-sage/20 text-sage"
+                              : "border-border text-transparent"
+                          }`}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M2 6l3 3 5-5" />
+                          </svg>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[13px] text-paper">
+                            Also open the doors
+                          </span>
+                          <span className="block text-[11px] text-text-ghost leading-relaxed mt-0.5">
+                            Make the story public so readers can find this chapter.
+                            Leave it off to keep everything between you and your
+                            collaborators for now.
+                          </span>
+                        </span>
+                      </button>
+                    </>
+                  )}
                   <div className="flex items-center justify-end gap-3">
                     <button
                       onClick={closePublishDialog}
@@ -2049,11 +2119,13 @@ export default function WriteStoryPage() {
                   </div>
 
                   <p className="text-text-secondary text-[13px] leading-relaxed mb-5">
-                    {publishDialog.notifiedFollowers === 0
-                      ? "Your chapter is live. No followers to notify yet — share the link below."
-                      : publishDialog.notifiedFollowers === 1
-                        ? "Your chapter is live. 1 follower has been notified."
-                        : `Your chapter is live. ${publishDialog.notifiedFollowers.toLocaleString()} followers have been notified.`}
+                    {!isPublic
+                      ? "Your chapter is ready — the doors are still closed, so only you and your collaborators can read it."
+                      : publishDialog.notifiedFollowers === 0
+                        ? "Your chapter is live. No followers to notify yet — share the link below."
+                        : publishDialog.notifiedFollowers === 1
+                          ? "Your chapter is live. 1 follower has been notified."
+                          : `Your chapter is live. ${publishDialog.notifiedFollowers.toLocaleString()} followers have been notified.`}
                   </p>
 
                   {/* Share link row */}
@@ -2061,6 +2133,12 @@ export default function WriteStoryPage() {
                     <p className="text-[10px] uppercase tracking-[0.15em] text-text-ghost mb-2">
                       Share link
                     </p>
+                    {!isPublic && (
+                      <p className="text-[11px] text-amber/80 leading-relaxed mb-2">
+                        This link only works for you and collaborators until you
+                        open the doors from the Counter.
+                      </p>
+                    )}
                     <div className="flex items-center gap-2">
                       <input
                         readOnly
@@ -2303,6 +2381,14 @@ export default function WriteStoryPage() {
         onExportEpub={handleExportEpub}
         onExportDocx={handleExportDocx}
         onOpenShortcuts={() => { setCommandOpen(false); setShowShortcuts(true); }}
+        onReplayTour={() => {
+          setCommandOpen(false);
+          try {
+            localStorage.removeItem("quiloria-editor-onboarding-seen");
+            localStorage.removeItem("quiloria-editor-onboarding-step");
+          } catch {}
+          setTourNonce((n) => n + 1);
+        }}
         onOpenComments={handleToggleComments}
         onOpenHistory={() => { setCommandOpen(false); setRightPanel("history"); }}
         onOpenGoals={handleToggleGoals}
@@ -2327,7 +2413,7 @@ export default function WriteStoryPage() {
       </AnimatePresence>
 
       {/* The tour waits for momentum: real words on the page, typing paused. */}
-      <OnboardingHints enabled={totalWords >= 150 && !isTyping} />
+      <OnboardingHints key={tourNonce} enabled={(totalWords >= 30 || tourNonce > 0) && !isTyping} />
 
       {/* Upgrade Modal for Premium Features */}
       <UpgradeModal

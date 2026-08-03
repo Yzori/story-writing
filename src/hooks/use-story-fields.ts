@@ -140,8 +140,10 @@ export function useStoryFields({
     setIsPublic(newValue);
     void mutateJson(`/api/stories/${storyId}`, {
       body: { isPublic: newValue },
-      successMessage: newValue ? "Story published" : "Story unpublished",
-      errorMessage: "Couldn't update publish status",
+      successMessage: newValue
+        ? "The doors are open — readers can find this story"
+        : "Story set to private",
+      errorMessage: "Couldn't update story visibility",
       rollback: () => setIsPublic(!newValue),
     });
   }, [isPublic, mutateJson, storyId, setIsPublic]);

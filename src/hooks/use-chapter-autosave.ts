@@ -185,6 +185,9 @@ export function useChapterAutosave({
   toast,
 }: UseChapterAutosaveOptions) {
   const [saveState, setSaveState] = useState<ChapterSaveState>("idle");
+  // Epoch ms of the last flush that persisted at least one chapter — null
+  // until something has actually reached the server this session.
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const pendingSaves = useRef<Map<string, PendingSave>>(new Map());
   const failedSaves = useRef<Map<string, PendingSave>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -312,6 +315,10 @@ export function useChapterAutosave({
       reconcileSuccessfulResults(pendingSaves.current, storyId, results);
       failedSaves.current.clear();
 
+      if (results.some((result) => result.ok)) {
+        setLastSavedAt(Date.now());
+      }
+
       if (results.every((result) => result.ok)) {
         if (pendingSaves.current.size > 0) {
           if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -431,6 +438,7 @@ export function useChapterAutosave({
 
   return {
     saveState,
+    lastSavedAt,
     setSaveState,
     queueSave,
     scheduleSave,

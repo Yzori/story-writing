@@ -73,6 +73,8 @@ interface ProseEditorProps {
   onMentionClick?: (characterId: string) => void;
   characters?: MentionCharacter[];
   characterDetails?: CharacterDetail[];
+  /** Keep the caret line vertically anchored while typing (focus mode). */
+  typewriter?: boolean;
 }
 
 export default function ProseEditor({
@@ -84,8 +86,10 @@ export default function ProseEditor({
   onMentionClick,
   characters = [],
   characterDetails = [],
+  typewriter = false,
 }: ProseEditorProps) {
-  const focusModeRef = useRef(false);
+  const focusModeRef = useRef(typewriter);
+  focusModeRef.current = typewriter;
   const rootClassName = `tiptap-editor ${editorClassName}`.trim();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTrackRef = useRef<HTMLDivElement>(null);

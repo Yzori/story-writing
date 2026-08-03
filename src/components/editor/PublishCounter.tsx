@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { formatNumber } from "@/lib/format";
 import { TIER_PRICES } from "@/lib/constants";
@@ -92,6 +92,27 @@ export default function PublishCounter({
     monthlyIncome: number;
   } | null>(null);
   const [takeDownId, setTakeDownId] = useState<string | null>(null);
+  // The doors-open moment: set when the writer flips the story public from
+  // here, shown once isPublic confirms (the optimistic toggle rolls back on
+  // failure, which hides the moment again).
+  const [doorsMoment, setDoorsMoment] = useState(false);
+  const [doorsLinkCopied, setDoorsLinkCopied] = useState(false);
+
+  const storyUrl =
+    typeof window !== "undefined" && storySlug
+      ? `${window.location.origin}/story/${storySlug}`
+      : null;
+
+  const copyStoryLink = useCallback(async () => {
+    if (!storyUrl) return;
+    try {
+      await navigator.clipboard.writeText(storyUrl);
+      setDoorsLinkCopied(true);
+      setTimeout(() => setDoorsLinkCopied(false), 2000);
+    } catch {
+      // Clipboard denied — the field below is selectable by hand.
+    }
+  }, [storyUrl]);
 
   // Load gate config + income facts
   useEffect(() => {
@@ -132,11 +153,15 @@ export default function PublishCounter({
       if (e.key !== "Escape") return;
       e.preventDefault();
       e.stopPropagation();
+      if (doorsMoment) {
+        setDoorsMoment(false);
+        return;
+      }
       onBack();
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [holdEsc, onBack]);
+  }, [holdEsc, onBack, doorsMoment]);
 
   const updateGate = (partial: Partial<GateConfig>) => {
     setGate((prev) => ({ ...prev, ...partial }));
@@ -247,7 +272,10 @@ export default function PublishCounter({
               )}
               <button
                 type="button"
-                onClick={onTogglePublic}
+                onClick={() => {
+                  if (!isPublic) setDoorsMoment(true);
+                  onTogglePublic();
+                }}
                 className={`rounded-lg border px-3.5 py-2 text-[12px] transition-colors ${
                   isPublic
                     ? "border-border text-text-secondary hover:border-rose/30 hover:text-rose"
@@ -496,6 +524,84 @@ export default function PublishCounter({
           </section>
         </div>
       </div>
+
+      {/* ── the doors-open moment ── */}
+      <AnimatePresence>
+        {doorsMoment && isPublic && (
+          <motion.div
+            key="doors-moment"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="absolute inset-0 z-30 flex items-center justify-center bg-void/70 px-4 backdrop-blur-sm"
+            onClick={() => setDoorsMoment(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
+              className="w-full max-w-md rounded-2xl border border-amber/20 bg-elevated p-7 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-1 flex items-center gap-2 text-amber">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden>
+                  <path d="M3 14V3.5A1.5 1.5 0 014.5 2h7A1.5 1.5 0 0113 3.5V14M3 14h10M9.5 8.5h.01" />
+                </svg>
+                <p className="text-[10px] uppercase tracking-[0.2em]">The doors are open</p>
+              </div>
+              <h3 className="font-display text-lg leading-tight text-paper">
+                {storyTitle}
+              </h3>
+              <p className="mt-3 text-[13px] leading-relaxed text-text-secondary">
+                Readers can now find this story in the stacks. Every published
+                chapter is live — here&rsquo;s the link worth handing out.
+              </p>
+              {storyUrl && (
+                <div className="mt-4 flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={storyUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-void px-3 py-2 font-mono text-[12px] text-text-secondary outline-none focus:border-amber/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={copyStoryLink}
+                    className={`whitespace-nowrap rounded-md border px-3 py-2 text-[12px] transition-all ${
+                      doorsLinkCopied
+                        ? "border-amber/50 bg-amber/15 text-amber"
+                        : "border-border text-text-secondary hover:border-border/80 hover:text-paper"
+                    }`}
+                  >
+                    {doorsLinkCopied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              )}
+              <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4">
+                {storySlug ? (
+                  <Link
+                    href={`/story/${storySlug}`}
+                    className="text-[12px] tracking-wide text-amber transition-colors hover:text-amber/80"
+                  >
+                    View your story page →
+                  </Link>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setDoorsMoment(false)}
+                  className="rounded-lg px-4 py-2 text-[13px] text-text-ghost transition-colors hover:text-paper"
+                >
+                  Back to the counter
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

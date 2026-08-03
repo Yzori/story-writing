@@ -118,6 +118,8 @@ interface StatusBarProps {
   totalWords: number;
   goals: WritingGoals;
   saveState?: SaveState;
+  /** Epoch ms of the last successful save; null before anything has saved. */
+  lastSavedAt?: number | null;
   onOpenGrimoire: () => void;
   /** Layout insets so the bar centers on the canvas, not the viewport. */
   insetClass?: string;
@@ -128,10 +130,14 @@ function StatusBar({
   totalWords,
   goals,
   saveState = "idle",
+  lastSavedAt = null,
   onOpenGrimoire,
   insetClass = "",
 }: StatusBarProps) {
   const commandChord = useModChord("K");
+  const savedAtLabel = lastSavedAt
+    ? `Saved at ${new Date(lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : null;
   const todaySession = getTodaySession(goals);
   const todayWords = todaySession?.wordsWritten ?? 0;
   const dailyTarget = goals.dailyWordTarget ?? 0;
@@ -194,9 +200,20 @@ function StatusBar({
             }`}
           >
             {saveState === "idle" && (
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
-                <span className="text-text-ghost hidden min-[420px]:inline">Saved</span>
+              // Only claim "Saved" once something has actually reached the
+              // server — a fresh page starts idle without ever saving.
+              <span
+                className="flex items-center gap-1.5"
+                title={savedAtLabel ?? "Nothing new to save yet"}
+              >
+                <span
+                  className={`inline-block w-1.5 h-1.5 rounded-full ${
+                    savedAtLabel ? "bg-emerald-500/40" : "bg-text-ghost/30"
+                  }`}
+                />
+                <span className="text-text-ghost hidden min-[420px]:inline">
+                  {savedAtLabel ? "Saved" : "No changes"}
+                </span>
               </span>
             )}
             {saveState === "saving" && (
@@ -206,7 +223,7 @@ function StatusBar({
               </span>
             )}
             {saveState === "saved" && (
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5" title={savedAtLabel ?? undefined}>
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
                 <span className="hidden min-[420px]:inline">Saved</span>
               </span>

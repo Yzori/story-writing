@@ -55,6 +55,7 @@ const COMMAND_ICONS: Record<string, { path?: string; text?: string }> = {
   "chapter-settings": { path: "M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M2 14h4 M10 12h4 M18 16h4" },
   typography: { text: "Aa" },
   "keyboard-shortcuts": { path: "M2 6h20v12H2z M6 10h.01 M10 10h.01 M14 10h.01 M18 10h.01 M7 14h10" },
+  "replay-tour": { path: "M3.05 11a9 9 0 1 1 .5 4 M3 16v-5h5 M12 8v4l2.5 2.5" },
   // Export
   "export-pdf": { path: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" },
   "export-epub": { path: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" },
@@ -100,6 +101,7 @@ interface CommandPaletteProps {
   onExportEpub?: () => void;
   onExportDocx?: () => void;
   onOpenShortcuts?: () => void;
+  onReplayTour?: () => void;
   onOpenEditorDesk?: () => void;
   onOpenComments?: () => void;
   onOpenHistory?: () => void;
@@ -130,6 +132,7 @@ export default function CommandPalette({
   onExportEpub,
   onExportDocx,
   onOpenShortcuts,
+  onReplayTour,
   onOpenEditorDesk,
   onOpenComments,
   onOpenHistory,
@@ -479,6 +482,17 @@ export default function CommandPalette({
           },
         ]
       : []),
+    ...(onReplayTour
+      ? [
+          {
+            id: "replay-tour",
+            label: "Replay the Tour",
+            description: "Walk through the editor's rooms again",
+            category: "Tools",
+            action: onReplayTour,
+          },
+        ]
+      : []),
     // Export
     ...(onExportPdf
       ? [
@@ -513,7 +527,7 @@ export default function CommandPalette({
           },
         ]
       : []),
-  ], [editor, supportsIllustrations, supportsParagraphAlignment, onOpenDesk, onToggleFocus, isFocusMode, onOpenSearch, onOpenJacket, onOpenCodex, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenCounter, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
+  ], [editor, supportsIllustrations, supportsParagraphAlignment, onOpenDesk, onToggleFocus, isFocusMode, onOpenSearch, onOpenJacket, onOpenCodex, onOpenChapterSettings, onOpenOutline, onOpenTypography, onOpenCounter, onOpenWorkshop, onOpenOpenCalls, onOpenShortcuts, onReplayTour, onOpenEditorDesk, onOpenComments, onOpenHistory, onOpenGoals, onOpenBeats, onExportPdf, onExportEpub, onExportDocx, modKey, isMac]);
 
   const filtered = useMemo(() =>
     query
