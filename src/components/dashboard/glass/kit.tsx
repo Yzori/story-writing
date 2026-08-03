@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { animate, motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 
 import { formatNumber } from "@/lib/format";
+import { inkStroke } from "@/lib/ink-stroke";
 import { CoverArt } from "@/components/dashboard/studio-kit";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,22 +32,53 @@ export function Eyebrow({ children, className = "" }: { children: React.ReactNod
 
 // ── stat tile ────────────────────────────────────────────────────────────────
 
+/**
+ * Counts from zero to the real figure as the stage wakes. `final` is the
+ * exactly-formatted resting string (prefixes, abbreviations, "+" signs), so
+ * the animation can never end on a number the snapshot didn't say.
+ */
+function CountUp({ to, prefix = "", final }: { to: number; prefix?: string; final: string }) {
+  const reduce = useReducedMotion();
+  const [v, setV] = useState(0);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (reduce || to === 0) {
+      setDone(true);
+      return;
+    }
+    const ctrl = animate(0, to, {
+      duration: 1.1,
+      ease: [0.22, 0.8, 0.3, 1],
+      onUpdate: (x) => setV(Math.round(x)),
+      onComplete: () => setDone(true),
+    });
+    return () => ctrl.stop();
+  }, [to, reduce]);
+  return <>{done ? final : `${prefix}${formatNumber(v)}`}</>;
+}
+
 export function Tile({
   label,
   value,
   sub,
   gold = false,
+  n,
+  prefix,
 }: {
   label: string;
   value: string;
   sub?: string;
   gold?: boolean;
+  /** when set, the tile counts up to n and rests on `value` */
+  n?: number;
+  prefix?: string;
 }) {
+  const display = n !== undefined ? <CountUp to={n} prefix={prefix} final={value} /> : value;
   if (gold) {
     return (
       <div className="rounded-xl bg-gold-fill p-3.5">
         <span className="block text-[10px] uppercase tracking-[0.12em] text-on-gold/70">{label}</span>
-        <div className="mt-1 font-mono text-xl text-on-gold">{value}</div>
+        <div className="mt-1 font-mono text-xl text-on-gold">{display}</div>
         {sub && <div className="mt-0.5 text-[11px] text-on-gold/70">{sub}</div>}
       </div>
     );
@@ -53,7 +86,7 @@ export function Tile({
   return (
     <div className="glass-panel rounded-xl p-3.5 transition-all hover:border-border-active hover:shadow-[0_0_24px_rgba(226,172,74,0.1)]">
       <span className="block text-[10px] uppercase tracking-[0.12em] text-text-ghost">{label}</span>
-      <div className="mt-1 font-mono text-xl text-paper">{value}</div>
+      <div className="mt-1 font-mono text-xl text-paper">{display}</div>
       {sub && <div className="mt-0.5 text-[11px] text-text-secondary">{sub}</div>}
     </div>
   );
@@ -75,137 +108,189 @@ export function Jacket({
   className?: string;
 }) {
   const reduce = useReducedMotion();
+  const bookRef = useRef<HTMLDivElement>(null);
+  // the book leans toward the light: pointer position → a few degrees of tilt
+  const rotX = useSpring(useMotionValue(0), { stiffness: 160, damping: 18 });
+  const rotY = useSpring(useMotionValue(0), { stiffness: 160, damping: 18 });
+
+  const onMove = (e: React.PointerEvent) => {
+    const el = bookRef.current;
+    if (!el || reduce || e.pointerType !== "mouse") return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    rotY.set((px - 0.5) * 9);
+    rotX.set((0.5 - py) * 9);
+    // the glare on the glass tracks the same light
+    el.style.setProperty("--gx", `${(px * 100).toFixed(1)}%`);
+    el.style.setProperty("--gy", `${(py * 100).toFixed(1)}%`);
+  };
+  const onLeave = () => {
+    rotX.set(0);
+    rotY.set(0);
+  };
+
   return (
-    <div
-      className={`group relative aspect-[2/3] -rotate-[5deg] rounded-l-md rounded-r-2xl border border-border-active shadow-[-14px_24px_50px_rgba(3,4,10,0.6)] transition-all duration-300 ease-out hover:-translate-y-1.5 hover:-rotate-[3.5deg] hover:shadow-[-14px_28px_60px_rgba(3,4,10,0.65),0_0_50px_rgba(226,172,74,0.16)] ${className}`}
-    >
-      {/* candlelight behind the book, breathing slowly */}
+    <div className={`relative ${className}`} style={{ perspective: 900 }}>
       <motion.div
-        className="pointer-events-none absolute -inset-8 -z-10 rounded-full bg-amber/15 blur-3xl"
-        aria-hidden
-        animate={reduce ? { opacity: 0.5 } : { opacity: [0.35, 0.7, 0.35] }}
-        transition={reduce ? undefined : { duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <CoverArt
-        seed={seed}
-        title={title}
-        image={image}
-        className="h-full w-full rounded-l-md rounded-r-2xl"
-        titleSize="text-2xl"
-      />
-      {/* blind-stamped gilt frame */}
-      <div className="pointer-events-none absolute inset-[10px] rounded-l-sm rounded-r-xl border border-amber/25" />
-      <div className="glass-jacket-pages" aria-hidden />
-      {ribbon && (
-        <div
-          className="glass-ribbon origin-top transition-transform duration-500 ease-out group-hover:rotate-2"
+        ref={bookRef}
+        onPointerMove={onMove}
+        onPointerLeave={onLeave}
+        style={{ rotateX: rotX, rotateY: rotY }}
+        className="group relative aspect-[2/3] w-full -rotate-[5deg] rounded-l-md rounded-r-2xl border border-border-active shadow-[-14px_24px_50px_rgba(3,4,10,0.6)] transition-[translate,box-shadow] duration-300 ease-out hover:-translate-y-1.5 hover:shadow-[-14px_28px_60px_rgba(3,4,10,0.65),0_0_50px_rgba(226,172,74,0.16)]"
+      >
+        {/* candlelight behind the book, breathing slowly */}
+        <motion.div
+          className="pointer-events-none absolute -inset-8 -z-10 rounded-full bg-amber/15 blur-3xl"
           aria-hidden
+          animate={reduce ? { opacity: 0.5 } : { opacity: [0.35, 0.7, 0.35] }}
+          transition={reduce ? undefined : { duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
         />
-      )}
+        <CoverArt
+          seed={seed}
+          title={title}
+          image={image}
+          className="h-full w-full rounded-l-md rounded-r-2xl"
+          titleSize="text-2xl"
+        />
+        {/* blind-stamped gilt frame */}
+        <div className="pointer-events-none absolute inset-[10px] rounded-l-sm rounded-r-xl border border-amber/25" />
+        {/* the vitrine's glare, following the pointer */}
+        <div className="glass-jacket-sheen" aria-hidden />
+        <div className="glass-jacket-pages" aria-hidden />
+        {ribbon && (
+          <div
+            className="glass-ribbon origin-top transition-transform duration-500 ease-out group-hover:rotate-2"
+            aria-hidden
+          />
+        )}
+      </motion.div>
     </div>
   );
 }
 
-// ── the ink ring + watermark line ────────────────────────────────────────────
+// ── the circling stroke + watermark line ─────────────────────────────────────
 
-const RING_OUTER =
-  "M100 14 C126 20 138 34 152 44 C170 56 184 74 178 100 C173 123 184 140 166 156 C148 172 128 164 106 182 C88 196 66 178 50 168 C30 156 24 138 22 116 C20 92 10 72 30 54 C48 38 62 40 78 26 C86 18 92 12 100 14 Z";
-const RING_INNER =
-  "M100 26 C122 30 132 42 144 52 C158 62 170 78 166 100 C162 119 170 134 156 146 C142 160 124 154 106 168 C92 178 76 164 62 156 C46 146 40 132 38 114 C36 94 28 78 44 64 C58 50 70 52 82 40 C88 32 94 24 100 26 Z";
-
-export interface OrbitStat {
-  label: string;
-  value: string;
-}
+// One stroke, generated once — the same ink on server and client.
+const STROKE = inkStroke();
 
 /**
- * The hero's centerpiece: a hand-drawn ink ring that draws itself on arrival,
- * holding the writer's (or reader's) own words as a faded watermark — never a
- * score. Orbit stats sit on its right shoulder.
+ * The hero's centerpiece: a single tapered pen stroke — an editor circling a
+ * line worth keeping — that draws itself on arrival around the writer's (or
+ * reader's) own words. Never a score, and nothing else inside the circle:
+ * the numbers live in the tiles. The taper is real (a filled ribbon, not a
+ * stroked path); the reveal follows the pen via a mask along the centerline.
+ * Ink spatter lands where the pen lifts.
  */
 export function InkRing({
   quote,
   quoteFrom,
-  orbits,
   reduce,
 }: {
   quote: string | null;
   quoteFrom: string | null;
-  orbits: OrbitStat[];
   reduce: boolean | null;
 }) {
+  const words = quote ? quote.split(/\s+/) : [];
+  const settled = 1.0 + words.length * 0.045; // when the last word lands
   return (
-    <div className="pointer-events-none absolute left-1/2 top-[46%] aspect-square w-[min(430px,78%)] -translate-x-[38%] -translate-y-1/2">
+    <div className="pointer-events-none absolute left-1/2 top-[46%] aspect-square w-[min(430px,78%)] -translate-x-[30%] -translate-y-1/2 sm:-translate-x-[38%]">
       <svg viewBox="0 0 200 200" fill="none" className="h-full w-full overflow-visible">
+        <defs>
+          <mask id="ink-reveal">
+            <motion.path
+              d={STROKE.guide}
+              stroke="#fff"
+              strokeWidth={9}
+              strokeLinecap="round"
+              fill="none"
+              initial={reduce ? false : { pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 1.9, ease: [0.45, 0.05, 0.25, 1], delay: 0.3 }}
+            />
+          </mask>
+        </defs>
+        {/* wet-ink glow under the stroke */}
+        <path d={STROKE.fill} className="fill-amber" opacity={0.2} mask="url(#ink-reveal)" style={{ filter: "blur(3.5px)" }} />
+        <path d={STROKE.fill} className="fill-amber" opacity={0.6} mask="url(#ink-reveal)" />
+        {/* spatter where the pen lifted */}
         {[
-          { d: RING_OUTER, w: 1.1, o: 0.5 },
-          { d: RING_INNER, w: 0.6, o: 0.22 },
-        ].map((p) => (
-          <motion.path
-            key={p.w}
-            d={p.d}
-            className="stroke-amber"
-            strokeWidth={p.w}
-            opacity={p.o}
-            strokeLinecap="round"
-            initial={reduce ? false : { pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 2.2, ease: [0.5, 0, 0.2, 1], delay: 0.3 }}
+          { dx: 6, dy: -3, r: 1.5, o: 0.45 },
+          { dx: 11, dy: 3, r: 1.0, o: 0.35 },
+          { dx: 4, dy: 7, r: 0.8, o: 0.3 },
+        ].map((sp, i) => (
+          <motion.circle
+            key={i}
+            cx={STROKE.tail.x + sp.dx}
+            cy={STROKE.tail.y + sp.dy}
+            r={sp.r}
+            className="fill-amber"
+            initial={reduce ? false : { opacity: 0, scale: 0 }}
+            animate={{ opacity: sp.o, scale: 1 }}
+            transition={{ duration: 0.25, delay: 2.15 + i * 0.05 }}
           />
         ))}
-        <circle cx="179" cy="50" r="1.6" className="fill-amber" opacity="0.45" />
-        <circle cx="22" cy="152" r="1.8" className="fill-amber" opacity="0.35" />
-        <circle cx="150" cy="184" r="1.3" className="fill-amber" opacity="0.3" />
       </svg>
 
       {quote && (
-        <motion.div
-          className="absolute inset-0 grid -rotate-[2.5deg] place-items-center pb-[16%] pl-[36%] pr-[7%] pt-[16%] text-center"
-          {...(reduce ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 1.4, delay: 0.9 } })}
-        >
+        <div className="absolute inset-0 grid -rotate-[2.5deg] place-items-center pb-[16%] pl-[40%] pr-[8%] pt-[16%] text-center sm:pl-[34%]">
           <div className="font-display text-lg italic leading-relaxed text-paper/40 sm:text-xl">
-            {quote}
+            {reduce ? (
+              quote
+            ) : (
+              /* the line settles word by word, like ink drying */
+              <motion.span
+                initial="hide"
+                animate="show"
+                variants={{ show: { transition: { staggerChildren: 0.045, delayChildren: 1.0 } } }}
+              >
+                {words.map((w, i) => (
+                  <motion.span
+                    key={i}
+                    className="inline-block whitespace-pre"
+                    variants={{
+                      hide: { opacity: 0, filter: "blur(6px)" },
+                      show: { opacity: 1, filter: "blur(0px)", transition: { duration: 0.5 } },
+                    }}
+                  >
+                    {i < words.length - 1 ? `${w} ` : w}
+                  </motion.span>
+                ))}
+              </motion.span>
+            )}
             {quoteFrom && (
-              <span className="mt-2.5 block font-body text-[10px] not-italic uppercase tracking-[0.14em] text-text-ghost">
+              <motion.span
+                className="mt-2.5 block font-body text-[10px] not-italic uppercase tracking-[0.14em] text-text-ghost"
+                {...(reduce
+                  ? {}
+                  : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.6, delay: settled + 0.3 } })}
+              >
                 {quoteFrom}
-              </span>
+              </motion.span>
             )}
           </div>
-        </motion.div>
-      )}
-
-      {orbits.slice(0, 3).map((o, i) => (
-        <div
-          key={o.label}
-          className="absolute text-center leading-tight"
-          style={
-            [
-              { top: "4%", right: "2%" },
-              { top: "38%", right: "-14%" },
-              { bottom: "8%", right: "-4%" },
-            ][i]
-          }
-        >
-          <span className="block text-[10px] uppercase tracking-[0.14em] text-text-ghost">{o.label}</span>
-          <span className="font-mono text-[15px] text-paper">{o.value}</span>
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
 // ── the week's ink — seven nights of real word counts ────────────────────────
 
+const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+
 export function WeekInk({ trend, label = "The week's ink" }: { trend: number[]; label?: string }) {
   const reduce = useReducedMotion();
-  const week = trend.slice(-7);
-  if (week.length < 7 || week.every((v) => v === 0)) return null;
+  // a short trend is a young trend, not a missing one — pad the quiet nights
+  const tail = trend.slice(-7);
+  const week = tail.length < 7 ? [...Array<number>(7 - tail.length).fill(0), ...tail] : tail;
+  if (week.every((v) => v === 0)) return null;
   const max = Math.max(...week, 1);
   const today = new Date();
   const days = week.map((_, i) => {
     const d = new Date(today);
     d.setDate(today.getDate() - (6 - i));
-    return d.toLocaleDateString(undefined, { weekday: "narrow" });
+    return DAY_LETTERS[d.getDay()];
   });
   return (
     <div className="glass-panel rounded-xl p-3.5">
@@ -231,7 +316,7 @@ export function WeekInk({ trend, label = "The week's ink" }: { trend: number[]; 
                 style={v === 0 ? undefined : { height: `${Math.max(10, (v / max) * 100)}%` }}
                 initial={reduce || v === 0 ? false : { scaleY: 0 }}
                 animate={{ scaleY: 1 }}
-                transition={{ duration: 0.6, ease: [0.22, 0.8, 0.3, 1], delay: 0.35 + i * 0.06 }}
+                transition={{ type: "spring", stiffness: 260, damping: 19, delay: 0.35 + i * 0.06 }}
               />
             </div>
           );

@@ -2948,3 +2948,87 @@ html.theme-light .glass-jacket-pages {
   box-shadow: -3px 6px 10px rgba(3, 4, 10, 0.45);
   z-index: 2;
 }
+
+/* ── the stage answers the pointer ──────────────────────────────────────────
+   One candle of light follows the cursor across the vitrine. Position rides
+   on CSS vars set imperatively (no React re-renders); the layer fades in the
+   first time the pointer enters and out when it leaves. */
+.glass-stage-light {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+  background: radial-gradient(
+    560px circle at var(--lx, 50%) var(--ly, 28%),
+    rgba(226, 172, 74, 0.09),
+    rgba(97, 70, 197, 0.05) 42%,
+    transparent 68%
+  );
+}
+.glass-stage.is-lit .glass-stage-light {
+  opacity: 1;
+}
+html.theme-light .glass-stage-light {
+  background: radial-gradient(
+    560px circle at var(--lx, 50%) var(--ly, 28%),
+    rgba(179, 125, 32, 0.08),
+    transparent 60%
+  );
+}
+
+/* clips the light layers to the stage's rounded frame — the stage itself
+   can't be overflow-hidden, the jacket breaks its top edge on purpose */
+.glass-sweep-clip {
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* the lamplighter's pass — one sweep of light when a surface takes the stage */
+.glass-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  transform: skewX(-14deg);
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(226, 172, 74, 0.1) 45%,
+    rgba(253, 246, 227, 0.07) 52%,
+    transparent 70%
+  );
+}
+html.theme-light .glass-sweep {
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(179, 125, 32, 0.06) 45%,
+    rgba(255, 255, 255, 0.45) 52%,
+    transparent 70%
+  );
+}
+
+/* the vitrine's glare on the jacket, tracking the same light as the tilt */
+.glass-jacket-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    220px circle at var(--gx, 70%) var(--gy, 20%),
+    rgba(253, 246, 227, 0.16),
+    transparent 60%
+  );
+}
+.group:hover > .glass-jacket-sheen {
+  opacity: 1;
+}

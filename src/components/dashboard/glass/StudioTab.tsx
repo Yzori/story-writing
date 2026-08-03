@@ -62,12 +62,6 @@ export default function StudioTab({ snapshot, now }: { snapshot: StudioSnapshot;
       : `Your last line · ${formatTimeAgo(manuscript.updatedAt)}`
     : null;
 
-  const orbits = [
-    wordsWeek > 0 && { label: "Words this week", value: formatNumber(wordsWeek) },
-    s.sparksWeek > 0 && { label: "Sparks · week", value: `✦ ${formatNumber(s.sparksWeek)}` },
-    s.readersNow && s.readersNow.count > 0 && { label: "Reading now", value: String(s.readersNow.count) },
-  ].filter(Boolean) as { label: string; value: string }[];
-
   // ── tonight's cards, most alive first ──
   const cards: React.ReactNode[] = [];
   for (const t of snapshot.tables) {
@@ -144,12 +138,12 @@ export default function StudioTab({ snapshot, now }: { snapshot: StudioSnapshot;
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr] lg:gap-6">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.45fr_1fr] lg:gap-6">
       {/* ── HERO ── */}
       <motion.div className="relative flex min-h-[380px] items-start" {...rise(reduce, 0.05)}>
         {heroWork ? (
           <>
-            <InkRing quote={quote} quoteFrom={quoteFrom} orbits={orbits} reduce={reduce} />
+            <InkRing quote={quote} quoteFrom={quoteFrom} reduce={reduce} />
             <Jacket
               seed={heroWork.title}
               title={heroWork.title}
@@ -169,7 +163,7 @@ export default function StudioTab({ snapshot, now }: { snapshot: StudioSnapshot;
         ) : (
           /* an empty shelf is an invitation, not a blank */
           <div className="flex w-full flex-col items-start justify-center gap-4 py-10">
-            <InkRing quote="“Every story starts as an empty page that someone refused to leave empty.”" quoteFrom="The first page is waiting" orbits={[]} reduce={reduce} />
+            <InkRing quote="“Every story starts as an empty page that someone refused to leave empty.”" quoteFrom="The first page is waiting" reduce={reduce} />
             <Link
               href="/create"
               className="z-[3] inline-flex items-center gap-2.5 rounded-full bg-gold-fill px-5 py-3 text-[14px] font-semibold text-on-gold shadow-[0_8px_30px_rgba(226,172,74,0.35)] transition-transform hover:-translate-y-0.5"
@@ -183,15 +177,27 @@ export default function StudioTab({ snapshot, now }: { snapshot: StudioSnapshot;
       {/* ── IDENTITY ── */}
       <motion.div className="flex flex-col gap-3.5" {...rise(reduce, 0.12)}>
         <div className="grid grid-cols-3 gap-2.5">
-          <Tile gold label="Words · week" value={formatNumber(wordsWeek)} />
-          <Tile label="Sparks · week" value={formatNumber(s.sparksWeek)} />
-          <Tile label="New followers" value={s.newFollowersWeek > 0 ? `+${s.newFollowersWeek}` : "0"} sub="this week" />
+          <Tile gold label="Words · week" value={formatNumber(wordsWeek)} n={wordsWeek} />
+          <Tile label="Sparks · week" value={formatNumber(s.sparksWeek)} n={s.sparksWeek} />
+          <Tile
+            label="New followers"
+            value={s.newFollowersWeek > 0 ? `+${s.newFollowersWeek}` : "0"}
+            n={s.newFollowersWeek}
+            prefix="+"
+            sub="this week"
+          />
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <Tile label="Works" value={String(shelf.length)} sub={`${shelf.filter((w) => w.status === "published").length} published`} />
+          <Tile
+            label="Works"
+            value={String(shelf.length)}
+            n={shelf.length}
+            sub={`${shelf.filter((w) => w.status === "published").length} published`}
+          />
           <Tile
             label="Chapters"
             value={String(shelf.reduce((a, w) => a + w.chapterCount, 0))}
+            n={shelf.reduce((a, w) => a + w.chapterCount, 0)}
             sub={`${formatNumber(shelf.reduce((a, w) => a + w.totalWords, 0))} words`}
           />
         </div>

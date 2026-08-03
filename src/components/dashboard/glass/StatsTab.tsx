@@ -86,22 +86,30 @@ export default function StatsTab({ snapshot }: { snapshot: StudioSnapshot }) {
   const loadedCircle = circle !== null && circle !== "error" ? circle : null;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
       {/* ── headline tiles ── */}
       <motion.div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:col-span-2" {...rise(reduce, 0.05)}>
         <Tile
           gold
           label="Ink earned · all time"
           value={loadedEarnings ? `✦ ${formatNumber(loadedEarnings.totalEarned)}` : earnings === "error" ? "—" : "…"}
+          n={loadedEarnings ? loadedEarnings.totalEarned : undefined}
+          prefix="✦ "
           sub="your share, in Ink Drops"
         />
         <Tile
           label="The Circle"
           value={loadedCircle ? String(loadedCircle.subscriberCount) : circle === "error" ? "—" : "…"}
+          n={loadedCircle ? loadedCircle.subscriberCount : undefined}
           sub={loadedCircle && loadedCircle.circle ? `✦ ${formatNumber(loadedCircle.monthlyIncome)} a month` : "members"}
         />
-        <Tile label="Ink · this week" value={`✦ ${formatNumber(s.dropsWeek)}`} sub="into your well" />
-        <Tile label="Sparks · this week" value={formatNumber(s.sparksWeek)} sub={`+${s.newFollowersWeek} new followers`} />
+        <Tile label="Ink · this week" value={`✦ ${formatNumber(s.dropsWeek)}`} n={s.dropsWeek} prefix="✦ " sub="into your well" />
+        <Tile
+          label="Sparks · this week"
+          value={formatNumber(s.sparksWeek)}
+          n={s.sparksWeek}
+          sub={`+${s.newFollowersWeek} new followers`}
+        />
       </motion.div>
 
       {/* ── earnings by source ── */}

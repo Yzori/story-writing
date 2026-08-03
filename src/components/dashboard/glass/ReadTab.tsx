@@ -53,14 +53,8 @@ export default function ReadTab({ snapshot }: { snapshot: StudioSnapshot }) {
 
   const newChapters = s.follows.filter((f) => f.kind === "chapter");
 
-  const orbits = [
-    s.readingStreak > 0 && { label: "Evening streak", value: String(s.readingStreak) },
-    bookmarks && bookmarks.length > 0 && { label: "On your shelf", value: String(bookmarks.length) },
-    newChapters.length > 0 && { label: "New chapters", value: String(newChapters.length) },
-  ].filter(Boolean) as { label: string; value: string }[];
-
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr] lg:gap-6">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.45fr_1fr] lg:gap-6">
       {/* ── HERO: the book you're inside ── */}
       <motion.div className="relative flex min-h-[380px] items-start" {...rise(reduce, 0.05)}>
         {current ? (
@@ -68,7 +62,6 @@ export default function ReadTab({ snapshot }: { snapshot: StudioSnapshot }) {
             <InkRing
               quote={`“${current.chapterTitle}”`}
               quoteFrom={`Where you stopped · ${Math.round(current.scrollPercent)}% read`}
-              orbits={orbits}
               reduce={reduce}
             />
             <Jacket
@@ -93,7 +86,6 @@ export default function ReadTab({ snapshot }: { snapshot: StudioSnapshot }) {
             <InkRing
               quote="“The library is open all night.”"
               quoteFrom="Nothing on the nightstand yet"
-              orbits={orbits}
               reduce={reduce}
             />
             <Link
@@ -123,9 +115,13 @@ export default function ReadTab({ snapshot }: { snapshot: StudioSnapshot }) {
           </div>
         )}
         <div className="grid grid-cols-3 gap-2.5">
-          <Tile gold label="Evening streak" value={String(s.readingStreak)} />
-          <Tile label="In progress" value={bookmarks ? String(bookmarks.length) : "…"} />
-          <Tile label="New chapters" value={String(newChapters.length)} sub="from followed" />
+          <Tile gold label="Evening streak" value={String(s.readingStreak)} n={s.readingStreak} />
+          <Tile
+            label="In progress"
+            value={bookmarks ? String(bookmarks.length) : "…"}
+            n={bookmarks ? bookmarks.length : undefined}
+          />
+          <Tile label="New chapters" value={String(newChapters.length)} n={newChapters.length} sub="from followed" />
         </div>
 
         <Eyebrow className="mt-1 px-1">For you tonight</Eyebrow>

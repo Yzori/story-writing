@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { absenceLine } from "@/components/dashboard/Hub";
@@ -39,9 +39,21 @@ export default function GlassStage({
   const reduce = useReducedMotion();
   const [tab, setTab] = useState<StageTab>("studio");
   const [arrival, setArrival] = useState<ArrivalKind | null>(null);
+  const stageRef = useRef<HTMLElement>(null);
 
   // the arrival ceremony still owns the first breath after sign-in
   useEffect(() => setArrival(consumeArrival()), []);
+
+  // the candle follows the reader across the glass — CSS vars, no re-renders
+  const onStageMove = (e: React.PointerEvent) => {
+    const el = stageRef.current;
+    if (!el || e.pointerType !== "mouse") return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--lx", `${(((e.clientX - r.left) / r.width) * 100).toFixed(2)}%`);
+    el.style.setProperty("--ly", `${(((e.clientY - r.top) / r.height) * 100).toFixed(2)}%`);
+    el.classList.add("is-lit");
+  };
+  const onStageLeave = () => stageRef.current?.classList.remove("is-lit");
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-void text-text">
@@ -88,14 +100,32 @@ export default function GlassStage({
         </motion.div>
 
         <motion.section
+          ref={stageRef}
+          onPointerMove={onStageMove}
+          onPointerLeave={onStageLeave}
           className="glass-stage px-4 pb-6 pt-6 sm:px-7 sm:pb-8 sm:pt-7"
           initial={reduce ? false : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 0.8, 0.3, 1], delay: 0.08 }}
         >
+          {/* light lives under the content: the pointer's candle, and the
+              lamplighter's single pass when a surface takes the stage */}
+          <div className="glass-sweep-clip" aria-hidden>
+            <div className="glass-stage-light" />
+            {!reduce && (
+              <motion.div
+                key={`sweep-${tab}`}
+                className="glass-sweep"
+                initial={{ x: "-80%", opacity: 0 }}
+                animate={{ x: "320%", opacity: [0, 0.55, 0] }}
+                transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
+              />
+            )}
+          </div>
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}
+              className="relative"
               initial={reduce ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduce ? undefined : { opacity: 0, y: -8 }}
