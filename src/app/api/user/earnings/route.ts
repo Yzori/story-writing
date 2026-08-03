@@ -7,7 +7,9 @@ import { applyRateLimit, handleRouteError } from "@/server/api-utils";
 import { CREATOR_SHARE } from "@/lib/constants";
 
 const EARNING_TYPES = ["tip", "unlock", "circle", "commission", "donation", "crossroads", "gold"];
-const CREATOR_SHARE_SQL = sql<number>`floor(${inkDropTransactions.amount} * ${CREATOR_SHARE})`;
+// CREATOR_SHARE must be a literal in the SQL: as a bind parameter Postgres
+// infers its type from `integer * $n` and the query fails outright.
+const CREATOR_SHARE_SQL = sql<number>`floor(${inkDropTransactions.amount} * ${sql.raw(String(CREATOR_SHARE))})`;
 
 /**
  * GET /api/user/earnings

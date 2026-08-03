@@ -2883,3 +2883,68 @@ html.theme-light .candle-wax {
   .candle-drip { animation: none; opacity: 0; }
   .manuscript-room .lobby-ember { animation: none; opacity: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Glass Stage — the dashboard's lit vitrine (2026-08-03).
+   Deep chromatic midnight with amethyst/lapis glows and gilt-edged ink glass;
+   Vellum gets white glass floating on the page with ink-tinted lift. The one
+   place mid-tone washes stay banned even here: chroma lives in the glows.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.glass-stage {
+  position: relative;
+  border-radius: 24px;
+  border: 1px solid var(--t-border-active);
+  background:
+    radial-gradient(900px 620px at 26% 8%, rgba(97, 70, 197, 0.3), transparent 62%),
+    radial-gradient(760px 520px at 88% 92%, rgba(63, 104, 197, 0.18), transparent 65%),
+    radial-gradient(520px 420px at 38% 46%, rgba(226, 172, 74, 0.09), transparent 70%),
+    linear-gradient(160deg, #10142a 0%, #0e1220 55%, #131a2d 100%);
+  box-shadow: 0 32px 80px rgba(3, 4, 10, 0.55);
+}
+html.theme-light .glass-stage {
+  background:
+    radial-gradient(900px 620px at 26% 8%, rgba(108, 85, 163, 0.09), transparent 62%),
+    radial-gradient(760px 520px at 88% 92%, rgba(47, 79, 143, 0.07), transparent 65%),
+    linear-gradient(160deg, #fdfcf9 0%, #f3f0e8 100%);
+  box-shadow: 0 18px 50px rgba(27, 34, 48, 0.1);
+}
+
+.glass-panel {
+  background: rgba(19, 26, 45, 0.52);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--t-border);
+}
+html.theme-light .glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 3px rgba(27, 34, 48, 0.06);
+}
+
+/* the book as an object: stacked page edges on the fore-edge */
+.glass-jacket-pages {
+  position: absolute;
+  right: -5px;
+  top: 8px;
+  bottom: 6px;
+  width: 5px;
+  border-radius: 0 3px 3px 0;
+  background: repeating-linear-gradient(to bottom, #d8d2be 0 2px, #b4ad96 2px 3px);
+  opacity: 0.8;
+}
+html.theme-light .glass-jacket-pages {
+  background: repeating-linear-gradient(to bottom, #efece1 0 2px, #cfc9b6 2px 3px);
+}
+
+/* the bookmark — your place, kept */
+.glass-ribbon {
+  position: absolute;
+  top: -5px;
+  right: 19px;
+  width: 14px;
+  height: calc(100% + 40px);
+  background: linear-gradient(#c25b72, #8c3346 70%, #7a2c3c);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 10px), 0 100%);
+  box-shadow: -3px 6px 10px rgba(3, 4, 10, 0.45);
+  z-index: 2;
+}

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/server/auth";
 import { getAbsence, getStudioSnapshot } from "@/server/services/studio";
-import Hub from "@/components/dashboard/Hub";
+import GlassStage from "@/components/dashboard/glass/GlassStage";
 
 // The studio is one person's desk — never cached, never shared.
 export const dynamic = "force-dynamic";
@@ -24,10 +24,9 @@ export default async function DashboardPage() {
   const [snapshot, away] = await Promise.all([getStudioSnapshot(userId), getAbsence(userId)]);
 
   return (
-    <Hub
+    <GlassStage
       initial={snapshot}
       away={away}
-      userId={userId}
       firstName={session?.user?.name?.split(" ")[0]}
     />
   );
