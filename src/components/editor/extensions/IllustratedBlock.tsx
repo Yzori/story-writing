@@ -125,7 +125,13 @@ export const IllustratedBlock = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-type="illustrated"]' }];
+    // Also claim the prose editor's illustration tag, so a chapter started at
+    // the desk keeps its pictures when it's opened in the illustrated studio.
+    // Only one of the two nodes is ever registered, so the tags can't collide.
+    return [
+      { tag: 'div[data-type="illustrated"]' },
+      { tag: 'div[data-type="illustration"]' },
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {

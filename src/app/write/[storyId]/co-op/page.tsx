@@ -264,7 +264,26 @@ export default function CoopScroll() {
     const res = await fetch(`/api/stories/${storyId}/chapters`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: `Chapter ${chapters.length + 1}` }) });
     if (res.ok) { const ch = toChapter((await res.json()).data); setChapters((prev) => [...prev, ch]); selectChapter(ch.id); }
-  }, [storyId, chapters.length, selectChapter]);
+    else toast("Couldn’t create the chapter. Try again.", "error");
+  }, [storyId, chapters.length, selectChapter, toast]);
+
+  const [creatingFirst, setCreatingFirst] = useState(false);
+  const createFirstChapter = useCallback(async () => {
+    if (creatingFirst) return;
+    setCreatingFirst(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/chapters`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Chapter 1" }) });
+      if (!res.ok) { toast("Couldn’t start the chapter. Try again.", "error"); return; }
+      const ch = toChapter((await res.json()).data);
+      setChapters([ch]);
+      setActiveChapterId(ch.id);
+    } catch {
+      toast("Couldn’t start the chapter. Try again.", "error");
+    } finally {
+      setCreatingFirst(false);
+    }
+  }, [creatingFirst, storyId, toast]);
 
   // ── Content update + auto-save ──────────────────────────
   const handleContentUpdate = useCallback((content: string, wordCount: number) => {
@@ -513,7 +532,28 @@ export default function CoopScroll() {
       <div className="relative z-10 min-h-screen">
         <div className="max-w-[640px] mx-auto px-8 sm:px-12">
 
+          {/* ── Nothing written yet ───────────────────────── */}
+          {chapters.length === 0 && (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
+              className="min-h-screen flex flex-col items-center justify-center text-center">
+              <div className="w-14 h-14 rounded-2xl bg-amber/[0.06] border border-amber/15 flex items-center justify-center mb-6">
+                <svg width="24" height="24" viewBox="0 0 32 32" fill="#D4A574" opacity="0.7">
+                  <path d="M26 3C22 7 18 11 14 16C10 21 8 25 7 28L5 29L4 27C5 24 8 18 12 13C16 8 21 5 26 3Z" />
+                </svg>
+              </div>
+              <h2 className="font-display text-2xl sm:text-3xl text-paper mb-3">The page is still blank</h2>
+              <p className="text-text-secondary text-[13px] leading-relaxed max-w-sm mb-8">
+                Nobody has written anything yet. Start the first chapter and the rest of the room can pick up the pen after you.
+              </p>
+              <button onClick={createFirstChapter} disabled={creatingFirst}
+                className="px-6 py-3 rounded-2xl bg-amber/[0.08] border border-amber/20 text-amber text-[13px] font-medium hover:bg-amber/[0.14] transition-all disabled:opacity-40">
+                {creatingFirst ? "Starting…" : "Begin the first chapter"}
+              </button>
+            </motion.div>
+          )}
+
           {/* ── Chapter header ────────────────────────────── */}
+          {chapters.length > 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.3 }}
             className="pt-24 pb-16 text-center">
             <p className="text-[9px] uppercase tracking-[0.3em] text-text-ghost/25 mb-3">
@@ -536,6 +576,7 @@ export default function CoopScroll() {
               {activeChapter?.wordCount.toLocaleString()} words &middot; {totalWords.toLocaleString()} total
             </p>
           </motion.div>
+          )}
 
           {/* ── The Editor ─────────────────────────────────── */}
           {activeChapter && (
@@ -582,6 +623,7 @@ export default function CoopScroll() {
           )}
 
           {/* ── Pen zone ───────────────────────────────────── */}
+          {chapters.length > 0 && (
           <div className="pt-8 pb-6">
             {!penHolder && (
               <div className="py-12 flex flex-col items-center gap-4">
@@ -616,8 +658,10 @@ export default function CoopScroll() {
               </div>
             )}
           </div>
+          )}
 
           {/* ── Thought input ──────────────────────────────── */}
+          {chapters.length > 0 && (
           <div className="pb-20 pt-4">
             <div className="border-t border-paper/[0.04] pt-6">
               <div className="flex items-center gap-2 mb-3">
@@ -646,6 +690,7 @@ export default function CoopScroll() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

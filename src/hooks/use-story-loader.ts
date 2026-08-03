@@ -11,6 +11,7 @@ import {
   createTypography,
 } from "@/types/editor";
 import { normalizeTypographySettings } from "@/lib/typography";
+import { firstChapterTitleFor } from "@/lib/constants";
 import {
   apiChapterToLocal,
   apiBibleToLocal,
@@ -98,31 +99,51 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
         }
         setSessionUserId(sessionData.user.id);
         const isOwner = sessionData.user.id === story.userId;
-        if (!isOwner) {
-          // For co-op/campaign stories, check if user is an accepted collaborator
-          if (story.writingMode !== "solo") {
-            try {
-              const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
-              const collabJson = collabRes.ok ? await collabRes.json() : { data: [] };
-              const isCollab = (collabJson.data || []).some(
-                (c: { userId: string; status: string }) =>
-                  c.userId === sessionData.user.id && c.status === "accepted"
+
+        // One collaborator fetch feeds three decisions: who may edit, whether a
+        // co-op story has a team yet, and the presence strip. `teamKnown` stays
+        // false if the call fails, so a network blip never invents an empty team.
+        let allCollabs: EditorCollaborator[] = [];
+        let teamKnown = false;
+        if (story.writingMode !== "solo") {
+          try {
+            const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
+            if (collabRes.ok) {
+              const collabJson = await collabRes.json();
+              allCollabs = (collabJson.data || []).map(
+                (c: { id: string; userId: string; role: string; status: string; user?: { displayName?: string | null; avatarUrl?: string | null } | null }) => ({
+                  id: c.id,
+                  userId: c.userId,
+                  displayName: c.user?.displayName || null,
+                  avatarUrl: c.user?.avatarUrl || null,
+                  role: c.role,
+                  status: c.status,
+                })
               );
-              if (!isCollab) {
-                setError("You don’t have permission to edit this story");
-                setLoading(false);
-                return;
-              }
-            } catch {
-              setError("You don’t have permission to edit this story");
-              setLoading(false);
-              return;
+              teamKnown = true;
             }
-          } else {
+          } catch {
+            // Leave teamKnown false — handled per-caller below.
+          }
+        }
+        const acceptedCollabs = allCollabs.filter((c) => c.status === "accepted");
+
+        if (!isOwner) {
+          const isCollab = acceptedCollabs.some((c) => c.userId === sessionData.user.id);
+          if (!isCollab) {
             setError("You don’t have permission to edit this story");
             setLoading(false);
             return;
           }
+        }
+
+        // Co-op is written at a shared scroll with a passed pen, not alone at
+        // the desk. Only send them there once a team exists — a co-op story with
+        // no accepted collaborators falls through to the prose page, which shows
+        // the "assemble your team" gate.
+        if (story.writingMode === "co-op" && acceptedCollabs.length > 0) {
+          router.replace(`/write/${storyId}/co-op`);
+          return;
         }
 
         const chaptersJson = await chaptersRes.json();
@@ -137,8 +158,7 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
 
         // Build StoryProject from API data + local settings
         const rawChapters: Chapter[] = apiChapters.map(apiChapterToLocal);
-        const formatFirstUnit: Record<string, string> = { novel: "Chapter 1", poetry: "Poem 1", webtoon: "Episode 1", illustrated: "Chapter 1", screenplay: "Scene 1" };
-        const firstTitle = formatFirstUnit[story.format || "novel"] || "Chapter 1";
+        const firstTitle = firstChapterTitleFor(story.format);
         const chaptersToUse = rawChapters.length > 0 ? rawChapters : [createChapter(firstTitle)];
 
         const proj: StoryProject = {
@@ -172,18 +192,26 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
           }),
         };
 
-        // If no chapters existed, create the first one via API
+        // Legacy stories from before the server seeded chapter 1 arrive empty.
+        // The client-minted chapter above only exists in memory — without a real
+        // row nothing can ever save, so a failed create is a load error, not a
+        // silent editor.
         if (apiChapters.length === 0) {
-          const res = await fetch(`/api/stories/${storyId}/chapters`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: firstTitle }),
-          });
-          if (res.ok) {
+          try {
+            const res = await fetch(`/api/stories/${storyId}/chapters`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title: firstTitle }),
+            });
+            if (!res.ok) throw new Error(`Chapter create failed: ${res.status}`);
             const json = await res.json();
             const ch = apiChapterToLocal(json.data);
             proj.chapters = [ch];
             proj.activeChapterId = ch.id;
+          } catch {
+            setError("Couldn’t start the first chapter. Reload to try again.");
+            setLoading(false);
+            return;
           }
         }
 
@@ -193,30 +221,12 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
         setWritingMode(story.writingMode || "solo");
         setStorySlug(story.slug || storyId);
 
-        // Co-op: fetch collaborators for presence + gate
+        // Collaborators drive the presence strip and the co-op team gate. If the
+        // roster never loaded, let them write rather than gating on a failed call.
         if (story.writingMode === "co-op" || story.writingMode === "campaign") {
-          try {
-            const collabRes = await fetch(`/api/stories/${storyId}/collaborators`);
-            if (collabRes.ok) {
-              const collabJson = await collabRes.json();
-              const allCollabs: EditorCollaborator[] = (collabJson.data || []).map(
-                (c: { id: string; userId: string; role: string; status: string; user?: { displayName?: string | null; avatarUrl?: string | null } | null }) => ({
-                  id: c.id,
-                  userId: c.userId,
-                  displayName: c.user?.displayName || null,
-                  avatarUrl: c.user?.avatarUrl || null,
-                  role: c.role,
-                  status: c.status,
-                })
-              );
-              setCollaborators(allCollabs);
-              const accepted = allCollabs.filter((c) => c.status === "accepted");
-              if (accepted.length === 0 && story.writingMode === "co-op") {
-                setNeedsTeamSetup(true);
-              }
-            }
-          } catch {
-            // Non-blocking — let them write if check fails
+          setCollaborators(allCollabs);
+          if (teamKnown && acceptedCollabs.length === 0 && story.writingMode === "co-op") {
+            setNeedsTeamSetup(true);
           }
         }
       } catch {

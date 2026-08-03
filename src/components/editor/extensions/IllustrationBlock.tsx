@@ -61,7 +61,15 @@ export const IllustrationBlock = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-type="illustration"]' }];
+    // Also claim the illustrated editor's tag. The two editors are separate
+    // nodes over the same picture, and only one is ever loaded at a time — so
+    // reading both tags is what stops a chapter authored in the illustrated
+    // studio from losing its images when opened here. floatSide has no meaning
+    // in prose and drops on the way through; the picture survives.
+    return [
+      { tag: 'div[data-type="illustration"]' },
+      { tag: 'div[data-type="illustrated"]' },
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {

@@ -131,8 +131,10 @@ async function sendNotificationEmail(
     const tpl = (() => {
       switch (type) {
         case "chapter": {
-          // message format: "{authorName} published \"{chapterTitle}\" in {storyTitle}"
-          const m = message.match(/published "(.+?)" in (.+)$/);
+          // Emitted as: New chapter "{chapterTitle}" in "{storyTitle}"
+          // Older rows read: {authorName} published "{chapterTitle}" in {storyTitle}
+          // Accept both, with or without quotes around the story title.
+          const m = message.match(/(?:New chapter|published) "(.+?)" in "?(.+?)"?$/);
           if (m) return chapterPublishedEmail(m[2], m[1], fullHref);
           return genericNotificationEmail(message, fullHref);
         }

@@ -28,6 +28,22 @@ export const TIER_PRICES: Record<string, number> = {
   premium: 50,
 };
 
+// ── First chapter title by format ───────────────────────────
+// Every new story is seeded with one empty chapter so the editor always has
+// something to write into. Each format calls its first unit something else.
+
+const FIRST_UNIT_BY_FORMAT: Record<string, string> = {
+  novel: "Chapter 1",
+  poetry: "Poem 1",
+  webtoon: "Episode 1",
+  illustrated: "Chapter 1",
+  screenplay: "Scene 1",
+};
+
+export function firstChapterTitleFor(format?: string | null): string {
+  return FIRST_UNIT_BY_FORMAT[format || "novel"] || "Chapter 1";
+}
+
 // ── Commission craft types ─────────────────────────────────
 
 export const VALID_CRAFTS = [

@@ -4,6 +4,7 @@ import { stories, users, sparks as sparksTable, chapters, playerCharacters, camp
 import { eq, ne, isNull, desc, lt, and, or, sql, ilike, inArray } from "drizzle-orm";
 import { createStorySchema } from "@/lib/validations";
 import { LEGACY_RATING_MAP } from "@/config/genres";
+import { firstChapterTitleFor } from "@/lib/constants";
 import { generateSlug } from "@/lib/utils";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
@@ -313,19 +314,40 @@ export async function POST(request: NextRequest) {
       ? (LEGACY_RATING_MAP[contentRating] ?? contentRating)
       : undefined;
 
-    const [story] = await db
-      .insert(stories)
-      .values({
-        title,
-        slug,
-        userId: session.user.id,
-        ...rest,
-        ...(normalizedRating !== undefined && { contentRating: normalizedRating }),
-        ...(contentNotes !== undefined && {
-          contentNotes: JSON.stringify(contentNotes),
-        }),
-      })
-      .returning();
+    const story = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(stories)
+        .values({
+          title,
+          slug,
+          userId: session.user.id,
+          ...rest,
+          ...(normalizedRating !== undefined && { contentRating: normalizedRating }),
+          ...(contentNotes !== undefined && {
+            contentNotes: JSON.stringify(contentNotes),
+          }),
+        })
+        .returning();
+
+      // Seed the first chapter so the editor always opens onto a real, saveable
+      // page. Campaign tables are the exception — their chapters are compiled
+      // from played sessions, so an empty one would be a phantom on the shelf.
+      if (created.writingMode !== "campaign") {
+        await tx.insert(chapters).values({
+          storyId: created.id,
+          title: firstChapterTitleFor(created.format),
+          content: "",
+          wordCount: 0,
+          sortOrder: 0,
+          status: "draft",
+          authorNoteBefore: "",
+          authorNoteAfter: "",
+          outline: "",
+        });
+      }
+
+      return created;
+    });
 
     // Parse contentNotes back to array for response
     const responseStory = {

@@ -57,6 +57,28 @@ export function compressAvatar(
   });
 }
 
+/**
+ * True if any pixel is less than fully opaque. Only worth asking for source
+ * formats that can carry alpha — an opaque PNG photo is far smaller as JPEG,
+ * so we only keep PNG when there is real transparency to lose.
+ */
+function hasTransparency(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number
+): boolean {
+  try {
+    const { data } = ctx.getImageData(0, 0, width, height);
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) return true;
+    }
+    return false;
+  } catch {
+    // Can't inspect the pixels — assume alpha rather than flatten it away.
+    return true;
+  }
+}
+
 export function compressImage(
   file: File,
   maxDim: number = 600,
@@ -91,6 +113,32 @@ export function compressImage(
         }
 
         ctx.drawImage(img, 0, 0, width, height);
+
+        // Line art and character cut-outs arrive as PNG/WebP with a
+        // transparent background. Re-encoding those as JPEG paints the
+        // transparency black, so keep them lossless.
+        const mayCarryAlpha = file.type === "image/png" || file.type === "image/webp";
+        if (mayCarryAlpha && hasTransparency(ctx, width, height)) {
+          let dataUrl = canvas.toDataURL("image/png");
+          // PNG ignores the quality knob, so shrink the picture instead.
+          let w = width;
+          let h = height;
+          while (dataUrl.length > maxDataUrlLength && Math.max(w, h) > 200) {
+            w = Math.max(1, Math.round(w * 0.8));
+            h = Math.max(1, Math.round(h * 0.8));
+            canvas.width = w;
+            canvas.height = h;
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            dataUrl = canvas.toDataURL("image/png");
+          }
+          if (dataUrl.length > maxDataUrlLength) {
+            reject(new Error("Image too large even after compression"));
+            return;
+          }
+          resolve(dataUrl);
+          return;
+        }
 
         // Try progressively lower quality until it fits
         let q = quality;

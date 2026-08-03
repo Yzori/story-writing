@@ -251,16 +251,26 @@ describe("POST /api/stories", () => {
   beforeEach(async () => {
     vi.resetModules();
 
-    vi.doMock("@/server/db", () => ({
-      db: {
-        query: { stories: { findFirst: vi.fn().mockResolvedValue(null) } },
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([mockStory]),
-          }),
+    vi.doMock("@/server/db", () => {
+      const insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([mockStory]),
         }),
-      },
-    }));
+      });
+      return {
+        db: {
+          query: { stories: { findFirst: vi.fn().mockResolvedValue(null) } },
+          insert,
+          // POST creates story + first chapter atomically; the tx exposes the
+          // same insert surface as the db mock.
+          transaction: vi
+            .fn()
+            .mockImplementation(async (fn: (tx: { insert: typeof insert }) => unknown) =>
+              fn({ insert })
+            ),
+        },
+      };
+    });
 
     vi.doMock("@/server/auth", () => ({
       auth: vi.fn().mockResolvedValue({
