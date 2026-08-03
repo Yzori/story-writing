@@ -35,17 +35,22 @@ export function Eyebrow({ children, className = "" }: { children: React.ReactNod
 /**
  * Counts from zero to the real figure as the stage wakes. `final` is the
  * exactly-formatted resting string (prefixes, abbreviations, "+" signs), so
- * the animation can never end on a number the snapshot didn't say.
+ * the animation can never end on a number the snapshot didn't say. Runs once
+ * per mount: when a background poll moves the figure later, the tile updates
+ * in place — a minute-old refresh isn't an arrival.
  */
 function CountUp({ to, prefix = "", final }: { to: number; prefix?: string; final: string }) {
   const reduce = useReducedMotion();
+  const ran = useRef(false);
   const [v, setV] = useState(0);
   const [done, setDone] = useState(false);
   useEffect(() => {
-    if (reduce || to === 0) {
+    if (ran.current || reduce || to === 0) {
+      ran.current = true;
       setDone(true);
       return;
     }
+    ran.current = true;
     const ctrl = animate(0, to, {
       duration: 1.1,
       ease: [0.22, 0.8, 0.3, 1],

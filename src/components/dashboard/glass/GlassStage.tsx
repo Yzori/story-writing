@@ -41,6 +41,46 @@ export default function GlassStage({
   const [arrival, setArrival] = useState<ArrivalKind | null>(null);
   const stageRef = useRef<HTMLElement>(null);
 
+  // ── the live signals stay live ──
+  // The server-built snapshot is the first paint; after that, /api/dashboard
+  // (the same shape, same service) refreshes it every minute — so a pulsing
+  // "Live" badge is never quoting an hour-old page load. The clock ticks
+  // between polls so a turn deadline counts down instead of freezing.
+  const [snapshot, setSnapshot] = useState<StudioSnapshot>(initial);
+  const [now, setNow] = useState(initial.builtAt);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const r = await fetch("/api/dashboard");
+        if (!r.ok) return; // keep the last honest snapshot; try again next tick
+        const j = await r.json();
+        const next = j.data as StudioSnapshot | undefined;
+        if (alive && next?.builtAt) {
+          setSnapshot(next);
+          setNow(next.builtAt);
+        }
+      } catch {
+        // offline or flaky — the stale-but-labeled snapshot is still truthful
+      }
+    };
+    const pollId = setInterval(poll, 60_000);
+    const tickId = setInterval(() => setNow((n) => n + 30_000), 30_000);
+    // coming back to the tab refreshes immediately — that's when staleness shows
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      clearInterval(pollId);
+      clearInterval(tickId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
   // the arrival ceremony still owns the first breath after sign-in
   useEffect(() => setArrival(consumeArrival()), []);
 
@@ -131,9 +171,9 @@ export default function GlassStage({
               exit={reduce ? undefined : { opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
             >
-              {tab === "studio" && <StudioTab snapshot={initial} now={initial.builtAt} />}
-              {tab === "read" && <ReadTab snapshot={initial} />}
-              {tab === "stats" && <StatsTab snapshot={initial} />}
+              {tab === "studio" && <StudioTab snapshot={snapshot} now={now} />}
+              {tab === "read" && <ReadTab snapshot={snapshot} />}
+              {tab === "stats" && <StatsTab snapshot={snapshot} />}
             </motion.div>
           </AnimatePresence>
         </motion.section>
