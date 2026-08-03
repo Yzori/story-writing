@@ -43,6 +43,20 @@ export interface UseStoryLoaderResult {
   needsTeamSetup: boolean;
 }
 
+export interface UseStoryLoaderOptions {
+  /**
+   * Set by the standalone webtoon studio, which IS the webtoon's room — it
+   * calls the loader only for story-level state (details, bible, typography,
+   * visibility) and owns episodes itself. So the three things the loader
+   * normally does on the story's behalf are handed back to that route:
+   * the webtoon hand-off (which would bounce the studio into itself), the
+   * co-op hand-off (a panel comic is not written on the co-op scroll — the
+   * cockpit never sent webtoons there either, since its webtoon check ran
+   * first), and seeding a first chapter (the route creates episodes).
+   */
+  allowWebtoon?: boolean;
+}
+
 /**
  * Loads the story, its chapters (with content), and bible into a StoryProject,
  * verifies edit permission, redirects webtoons to their standalone studio, and
@@ -52,7 +66,10 @@ export interface UseStoryLoaderResult {
  * into its updateProject + autosave plumbing. Everything the page mutates
  * afterward (chapters, fields) flows through that returned setter.
  */
-export function useStoryLoader(storyId: string): UseStoryLoaderResult {
+export function useStoryLoader(
+  storyId: string,
+  { allowWebtoon = false }: UseStoryLoaderOptions = {}
+): UseStoryLoaderResult {
   const router = useRouter();
   const [project, setProject] = useState<StoryProject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,7 +101,7 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
 
         // Webtoon is a vertical-panel comic, not a prose document — it has its
         // own full-bleed studio. Send it there instead of the prose cockpit.
-        if (story.format === "webtoon") {
+        if (story.format === "webtoon" && !allowWebtoon) {
           router.replace(`/write/${storyId}/webtoon`);
           return;
         }
@@ -141,7 +158,7 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
         // the desk. Only send them there once a team exists — a co-op story with
         // no accepted collaborators falls through to the prose page, which shows
         // the "assemble your team" gate.
-        if (story.writingMode === "co-op" && acceptedCollabs.length > 0) {
+        if (!allowWebtoon && story.writingMode === "co-op" && acceptedCollabs.length > 0) {
           router.replace(`/write/${storyId}/co-op`);
           return;
         }
@@ -196,7 +213,7 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
         // The client-minted chapter above only exists in memory — without a real
         // row nothing can ever save, so a failed create is a load error, not a
         // silent editor.
-        if (apiChapters.length === 0) {
+        if (apiChapters.length === 0 && !allowWebtoon) {
           try {
             const res = await fetch(`/api/stories/${storyId}/chapters`, {
               method: "POST",
@@ -236,7 +253,7 @@ export function useStoryLoader(storyId: string): UseStoryLoaderResult {
       }
     }
     loadStory();
-  }, [storyId, router]);
+  }, [storyId, router, allowWebtoon]);
 
   // Editor settings persistence — goals are editor-local; typography is now
   // story-backed but kept locally as a quick draft cache for older projects.

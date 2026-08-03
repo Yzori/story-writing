@@ -58,3 +58,6 @@ next-env.d.ts
 scripts/.tmp-*.mjs
 /*.png
 .idea/
+
+# local-disk media storage (see src/server/media.ts)
+/uploads

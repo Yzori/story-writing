@@ -5,6 +5,7 @@ import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
 import { createPanelsSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
+import { MediaError, externalizeFramesJson, externalizeImage } from "@/server/media";
 import { TIER_PRICES } from "@/lib/constants";
 import { hasActiveCircleSubscription } from "@/server/services/circles";
 
@@ -147,6 +148,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       try {
         const parsed = JSON.parse(chapter.content);
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].imageDataUrl) {
+          // Legacy images are base64 — move them to disk before the insert
+          // (and before the lock: disk writes shouldn't hold the table).
+          const externalized = await Promise.all(
+            (parsed as { id?: string; imageDataUrl: string; caption?: string; order?: number }[]).map(
+              async (p) => ({ ...p, imageDataUrl: (await externalizeImage(p.imageDataUrl)) ?? "" })
+            )
+          );
           // Migrate legacy panel data. Concurrent first readers race this
           // check-then-insert, so take the same lock POST uses and re-check
           // emptiness after acquiring it — otherwise every panel is inserted
@@ -161,7 +169,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
             if (alreadyMigrated.length > 0) return alreadyMigrated;
 
             const inserted = await tx.insert(panels).values(
-              parsed.map((p: { id?: string; imageDataUrl: string; caption?: string; order?: number }, i: number) => ({
+              externalized.map((p, i: number) => ({
                 chapterId,
                 imageData: p.imageDataUrl,
                 caption: p.caption || "",
@@ -267,6 +275,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Base64 → disk before the transaction: the table lock shouldn't wait on
+    // file writes, and the rows only ever store small /api/media URLs.
+    const incoming = await Promise.all(
+      parsed.data.panels.map(async (p) => ({
+        ...p,
+        imageData: (await externalizeImage(p.imageData)) ?? "",
+        frames: p.frames ? await externalizeFramesJson(p.frames) : p.frames,
+      }))
+    );
+
     const created = await db.transaction(async (tx) => {
       await tx.execute(sql`LOCK TABLE "panels" IN SHARE ROW EXCLUSIVE MODE`);
 
@@ -278,7 +296,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const nextSortOrder = (lastPanel?.sortOrder ?? -1) + 1;
 
       return tx.insert(panels).values(
-        parsed.data.panels.map((p, index) => ({
+        incoming.map((p, index) => ({
           chapterId,
           imageData: p.imageData,
           caption: p.caption || "",
@@ -306,6 +324,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
+    if (error instanceof MediaError) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: error.message } },
+        { status: 400 }
+      );
+    }
     return handleRouteError(
       error,
       "POST /api/stories/[storyId]/chapters/[chapterId]/panels",

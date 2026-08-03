@@ -1,5 +1,14 @@
 import { z } from "zod";
 import { CAMPAIGN_TURN_TYPES, CAMPAIGN_TURN_TYPES_ALLOW_EMPTY } from "@/lib/campaign-turns";
+import {
+  BUBBLE_INKS,
+  BUBBLE_STYLES,
+  OVERLAY_FONT_SIZES,
+  OVERLAY_ROTATION_LIMIT,
+  OVERLAY_SCALE_MAX,
+  OVERLAY_SCALE_MIN,
+  TAIL_DIRECTIONS,
+} from "@/types/editor";
 
 // ── Stories ──────────────────────────────────────────────────
 
@@ -119,6 +128,76 @@ export const updateChapterSchema = z.object({
 
 // ── Webtoon Panels ──────────────────────────────────────────
 
+/**
+ * Speech bubbles are stored in `panels.overlays` as a JSON string, and their
+ * properties end up in class names and in the style attribute of the renderer.
+ * A length cap alone is not enough: everything that reaches the DOM has to be a
+ * whitelisted keyword or a clamped number, and that has to happen on write.
+ *
+ * Write-path only. Reads stay unvalidated so legacy rows keep loading —
+ * `parseOverlays()` in src/types/editor.ts sanitizes those on the client.
+ */
+const OVERLAY_TEXT_MAX = 2000;
+const OVERLAY_MAX_PER_PANEL = 50;
+
+/** Out-of-range geometry is clamped, not rejected — a bad number is a slider
+ *  overshoot, not an attack, and losing the whole save would be worse. */
+const clampedOverlayNumber = (min: number, max: number, fallback: number) =>
+  z.preprocess((value) => {
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  }, z.number());
+
+const optionalOverlayNumber = (min: number, max: number, fallback: number) =>
+  z.preprocess((value) => {
+    if (value === undefined || value === null) return undefined;
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  }, z.number().optional());
+
+export const textOverlaySchema = z.object({
+  id: z.string().min(1).max(100),
+  text: z.string().max(OVERLAY_TEXT_MAX).default(""),
+  x: clampedOverlayNumber(0, 100, 50),
+  y: clampedOverlayNumber(0, 100, 50),
+  width: clampedOverlayNumber(1, 100, 30),
+  style: z.enum(BUBBLE_STYLES).default("speech"),
+  tailDirection: z.enum(TAIL_DIRECTIONS).default("none"),
+  fontSize: z.enum(OVERLAY_FONT_SIZES).default("medium"),
+  ink: z.enum(BUBBLE_INKS).optional(),
+  rotation: optionalOverlayNumber(-OVERLAY_ROTATION_LIMIT, OVERLAY_ROTATION_LIMIT, 0),
+  scale: optionalOverlayNumber(OVERLAY_SCALE_MIN, OVERLAY_SCALE_MAX, 1),
+});
+
+/**
+ * Accepts the JSON string the client sends and returns the sanitized string to
+ * store, so the column can only ever hold overlays of a known shape.
+ */
+export const overlaysJsonSchema = z
+  .string()
+  .max(50000)
+  .transform((raw, ctx) => {
+    if (!raw.trim()) return "[]";
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      ctx.addIssue({ code: "custom", message: "Overlays must be valid JSON" });
+      return z.NEVER;
+    }
+
+    const result = z.array(textOverlaySchema).max(OVERLAY_MAX_PER_PANEL).safeParse(parsed);
+    if (!result.success) {
+      ctx.addIssue({ code: "custom", message: "Overlays have an unsupported shape" });
+      return z.NEVER;
+    }
+
+    return JSON.stringify(result.data);
+  });
+
 export const createPanelsSchema = z.object({
   panels: z.array(z.object({
     imageData: z.string().max(1_500_000), // ~1MB base64
@@ -130,7 +209,7 @@ export const createPanelsSchema = z.object({
     borderStyle: z.enum(["none", "black", "light"]).optional(),
     imageFit: z.enum(["cover", "contain", "top"]).optional(),
     aspectRatio: z.string().max(20).nullable().optional(),
-    overlays: z.string().max(50000).optional(),
+    overlays: overlaysJsonSchema.optional(),
     seam: z.enum(["none", "beat", "pause", "breath", "blackout"]).optional(),
   })).min(1).max(20),
 });
@@ -145,8 +224,14 @@ export const updatePanelSchema = z.object({
   borderStyle: z.enum(["none", "black", "light"]).optional(),
   imageFit: z.enum(["cover", "contain", "top"]).optional(),
   aspectRatio: z.string().max(20).nullable().optional(),
-  overlays: z.string().max(50000).optional(),
+  overlays: overlaysJsonSchema.optional(),
   seam: z.enum(["none", "beat", "pause", "breath", "blackout"]).optional(),
+  /**
+   * Optimistic-lock guard: the panel's updatedAt as the client last saw it.
+   * When present and older than the row, the PATCH answers 409 instead of
+   * silently overwriting a collaborator's newer save.
+   */
+  baseUpdatedAt: z.string().max(40).optional(),
 });
 
 export const createAssetSchema = z.object({

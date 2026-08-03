@@ -341,9 +341,35 @@ export function estimateReadingTime(words: number): string {
 
 // ── Webtoon Text Overlays ───────────────────────────────────
 
-export type BubbleStyle = "speech" | "thought" | "narration" | "shout" | "caption" | "sfx";
-export type TailDirection = "bottom-left" | "bottom-right" | "top-left" | "top-right" | "none";
-export type OverlayFontSize = "small" | "medium" | "large";
+export const BUBBLE_STYLES = [
+  "speech",
+  "thought",
+  "narration",
+  "shout",
+  "caption",
+  "sfx",
+] as const;
+export const TAIL_DIRECTIONS = [
+  "bottom-left",
+  "bottom-right",
+  "top-left",
+  "top-right",
+  "none",
+] as const;
+export const OVERLAY_FONT_SIZES = ["small", "medium", "large"] as const;
+export const BUBBLE_INKS = ["ink", "paper", "gold", "rose", "teal"] as const;
+
+export type BubbleStyle = (typeof BUBBLE_STYLES)[number];
+export type TailDirection = (typeof TAIL_DIRECTIONS)[number];
+export type OverlayFontSize = (typeof OVERLAY_FONT_SIZES)[number];
+export type BubbleInk = (typeof BUBBLE_INKS)[number];
+
+/** Rotation is capped where lettering still reads as lettering, not decoration. */
+export const OVERLAY_ROTATION_LIMIT = 45;
+export const OVERLAY_SCALE_MIN = 0.5;
+export const OVERLAY_SCALE_MAX = 2;
+/** Matches the per-overlay text cap enforced server-side in validations.ts. */
+export const OVERLAY_TEXT_MAX = 2000;
 
 export interface TextOverlay {
   id: string;
@@ -354,6 +380,12 @@ export interface TextOverlay {
   style: BubbleStyle;
   tailDirection: TailDirection;
   fontSize: OverlayFontSize;
+  /** Lettering color scheme. Undefined keeps the style's own default palette. */
+  ink?: BubbleInk;
+  /** Degrees, -45..45. Undefined means the style's own tilt (SFX leans -4deg). */
+  rotation?: number;
+  /** Multiplier on the named font size, 0.5..2. Undefined means 1. */
+  scale?: number;
 }
 
 export function createTextOverlay(x = 50, y = 50): TextOverlay {
@@ -369,12 +401,68 @@ export function createTextOverlay(x = 50, y = 50): TextOverlay {
   };
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampedNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? clamp(n, min, max) : fallback;
+}
+
+function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+/**
+ * Reads the `overlays` column, which is stored as an opaque JSON string and can
+ * hold anything a past client wrote. Everything that reaches a class name or a
+ * style attribute is whitelisted or clamped here, so the renderer never has to
+ * trust the row. Legacy rows (no ink/rotation/scale) parse unchanged.
+ */
 export function parseOverlays(json: string): TextOverlay[] {
   if (!json || json === "[]") return [];
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
+    parsed = JSON.parse(json);
   } catch {
     return [];
   }
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.flatMap((raw, index): TextOverlay[] => {
+    if (!raw || typeof raw !== "object") return [];
+    const o = raw as Record<string, unknown>;
+
+    const overlay: TextOverlay = {
+      id: typeof o.id === "string" && o.id ? o.id.slice(0, 100) : `overlay-${index}`,
+      text: typeof o.text === "string" ? o.text.slice(0, OVERLAY_TEXT_MAX) : "",
+      x: clampedNumber(o.x, 0, 100, 50),
+      y: clampedNumber(o.y, 0, 100, 50),
+      width: clampedNumber(o.width, 1, 100, 30),
+      style: pick(o.style, BUBBLE_STYLES, "speech"),
+      tailDirection: pick(o.tailDirection, TAIL_DIRECTIONS, "none"),
+      fontSize: pick(o.fontSize, OVERLAY_FONT_SIZES, "medium"),
+    };
+
+    if (BUBBLE_INKS.includes(o.ink as BubbleInk)) overlay.ink = o.ink as BubbleInk;
+    if (o.rotation !== undefined && o.rotation !== null) {
+      overlay.rotation = clampedNumber(
+        o.rotation,
+        -OVERLAY_ROTATION_LIMIT,
+        OVERLAY_ROTATION_LIMIT,
+        0
+      );
+    }
+    if (o.scale !== undefined && o.scale !== null) {
+      overlay.scale = clampedNumber(o.scale, OVERLAY_SCALE_MIN, OVERLAY_SCALE_MAX, 1);
+    }
+
+    return [overlay];
+  });
 }

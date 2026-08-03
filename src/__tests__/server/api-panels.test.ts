@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createMockChapter, createMockParams, createMockRequest, createMockStory, getResponseData, mockApiUtils } from "../helpers";
 
 type ApiBody = {
-  data?: { reordered?: boolean };
+  data?: { reordered?: boolean; caption?: string };
   error?: { code?: string };
 };
 
@@ -139,6 +139,97 @@ describe("panel API authorization", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("answers 409 with the current row when baseUpdatedAt is older than the panel", async () => {
+    vi.resetModules();
+    const update = vi.fn();
+    const currentRow = {
+      id: "panel-1",
+      chapterId: "chapter-1",
+      caption: "Their newer caption",
+      updatedAt: new Date("2026-08-03T12:00:00Z"),
+    };
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        query: {
+          stories: { findFirst: vi.fn().mockResolvedValue(createMockStory()) },
+          collaborators: { findFirst: vi.fn() },
+          chapters: { findFirst: vi.fn().mockResolvedValue(createMockChapter()) },
+          panels: { findFirst: vi.fn().mockResolvedValue(currentRow) },
+        },
+        update,
+      },
+    }));
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
+    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
+
+    const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]/route");
+    const req = createMockRequest("/api/stories/story-1/chapters/chapter-1/panels/panel-1", {
+      method: "PATCH",
+      body: { caption: "My stale edit", baseUpdatedAt: "2026-08-03T11:00:00Z" },
+    });
+    const res = await mod.PATCH(req, createMockParams({
+      storyId: "story-1",
+      chapterId: "chapter-1",
+      panelId: "panel-1",
+    }));
+    const { status, body } = await getResponseData(res);
+
+    expect(status).toBe(409);
+    expect((body as ApiBody).error?.code).toBe("CONFLICT");
+    // the current row rides along so the editor can show the newer version
+    expect((body as ApiBody).data?.caption).toBe("Their newer caption");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("skips the optimistic-lock check when baseUpdatedAt is absent", async () => {
+    vi.resetModules();
+    const returning = vi.fn().mockResolvedValue([{ id: "panel-1", caption: "Saved" }]);
+    const where = vi.fn().mockReturnValue({ returning });
+    const set = vi.fn().mockReturnValue({ where });
+    const update = vi.fn().mockReturnValue({ set });
+
+    vi.doMock("@/server/db", () => ({
+      db: {
+        query: {
+          stories: { findFirst: vi.fn().mockResolvedValue(createMockStory()) },
+          collaborators: { findFirst: vi.fn() },
+          chapters: { findFirst: vi.fn().mockResolvedValue(createMockChapter()) },
+          panels: {
+            findFirst: vi.fn().mockResolvedValue({
+              id: "panel-1",
+              chapterId: "chapter-1",
+              updatedAt: new Date("2026-08-03T12:00:00Z"),
+            }),
+            findMany: vi.fn().mockResolvedValue([{ caption: "Saved", overlays: "[]" }]),
+          },
+        },
+        update,
+      },
+    }));
+    vi.doMock("@/server/auth", () => ({
+      auth: vi.fn().mockResolvedValue({ user: { id: "user-1" } }),
+    }));
+    vi.doMock("@/server/api-utils", () => mockApiUtils());
+
+    const mod = await import("@/app/api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]/route");
+    const req = createMockRequest("/api/stories/story-1/chapters/chapter-1/panels/panel-1", {
+      method: "PATCH",
+      body: { caption: "Late flush without a base" },
+    });
+    const res = await mod.PATCH(req, createMockParams({
+      storyId: "story-1",
+      chapterId: "chapter-1",
+      panelId: "panel-1",
+    }));
+    const { status } = await getResponseData(res);
+
+    expect(status).toBe(200);
+    expect(update).toHaveBeenCalled();
+  });
+
   it("rejects panel reorder when the chapter does not belong to the story", async () => {
     vi.resetModules();
     const update = vi.fn();
@@ -179,6 +270,9 @@ describe("panel API authorization", () => {
     const where = vi.fn().mockResolvedValue(undefined);
     const set = vi.fn().mockReturnValue({ where });
     const update = vi.fn().mockReturnValue({ set });
+    // The route wraps the sort-order writes in db.transaction(tx => …) —
+    // hand the callback a tx whose update is the same spy.
+    const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ update }));
 
     vi.doMock("@/server/db", () => ({
       db: {
@@ -188,6 +282,7 @@ describe("panel API authorization", () => {
           chapters: { findFirst: vi.fn().mockResolvedValue(createMockChapter()) },
         },
         update,
+        transaction,
       },
     }));
     vi.doMock("@/server/auth", () => ({

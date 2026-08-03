@@ -5,6 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { updatePanelSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
+import { MediaError, externalizeFramesJson, externalizeImage } from "@/server/media";
 
 type RouteParams = {
   params: Promise<{ storyId: string; chapterId: string; panelId: string }>;
@@ -106,8 +107,34 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Optimistic lock: when the client says what version it edited, refuse to
+    // overwrite a newer one. The current row rides along so the editor can
+    // show the collaborator's version instead of silently losing it.
+    const { baseUpdatedAt, ...updates } = parsed.data;
+    if (baseUpdatedAt !== undefined) {
+      const baseMs = new Date(baseUpdatedAt).getTime();
+      const currentMs = existing.updatedAt?.getTime() ?? 0;
+      if (Number.isFinite(baseMs) && currentMs > baseMs) {
+        return NextResponse.json(
+          {
+            error: { code: "CONFLICT", message: "Panel was changed after you loaded it" },
+            data: existing,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Any incoming base64 images move to disk; the row keeps only URLs.
+    if (typeof updates.imageData === "string") {
+      updates.imageData = (await externalizeImage(updates.imageData)) ?? "";
+    }
+    if (typeof updates.frames === "string") {
+      updates.frames = (await externalizeFramesJson(updates.frames)) ?? updates.frames;
+    }
+
     const [updated] = await db.update(panels)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(panels.id, panelId))
       .returning();
 
@@ -124,6 +151,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ data: updated });
   } catch (error) {
+    if (error instanceof MediaError) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: error.message } },
+        { status: 400 }
+      );
+    }
     return handleRouteError(
       error,
       "PATCH /api/stories/[storyId]/chapters/[chapterId]/panels/[panelId]",

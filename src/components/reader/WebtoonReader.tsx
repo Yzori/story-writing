@@ -180,6 +180,7 @@ export default function WebtoonReader({
   const isPreview = panelsProp !== undefined;
   const [fetchedPanels, setFetchedPanels] = useState<Panel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   const [loadedPanels, setLoadedPanels] = useState<Set<string>>(new Set());
 
   // Fetch panels from API, fall back to legacy content parsing. Skipped entirely
@@ -190,8 +191,18 @@ export default function WebtoonReader({
 
     async function loadPanels() {
       setIsLoading(true);
+      setIsLocked(false);
       try {
         const res = await fetch(`/api/stories/${storyId}/chapters/${chapterId}/panels`);
+        // A gated episode answers 402 — that's a locked door, not an empty
+        // room, and it must never fall through to "no panels yet".
+        if (res.status === 402) {
+          if (!cancelled) {
+            setIsLocked(true);
+            setIsLoading(false);
+          }
+          return;
+        }
         if (res.ok) {
           const json = await res.json();
           if (!cancelled && json.data && json.data.length > 0) {
@@ -225,6 +236,33 @@ export default function WebtoonReader({
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-text-ghost border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isLocked) {
+    // The page-level chapter fetch normally intercepts gated chapters with the
+    // full ChapterLockScreen (terms, price, unlock button). Reaching here means
+    // only the panels call was refused — say what's true and route to the door.
+    return (
+      <div className="flex-1 flex items-center justify-center px-6">
+        <div className="max-w-sm text-center">
+          <svg className="mx-auto mb-4 text-amber/70" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="11" width="14" height="9" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+          <p className="font-display text-lg text-paper">This episode is locked</p>
+          <p className="mt-2 text-sm text-text-secondary">
+            It&rsquo;s part of the paid chapters. Reload to see the unlock terms.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-full bg-gold-fill px-5 py-2.5 text-[13px] font-semibold text-on-gold transition-transform hover:-translate-y-0.5"
+          >
+            Show unlock terms
+          </button>
+        </div>
       </div>
     );
   }

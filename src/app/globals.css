@@ -1974,85 +1974,114 @@ body.reveal-hands [data-author-name].same-hand::before {
 
 /* ─── Webtoon Speech Bubbles ─────────────────────────────── */
 
+/* Lettering is drawn on the artwork, so it must read identically in the editor
+   canvas, the phone preview, the reader, and both app themes — these colors are
+   deliberately fixed hex, not theme tokens. Every style pulls its palette from
+   three variables so the `bubble-ink-*` schemes can repaint fill, text, border,
+   and tails in one place.
+
+   Sizing is proportional to the panel's rendered width (`.bubble-surface` is the
+   container) instead of the old fixed 11/14/18px. Calibrated on the wide editor
+   canvas, which is max-w-[920px] minus md:px-6 padding = 872px of panel: a
+   "medium" bubble there is 1.6055cqw = 14px, the same as the fixed map produced.
+   Geometry (padding, radii, tails) is in `em` so a bubble scales as one drawn
+   object.
+
+   The clamp floors are a legibility guard, and all three engage at roughly the
+   same panel width (~680-710px) so the author's S/M/L choice stays visibly
+   distinct instead of collapsing together. Above that — the wide editor canvas
+   — lettering is purely proportional. Below it — the 680px narrow editor, the
+   640px reader column, the 334px phone preview — it holds at 9/11/14px, near
+   today's fixed sizes, rather than following a phone-width panel down to 5px. */
+
+.bubble-surface {
+  container-type: inline-size;
+}
+
+.bubble-size-small {
+  --bubble-font: clamp(9px, 1.2615cqw, 20px);
+}
+
+.bubble-size-medium {
+  --bubble-font: clamp(11px, 1.6055cqw, 26px);
+}
+
+.bubble-size-large {
+  --bubble-font: clamp(14px, 2.0642cqw, 34px);
+}
+
 .bubble-base {
+  --bubble-fill: #ffffff;
+  --bubble-text: #1a1a1a;
+  --bubble-line: #222222;
+  --bubble-rotation: 0deg;
+  --bubble-scale: 1;
+
   position: absolute;
-  padding: 8px 12px;
+  padding: 0.57em 0.86em;
   text-align: center;
   line-height: 1.4;
   z-index: 5;
-  transform: translate(-50%, -50%);
+  font-size: calc(var(--bubble-font, clamp(11px, 1.6055cqw, 26px)) * var(--bubble-scale));
+  transform: translate(-50%, -50%) rotate(var(--bubble-rotation));
   user-select: none;
-  min-width: 40px;
-  min-height: 24px;
+  min-width: 2.86em;
+  min-height: 1.71em;
+}
+
+/* `scale` is the standalone property on purpose — it composes with the
+   transform above instead of replacing it. */
+.bubble-dragging {
+  scale: 1.02;
 }
 
 /* Speech: white rounded, pointed tail */
 .bubble-speech {
-  background: white;
-  color: #1a1a1a;
-  border-radius: 18px;
-  border: 2px solid #222;
+  background: var(--bubble-fill);
+  color: var(--bubble-text);
+  border-radius: 1.29em;
+  border: max(1px, 0.14em) solid var(--bubble-line);
   font-family: "Comic Sans MS", "Chalkboard SE", sans-serif;
 }
 
-.bubble-speech[data-tail="bottom-left"]::after {
-  content: "";
-  position: absolute;
-  bottom: -14px;
-  left: 18%;
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 14px solid white;
-  filter: drop-shadow(0 2px 0 #222);
-}
-
+.bubble-speech[data-tail="bottom-left"]::after,
 .bubble-speech[data-tail="bottom-right"]::after {
   content: "";
   position: absolute;
-  bottom: -14px;
-  right: 18%;
+  bottom: -1em;
   width: 0;
   height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 14px solid white;
-  filter: drop-shadow(0 2px 0 #222);
+  border-left: 0.57em solid transparent;
+  border-right: 0.57em solid transparent;
+  border-top: 1em solid var(--bubble-fill);
+  filter: drop-shadow(0 0.14em 0 var(--bubble-line));
 }
 
-.bubble-speech[data-tail="top-left"]::after {
-  content: "";
-  position: absolute;
-  top: -14px;
-  left: 18%;
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 14px solid white;
-  filter: drop-shadow(0 -2px 0 #222);
-}
+.bubble-speech[data-tail="bottom-left"]::after { left: 18%; }
+.bubble-speech[data-tail="bottom-right"]::after { right: 18%; }
 
+.bubble-speech[data-tail="top-left"]::after,
 .bubble-speech[data-tail="top-right"]::after {
   content: "";
   position: absolute;
-  top: -14px;
-  right: 18%;
+  top: -1em;
   width: 0;
   height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 14px solid white;
-  filter: drop-shadow(0 -2px 0 #222);
+  border-left: 0.57em solid transparent;
+  border-right: 0.57em solid transparent;
+  border-bottom: 1em solid var(--bubble-fill);
+  filter: drop-shadow(0 -0.14em 0 var(--bubble-line));
 }
+
+.bubble-speech[data-tail="top-left"]::after { left: 18%; }
+.bubble-speech[data-tail="top-right"]::after { right: 18%; }
 
 /* Thought: cloud border, circle dot tail */
 .bubble-thought {
-  background: white;
-  color: #1a1a1a;
+  background: var(--bubble-fill);
+  color: var(--bubble-text);
   border-radius: 50% / 40%;
-  border: 2px solid #222;
+  border: max(1px, 0.14em) solid var(--bubble-line);
   font-family: "Comic Sans MS", "Chalkboard SE", sans-serif;
   font-style: italic;
 }
@@ -2061,11 +2090,11 @@ body.reveal-hands [data-author-name].same-hand::before {
 .bubble-thought[data-tail="bottom-right"]::after {
   content: "";
   position: absolute;
-  bottom: -10px;
-  width: 10px;
-  height: 10px;
-  background: white;
-  border: 2px solid #222;
+  bottom: -0.71em;
+  width: 0.71em;
+  height: 0.71em;
+  background: var(--bubble-fill);
+  border: max(1px, 0.14em) solid var(--bubble-line);
   border-radius: 50%;
 }
 
@@ -2076,11 +2105,11 @@ body.reveal-hands [data-author-name].same-hand::before {
 .bubble-thought[data-tail="bottom-right"]::before {
   content: "";
   position: absolute;
-  bottom: -18px;
-  width: 6px;
-  height: 6px;
-  background: white;
-  border: 2px solid #222;
+  bottom: -1.29em;
+  width: 0.43em;
+  height: 0.43em;
+  background: var(--bubble-fill);
+  border: max(1px, 0.14em) solid var(--bubble-line);
   border-radius: 50%;
 }
 
@@ -2091,11 +2120,11 @@ body.reveal-hands [data-author-name].same-hand::before {
 .bubble-thought[data-tail="top-right"]::after {
   content: "";
   position: absolute;
-  top: -10px;
-  width: 10px;
-  height: 10px;
-  background: white;
-  border: 2px solid #222;
+  top: -0.71em;
+  width: 0.71em;
+  height: 0.71em;
+  background: var(--bubble-fill);
+  border: max(1px, 0.14em) solid var(--bubble-line);
   border-radius: 50%;
 }
 
@@ -2104,38 +2133,42 @@ body.reveal-hands [data-author-name].same-hand::before {
 
 /* Narration: dark semi-transparent box, no tail */
 .bubble-narration {
-  background: rgba(0, 0, 0, 0.8);
-  color: #f0f0f0;
-  border-radius: 4px;
+  --bubble-fill: rgba(0, 0, 0, 0.8);
+  --bubble-text: #f0f0f0;
+  --bubble-line: rgba(255, 255, 255, 0.15);
+  background: var(--bubble-fill);
+  color: var(--bubble-text);
+  border-radius: 0.29em;
   font-style: italic;
   font-family: var(--font-reading, "Literata", serif);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: max(1px, 0.07em) solid var(--bubble-line);
 }
 
 /* Shout: angular spiky feel */
 .bubble-shout {
-  background: #fffbe6;
-  color: #1a1a1a;
+  --bubble-fill: #fffbe6;
+  background: var(--bubble-fill);
+  color: var(--bubble-text);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border: 3px solid #222;
-  border-radius: 4px;
+  border: max(1.5px, 0.21em) solid var(--bubble-line);
+  border-radius: 0.29em;
   font-family: "Impact", "Arial Black", sans-serif;
-  box-shadow: 3px 3px 0 #222;
+  box-shadow: 0.21em 0.21em 0 var(--bubble-line);
 }
 
 .bubble-shout[data-tail="bottom-left"]::after,
 .bubble-shout[data-tail="bottom-right"]::after {
   content: "";
   position: absolute;
-  bottom: -16px;
+  bottom: -1.14em;
   width: 0;
   height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 16px solid #fffbe6;
-  filter: drop-shadow(2px 2px 0 #222);
+  border-left: 0.71em solid transparent;
+  border-right: 0.71em solid transparent;
+  border-top: 1.14em solid var(--bubble-fill);
+  filter: drop-shadow(0.14em 0.14em 0 var(--bubble-line));
 }
 
 .bubble-shout[data-tail="bottom-left"]::after { left: 15%; }
@@ -2145,13 +2178,13 @@ body.reveal-hands [data-author-name].same-hand::before {
 .bubble-shout[data-tail="top-right"]::after {
   content: "";
   position: absolute;
-  top: -16px;
+  top: -1.14em;
   width: 0;
   height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-bottom: 16px solid #fffbe6;
-  filter: drop-shadow(2px -2px 0 #222);
+  border-left: 0.71em solid transparent;
+  border-right: 0.71em solid transparent;
+  border-bottom: 1.14em solid var(--bubble-fill);
+  filter: drop-shadow(0.14em -0.14em 0 var(--bubble-line));
 }
 
 .bubble-shout[data-tail="top-left"]::after { left: 15%; }
@@ -2159,27 +2192,82 @@ body.reveal-hands [data-author-name].same-hand::before {
 
 /* Caption: a boxed narration card (parchment), no tail — for time/place cards. */
 .bubble-caption {
-  background: #fdf6e3;
-  color: #1a1a1a;
-  border: 2px solid #222;
-  border-radius: 2px;
+  --bubble-fill: #fdf6e3;
+  background: var(--bubble-fill);
+  color: var(--bubble-text);
+  border: max(1px, 0.14em) solid var(--bubble-line);
+  border-radius: 0.14em;
   font-family: var(--font-reading, "Literata", serif);
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0.14em 0.14em 0 rgba(0, 0, 0, 0.3);
 }
 
-/* SFX: outlined impact lettering, no background — for BOOM / CRASH. */
+/* SFX: outlined impact lettering, no background — for BOOM / CRASH.
+   Here the fill is the letter color and the line is the outline. */
 .bubble-sfx {
+  --bubble-fill: #ffd83d;
+  --bubble-line: #1a1a1a;
+  --bubble-rotation: -4deg;
   background: transparent;
-  color: #ffd83d;
+  color: var(--bubble-fill);
   font-family: "Impact", "Arial Black", sans-serif;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  -webkit-text-stroke: 2px #1a1a1a;
+  -webkit-text-stroke: max(1px, 0.14em) var(--bubble-line);
   paint-order: stroke fill;
-  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0.21em 0.21em 0 rgba(0, 0, 0, 0.45);
   border: none;
-  transform: translate(-50%, -50%) rotate(-4deg);
+}
+
+/* Ink schemes — lettering palettes, fixed hex so a bubble looks the same on
+   the artwork in either app theme. Declared after the style rules so an
+   explicit scheme wins over a style's own default palette. Contrast of text on
+   fill: paper 16.6:1, ink 15.5:1, gold 9.0:1, rose 7.6:1, teal 9.2:1. */
+.bubble-ink-paper {
+  --bubble-fill: #fbf8f0;
+  --bubble-text: #141826;
+  --bubble-line: #141826;
+}
+
+.bubble-ink-ink {
+  --bubble-fill: #141826;
+  --bubble-text: #f4f0e2;
+  --bubble-line: #f4f0e2;
+}
+
+.bubble-ink-gold {
+  --bubble-fill: #e8b23f;
+  --bubble-text: #231806;
+  --bubble-line: #231806;
+}
+
+.bubble-ink-rose {
+  --bubble-fill: #e9909f;
+  --bubble-text: #2e0c15;
+  --bubble-line: #2e0c15;
+}
+
+.bubble-ink-teal {
+  --bubble-fill: #7fcfc9;
+  --bubble-text: #06231f;
+  --bubble-line: #06231f;
+}
+
+/* SFX draws its letters in the fill color, so the "ink" scheme would put a
+   near-black word on dark art — swap to the cream so it stays readable. */
+.bubble-sfx.bubble-ink-ink {
+  --bubble-fill: #f4f0e2;
+  --bubble-line: #141826;
+}
+
+/* Narration keeps its own translucent slab unless a scheme asks otherwise; a
+   scheme'd narration box needs an opaque border that isn't the text color. */
+.bubble-narration.bubble-ink-paper,
+.bubble-narration.bubble-ink-ink,
+.bubble-narration.bubble-ink-gold,
+.bubble-narration.bubble-ink-rose,
+.bubble-narration.bubble-ink-teal {
+  border-width: max(1px, 0.1em);
 }
 
 /* ── Adventure Mode light pass ─────────────────────────────── */

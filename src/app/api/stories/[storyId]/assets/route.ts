@@ -5,6 +5,7 @@ import { eq, and, isNull, desc, count } from "drizzle-orm";
 import { createAssetSchema } from "@/lib/validations";
 import { auth } from "@/server/auth";
 import { applyRateLimit, handleRouteError } from "@/server/api-utils";
+import { MediaError, externalizeImage } from "@/server/media";
 
 type RouteParams = { params: Promise<{ storyId: string }> };
 
@@ -100,12 +101,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Base64 uploads land on disk; the row stores a small /api/media URL.
+    // (Re-adding an existing URL — e.g. undo restoring a deleted asset —
+    // passes through unchanged.)
+    const imageData = (await externalizeImage(parsed.data.imageData)) ?? "";
+
     const [created] = await db
       .insert(storyAssets)
-      .values({ storyId, name: parsed.data.name || "", imageData: parsed.data.imageData })
+      .values({ storyId, name: parsed.data.name || "", imageData })
       .returning();
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
+    if (error instanceof MediaError) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: error.message } },
+        { status: 400 }
+      );
+    }
     return handleRouteError(error, "POST /api/stories/[storyId]/assets", "Failed to create asset");
   }
 }

@@ -40,8 +40,15 @@ interface DeskViewProps {
   onOpenBible: () => void;
   onOpenDetails: () => void;
   onOpenPublish: () => void;
-  onOpenHistory: (chapterId: string) => void;
+  /** Omit where the room has no version history to open — the affordance hides. */
+  onOpenHistory?: (chapterId: string) => void;
   onUpdateOutline: (chapterId: string, outline: string) => void;
+  /**
+   * Which side of a sheet the card excerpt reads from. A webtoon episode's
+   * manuscript is panels, not HTML, so its `content` is empty and every card
+   * would look blank — those desks read the script instead.
+   */
+  excerptFrom?: "content" | "outline";
   /** Open with the sheets already turned to their outline side. */
   initialFlipped?: boolean;
   /** True when the cockpit is rendering the bare-page sheet (write mode). */
@@ -51,14 +58,14 @@ interface DeskViewProps {
   onDeleteChapter: (id: string) => void;
 }
 
-function excerptOf(html: string): string {
+function excerptOf(html: string, empty = "Nothing here yet — a fresh sheet."): string {
   const text = html
     .slice(0, 1200)
     .replace(/<[^>]*>/g, " ")
     .replace(/&[a-z#0-9]+;/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) return "Nothing here yet — a fresh sheet.";
+  if (!text) return empty;
   return text.length > 150 ? `${text.slice(0, 150).trimEnd()}…` : text;
 }
 
@@ -104,6 +111,7 @@ export default function DeskView({
   onOpenPublish,
   onOpenHistory,
   onUpdateOutline,
+  excerptFrom = "content",
   initialFlipped,
   morphEnabled,
   onRenameChapter,
@@ -377,7 +385,9 @@ export default function DeskView({
                   </span>
                 )}
                 <span className="mb-4 line-clamp-4 font-reading text-[10px] leading-[1.7] text-text-ghost">
-                  {excerptOf(c.content)}
+                  {excerptFrom === "outline"
+                    ? excerptOf(c.outline, "No script yet — the beats go here.")
+                    : excerptOf(c.content)}
                 </span>
                 <span className="mt-auto flex items-center gap-2 font-mono text-[10px] text-text-secondary">
                   <span
@@ -425,21 +435,23 @@ export default function DeskView({
                   menuId === c.id ? "opacity-100" : "opacity-0 group-hover/sheet:opacity-100"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    leave(c.id, () => onOpenHistory(c.id));
-                  }}
-                  className="rounded-md p-1 text-text-ghost transition-colors hover:bg-paper/[0.06] hover:text-paper"
-                  title="Versions"
-                  aria-label={`Versions of ${c.title || "Untitled"}`}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M12 8v4l2.5 2.5 M3.05 11a9 9 0 1 1 .5 4" />
-                    <path d="M3 16v-5h5" />
-                  </svg>
-                </button>
+                {onOpenHistory && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      leave(c.id, () => onOpenHistory(c.id));
+                    }}
+                    className="rounded-md p-1 text-text-ghost transition-colors hover:bg-paper/[0.06] hover:text-paper"
+                    title="Versions"
+                    aria-label={`Versions of ${c.title || "Untitled"}`}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 8v4l2.5 2.5 M3.05 11a9 9 0 1 1 .5 4" />
+                      <path d="M3 16v-5h5" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -481,16 +493,18 @@ export default function DeskView({
                     >
                       Rename
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuId(null);
-                        leave(c.id, () => onOpenHistory(c.id));
-                      }}
-                      className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper"
-                    >
-                      Versions
-                    </button>
+                    {onOpenHistory && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuId(null);
+                          leave(c.id, () => onOpenHistory(c.id));
+                        }}
+                        className="block w-full px-3 py-1.5 text-left text-[12px] text-text-secondary transition-colors hover:bg-paper/[0.05] hover:text-paper"
+                      >
+                        Versions
+                      </button>
+                    )}
                     <button
                       type="button"
                       disabled={i === 0}

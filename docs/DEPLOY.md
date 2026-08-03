@@ -22,6 +22,14 @@ Copy `.env.example` to `.env.local` and fill it in. The app fails fast at boot i
 
 `x-forwarded-for` handling: rate limiting keys on the **last** hop of the header, so the proxy must append the client IP (default behavior in nginx `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for` and in Caddy).
 
+### Media storage (webtoon images)
+
+Webtoon panel and asset images live on **local disk**, not in Postgres — `UPLOAD_DIR` (default `./uploads` next to the server process) holds content-addressed files served at `/api/media/*` with immutable cache headers.
+
+- Set `UPLOAD_DIR` to a path that **persists across deploys** (outside the release directory if you deploy by replacing it), and include it in backups alongside the database.
+- One-time after first deploying this build, move any pre-existing base64 images out of the DB: `node scripts/migrate-media-to-disk.mjs` (supports `--dry-run`; rerunning is safe).
+- Optional: have nginx/Caddy serve `/api/media/` directly from `UPLOAD_DIR` (`location /api/media/ { alias /path/to/uploads/; }`) to take static file traffic off Node. The Node route works fine without it.
+
 ## 3. Database migrations
 
 The drizzle journal is intentionally frozen at 0009; later migrations are hand-written SQL applied by a companion script. The whole train is run by one command:

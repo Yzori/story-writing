@@ -30,6 +30,11 @@ interface StoryJacketProps {
   onUpdateFrontMatter: (frontMatter: FrontMatter) => void;
   onUpdateTypography: (typography: TypographySettings) => void;
   onDeleteStory: () => void;
+  /**
+   * Reading settings — drop caps, scene breaks, line spacing — describe a page
+   * of type. A webtoon is drawn panels, so its jacket leaves the section out.
+   */
+  showTypography?: boolean;
   onBack: () => void;
 }
 
@@ -68,6 +73,7 @@ export default function StoryJacket({
   onUpdateFrontMatter,
   onUpdateTypography,
   onDeleteStory,
+  showTypography = true,
   onBack,
 }: StoryJacketProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -347,6 +353,7 @@ export default function StoryJacket({
             </div>
 
             {/* how it reads — typography as a specimen, not a form */}
+            {showTypography && (
             <div className="mt-12 border-t border-border pt-8">
               <p className="mb-4 text-[10px] uppercase tracking-[0.16em] text-text-ghost">
                 How it reads
@@ -504,6 +511,7 @@ export default function StoryJacket({
                 </div>
               </div>
             </div>
+            )}
 
             {/* inside the cover */}
             <div className="mt-12 border-t border-border pt-8">

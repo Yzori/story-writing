@@ -29,6 +29,8 @@ interface Panel {
   aspectRatio: string | null;
   overlays: string;
   seam?: string;
+  /** Server clock of the last save — the optimistic-lock base for PATCHes. */
+  updatedAt?: string;
 }
 
 interface PanelFrame {
@@ -58,7 +60,56 @@ const SIZING_OPTIONS: { key: PanelSizing; label: string; ratio: string }[] = [
   { key: "tall", label: "Tall", ratio: "9:16" },
   { key: "wide", label: "Wide", ratio: "16:9" },
   { key: "full", label: "Full screen", ratio: "9:19.5" },
+  { key: "custom", label: "Custom", ratio: "" },
 ];
+
+/** Parse "W:H" into two positive ints, or null if it isn't one. */
+function parseAspectRatio(ratio: string | null): { w: number; h: number } | null {
+  const m = /^(\d{1,3}):(\d{1,3})$/.exec(ratio ?? "");
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  return w > 0 && h > 0 ? { w, h } : null;
+}
+
+/** The W:H pair shown when a panel's shape is "Custom". */
+function AspectRatioFields({ ratio, onChange }: { ratio: string | null; onChange: (ratio: string) => void }) {
+  const parsed = parseAspectRatio(ratio) ?? { w: 4, h: 5 };
+  const commit = (w: number, h: number) => {
+    const cw = Math.min(99, Math.max(1, Math.round(w) || parsed.w));
+    const ch = Math.min(99, Math.max(1, Math.round(h) || parsed.h));
+    onChange(`${cw}:${ch}`);
+  };
+  const field =
+    "h-8 w-14 rounded-md border border-border bg-surface px-2 text-center text-[12px] text-text outline-none transition-colors focus:border-amber/30";
+  return (
+    <div className="block">
+      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.12em] text-text-ghost">Shape ratio</span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          min={1}
+          max={99}
+          value={parsed.w}
+          onChange={(e) => commit(Number(e.target.value), parsed.h)}
+          className={field}
+          aria-label="Width ratio"
+        />
+        <span className="text-[12px] text-text-ghost">:</span>
+        <input
+          type="number"
+          min={1}
+          max={99}
+          value={parsed.h}
+          onChange={(e) => commit(parsed.w, Number(e.target.value))}
+          className={field}
+          aria-label="Height ratio"
+        />
+        <span className="ml-1 text-[10.5px] text-text-ghost">width : height</span>
+      </div>
+    </div>
+  );
+}
 
 const PANEL_LAYOUT_OPTIONS: { key: PanelLayout; label: string; minFrames: number }[] = [
   { key: "single", label: "1 frame", minFrames: 1 },
@@ -90,8 +141,8 @@ interface WebtoonEditorProps {
   placeholder?: string;
   scriptContent?: string;
   onScriptUpdate?: (content: string) => void;
-  /** Parent's last script save failed — shows a "Couldn't save" flag in the script pane. */
-  scriptSaveError?: boolean;
+  /** Parent's last script save failed — the message shows in the script pane header. */
+  scriptSaveError?: string | null;
   onWordCountChange?: (count: number) => void;
   /**
    * Widen the panel board for the standalone webtoon route, which gives the
@@ -120,6 +171,13 @@ function countWords(panelList: Panel[]): number {
 const PANEL_MAX_DIM = 1200;
 const PANEL_QUALITY = 0.8;
 const MAX_PANEL_FRAMES = 6;
+
+/** localStorage key prefix for the unmount-flush marker (suffixed with apiBase). */
+const FLUSH_MARKER_PREFIX = "quiloria:webtoon-flush:";
+
+/** Server-side limit on chapters.outline (see updateChapterSchema) and when to start counting down. */
+const SCRIPT_MAX_CHARS = 10_000;
+const SCRIPT_WARN_CHARS = 9_000;
 // Server-side updatePanelSchema/createPanelsSchema cap the serialized `frames`
 // string at 6,000,000 chars — check client-side so oversized combinations fail
 // loudly before the optimistic update instead of silently vanishing on reload.
@@ -313,6 +371,7 @@ function PanelCard({
   onReorderStart,
   onCaptionChange,
   onSizingChange,
+  onAspectRatioChange,
   onLayoutChange,
   onBorderStyleChange,
   onImageFitChange,
@@ -321,6 +380,7 @@ function PanelCard({
   onReplaceFrame,
   onClearFrame,
   onOverlaysChange,
+  onOverlayDelete,
   onSeamChange,
   onDuplicate,
   onDelete,
@@ -333,6 +393,7 @@ function PanelCard({
   onReorderStart?: (event: React.PointerEvent) => void;
   onCaptionChange: (id: string, caption: string) => void;
   onSizingChange: (id: string, sizing: PanelSizing) => void;
+  onAspectRatioChange: (id: string, ratio: string) => void;
   onLayoutChange: (id: string, layout: PanelLayout) => void;
   onBorderStyleChange: (id: string, borderStyle: PanelBorderStyle) => void;
   onImageFitChange: (id: string, imageFit: PanelImageFit) => void;
@@ -341,15 +402,29 @@ function PanelCard({
   onReplaceFrame: (panel: Panel, frameIndex: number, file: File) => void;
   onClearFrame: (panel: Panel, frameIndex: number) => void;
   onOverlaysChange: (id: string, overlays: TextOverlay[]) => void;
+  /** Bubble removal is routed up so it can be pushed onto the undo stack. */
+  onOverlayDelete: (id: string, overlayId: string) => void;
   onSeamChange?: (id: string, seam: string) => void;
   onDuplicate: (panel: Panel) => void;
   onDelete: (id: string) => void;
 }) {
   const sizingStyle = getSizingStyle(panel.sizing, panel.aspectRatio);
   const hasCustomSizing = panel.sizing !== "standard";
-  const rawFrames = useMemo(() => parseFrames(panel), [panel]);
+  // Keyed on the two fields parseFrames reads — NOT the panel object, which
+  // is recreated on every caption keystroke. Frames can be multi-MB of
+  // base64; re-parsing them per keystroke froze typing on image-heavy strips.
+  const rawFrames = useMemo(
+    () => parseFrames({ frames: panel.frames, imageData: panel.imageData }),
+    [panel.frames, panel.imageData]
+  );
   const layout = (panel.layout || getDefaultLayout(rawFrames.length)) as PanelLayout;
   const frames = useMemo(() => ensureFramesForLayout(rawFrames, layout), [rawFrames, layout]);
+  // Frames past the layout's slots keep their art but the renderers never draw
+  // it — say so on the card instead of letting the pictures look deleted.
+  const hiddenFrameCount = useMemo(
+    () => rawFrames.slice(getLayoutSlotCount(layout)).filter((frame) => frame.imageData).length,
+    [rawFrames, layout]
+  );
   const borderStyle = (panel.borderStyle || "none") as PanelBorderStyle;
   const borderClasses = getBorderStyleClasses(borderStyle);
   const imageFit = (panel.imageFit || "cover") as PanelImageFit;
@@ -383,8 +458,7 @@ function PanelCard({
   }, [overlays, panel.id, onOverlaysChange]);
 
   const handleOverlayDelete = (overlayId: string) => {
-    const updated = overlays.filter((o) => o.id !== overlayId);
-    onOverlaysChange(panel.id, updated);
+    onOverlayDelete(panel.id, overlayId);
     setSelectedOverlayId(null);
   };
 
@@ -588,6 +662,13 @@ function PanelCard({
                       </select>
                     </label>
 
+                    {panel.sizing === "custom" && (
+                      <AspectRatioFields
+                        ratio={panel.aspectRatio}
+                        onChange={(ratio) => onAspectRatioChange(panel.id, ratio)}
+                      />
+                    )}
+
                     <label className="block">
                       <span className="mb-1.5 block text-[10px] uppercase tracking-[0.12em] text-text-ghost">Frame layout</span>
                       <select
@@ -735,6 +816,13 @@ function PanelCard({
             </div>
           ))}
         </div>
+
+        {/* Art that this layout has no slot for — still stored, still yours. */}
+        {editable && hiddenFrameCount > 0 && (
+          <div className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full border border-border bg-void/75 px-2.5 py-1 text-[10px] text-text-ghost backdrop-blur-sm">
+            {hiddenFrameCount} {hiddenFrameCount === 1 ? "frame" : "frames"} hidden by this layout
+          </div>
+        )}
 
         {/* Speech bubbles / text overlays */}
         {overlays.length > 0 && (
@@ -938,9 +1026,11 @@ function ReorderablePanelCard({
   onReplaceFrame,
   onClearFrame,
   onOverlaysChange,
+  onOverlayDelete,
   onSeamChange,
   onDuplicate,
   onDelete,
+  onAspectRatioChange,
 }: {
   panel: Panel;
   index: number;
@@ -951,6 +1041,7 @@ function ReorderablePanelCard({
   onReorderCommit: () => void;
   onCaptionChange: (id: string, caption: string) => void;
   onSizingChange: (id: string, sizing: PanelSizing) => void;
+  onAspectRatioChange: (id: string, ratio: string) => void;
   onLayoutChange: (id: string, layout: PanelLayout) => void;
   onBorderStyleChange: (id: string, borderStyle: PanelBorderStyle) => void;
   onImageFitChange: (id: string, imageFit: PanelImageFit) => void;
@@ -959,6 +1050,7 @@ function ReorderablePanelCard({
   onReplaceFrame: (panel: Panel, frameIndex: number, file: File) => void;
   onClearFrame: (panel: Panel, frameIndex: number) => void;
   onOverlaysChange: (id: string, overlays: TextOverlay[]) => void;
+  onOverlayDelete: (id: string, overlayId: string) => void;
   onSeamChange?: (id: string, seam: string) => void;
   onDuplicate: (panel: Panel) => void;
   onDelete: (id: string) => void;
@@ -983,6 +1075,7 @@ function ReorderablePanelCard({
         onReorderStart={(event) => dragControls.start(event)}
         onCaptionChange={onCaptionChange}
         onSizingChange={onSizingChange}
+        onAspectRatioChange={onAspectRatioChange}
         onLayoutChange={onLayoutChange}
         onBorderStyleChange={onBorderStyleChange}
         onImageFitChange={onImageFitChange}
@@ -991,6 +1084,7 @@ function ReorderablePanelCard({
         onReplaceFrame={onReplaceFrame}
         onClearFrame={onClearFrame}
         onOverlaysChange={onOverlaysChange}
+        onOverlayDelete={onOverlayDelete}
         onSeamChange={onSeamChange}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
@@ -1167,6 +1261,7 @@ function PanelInspector({
   index,
   onLayout,
   onSizing,
+  onAspectRatio,
   onBorder,
   onFit,
   onSeam,
@@ -1176,6 +1271,7 @@ function PanelInspector({
   index: number;
   onLayout: (id: string, layout: PanelLayout) => void;
   onSizing: (id: string, sizing: PanelSizing) => void;
+  onAspectRatio: (id: string, ratio: string) => void;
   onBorder: (id: string, border: PanelBorderStyle) => void;
   onFit: (id: string, fit: PanelImageFit) => void;
   onSeam: (id: string, seam: string) => void;
@@ -1201,6 +1297,9 @@ function PanelInspector({
             </button>
           ))}
         </InspectorGroup>
+        {panel.sizing === "custom" && (
+          <AspectRatioFields ratio={panel.aspectRatio} onChange={(ratio) => onAspectRatio(panel.id, ratio)} />
+        )}
         <InspectorGroup label="Frame fit">
           {IMAGE_FIT_OPTIONS.map((o) => (
             <button key={o.key} type="button" onClick={() => onFit(panel.id, o.key)} className={railOption(panel.imageFit === o.key)}>
@@ -1331,6 +1430,91 @@ function AssetTray({
 }
 
 // ---------------------------------------------------------------------------
+// Undo
+// ---------------------------------------------------------------------------
+
+/**
+ * One reversible edit. `undo` runs against whatever the panels look like NOW —
+ * it must not assume the board is unchanged — and throws when the reversal
+ * can't be persisted, which keeps the entry on the stack for another try.
+ */
+interface UndoEntry {
+  id: number;
+  label: string;
+  undo: () => Promise<void>;
+}
+
+const UNDO_LIMIT = 20;
+const TOAST_MS = 6000;
+
+interface ToastState {
+  id: number;
+  message: string;
+  tone: "quiet" | "error";
+  /** Entry this toast offers to reverse; the stack outlives the toast. */
+  undoEntryId: number | null;
+}
+
+/** Bottom-centred, low-volume confirmation of a destructive edit. */
+function UndoToast({
+  toast,
+  onUndo,
+  onDismiss,
+}: {
+  toast: ToastState | null;
+  onUndo: (entryId: number) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {toast && (
+        <motion.div
+          key={toast.id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 6 }}
+          transition={{ type: "spring", stiffness: 400, damping: 35 }}
+          className="pointer-events-none fixed bottom-6 left-1/2 z-[70] flex -translate-x-1/2 justify-center px-4"
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            className={`pointer-events-auto flex items-center gap-3 rounded-full border px-4 py-2 shadow-2xl shadow-black/40 backdrop-blur-xl ${
+              toast.tone === "error"
+                ? "border-rose/25 bg-rose/10 text-rose"
+                : "border-border bg-elevated/95 text-text"
+            }`}
+          >
+            <span className="text-[12px]">{toast.message}</span>
+            {toast.undoEntryId !== null && (
+              <button
+                type="button"
+                onClick={() => onUndo(toast.undoEntryId as number)}
+                className="text-[12px] font-medium text-amber transition-colors hover:text-paper"
+                title="Undo (⌘Z)"
+              >
+                Undo
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="text-text-ghost transition-colors hover:text-text"
+              aria-label="Dismiss"
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="3" y1="3" x2="9" y2="9" />
+                <line x1="9" y1="3" x2="3" y2="9" />
+              </svg>
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
@@ -1341,7 +1525,7 @@ export default function WebtoonEditor({
   placeholder,
   scriptContent,
   onScriptUpdate,
-  scriptSaveError = false,
+  scriptSaveError = null,
   onWordCountChange,
   wide = false,
 }: WebtoonEditorProps) {
@@ -1373,6 +1557,87 @@ export default function WebtoonEditor({
   useEffect(() => {
     panelsRef.current = panels;
   }, [panels]);
+
+  // ---- Undo stack (in memory, this session only) ----
+  // Nothing renders from the stack itself, so it lives in a ref and stays
+  // readable synchronously from the keyboard handler.
+  const undoStackRef = useRef<UndoEntry[]>([]);
+  const undoSeqRef = useRef(0);
+  const undoBusyRef = useRef(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string, tone: ToastState["tone"], undoEntryId: number | null) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    const id = ++undoSeqRef.current;
+    setToast({ id, message, tone, undoEntryId });
+    toastTimerRef.current = setTimeout(() => setToast(null), TOAST_MS);
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(null);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
+
+  /** Record a reversible edit and offer it in the toast. */
+  const pushUndo = useCallback(
+    (label: string, undo: () => Promise<void>) => {
+      const entry: UndoEntry = { id: ++undoSeqRef.current, label, undo };
+      const next = [...undoStackRef.current, entry];
+      undoStackRef.current = next.length > UNDO_LIMIT ? next.slice(next.length - UNDO_LIMIT) : next;
+      showToast(label, "quiet", entry.id);
+    },
+    [showToast]
+  );
+
+  /**
+   * Reverse an edit — the newest by default, or the one a toast still points
+   * at. A failed reversal goes back on the stack so ⌘Z can try again.
+   */
+  const runUndo = useCallback(async (entryId?: number) => {
+    if (undoBusyRef.current) return;
+    const stack = undoStackRef.current;
+    const index = entryId === undefined ? stack.length - 1 : stack.findIndex((e) => e.id === entryId);
+    if (index === -1) return;
+    const entry = stack[index];
+
+    undoBusyRef.current = true;
+    undoStackRef.current = stack.filter((_, i) => i !== index);
+    try {
+      await entry.undo();
+      setToast((current) => (current?.undoEntryId === entry.id ? null : current));
+    } catch (err) {
+      undoStackRef.current = [...undoStackRef.current, entry];
+      showToast(
+        err instanceof Error && err.message ? err.message : `Couldn't undo — ${entry.label.toLowerCase()}.`,
+        "error",
+        null
+      );
+    } finally {
+      undoBusyRef.current = false;
+    }
+  }, [showToast]);
+
+  // ⌘Z / Ctrl+Z. Text fields own their own undo, so stay out of them.
+  useEffect(() => {
+    if (!editable) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "z") return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) return;
+      if (undoStackRef.current.length === 0) return;
+      event.preventDefault();
+      void runUndo();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editable, runUndo]);
 
   // ---- Load panels from API ----
   useEffect(() => {
@@ -1417,22 +1682,94 @@ export default function WebtoonEditor({
     });
   }, []);
 
-  const patchPanel = useCallback(async (panelId: string, data: Record<string, unknown>) => {
-    markSaving(panelId, true);
-    try {
-      const res = await fetch(`${apiBase}/${panelId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+  // One in-flight PATCH per panel at a time. Serializing matters for the
+  // optimistic lock: a second edit fired before the first response lands
+  // would carry a stale baseUpdatedAt and read as a conflict with yourself.
+  const patchQueues = useRef<Map<string, Promise<void>>>(new Map());
+  // Latest server clock per panel, updated synchronously — React state (and
+  // panelsRef, which follows it by a render) lags behind the microtask queue.
+  const panelClocks = useRef<Map<string, string>>(new Map());
+
+  // Throws on failure — undo paths need the error to keep their entry alive.
+  const patchPanelStrict = useCallback((panelId: string, data: Record<string, unknown>) => {
+    const prev = patchQueues.current.get(panelId) ?? Promise.resolve();
+    const run = prev
+      .catch(() => {}) // a failed predecessor shouldn't poison the queue
+      .then(async () => {
+        markSaving(panelId, true);
+        try {
+          const base =
+            panelClocks.current.get(panelId) ??
+            panelsRef.current.find((p) => p.id === panelId)?.updatedAt;
+          const res = await fetch(`${apiBase}/${panelId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(base ? { ...data, baseUpdatedAt: base } : data),
+          });
+          if (res.status === 409) {
+            // A collaborator saved this panel after we loaded it. Show their
+            // version — silently overwriting it is the real data loss.
+            try {
+              const j = await res.json();
+              const server = j?.data as Partial<Panel> | undefined;
+              if (server?.id) {
+                if (server.updatedAt) panelClocks.current.set(panelId, String(server.updatedAt));
+                setPanels((prevPanels) =>
+                  prevPanels.map((p) => (p.id === server.id ? { ...p, ...server } : p))
+                );
+              }
+            } catch {}
+            throw new Error(
+              "Someone else edited this panel while you had it open — their version is shown. Re-apply your change on top of it."
+            );
+          }
+          // Wording matters: undo surfaces this message to the author directly.
+          if (!res.ok) throw new Error("Those changes couldn't be saved. Check your connection and try again.");
+          // Remember the server's clock so the next PATCH bases on it.
+          try {
+            const j = await res.json();
+            const fresh = (j?.data as Partial<Panel> | undefined)?.updatedAt;
+            if (fresh) {
+              panelClocks.current.set(panelId, String(fresh));
+              setPanels((prevPanels) =>
+                prevPanels.map((p) => (p.id === panelId ? { ...p, updatedAt: fresh } : p))
+              );
+            }
+          } catch {}
+          setUploadError(null);
+        } finally {
+          markSaving(panelId, false);
+        }
       });
-      if (!res.ok) throw new Error("Panel save failed");
-      setUploadError(null);
-    } catch {
-      setUploadError("Panel changes couldn't be saved. Check your connection and try again.");
-    } finally {
-      markSaving(panelId, false);
-    }
+    patchQueues.current.set(panelId, run.catch(() => {}));
+    return run;
   }, [apiBase, markSaving]);
+
+  /** Reports the failure inline and answers whether the write landed. */
+  const patchPanel = useCallback(async (panelId: string, data: Record<string, unknown>) => {
+    try {
+      await patchPanelStrict(panelId, data);
+      return true;
+    } catch (err) {
+      setUploadError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Panel changes couldn't be saved. Check your connection and try again."
+      );
+      return false;
+    }
+  }, [patchPanelStrict]);
+
+  /** Persist a full ordering (used when undo puts a panel back in its place). */
+  const persistOrder = useCallback(async (list: Panel[]) => {
+    if (list.length === 0) return;
+    const res = await fetch(`${apiBase}/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ panels: list.map((p) => ({ id: p.id, sortOrder: p.sortOrder })) }),
+    });
+    if (!res.ok) throw new Error("Panel order couldn't be saved. Check your connection and try again.");
+  }, [apiBase]);
 
   // Debounce a panel PATCH under `key`, remembering the payload so the unmount
   // cleanup can flush saves that haven't fired yet (switching episodes remounts
@@ -1504,6 +1841,7 @@ export default function WebtoonEditor({
         }
       }
       setUploadError(null);
+      return created;
     },
     [apiBase]
   );
@@ -1523,11 +1861,28 @@ export default function WebtoonEditor({
 
   const handleSizingChange = useCallback(
     (id: string, sizing: PanelSizing) => {
-      const ratio = SIZING_OPTIONS.find((o) => o.key === sizing)?.ratio || null;
+      // "Custom" keeps whatever valid ratio the panel already has (so
+      // switching away and back isn't destructive) and seeds 4:5 otherwise.
+      const current = panelsRef.current.find((p) => p.id === id);
+      const ratio =
+        sizing === "custom"
+          ? parseAspectRatio(current?.aspectRatio ?? null)
+            ? current!.aspectRatio
+            : "4:5"
+          : SIZING_OPTIONS.find((o) => o.key === sizing)?.ratio || null;
       setPanels((prev) => prev.map((p) =>
         p.id === id ? { ...p, sizing, aspectRatio: ratio } : p
       ));
       patchPanel(id, { sizing, aspectRatio: ratio });
+    },
+    [patchPanel]
+  );
+
+  const handleAspectRatioChange = useCallback(
+    (id: string, ratio: string) => {
+      if (!parseAspectRatio(ratio)) return; // inputs are clamped, but belt and braces
+      setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, aspectRatio: ratio } : p)));
+      patchPanel(id, { aspectRatio: ratio });
     },
     [patchPanel]
   );
@@ -1604,17 +1959,44 @@ export default function WebtoonEditor({
 
   const handleDeleteAsset = useCallback(async (id: string) => {
     const deletedAsset = assets.find((a) => a.id === id) ?? null;
+    // The tray only holds metadata, so grab the image itself before the delete
+    // takes it away — without the bytes there is nothing to put back.
+    let deletedImageData: string | null = null;
+    try {
+      const res = await fetch(`${assetsBase}/${id}`);
+      const json = await res.json().catch(() => null);
+      if (res.ok && typeof json?.data?.imageData === "string") deletedImageData = json.data.imageData;
+    } catch {
+      // Undo just won't be offered for this one.
+    }
+
     setAssets((prev) => prev.filter((a) => a.id !== id));
 
     try {
       const res = await fetch(`${assetsBase}/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Asset delete failed");
       setUploadError(null);
+      if (deletedImageData) {
+        const imageData = deletedImageData;
+        const name = deletedAsset?.name || "";
+        pushUndo("Asset deleted", async () => {
+          const res = await fetch(assetsBase, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.slice(0, 120), imageData }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json?.data) {
+            throw new Error(json?.error?.message || "That asset couldn't be put back. Try again.");
+          }
+          setAssets((prev) => [{ id: json.data.id, name: json.data.name }, ...prev]);
+        });
+      }
     } catch {
       if (deletedAsset) setAssets((prev) => [deletedAsset, ...prev]);
       setUploadError("Asset couldn't be deleted. It has been restored locally.");
     }
-  }, [assets, assetsBase]);
+  }, [assets, assetsBase, pushUndo]);
 
   // Drop an asset into a panel as a new frame. The list endpoint only carries
   // metadata, so fetch the full asset (with its base64 imageData) on demand and
@@ -1693,12 +2075,55 @@ export default function WebtoonEditor({
     [patchPanel]
   );
 
+  /**
+   * Put one frame slot back the way it was, recomputed against the panel as it
+   * stands now so a concurrent edit to a different slot survives.
+   *
+   * No debounce to cancel here: the debounced writes only ever carry `caption`
+   * or `overlays`, and the panel PATCH is a partial update, so neither can
+   * clobber `frames` — while cancelling them WOULD throw away the author's
+   * last keystrokes.
+   */
+  const restoreFrame = useCallback(
+    async (panelId: string, frameIndex: number, previous: PanelFrame) => {
+      const panel = panelsRef.current.find((p) => p.id === panelId);
+      if (!panel) throw new Error("That panel is gone, so its frame can't come back.");
+      const layout = (panel.layout || getDefaultLayout(parseFrames(panel).length)) as PanelLayout;
+      const frames = padFramesForLayout(parseFrames(panel), layout);
+      while (frames.length <= frameIndex) {
+        frames.push({ id: `frame-${frames.length + 1}`, imageData: "", fit: undefined });
+      }
+      frames[frameIndex] = { ...previous };
+      const framesJson = JSON.stringify(frames);
+      if (framesJson.length > MAX_FRAMES_JSON_LENGTH) {
+        throw new Error("This panel is too full to put that frame back. Clear a frame first.");
+      }
+      const imageData = frames.find((frame) => frame.imageData)?.imageData || "";
+      setPanels((prev) => prev.map((p) =>
+        p.id === panelId ? { ...p, imageData, frames: framesJson } : p
+      ));
+      try {
+        await patchPanelStrict(panelId, { imageData, frames: framesJson });
+      } catch (err) {
+        // Don't leave the canvas claiming a restore the server never took.
+        setPanels((prev) => prev.map((p) =>
+          p.id === panelId ? { ...p, imageData: panel.imageData, frames: panel.frames } : p
+        ));
+        throw err;
+      }
+    },
+    [patchPanelStrict]
+  );
+
   const handleClearFrame = useCallback(
     async (panel: Panel, frameIndex: number) => {
       const layout = (panel.layout || getDefaultLayout(parseFrames(panel).length)) as PanelLayout;
       // padFramesForLayout (not ensureFramesForLayout): re-saving must not
       // truncate stored frames beyond the visible slots.
       const frames = padFramesForLayout(parseFrames(panel), layout);
+      const previous: PanelFrame = frames[frameIndex]
+        ? { ...frames[frameIndex] }
+        : { id: `frame-${frameIndex + 1}`, imageData: "", fit: undefined };
       frames[frameIndex] = {
         ...frames[frameIndex],
         imageData: "",
@@ -1709,14 +2134,18 @@ export default function WebtoonEditor({
       setPanels((prev) => prev.map((p) =>
         p.id === panel.id ? { ...p, imageData, frames: framesJson } : p
       ));
-      await patchPanel(panel.id, { imageData, frames: framesJson });
+      const saved = await patchPanel(panel.id, { imageData, frames: framesJson });
+      if (saved && previous.imageData) {
+        pushUndo("Frame cleared", () => restoreFrame(panel.id, frameIndex, previous));
+      }
     },
-    [patchPanel]
+    [patchPanel, pushUndo, restoreFrame]
   );
 
   const handleLayoutChange = useCallback(
-    (id: string, layout: PanelLayout) => {
-      const panel = panels.find((candidate) => candidate.id === id);
+    async (id: string, layout: PanelLayout) => {
+      const panel = panelsRef.current.find((candidate) => candidate.id === id);
+      const previousLayout = (panel?.layout || getDefaultLayout(panel ? parseFrames(panel).length : 0)) as PanelLayout;
       // Pad without truncating: switching to a layout with fewer slots must
       // not destroy the extra frames' images — the renderers hide them, and
       // switching back restores them.
@@ -1726,9 +2155,22 @@ export default function WebtoonEditor({
       setPanels((prev) => prev.map((p) =>
         p.id === id ? { ...p, imageData, frames: framesJson, layout } : p
       ));
-      patchPanel(id, { imageData, frames: framesJson, layout });
+      const saved = await patchPanel(id, { imageData, frames: framesJson, layout });
+      // Only the layout needs reversing — the padding above is harmless and the
+      // frames themselves were never touched.
+      if (saved && previousLayout !== layout) {
+        pushUndo("Layout changed", async () => {
+          setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, layout: previousLayout } : p)));
+          try {
+            await patchPanelStrict(id, { layout: previousLayout });
+          } catch (err) {
+            setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, layout } : p)));
+            throw err;
+          }
+        });
+      }
     },
-    [panels, patchPanel]
+    [patchPanel, patchPanelStrict, pushUndo]
   );
 
   const handleAddFrames = useCallback(
@@ -1803,6 +2245,9 @@ export default function WebtoonEditor({
         // truncate stored frames beyond the visible slots.
         const frames = padFramesForLayout(parseFrames(panel), layout);
         const imageData = await compressImage(file, PANEL_MAX_DIM, PANEL_QUALITY);
+        const previous: PanelFrame = frames[frameIndex]
+          ? { ...frames[frameIndex] }
+          : { id: `frame-${frameIndex + 1}`, imageData: "", fit: undefined };
         frames[frameIndex] = {
           id: frames[frameIndex]?.id || `frame-${frameIndex + 1}`,
           imageData,
@@ -1818,14 +2263,21 @@ export default function WebtoonEditor({
         setPanels((prev) => prev.map((p) =>
           p.id === panel.id ? { ...p, imageData: primaryImageData, frames: framesJson, layout } : p
         ));
-        await patchPanel(panel.id, { imageData: primaryImageData, frames: framesJson, layout });
+        const saved = await patchPanel(panel.id, { imageData: primaryImageData, frames: framesJson, layout });
+        if (saved) {
+          // An empty slot means this was an add, not a replacement — the
+          // reversal is the same either way.
+          pushUndo(previous.imageData ? "Frame replaced" : "Frame added", () =>
+            restoreFrame(panel.id, frameIndex, previous)
+          );
+        }
       } catch (err) {
         setUploadError(err instanceof Error ? err.message : "Failed to add frame image.");
       } finally {
         markSaving(panel.id, false);
       }
     },
-    [markSaving, patchPanel]
+    [markSaving, patchPanel, pushUndo, restoreFrame]
   );
 
   const handleOverlaysChange = useCallback(
@@ -1841,15 +2293,106 @@ export default function WebtoonEditor({
     [schedulePanelSave]
   );
 
+  /**
+   * Write an overlay list straight through. Cancels the panel's pending
+   * overlays debounce first — that payload is a snapshot of the list BEFORE
+   * this change, so letting it fire afterwards would put the bubble back (or
+   * take it away again). The list passed here is computed from local state, so
+   * cancelling drops nothing.
+   */
+  const writeOverlays = useCallback(
+    async (panelId: string, overlaysList: TextOverlay[]) => {
+      const previous = panelsRef.current.find((p) => p.id === panelId)?.overlays ?? "[]";
+      const json = JSON.stringify(overlaysList);
+      cancelPanelSave(`overlay-${panelId}`);
+      setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, overlays: json } : p)));
+      try {
+        await patchPanelStrict(panelId, { overlays: json });
+      } catch (err) {
+        setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, overlays: previous } : p)));
+        throw err;
+      }
+    },
+    [cancelPanelSave, patchPanelStrict]
+  );
+
+  const handleDeleteOverlay = useCallback(
+    async (panelId: string, overlayId: string) => {
+      const panel = panelsRef.current.find((p) => p.id === panelId);
+      if (!panel) return;
+      const overlays = parseOverlays(panel.overlays);
+      const index = overlays.findIndex((o) => o.id === overlayId);
+      if (index === -1) return;
+      const removed = overlays[index];
+
+      try {
+        await writeOverlays(panelId, overlays.filter((o) => o.id !== overlayId));
+      } catch {
+        setUploadError("Bubble changes couldn't be saved. Check your connection and try again.");
+        return;
+      }
+
+      pushUndo("Bubble deleted", async () => {
+        const current = panelsRef.current.find((p) => p.id === panelId);
+        if (!current) throw new Error("That panel is gone, so its bubble can't come back.");
+        const list = parseOverlays(current.overlays);
+        if (list.some((o) => o.id === removed.id)) return;
+        const restored = [...list];
+        restored.splice(Math.min(index, restored.length), 0, removed);
+        await writeOverlays(panelId, restored);
+      });
+    },
+    [pushUndo, writeOverlays]
+  );
+
+  /**
+   * Bring a deleted panel back, art and lettering and all. The create API
+   * always appends, so the panel returns under a NEW id and the old position is
+   * re-applied with a follow-up reorder.
+   */
+  const restorePanel = useCallback(
+    async (snapshot: Panel, index: number) => {
+      const res = await fetch(apiBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          panels: [{
+            imageData: snapshot.imageData || "",
+            caption: snapshot.caption || "",
+            sizing: (snapshot.sizing || "standard") as PanelSizing,
+            layout: (snapshot.layout || getDefaultLayout(parseFrames(snapshot).length)) as PanelLayout,
+            frames: snapshot.frames || JSON.stringify(parseFrames(snapshot)),
+            borderStyle: (snapshot.borderStyle || "none") as PanelBorderStyle,
+            imageFit: (snapshot.imageFit || "cover") as PanelImageFit,
+            aspectRatio: snapshot.aspectRatio,
+            overlays: snapshot.overlays || "[]",
+            seam: normalizeSeam(snapshot.seam),
+          }],
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      const created: Panel | undefined = json?.data?.[0];
+      if (!res.ok || !created) {
+        throw new Error(json?.error?.message || "That panel couldn't be brought back. Try again.");
+      }
+
+      const next = [...panelsRef.current];
+      next.splice(index < 0 ? next.length : Math.min(index, next.length), 0, created);
+      const ordered = next.map((panel, i) => ({ ...panel, sortOrder: i }));
+      panelsRef.current = ordered;
+      setPanels(ordered);
+      await persistOrder(ordered);
+    },
+    [apiBase, persistOrder]
+  );
+
   const handleDeletePanel = useCallback(
     async (id: string) => {
       cancelPanelSave(id);
       cancelPanelSave(`overlay-${id}`);
-      let removedPanel: Panel | null = null;
-      let removedIndex = -1;
+      const removedIndex = panelsRef.current.findIndex((p) => p.id === id);
+      const removedPanel = removedIndex === -1 ? null : { ...panelsRef.current[removedIndex] };
       setPanels((prev) => {
-        removedIndex = prev.findIndex((p) => p.id === id);
-        removedPanel = removedIndex === -1 ? null : prev[removedIndex];
         const next = prev.filter((p) => p.id !== id);
         panelsRef.current = next;
         return next;
@@ -1858,20 +2401,21 @@ export default function WebtoonEditor({
         const res = await fetch(`${apiBase}/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Panel delete failed");
         setUploadError(null);
+        if (removedPanel) {
+          pushUndo("Panel deleted", () => restorePanel(removedPanel, removedIndex));
+        }
       } catch {
         // Re-insert only the panel this delete removed — restoring a full
         // pre-delete snapshot would resurrect panels deleted (or roll back
         // edits made) while this request was in flight.
-        const panelToRestore: Panel | null = removedPanel;
-        const indexToRestore = removedIndex;
-        if (panelToRestore) {
+        if (removedPanel) {
           setPanels((prev) => {
             if (prev.some((p) => p.id === id)) return prev;
             const next = [...prev];
             next.splice(
-              indexToRestore < 0 ? next.length : Math.min(indexToRestore, next.length),
+              removedIndex < 0 ? next.length : Math.min(removedIndex, next.length),
               0,
-              panelToRestore
+              removedPanel
             );
             panelsRef.current = next;
             return next;
@@ -1880,7 +2424,7 @@ export default function WebtoonEditor({
         setUploadError("Panel couldn't be deleted. It has been restored locally.");
       }
     },
-    [apiBase, cancelPanelSave]
+    [apiBase, cancelPanelSave, pushUndo, restorePanel]
   );
 
   const handleAddStoryboardPanel = useCallback(async () => {
@@ -1947,7 +2491,7 @@ export default function WebtoonEditor({
     setIsUploading(true);
     setUploadError(null);
     try {
-      await createPanels(
+      const created = await createPanels(
         lines.map((line) => {
           const layout: PanelLayout = "top-pair-bottom";
           return {
@@ -1964,12 +2508,56 @@ export default function WebtoonEditor({
         })
       );
       setViewMode("visual");
+      if (created.length > 0) {
+        const createdIds = created.map((panel) => panel.id);
+        pushUndo(`${createdIds.length} ${createdIds.length === 1 ? "panel" : "panels"} added`, async () => {
+          const removed = new Set<string>();
+          await Promise.all(createdIds.map(async (panelId) => {
+            try {
+              const res = await fetch(`${apiBase}/${panelId}`, { method: "DELETE" });
+              // A 404 means it is already gone, which is the outcome we wanted.
+              if (res.ok || res.status === 404) removed.add(panelId);
+            } catch {
+              // Left in `createdIds` so the retry below can pick it up.
+            }
+          }));
+          const ordered = panelsRef.current
+            .filter((panel) => !removed.has(panel.id))
+            .map((panel, i) => ({ ...panel, sortOrder: i }));
+          panelsRef.current = ordered;
+          setPanels(ordered);
+          if (removed.size < createdIds.length) {
+            throw new Error("Some storyboard panels couldn't be removed. Try again.");
+          }
+          await persistOrder(ordered);
+        });
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Failed to build storyboard.");
     } finally {
       setIsUploading(false);
     }
-  }, [createPanels, scriptContent]);
+  }, [apiBase, createPanels, persistOrder, pushUndo, scriptContent]);
+
+  // Building the storyboard again appends a second copy of every beat, so once
+  // the episode already has panels the button asks for a second click first.
+  const [storyboardArmed, setStoryboardArmed] = useState(false);
+  const storyboardArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (storyboardArmTimer.current) clearTimeout(storyboardArmTimer.current);
+  }, []);
+
+  const handleStoryboardClick = useCallback(() => {
+    if (storyboardArmTimer.current) clearTimeout(storyboardArmTimer.current);
+    if (panelsRef.current.length > 0 && !storyboardArmed) {
+      setStoryboardArmed(true);
+      storyboardArmTimer.current = setTimeout(() => setStoryboardArmed(false), 5000);
+      return;
+    }
+    setStoryboardArmed(false);
+    void handleBuildStoryboardFromScript();
+  }, [handleBuildStoryboardFromScript, storyboardArmed]);
 
   // Reorder.Group fires onReorder on EVERY position crossing during a drag, so
   // this only updates local state — persisting here would fire a burst of
@@ -2067,19 +2655,28 @@ export default function WebtoonEditor({
             }))
           );
         } else {
+          // One panel holds at most MAX_PANEL_FRAMES frames; say so instead of
+          // quietly dropping the rest, exactly like handleAddFrames does.
+          const kept = frames.slice(0, MAX_PANEL_FRAMES);
+          const dropped = frames.length - kept.length;
           await createPanels([
             {
-              imageData: frames[0]?.imageData || "",
+              imageData: kept[0]?.imageData || "",
               caption: "",
               sizing: "standard",
-              layout: getDefaultLayout(frames.length),
-              frames: JSON.stringify(frames.slice(0, 6)),
+              layout: getDefaultLayout(kept.length),
+              frames: JSON.stringify(kept),
               borderStyle: "none",
               imageFit: "cover",
               aspectRatio: null,
               overlays: "[]",
             },
           ]);
+          if (dropped > 0) {
+            setUploadError(
+              `${dropped} image${dropped === 1 ? "" : "s"} couldn't be added — panels hold at most ${MAX_PANEL_FRAMES} frames. Use "Separate panels" to keep them all.`
+            );
+          }
         }
       } catch (err) {
         setUploadError(
@@ -2102,17 +2699,70 @@ export default function WebtoonEditor({
       // Flush debounced caption/overlay saves that haven't fired yet — the
       // studio remounts the editor per episode (key={episode.id}), so without
       // this the last <600ms of edits before a switch are silently lost.
+      // A marker in localStorage records what was in flight: each confirmed
+      // save clears its share, so a marker that survives means a flush died
+      // with the page — the next mount compares it against the server and
+      // says so instead of letting the loss stay invisible.
+      const markerKey = FLUSH_MARKER_PREFIX + apiBase;
+      const entries = [...pending.values()];
+      if (entries.length > 0) {
+        try {
+          localStorage.setItem(markerKey, JSON.stringify({ at: Date.now(), entries }));
+        } catch {}
+      }
+      let unconfirmed = entries.length;
       pending.forEach(({ panelId, data }) => {
         void fetch(`${apiBase}/${panelId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
           keepalive: true,
-        }).catch(() => {});
+        })
+          .then((r) => {
+            if (!r.ok) return;
+            unconfirmed -= 1;
+            if (unconfirmed === 0) {
+              try {
+                localStorage.removeItem(markerKey);
+              } catch {}
+            }
+          })
+          .catch(() => {});
       });
       pending.clear();
     };
   }, [apiBase]);
+
+  // ---- Surface a flush that died with the last page ----
+  useEffect(() => {
+    if (isLoading) return;
+    const markerKey = FLUSH_MARKER_PREFIX + apiBase;
+    try {
+      const raw = localStorage.getItem(markerKey);
+      if (!raw) return;
+      const marker = JSON.parse(raw) as {
+        at?: number;
+        entries?: { panelId: string; data: Record<string, unknown> }[];
+      };
+      // A fresh marker belongs to a flush still in flight from an episode
+      // switch moments ago — leave it; success will clear it itself.
+      if (typeof marker.at !== "number" || Date.now() - marker.at < 3_000) return;
+      localStorage.removeItem(markerKey);
+      // Only warn when the server really doesn't have what the flush carried.
+      const lost = (marker.entries ?? []).some(({ panelId, data }) => {
+        const panel = panelsRef.current.find((p) => p.id === panelId);
+        if (!panel) return false; // panel is gone — nothing left to disagree
+        return Object.entries(data).some(
+          ([field, value]) => (panel as unknown as Record<string, unknown>)[field] !== value
+        );
+      });
+      if (lost) {
+        setUploadError(
+          "A caption or bubble edit from your last visit didn't reach the server — the panels show what was kept. Re-apply the change you're missing."
+        );
+      }
+    } catch {}
+  }, [isLoading, apiBase]);
 
   // ---- Render ----
 
@@ -2223,16 +2873,24 @@ export default function WebtoonEditor({
               {scriptContent !== undefined && (
                 <button
                   type="button"
-                  onClick={handleBuildStoryboardFromScript}
+                  onClick={handleStoryboardClick}
                   disabled={isUploading}
-                  className="hidden md:flex items-center gap-1.5 rounded-lg border border-amber/20 bg-amber/[0.04] px-2.5 py-1.5 text-[11px] text-amber transition-colors hover:bg-amber/[0.08] disabled:opacity-50"
-                  title="Create thumbnail panels from script beats"
+                  className={`hidden md:flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors disabled:opacity-50 ${
+                    storyboardArmed
+                      ? "border-amber/50 bg-amber/[0.12] text-amber"
+                      : "border-amber/20 bg-amber/[0.04] text-amber hover:bg-amber/[0.08]"
+                  }`}
+                  title={
+                    storyboardArmed
+                      ? "This adds a new panel for every script beat, on top of the ones you already have"
+                      : "Create thumbnail panels from script beats"
+                  }
                 >
                   <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 2h8v10H3z" />
                     <path d="M5 5h4M5 8h2" />
                   </svg>
-                  Storyboard
+                  {storyboardArmed ? "Add panels anyway?" : "Storyboard"}
                 </button>
               )}
             </>
@@ -2338,6 +2996,7 @@ export default function WebtoonEditor({
                       onReorderCommit={handleReorderCommit}
                       onCaptionChange={handleCaptionChange}
                       onSizingChange={handleSizingChange}
+                      onAspectRatioChange={handleAspectRatioChange}
                       onLayoutChange={handleLayoutChange}
                       onBorderStyleChange={handleBorderStyleChange}
                       onImageFitChange={handleImageFitChange}
@@ -2346,6 +3005,7 @@ export default function WebtoonEditor({
                       onReplaceFrame={handleReplaceFrame}
                       onClearFrame={handleClearFrame}
                       onOverlaysChange={handleOverlaysChange}
+                      onOverlayDelete={handleDeleteOverlay}
                       onSeamChange={handleSeamChange}
                       onDuplicate={handleDuplicatePanel}
                       onDelete={handleDeletePanel}
@@ -2371,6 +3031,7 @@ export default function WebtoonEditor({
                       }`}
                       onCaptionChange={handleCaptionChange}
                       onSizingChange={handleSizingChange}
+                      onAspectRatioChange={handleAspectRatioChange}
                       onLayoutChange={handleLayoutChange}
                       onBorderStyleChange={handleBorderStyleChange}
                       onImageFitChange={handleImageFitChange}
@@ -2379,6 +3040,7 @@ export default function WebtoonEditor({
                       onReplaceFrame={handleReplaceFrame}
                       onClearFrame={handleClearFrame}
                       onOverlaysChange={handleOverlaysChange}
+                      onOverlayDelete={handleDeleteOverlay}
                       onDuplicate={handleDuplicatePanel}
                       onDelete={handleDeletePanel}
                     />
@@ -2447,19 +3109,32 @@ export default function WebtoonEditor({
         /* ---- Script Mode ---- */
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           <div className="w-full md:w-1/2 md:min-h-0 min-h-[50vh] border-b md:border-b-0 md:border-r border-border bg-surface flex flex-col">
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-border">
               <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Episode Script
               </h3>
-              {scriptSaveError && (
-                <span className="flex items-center gap-1.5 text-[11px] text-rose">
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <circle cx="8" cy="8" r="6" />
-                    <path d="M8 5v4M8 11v0.5" />
-                  </svg>
-                  Couldn&rsquo;t save
-                </span>
-              )}
+              <div className="flex min-w-0 items-center gap-3">
+                {/* The server rejects scripts past the limit — count down to it
+                    instead of letting the save fail with no explanation. */}
+                {(scriptContent ?? "").length > SCRIPT_WARN_CHARS && (
+                  <span
+                    className={`shrink-0 font-mono text-[10.5px] ${
+                      (scriptContent ?? "").length > SCRIPT_MAX_CHARS ? "text-rose" : "text-text-ghost"
+                    }`}
+                  >
+                    {(scriptContent ?? "").length.toLocaleString()} / {SCRIPT_MAX_CHARS.toLocaleString()}
+                  </span>
+                )}
+                {scriptSaveError && (
+                  <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-rose">
+                    <svg className="shrink-0" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <circle cx="8" cy="8" r="6" />
+                      <path d="M8 5v4M8 11v0.5" />
+                    </svg>
+                    <span className="truncate">{scriptSaveError}</span>
+                  </span>
+                )}
+              </div>
             </div>
             <ScriptPane
               content={scriptContent || ""}
@@ -2538,6 +3213,7 @@ export default function WebtoonEditor({
                 index={panels.findIndex((p) => p.id === selectedPanel.id)}
                 onLayout={handleLayoutChange}
                 onSizing={handleSizingChange}
+                onAspectRatio={handleAspectRatioChange}
                 onBorder={handleBorderStyleChange}
                 onFit={handleImageFitChange}
                 onSeam={handleSeamChange}
@@ -2607,6 +3283,7 @@ export default function WebtoonEditor({
                   index={panels.findIndex((p) => p.id === selectedPanel.id)}
                   onLayout={handleLayoutChange}
                   onSizing={handleSizingChange}
+                  onAspectRatio={handleAspectRatioChange}
                   onBorder={handleBorderStyleChange}
                   onFit={handleImageFitChange}
                   onSeam={handleSeamChange}
@@ -2621,6 +3298,8 @@ export default function WebtoonEditor({
           </div>
         )}
       </AnimatePresence>
+
+      <UndoToast toast={toast} onUndo={(entryId) => void runUndo(entryId)} onDismiss={dismissToast} />
     </div>
   );
 }

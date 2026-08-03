@@ -78,14 +78,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update each panel's sort order
-    await Promise.all(
-      parsed.data.panels.map((p) =>
-        db.update(panels)
+    // One transaction: a strip half-reordered by a mid-batch failure is
+    // worse than the old order.
+    await db.transaction(async (tx) => {
+      for (const p of parsed.data.panels) {
+        await tx
+          .update(panels)
           .set({ sortOrder: p.sortOrder, updatedAt: new Date() })
-          .where(and(eq(panels.id, p.id), eq(panels.chapterId, chapterId)))
-      )
-    );
+          .where(and(eq(panels.id, p.id), eq(panels.chapterId, chapterId)));
+      }
+    });
 
     return NextResponse.json({ data: { reordered: true } });
   } catch (error) {
